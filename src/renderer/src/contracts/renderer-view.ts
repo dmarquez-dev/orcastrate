@@ -191,6 +191,28 @@ export interface LaneRailProps {
 export interface TranscriptPaneProps {
   lane: Lane | null;
   view: TranscriptView;
+  /**
+   * AMENDMENT (revision round 1, T6). The Pod's lane registry — pass
+   * `PodSessionView.lanes.value?.map((row) => row.lane) ?? []`, which the state
+   * layer snapshot-replaces on every `laneChanged` push.
+   *
+   * DO NOT DELETE THIS AND DERIVE THE LANES FROM `view.events` INSTEAD. That is
+   * the bug this amendment exists to fix, and it fails silently:
+   *
+   *   - `view` is ONE lane's stream; `store.ts` buckets events by
+   *     `event.laneId`.
+   *   - `lane-router.ts` `materialize()` stamps a Calf's `lane_opened` with the
+   *     NEW CALF's laneId, and `pod-manager.ts` deliberately does not redirect
+   *     it onto the Matriarch.
+   *
+   * So the Matriarch's pane holds the dispatching `tool_use` but never the
+   * matching `lane_opened`. An events-derived index is therefore ALWAYS empty
+   * in production, and every dispatch card degrades to its count-only form with
+   * no clickable rows — while unit tests that stamp a Calf's `lane_opened` with
+   * the Matriarch's laneId pass. The registry is also the only source of a
+   * lane's CURRENT status, which the per-agent rows must show.
+   */
+  lanes: Lane[];
   routingMode: RoutingMode;
   /** True for the pinned split pane; it renders without the composer. */
   isSplit: boolean;
