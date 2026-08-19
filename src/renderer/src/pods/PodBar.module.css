@@ -1,0 +1,197 @@
+/*
+ * Pod bar (spec 5.1). Every colour, size and gap is a `--oc-*` token; the only
+ * bare lengths are hairline border widths, for which the token set has no
+ * entry.
+ */
+
+.bar {
+  display: flex;
+  height: 100%;
+  align-items: stretch;
+  padding-inline: var(--oc-space-1);
+  gap: var(--oc-space-1);
+  background: var(--oc-bg-panel);
+}
+
+.tabs {
+  display: flex;
+  min-width: 0;
+  align-items: stretch;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-1);
+  list-style: none;
+  overflow-x: auto;
+}
+
+.tabItem {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+}
+
+.tabItemActive {
+  background: var(--oc-bg-selected);
+}
+
+/* The element under the pointer during a drag, i.e. the drop target. */
+.tabItemDropTarget {
+  box-shadow: inset 2px 0 0 0 var(--oc-focus-ring);
+}
+
+.tabItemDragging {
+  opacity: 0.5;
+}
+
+.tab {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  padding-block: var(--oc-space-1);
+  padding-inline: var(--oc-space-2);
+  border: 0;
+  border-radius: var(--oc-radius-sm);
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  gap: var(--oc-space-2);
+}
+
+.tabActive {
+  color: var(--oc-fg-primary);
+}
+
+/* A Pod row with no live process. Dimmed, and said in words for anyone who
+   cannot see the dimming. */
+.tabClosed {
+  opacity: 0.65;
+}
+
+.tab:hover {
+  background: var(--oc-bg-hover);
+}
+
+.title {
+  overflow: hidden;
+  max-width: var(--oc-lane-rail-width);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--oc-text-sm);
+}
+
+/*
+ * Status indicator. Colour comes from `statusToken(status)`, handed in as
+ * `--pod-status-color`; SHAPE carries the same information, because colour is
+ * never the only carrier of meaning. The status word is also in the tab's
+ * screen-reader text.
+ */
+.statusDot {
+  width: var(--oc-space-2);
+  height: var(--oc-space-2);
+  flex: none;
+  border: 1px solid var(--pod-status-color);
+  border-radius: 50%;
+  background: var(--pod-status-color);
+}
+
+/* idle — hollow ring. */
+.statusDot[data-status='idle'] {
+  background: transparent;
+}
+
+/* waiting — filled with a halo, the busiest shape for the state that needs a
+   human. */
+.statusDot[data-status='waiting'] {
+  box-shadow: 0 0 0 2px var(--oc-bg-panel), 0 0 0 3px var(--pod-status-color);
+}
+
+/* beached — a square, unmistakable against every round state. */
+.statusDot[data-status='beached'] {
+  border-radius: 0;
+}
+
+.permissionBadge {
+  display: inline-flex;
+  min-width: var(--oc-space-4);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--oc-space-1);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-status-waiting);
+  color: var(--oc-fg-inverse);
+  font-size: var(--oc-text-xs);
+  font-weight: 700;
+}
+
+.permissionBadge::before {
+  content: '?';
+}
+
+/*
+ * `bypassPermissions`. The visible chip is short because a tab is 38px tall;
+ * the ACCESSIBLE text is `BYPASS_PERMISSIONS_WARNING` verbatim, carried as the
+ * element's own text content and as its `aria-label`.
+ */
+.bypassBadge {
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--oc-space-1);
+  border: 1px solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  color: var(--oc-danger);
+  font-size: var(--oc-text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.bypassBadge::before {
+  content: 'BYPASS';
+}
+
+.unread {
+  display: inline-flex;
+  min-width: var(--oc-space-4);
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--oc-space-1);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-hover);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-xs);
+}
+
+.close {
+  display: flex;
+  align-items: center;
+  padding-inline: var(--oc-space-1);
+  border: 0;
+  border-radius: var(--oc-radius-sm);
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  font-size: var(--oc-text-sm);
+}
+
+.close:hover {
+  background: var(--oc-bg-hover);
+  color: var(--oc-fg-primary);
+}
+
+.newPod {
+  align-self: center;
+  padding-block: var(--oc-space-1);
+  padding-inline: var(--oc-space-3);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-size: var(--oc-text-md);
+}
+
+.newPod:hover {
+  background: var(--oc-bg-hover);
+}

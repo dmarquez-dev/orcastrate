@@ -1,0 +1,85 @@
+/*
+ * The four regions of spec 5.1. Geometry comes from the layout tokens
+ * (`--oc-pod-bar-height`, `--oc-lane-rail-width`, `--oc-composer-min-height`)
+ * so no task has to measure another task's markup.
+ */
+
+.workspace {
+  display: grid;
+  grid-template-rows: var(--oc-pod-bar-height) minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: var(--oc-bg-app);
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-ui);
+  font-size: var(--oc-text-md);
+}
+
+.podBarRegion {
+  min-width: 0;
+  border-bottom: 1px solid var(--oc-border);
+  background: var(--oc-bg-panel);
+}
+
+/* No active Pod: the rail, transcript and composer are replaced wholesale. */
+.emptyRegion {
+  display: flex;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+/* Rail on the left, then the transcript column with the composer docked below. */
+.body {
+  display: grid;
+  grid-template-columns: var(--oc-lane-rail-width) minmax(0, 1fr);
+  min-height: 0;
+}
+
+.laneRailRegion {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  border-right: 1px solid var(--oc-border);
+  background: var(--oc-bg-panel);
+}
+
+.centerColumn {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* One pane unsplit; two equal-width panes when `split` is non-null, with
+   `primary` on the left. */
+.panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+}
+
+.panesSplit {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.pane {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.splitPane {
+  border-left: 1px solid var(--oc-border);
+}
+
+.composerRegion {
+  min-width: 0;
+  min-height: var(--oc-composer-min-height);
+  border-top: 1px solid var(--oc-border);
+  background: var(--oc-bg-panel);
+}

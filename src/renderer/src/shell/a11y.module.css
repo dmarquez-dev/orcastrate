@@ -1,0 +1,23 @@
+/*
+ * Cross-cutting accessibility utility for T4's own components.
+ *
+ * A CSS Module, not a global stylesheet: `global.css` is T3's and contains no
+ * component selector. `shell/` and `pods/` are both T4's, so both import this
+ * one module and get the same class rather than duplicating the clip recipe.
+ *
+ * `srOnly` keeps text in the accessibility tree and in the DOM — it is how the
+ * status dot and both Pod-tab badges satisfy "color is never the only carrier
+ * of meaning" without putting a full sentence on a 38px tab.
+ *
+ * The 1px box is the clip recipe itself, not a spacing decision; there is no
+ * token for it and inventing one would be a contract change.
+ */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
