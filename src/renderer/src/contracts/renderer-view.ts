@@ -1,0 +1,324 @@
+/**
+ * CONTRACT — Renderer component seams. Frozen at Gate 2.
+ *
+ * Boundary between the four renderer tasks, which build panes that nest inside
+ * each other while running CONCURRENTLY:
+ *
+ *   T4  app shell + Pod bar + New Pod dialog   — composes the layout
+ *   T5  state layer                             — supplies every view model
+ *   T6  lane rail + transcript + dispatch card  — fills the center
+ *   T7  composer + permission cards             — nests INSIDE T6's transcript
+ *   T8  renderer test suite                     — drives all of it by TEST_IDS
+ *
+ * Only the props that cross a task boundary are here. A component's internal
+ * props are its own business and must not be added to this file.
+ *
+ * COMPOSITION RULE: no component below fetches. Each is a pure function of its
+ * props and of the hooks in `renderer-state.ts`. None of them imports
+ * `window.orcastrate`.
+ */
+
+import type { ReactNode } from 'react';
+
+import type { Lane, LaneId, NormalizedEvent, PermissionMode, PodId } from '@shared/contracts/events';
+import type { RoutingMode } from '@shared/contracts/lane-router';
+import type {
+  ComposerState,
+  LaneRowVm,
+  PermissionCardVm,
+  PodTabVm,
+  TranscriptView,
+} from './renderer-state';
+
+// ---------------------------------------------------------------------------
+// Shell layout (T4 owns; every other task fills a slot)
+// ---------------------------------------------------------------------------
+
+/**
+ * The three regions of spec 5.1, as slots. T4 renders the frame and the
+ * chrome; it never imports a component from T6 or T7 directly — it receives
+ * them, which is what lets the three tasks land in any order.
+ *
+ * `split` is rendered if and only if it is non-null, and when rendered the
+ * center region divides into two side-by-side transcript panes of equal width,
+ * `primary` on the left.
+ */
+export interface WorkspaceLayoutProps {
+  podBar: ReactNode;
+  laneRail: ReactNode;
+  primary: ReactNode;
+  /** The pinned lane's pane (spec 5.2). null when unsplit. */
+  split: ReactNode | null;
+  composer: ReactNode;
+  /**
+   * Rendered instead of rail/transcript/composer when there is no active Pod:
+   * a first-run state whose only affordance is opening the New Pod dialog.
+   */
+  empty?: ReactNode;
+}
+
+// ---------------------------------------------------------------------------
+// Pod bar (T4)
+// ---------------------------------------------------------------------------
+
+export interface PodBarProps {
+  tabs: PodTabVm[];
+  onSelect(podId: PodId): void;
+  /** Commits a drag. `orderedPodIds` is the FULL list in its new order. */
+  onReorder(orderedPodIds: PodId[]): void;
+  onNewPod(): void;
+  onClose(podId: PodId): void;
+}
+
+// ---------------------------------------------------------------------------
+// New Pod dialog (T4)
+// ---------------------------------------------------------------------------
+
+export interface NewPodDialogProps {
+  open: boolean;
+  onCancel(): void;
+  /**
+   * Called only with a validated draft: non-empty title, a `cwd` that came
+   * from `pickDirectory`, and a `permissionMode` drawn from
+   * `PERMISSION_MODE_OPTIONS`. Env overrides are optional.
+   */
+  onCreate(draft: NewPodDraft): void;
+  /** Renders inside the dialog when creation failed; the dialog stays open. */
+  error: string | null;
+  submitting: boolean;
+}
+
+export interface NewPodDraft {
+  title: string;
+  /**
+   * OPAQUE. Obtained ONLY from `actions.pickDirectory()`. The dialog shows it
+   * as read-only text next to a Browse button. There is no text input for a
+   * path anywhere in the renderer, and adding one is a security regression
+   * (spec 3): the renderer never receives a path it can act on directly.
+   */
+  cwd: string;
+  permissionMode: PermissionMode;
+  envOverrides: Record<string, string>;
+}
+
+/**
+ * THE BADGE MUST SAY WHAT IS TRUE. A Pod in `bypassPermissions` raises NO
+ * permission cards at all: the SDK shadows `canUseTool` entirely and warns
+ * `CLAUDE_SDK_CAN_USE_TOOL_SHADOWED`. A generic "be careful, this is
+ * dangerous" badge is WRONG here, because it implies the user still gets asked
+ * about the dangerous things. This exact sentence is the copy, and T8 asserts
+ * it verbatim in both the dialog option and the persistent tab badge.
+ */
+export const BYPASS_PERMISSIONS_WARNING =
+  'This Pod will never ask you about anything.';
+
+export interface PermissionModeOption {
+  mode: PermissionMode;
+  label: string;
+  summary: string;
+  /** Requires an explicit confirmation step before the Pod is created. */
+  danger: boolean;
+}
+
+/**
+ * The permission modes the dialog offers, in display order.
+ *
+ * THIS FILE DOES NOT COMPILE UNTIL THE `PermissionMode` WIDENING (T1) LANDS:
+ * `acceptEdits` is not a member of the frozen three-value union in
+ * `events.ts`, and the annotation below is deliberately left to fail rather
+ * than be cast away. T1 widens that union along with the runtime guard
+ * (`src/main/pod/options.ts`), the IPC validator, and the SQLite CHECK
+ * constraint, which is why every renderer task declares T1 in `dependsOn`.
+ *
+ * This array must hold exactly the widened union's members — no more, no
+ * fewer. T8 asserts that by exhaustiveness over the union, not by counting.
+ */
+export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
+  {
+    mode: 'default',
+    label: 'Ask each time',
+    summary: 'Every tool use raises a permission card in the lane that asked.',
+    danger: false,
+  },
+  {
+    mode: 'acceptEdits',
+    label: 'Auto-accept edits',
+    summary: 'File edits proceed without asking. Other tools still ask.',
+    danger: false,
+  },
+  {
+    mode: 'plan',
+    label: 'Plan only',
+    summary: 'Claude plans without executing tools.',
+    danger: false,
+  },
+  {
+    mode: 'bypassPermissions',
+    label: 'Bypass permissions',
+    summary: BYPASS_PERMISSIONS_WARNING,
+    danger: true,
+  },
+];
+
+// ---------------------------------------------------------------------------
+// Lane rail (T6)
+// ---------------------------------------------------------------------------
+
+export interface LaneRailProps {
+  rows: LaneRowVm[];
+  onSelect(laneId: LaneId): void;
+  onPin(laneId: LaneId): void;
+  onUnpin(laneId: LaneId): void;
+  /**
+   * Offered only when `steerPrefill(row.lane)` returns non-null — i.e. the
+   * lane has an `agentId`. Prefills the POD composer; it does not send
+   * (spec 5.3).
+   */
+  onSteer(laneId: LaneId): void;
+  /**
+   * 'inline' (spec 4.3 fallback) means every event carries the Matriarch's
+   * laneId. The rail still lists lanes for status, but selecting a Calf does
+   * not change the transcript contents, so the rail must not present selection
+   * as if it filtered. Read from `WorkspaceStore.routingMode`; never hardcode.
+   */
+  routingMode: RoutingMode;
+}
+
+// ---------------------------------------------------------------------------
+// Transcript (T6), with T7's permission cards nested inside it
+// ---------------------------------------------------------------------------
+
+export interface TranscriptPaneProps {
+  lane: Lane | null;
+  view: TranscriptView;
+  routingMode: RoutingMode;
+  /** True for the pinned split pane; it renders without the composer. */
+  isSplit: boolean;
+  /** Backfill affordance. Hidden when `hasMore` is false. */
+  hasMore: boolean;
+  onLoadMore(): void;
+  /** Click-to-jump target from an inline dispatch card. */
+  onJumpToLane(laneId: LaneId): void;
+  /**
+   * T7's permission cards, injected. They render INLINE, at the end of this
+   * lane's event stream, inside the scroll container — never as a modal, and
+   * never in a lane other than the one that asked (spec 5.4). T6 renders this
+   * node and nothing about its contents.
+   */
+  permissionSlot: ReactNode;
+}
+
+/**
+ * The inline dispatch card (spec 5.2): rendered at the position in the
+ * Matriarch transcript where the `Agent` dispatch fired, so the main narrative
+ * keeps its causality.
+ *
+ * The dispatch event is a `tool_use` payload whose `dispatchedLaneId` is set.
+ * Note that the dispatch tool is named `Agent` in CLI 2.1.235 and `Task` in
+ * older ones — a renderer that tests the tool NAME opens zero cards. Test
+ * `payload.dispatchedLaneId !== undefined` instead; the router set it.
+ */
+export interface DispatchCardProps {
+  /** The `tool_use` event that dispatched. */
+  event: NormalizedEvent;
+  /**
+   * Lanes this dispatch opened, in rail order. Empty while the lane has not
+   * materialized yet, and permanently empty in 'inline' routing mode — the
+   * card renders "dispatched N agents" with no per-agent rows rather than
+   * disappearing.
+   */
+  lanes: Lane[];
+  onJumpToLane(laneId: LaneId): void;
+}
+
+// ---------------------------------------------------------------------------
+// Composer (T7)
+// ---------------------------------------------------------------------------
+
+export interface ComposerProps {
+  state: ComposerState;
+  onChange(text: string): void;
+  onSend(): void;
+  /**
+   * `Esc` while the composer has focus interrupts the ACTIVE Pod's turn
+   * (spec 5.4). It does not clear the draft.
+   */
+  onInterrupt(): void;
+}
+
+// ---------------------------------------------------------------------------
+// Permission cards (T7)
+// ---------------------------------------------------------------------------
+
+export interface PermissionCardListProps {
+  cards: PermissionCardVm[];
+  onRespond(req: PermissionRespondArgs): void;
+}
+
+export interface PermissionRespondArgs {
+  podId: PodId;
+  requestId: string;
+  decision: 'allow' | 'allow_always' | 'deny';
+  /**
+   * REQUIRED when `decision === 'deny'`. The card must not enable its Deny
+   * button until the reason field is non-empty — main answers
+   * `INVALID_ARGUMENT` otherwise, and a card that lets the user click and then
+   * shows an error has wasted the interaction.
+   */
+  reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Test ids
+// ---------------------------------------------------------------------------
+
+/**
+ * The seam between the three component tasks and T8, which writes the tests
+ * WITHOUT having seen their markup. Each component sets `data-testid` to the
+ * value here on the named element. Adding an id is a contract change; adding
+ * an id NOT listed here for a component's internal use is fine, as long as it
+ * does not collide with one of these.
+ */
+export const TEST_IDS = {
+  workspace: 'workspace',
+  podBar: 'pod-bar',
+  /** One per tab. Suffix with the PodId: `pod-tab:<podId>`. */
+  podTab: 'pod-tab',
+  /** The pending-permission badge on a Pod tab. `pod-tab-permission:<podId>`. */
+  podTabPermissionBadge: 'pod-tab-permission',
+  podTabBypassBadge: 'pod-tab-bypass',
+  newPodButton: 'new-pod-button',
+  newPodDialog: 'new-pod-dialog',
+  newPodTitleInput: 'new-pod-title',
+  newPodBrowseButton: 'new-pod-browse',
+  newPodCwdDisplay: 'new-pod-cwd',
+  /** One per mode: `new-pod-mode:<mode>`. */
+  newPodModeOption: 'new-pod-mode',
+  newPodBypassWarning: 'new-pod-bypass-warning',
+  newPodSubmit: 'new-pod-submit',
+  laneRail: 'lane-rail',
+  /** `lane-row:<laneId>`. */
+  laneRow: 'lane-row',
+  laneRowUnread: 'lane-row-unread',
+  laneRowPin: 'lane-row-pin',
+  laneRowSteer: 'lane-row-steer',
+  transcriptPrimary: 'transcript-primary',
+  transcriptSplit: 'transcript-split',
+  /** `transcript-event:<seq>`. */
+  transcriptEvent: 'transcript-event',
+  transcriptLoadMore: 'transcript-load-more',
+  dispatchCard: 'dispatch-card',
+  dispatchCardAgent: 'dispatch-card-agent',
+  composer: 'composer',
+  composerInput: 'composer-input',
+  composerSend: 'composer-send',
+  /** `permission-card:<requestId>`. */
+  permissionCard: 'permission-card',
+  permissionAllow: 'permission-allow',
+  permissionAllowAlways: 'permission-allow-always',
+  permissionDeny: 'permission-deny',
+  permissionDenyReason: 'permission-deny-reason',
+} as const;
+
+/** `testId(TEST_IDS.podTab, podId)` -> `"pod-tab:<podId>"`. */
+export declare function testId(base: string, suffix?: string): string;

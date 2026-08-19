@@ -1,0 +1,64 @@
+/*
+ * App-level reset and the only global element styling in the renderer.
+ *
+ * Scope rule (frozen contract `renderer-theme.ts`): this file contains NO
+ * component-specific selector. It styles the document, the mount root, and the
+ * cross-cutting focus affordance — nothing else. Component styling lives in
+ * `*.module.css` inside the owning task's own directory.
+ *
+ * Import order matters: `tokens.css` first, then this file, once, from
+ * `main.tsx`.
+ */
+
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--oc-bg-app);
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-ui);
+  font-size: var(--oc-text-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* The window chrome is the app, not a document. Text selection and rubber
+     -band scrolling belong to the panes that opt into them. */
+  overflow: hidden;
+}
+
+#root {
+  height: 100%;
+  isolation: isolate;
+}
+
+/* Form controls do not inherit type from `body` on their own. */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * Focus. Accessibility floor: focus is always visible, and it is visible on
+ * top of every surface in the ramp, which is why the ring is offset rather
+ * than inset. The default UA outline is replaced, never removed — there is no
+ * `outline: none` anywhere in the renderer.
+ */
+:focus-visible {
+  outline: 2px solid var(--oc-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--oc-radius-sm);
+}
