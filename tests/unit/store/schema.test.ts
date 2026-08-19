@@ -94,13 +94,13 @@ describe('schema shape (criteria 2, 3)', () => {
       expect.arrayContaining(['agent_id', 'parent_lane_id', 'depth']),
     );
 
-    // ...and it was migration 1 that did it: exactly one migration has run.
+    // ...and every shipped migration has run, in order.
     const applied = rawDb(path)
       .prepare<unknown[], { version: number }>('SELECT version FROM schema_version ORDER BY version')
       .all()
       .map((r) => r.version);
-    expect(applied).toEqual([1]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(1);
+    expect(applied).toEqual([1, 2]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(2);
   });
 
   it('constrains pods.status to idle|running|waiting|beached at the database level', () => {
@@ -144,16 +144,37 @@ describe('schema shape (criteria 2, 3)', () => {
     );
   });
 
-  it('constrains pods.permission_mode to the SDK enum', () => {
+  it('constrains pods.permission_mode to the four modes Orcastrate exposes', () => {
     const path = tempDbPath();
     const store = fileStore(path);
     store.migrate();
     const pod = store.createPod(podInput());
     const db = rawDb(path);
-    // 'acceptEdits' is the value the design spec wrongly assumed exists.
-    expect(() =>
-      db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run('acceptEdits', pod.id),
-    ).toThrowError(/CHECK constraint failed/i);
+
+    // Every exposed mode is accepted after migration 2. `acceptEdits` used to
+    // be the rejected example here; migration 2 widened the constraint to
+    // include it.
+    for (const valid of ['default', 'acceptEdits', 'plan', 'bypassPermissions']) {
+      expect(() =>
+        db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(valid, pod.id),
+      ).not.toThrow();
+    }
+
+    // The negative case keeps a named mode behind it: CLI 2.1.235 accepts all
+    // three of these, and Orcastrate deliberately does not expose them.
+    for (const hidden of ['dontAsk', 'auto', 'manual']) {
+      expect(() =>
+        db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(hidden, pod.id),
+      ).toThrowError(/CHECK constraint failed/i);
+    }
+  });
+
+  it('accepts an acceptEdits Pod through the store API after migration', () => {
+    const path = tempDbPath();
+    const store = fileStore(path);
+    store.migrate();
+    const pod = store.createPod(podInput({ permissionMode: 'acceptEdits' }));
+    expect(store.getPod(pod.id)?.permissionMode).toBe('acceptEdits');
   });
 });
 
@@ -180,7 +201,7 @@ describe('migrate() (criterion 7)', () => {
     expect(store.getPod(pod.id)?.title).toBe('keep me');
     expect(
       rawDb(path).prepare<unknown[], { n: number }>('SELECT COUNT(*) AS n FROM schema_version').get()?.n,
-    ).toBe(1);
+    ).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('is idempotent across a close and reopen of the same file', () => {

@@ -1,0 +1,85 @@
+/*
+ * Design tokens — the single definition site for every `--oc-*` custom
+ * property named in `src/renderer/src/contracts/renderer-theme.ts` (`TOKENS`).
+ *
+ * RULES (frozen contract `renderer-theme.ts`):
+ *   - This file and `global.css` are the only global stylesheets. Every other
+ *     task writes `*.module.css` inside its own directory.
+ *   - No component hardcodes a color, font stack, or spacing value.
+ *   - A component that needs a token which is not here STOPS AND ESCALATES.
+ *     Inventing a literal is invisible until the theme changes.
+ *
+ * INVARIANT enforced by `tokens.test.ts`: this file defines each name in
+ * `TOKENS` exactly once, and defines no `--oc-*` property that `TOKENS` does
+ * not name. That is why there is exactly ONE `:root` block below and no
+ * `prefers-color-scheme` override — a second definition of any token would
+ * break the count. Orcastrate commits to a single dark surface palette.
+ *
+ * The palette is a neutral slate ramp: five surfaces back-to-front, so a
+ * raised element reads as raised without a border, and the six status hues are
+ * distinguishable from each other at the 8px dot size the Pod tab uses.
+ */
+
+:root {
+  /* Surfaces, back to front. */
+  --oc-bg-app: #14161a;
+  --oc-bg-panel: #1a1d23;
+  --oc-bg-raised: #22262e;
+  --oc-bg-hover: #2b303a;
+  --oc-bg-selected: #333a47;
+
+  /* Text. `fg-primary` on `bg-app` and `fg-muted` on `bg-panel` both clear
+     WCAG AA for body text; `fg-inverse` is for filled status/danger chips. */
+  --oc-fg-primary: #e8eaee;
+  --oc-fg-muted: #9aa2b1;
+  --oc-fg-inverse: #14161a;
+
+  /* Lines. */
+  --oc-border: #2e333d;
+  --oc-border-strong: #454d5b;
+  --oc-focus-ring: #6aa9ff;
+
+  /* Status. Pod `idle|running|waiting|beached`, Lane `running|done|orphaned`.
+     Status is never the only carrier of meaning — every consumer pairs the hue
+     with a label or an icon (frontend discipline, accessibility floor). */
+  --oc-status-idle: #7c8598;
+  --oc-status-running: #4da3ff;
+  --oc-status-waiting: #e6a33c;
+  --oc-status-done: #4bb87a;
+  --oc-status-beached: #d95c5c;
+  --oc-status-orphaned: #a97fd6;
+
+  /* `bypassPermissions`. Deliberately unlike every routine status above. */
+  --oc-danger: #ff6b6b;
+  --oc-danger-bg: #3a1f22;
+
+  /* Spacing scale. Nothing between these steps. */
+  --oc-space-1: 4px;
+  --oc-space-2: 8px;
+  --oc-space-3: 12px;
+  --oc-space-4: 16px;
+  --oc-space-6: 24px;
+  --oc-space-8: 32px;
+
+  /* Type. The renderer CSP has no `font-src`, so these are system stacks only;
+     no webfont is loaded. */
+  --oc-font-ui:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', system-ui,
+    'Helvetica Neue', Arial, sans-serif;
+  --oc-font-mono:
+    ui-monospace, 'Cascadia Mono', 'Cascadia Code', 'SF Mono', Menlo, Consolas,
+    'Liberation Mono', monospace;
+  --oc-text-xs: 11px;
+  --oc-text-sm: 12px;
+  --oc-text-md: 13px;
+  --oc-text-lg: 15px;
+
+  --oc-radius-sm: 3px;
+  --oc-radius-md: 6px;
+
+  /* Layout. The four regions of spec 5.1 agree on their geometry here, so no
+     task has to measure another task's markup. */
+  --oc-pod-bar-height: 38px;
+  --oc-lane-rail-width: 240px;
+  --oc-composer-min-height: 76px;
+}

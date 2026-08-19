@@ -1,0 +1,27 @@
+.chrome {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.chrome > :first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.listError {
+  align-self: center;
+  padding-inline: var(--oc-space-2);
+  margin: 0;
+  color: var(--oc-danger);
+  font-size: var(--oc-text-xs);
+}
+
+.listStatus {
+  align-self: center;
+  padding-inline: var(--oc-space-2);
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+}

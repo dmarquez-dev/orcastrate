@@ -1,33 +1,173 @@
-import type { JSX } from 'react';
+import { useMemo, useState, type JSX, type ReactNode } from 'react';
+
+import type { LaneId } from '@shared/contracts/events';
+import type { PermissionRespondArgs } from './contracts/renderer-view';
+import {
+  useComposer,
+  useLaneRail,
+  usePermissionCards,
+  useTranscript,
+  useWorkspace,
+} from './state';
+import { Composer } from './composer';
+import { LaneRail } from './lanes';
+import { PermissionCardList } from './permissions';
+import { TranscriptPane } from './transcript';
+import { PodsChrome } from './pods/PodsChrome';
+import { EmptyWorkspace, LoadingWorkspace } from './shell/EmptyWorkspace';
+import { WorkspaceLayout } from './shell/WorkspaceLayout';
 
 /**
- * Placeholder shell.
+ * The workspace, assembled.
  *
- * Sub-session 1 owns no UI. The Pod bar, lane rail, transcript, composer,
- * permission cards, Beachcomber, and Helm all arrive in sub-sessions 2 and 3.
- * This component exists so `npm run dev` opens a window that renders, and
- * nothing more — do not grow it here.
+ * `App` is an ARRANGER: it reads the state layer's hooks, hands each region's
+ * data to the component that owns that region, and renders nothing itself. The
+ * regions come from four different tasks and `WorkspaceLayout` knows about
+ * none of them — they arrive as slots (frozen `renderer-view.ts`).
  */
 export function App(): JSX.Element {
-  return (
-    <main
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '100vh',
-        margin: 0,
-        gap: '0.5rem',
-        background: '#0f1720',
-        color: '#e6edf3',
-        fontFamily: 'Segoe UI, system-ui, sans-serif',
+  const [newPodOpen, setNewPodOpen] = useState(false);
+
+  const { activePodId, session, routingMode, actions } = useWorkspace();
+  const rail = useLaneRail();
+
+  // The Pod's lane registry, flattened once. `TranscriptPane` memoizes on
+  // `lanes` identity and there are two call sites, so mapping inline would hand
+  // each pane a fresh array on every render. `Loadable.value` is never
+  // undefined (renderer-state.ts): while the registry loads it is simply empty,
+  // which is what the panes are given — no `[]` default hides a real registry.
+  const lanes = useMemo(() => rail.value.map((row) => row.lane), [rail.value]);
+
+  const selectedLaneId = session?.selectedLaneId ?? null;
+  const pinnedLaneId = session?.pinnedLaneId ?? null;
+
+  // Hooks are unconditional; whether their output is RENDERED is decided below.
+  const primaryView = useTranscript(selectedLaneId);
+  const splitView = useTranscript(pinnedLaneId);
+  const primaryCards = usePermissionCards(selectedLaneId);
+  const splitCards = usePermissionCards(pinnedLaneId);
+  const composer = useComposer();
+
+  const podBar = (
+    <PodsChrome
+      dialogOpen={newPodOpen}
+      onDismissNewPod={() => {
+        setNewPodOpen(false);
       }}
-    >
-      <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>Orcastrate</h1>
-      <p style={{ margin: 0, opacity: 0.6, fontSize: '0.875rem' }}>
-        Shell ready. The workspace UI lands in a later sub-session.
-      </p>
-    </main>
+      onRequestNewPod={() => {
+        setNewPodOpen(true);
+      }}
+    />
+  );
+
+  // `routingMode` is null until `app.routingMode()` answers. Rendering the
+  // rail or the transcript before then would force a `'lanes'` assumption,
+  // which the frozen contract forbids — so the shell waits instead.
+  const empty: ReactNode | undefined =
+    routingMode === null ? (
+      <LoadingWorkspace />
+    ) : activePodId === null || session === undefined ? (
+      <EmptyWorkspace
+        onNewPod={() => {
+          setNewPodOpen(true);
+        }}
+      />
+    ) : undefined;
+
+  let laneRail: ReactNode = null;
+  let primary: ReactNode = null;
+  let split: ReactNode = null;
+  let composerNode: ReactNode = null;
+
+  if (empty === undefined && routingMode !== null && session !== undefined) {
+    const podId = session.podId;
+    const laneOf = (laneId: LaneId | null) =>
+      laneId === null ? null : (rail.value.find((row) => row.lane.id === laneId)?.lane ?? null);
+
+    const respond = (req: PermissionRespondArgs): void => {
+      void actions.respondToPermission(req);
+    };
+    const jumpToLane = (laneId: LaneId): void => {
+      actions.jumpToLane(podId, laneId);
+    };
+
+    laneRail = (
+      <LaneRail
+        onPin={(laneId) => {
+          actions.pinLane(podId, laneId);
+        }}
+        onSelect={(laneId) => {
+          actions.selectLane(podId, laneId);
+        }}
+        onSteer={(laneId) => {
+          actions.steerFromLane(podId, laneId);
+        }}
+        onUnpin={() => {
+          actions.unpinLane(podId);
+        }}
+        routingMode={routingMode}
+        rows={rail.value}
+      />
+    );
+
+    primary = (
+      <TranscriptPane
+        hasMore={session.backfill.hasMore}
+        isSplit={false}
+        lane={laneOf(selectedLaneId)}
+        lanes={lanes}
+        onJumpToLane={jumpToLane}
+        onLoadMore={() => {
+          void actions.loadMoreEvents(podId);
+        }}
+        permissionSlot={<PermissionCardList cards={primaryCards} onRespond={respond} />}
+        routingMode={routingMode}
+        view={primaryView}
+      />
+    );
+
+    split =
+      pinnedLaneId === null ? null : (
+        <TranscriptPane
+          hasMore={session.backfill.hasMore}
+          isSplit
+          lane={laneOf(pinnedLaneId)}
+          lanes={lanes}
+          onJumpToLane={jumpToLane}
+          onLoadMore={() => {
+            void actions.loadMoreEvents(podId);
+          }}
+          permissionSlot={<PermissionCardList cards={splitCards} onRespond={respond} />}
+          routingMode={routingMode}
+          view={splitView}
+        />
+      );
+
+    composerNode =
+      composer === undefined ? null : (
+        <Composer
+          onChange={(text) => {
+            actions.setComposerText(podId, text);
+          }}
+          onInterrupt={() => {
+            void actions.interruptPod(podId);
+          }}
+          onSend={() => {
+            void actions.sendComposer(podId);
+          }}
+          state={composer}
+        />
+      );
+  }
+
+  return (
+    <WorkspaceLayout
+      composer={composerNode}
+      empty={empty}
+      laneRail={laneRail}
+      podBar={podBar}
+      primary={primary}
+      split={split}
+    />
   );
 }

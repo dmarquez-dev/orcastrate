@@ -59,7 +59,7 @@ export function requirePodId(value: unknown): string {
 export function requirePermissionMode(value: unknown): PermissionMode {
   if (!isAllowedPermissionMode(value)) {
     throw invalidArgument(
-      `permissionMode must be one of default, plan, bypassPermissions (received ${JSON.stringify(value)})`,
+      `permissionMode must be one of default, acceptEdits, plan, bypassPermissions (received ${JSON.stringify(value)})`,
     );
   }
   return value;

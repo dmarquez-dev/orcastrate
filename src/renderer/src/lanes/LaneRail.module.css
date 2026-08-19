@@ -1,0 +1,221 @@
+/*
+ * Lane rail (spec 5.1). A LIST, not a second tab row — the layout below is a
+ * vertical stack of rows, and nothing here draws a tab.
+ *
+ * Every color, font and spacing value comes from `styles/tokens.css`. There is
+ * no literal in this file that a theme change would miss.
+ */
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  width: var(--oc-lane-rail-width);
+  min-width: var(--oc-lane-rail-width);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--oc-bg-panel);
+  border-right: 1px solid var(--oc-border);
+}
+
+.railHeading {
+  margin: 0;
+  padding: var(--oc-space-3) var(--oc-space-3) var(--oc-space-2);
+  font-size: var(--oc-text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--oc-fg-muted);
+}
+
+/*
+ * Routing mode 'inline' (spec 4.3 fallback): every event carries the
+ * Matriarch's laneId, so selecting a Calf does NOT filter the transcript. The
+ * rail says so in words rather than letting the selection highlight imply a
+ * filter that is not happening.
+ */
+.inlineNote {
+  margin: 0 var(--oc-space-3) var(--oc-space-2);
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--oc-space-3);
+}
+
+.emptyState {
+  margin: 0;
+  padding: var(--oc-space-3);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.errorState {
+  margin: var(--oc-space-2) var(--oc-space-3);
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: start;
+  gap: var(--oc-space-1);
+  padding: 0 var(--oc-space-2);
+  border-bottom: 1px solid var(--oc-border);
+}
+
+/* The Matriarch is pinned at the top and reads as the trunk of the list. */
+.row[data-matriarch='true'] {
+  background: var(--oc-bg-raised);
+}
+
+.row[data-selected='true'] {
+  background: var(--oc-bg-selected);
+}
+
+.row[data-pinned='true'] {
+  box-shadow: inset var(--oc-space-1) 0 0 0 var(--oc-border-strong);
+}
+
+.rowMain {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0 var(--oc-space-2);
+  width: 100%;
+  padding: var(--oc-space-2) var(--oc-space-1);
+  border: 0;
+  border-radius: var(--oc-radius-sm);
+  background: transparent;
+  color: var(--oc-fg-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.rowMain:hover {
+  background: var(--oc-bg-hover);
+}
+
+.agentType {
+  grid-column: 1;
+  font-size: var(--oc-text-md);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.unread {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: center;
+  min-width: var(--oc-space-4);
+  padding: 0 var(--oc-space-1);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-status-running);
+  color: var(--oc-fg-inverse);
+  font-size: var(--oc-text-xs);
+  font-weight: 700;
+  text-align: center;
+}
+
+.description {
+  grid-column: 1 / -1;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  margin-top: var(--oc-space-1);
+  font-size: var(--oc-text-xs);
+  color: var(--oc-fg-muted);
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oc-space-1);
+}
+
+/*
+ * Status hue AND status word, always together. The dot alone would make color
+ * the only carrier of meaning, which the accessibility floor forbids.
+ */
+.dot {
+  width: var(--oc-space-2);
+  height: var(--oc-space-2);
+  border-radius: 50%;
+  background: var(--oc-status-idle);
+}
+
+.status[data-status='running'] .dot {
+  background: var(--oc-status-running);
+}
+
+.status[data-status='done'] .dot {
+  background: var(--oc-status-done);
+}
+
+.status[data-status='orphaned'] .dot {
+  background: var(--oc-status-orphaned);
+}
+
+.awaiting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oc-space-1);
+  color: var(--oc-status-waiting);
+}
+
+.awaitingDot {
+  width: var(--oc-space-2);
+  height: var(--oc-space-2);
+  border-radius: 50%;
+  background: var(--oc-status-waiting);
+}
+
+.rowAction {
+  align-self: center;
+  padding: var(--oc-space-1) var(--oc-space-2);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-xs);
+  cursor: pointer;
+}
+
+.rowAction:hover {
+  background: var(--oc-bg-hover);
+}
+
+.rowAction[aria-pressed='true'] {
+  border-color: var(--oc-focus-ring);
+}
+
+/* Available to assistive technology, invisible on screen. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

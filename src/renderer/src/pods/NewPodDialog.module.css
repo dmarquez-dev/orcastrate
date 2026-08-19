@@ -1,0 +1,206 @@
+.scrim {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inset: 0;
+  padding: var(--oc-space-6);
+  background: var(--oc-bg-app);
+}
+
+.dialog {
+  display: flex;
+  width: 100%;
+  max-width: calc(var(--oc-lane-rail-width) * 2);
+  max-height: 100%;
+  flex-direction: column;
+  padding: var(--oc-space-6);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-panel);
+  gap: var(--oc-space-4);
+  overflow-y: auto;
+}
+
+.form {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--oc-space-4);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--oc-text-lg);
+  font-weight: 600;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.label {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.input {
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-md);
+}
+
+.cwdRow {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+}
+
+/*
+ * Read-only display, deliberately NOT an input: the renderer never receives a
+ * path it can type or act on (spec 3, `NewPodDraft.cwd`).
+ */
+.cwdDisplay {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: var(--oc-space-2);
+  border: 1px dashed var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cwdEmpty {
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-ui);
+}
+
+.modes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  gap: var(--oc-space-2);
+}
+
+.legend {
+  padding: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.mode {
+  display: grid;
+  align-items: start;
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  column-gap: var(--oc-space-2);
+  grid-template-columns: auto minmax(0, 1fr);
+  cursor: pointer;
+}
+
+.modeDanger {
+  border-color: var(--oc-danger);
+}
+
+.modeLabel {
+  font-size: var(--oc-text-md);
+}
+
+.modeSummary {
+  grid-column: 2;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.bypass {
+  display: flex;
+  flex-direction: column;
+  padding: var(--oc-space-3);
+  border: 1px solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  gap: var(--oc-space-2);
+}
+
+.bypassWarning {
+  margin: 0;
+  color: var(--oc-danger);
+  font-size: var(--oc-text-md);
+  font-weight: 600;
+}
+
+.confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+}
+
+.envRow {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+}
+
+.envRow > .input {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.error {
+  margin: 0;
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  color: var(--oc-danger);
+  font-size: var(--oc-text-sm);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--oc-space-2);
+}
+
+.button {
+  padding-block: var(--oc-space-2);
+  padding-inline: var(--oc-space-4);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-size: var(--oc-text-md);
+}
+
+.button:hover:enabled {
+  background: var(--oc-bg-hover);
+}
+
+.button:disabled {
+  color: var(--oc-fg-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonSmall {
+  padding-block: var(--oc-space-1);
+  padding-inline: var(--oc-space-2);
+  font-size: var(--oc-text-sm);
+}

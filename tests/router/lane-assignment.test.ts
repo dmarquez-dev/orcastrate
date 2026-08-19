@@ -85,6 +85,10 @@ describe('lane assignment (spec 9)', () => {
     // `task_updated` causes is a lane state transition, not transcript, and
     // rightly carries the Calf's id — so lifecycle events are excluded here and
     // covered by ordering.test.ts instead.
+    //
+    // `system/task_progress` is the ONE deliberate exception: it narrates one
+    // Calf's own work and is routed by its `tool_use_id`. It has its own
+    // destination table below.
     const replayed = replay(file);
     const messages = fixtureMessages(file);
 
@@ -92,6 +96,7 @@ describe('lane assignment (spec 9)', () => {
       const message = messages[index];
       const type = message === null || message === undefined ? null : message['type'];
       if (type !== 'system' && type !== 'result' && type !== 'rate_limit_event') return;
+      if (type === 'system' && message?.['subtype'] === 'task_progress') return;
       for (const event of events) {
         if (event.type === 'lane_opened' || event.type === 'lane_closed') continue;
         expect(event.laneId, `${file} line ${index + 1}`).toBe(MATRIARCH_LANE_ID);

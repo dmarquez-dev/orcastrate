@@ -16,22 +16,19 @@ import type { PermissionMode } from '../../shared/contracts/events';
 import type { PodRunnerOptions } from '../../shared/contracts/pod-runner';
 
 /**
- * The permission modes Orcastrate exposes.
+ * The four permission modes Orcastrate exposes — the runtime half of the
+ * contract's `PermissionMode` union, which is the source of truth.
  *
- * This is a PRODUCT restriction, not a platform limit. T2 measured the real
- * CLI 2.1.235: it accepts
+ * This is still a PRODUCT restriction, not a platform limit. T2 measured the
+ * real CLI 2.1.235: it accepts
  * `default, plan, acceptEdits, bypassPermissions, dontAsk, auto, manual`
  * (verbatim commander rejection quoted in findings.json `optionsVerified`).
- * The three-value restriction is kept because it is what the contract's
- * `PermissionMode` type admits and what the UI is built against.
- *
- * The contract used to justify the union by claiming "the SDK enum has no
- * `acceptEdits`", which was false; amendment E2 corrected it at the source, so
- * `PermissionMode` in `src/shared/contracts/events.ts` and this comment now
- * agree that widening the set is a product decision, not a bug fix.
+ * `dontAsk`, `auto` and `manual` remain deliberately unexposed and must keep
+ * failing this guard.
  */
 export const ALLOWED_PERMISSION_MODES: readonly PermissionMode[] = [
   'default',
+  'acceptEdits',
   'plan',
   'bypassPermissions',
 ];
