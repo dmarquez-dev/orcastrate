@@ -201,3 +201,62 @@ One more, not in the spec's list: the SDK's `canUseTool` signature is
   lane at line 6 and any test asserting the latter passes vacuously. The same
   caveat, with the assertion to write instead, is in
   `findings.json` `fixtures[3].notes` and `tests/fixtures/protocol/README.md`.
+
+---
+
+## Fourth question — does the CLI actually honour the foreground-dispatch hook?
+
+Asked after the fact (verification task A1), because `src/main/pod/options.ts`
+relies on a `PreToolUse` hook to force subagent dispatch into the foreground and
+nothing had ever checked that CLI 2.1.235 *invokes* that hook. If it does not,
+every Calf lane in the product renders empty.
+
+### Answer: **yes. The CLI invokes the hook and applies its `updatedInput`.**
+
+Measured live by `probe/verify-foreground.ts`, which **imports the shipped
+`buildSdkOptions`, `forceForegroundDispatch` and `FOREGROUND_DISPATCH_DIRECTIVE`
+from `src/main/pod/options.ts`** — it is the product's own option object that
+was driven, not a reconstruction. Four runs, one trivial dispatch each, with a
+prompt that says **nothing** about `run_in_background`, so a foreground dispatch
+cannot be an artefact of the prompt.
+
+| Run | hook | directive | hook invoked | subagent messages forwarded | dispatch |
+| --- | --- | --- | --- | --- | --- |
+| shipped | yes | yes | 1 | 6 | **foreground** |
+| control | no | no | 0 | 0 | background |
+| hook only | yes | no | 1 | 6 | **foreground** |
+| directive only | no | yes | 0 | 6 | **foreground** |
+
+The decisive cell is **hook only** versus **control**: same prompt, same model,
+the hook the only difference. In the hook-only run the CLI called the callback
+with `tool_name: "Agent"` and the callback returned
+
+```json
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"description":"Report current directory","prompt":"Report the current directory name and stop.","subagent_type":"leaf","run_in_background":false}}}
+```
+
+after which six subagent-originated messages arrived carrying
+`parent_tool_use_id` of the dispatching `Agent` block. The control run's model
+omitted `run_in_background` entirely, and its dispatch `tool_result` read
+
+> `Async agent launched successfully. (This tool result is internal metadata …)`
+
+with **zero** subagent messages — the same background behaviour recorded in
+`04-orphaned-calf.ndjson`, reproduced here without anyone asking for it.
+
+Two further observations:
+
+- **In the shipped run the hook callback returned `{}` (no opinion).** That is
+  correct, not a failure: the system-prompt directive had already made the model
+  emit `run_in_background: false`, and `forceForegroundDispatch` declines to
+  rewrite an input that is already right. The hook was still invoked, which is
+  the fact under test.
+- **The directive alone was sufficient in this sample** (`directive only` ran in
+  the foreground). Treat that as a single observation of model behaviour, not a
+  guarantee — it depends on the model choosing to comply. The hook is the
+  deterministic lever; the directive is the belt to its braces, exactly as the
+  code comment claims.
+
+Machine-readable form: `findings.json` → `foregroundDispatch`. Raw streams:
+`probe/evidence/foreground-*.ndjson` (throwaway, not part of the durable corpus,
+so no `fixtures[]` entry and no test depends on them).

@@ -57,3 +57,16 @@ ordering, counts. Never on model prose, timings, token counts, cost, or the
 literal id values — those change on every re-run. `session_id` and
 `tool_use_id` are deliberately **not** redacted, because correlation tests need
 them; they are per-capture, so compare them to each other, never to a constant.
+
+## Additive key: `foregroundDispatch` (verification task A1)
+
+`findings.json` carries one key beyond the shape frozen in `fixture-corpus.md`
+§3, which §3 permits: `foregroundDispatch`. It records a later live measurement
+answering whether CLI 2.1.235 honours the `PreToolUse` hook the app installs to
+force subagent dispatch into the foreground. It does — the CLI invoked the
+callback and applied its `updatedInput`, and an otherwise identical run without
+the hook dispatched to the background and forwarded no subagent messages.
+
+No capture in this directory changed, and no `fixtures[]` entry was added: the
+supporting streams live with the throwaway probe, not in the durable corpus.
+Narrative: `docs/protocol-findings.md`, "Fourth question".

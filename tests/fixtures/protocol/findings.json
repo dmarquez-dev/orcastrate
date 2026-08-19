@@ -97,5 +97,81 @@
       "maxDepth": 1,
       "notes": "canUseTool fired once, for the Write call toolu_01MkAUwWyPMPhRgT4P67ZL95 made inside the Calf, carrying options.agentID a3d3c9443c6195211. Read-only Bash is auto-approved even under permissionMode 'default' and never reaches canUseTool, which is why this Calf writes a file. The callback is (toolName, input, options) — three positional arguments — and options carried agentID, blockedPath, decisionReason, description, displayName, requestId, signal, suggestions, title, toolUseID."
     }
-  ]
+  ],
+  "foregroundDispatch": {
+    "verifiedAt": "2026-08-19T05:38:20.058Z",
+    "verifiedBy": "probe/verify-foreground.ts (task A1); imports buildSdkOptions, forceForegroundDispatch and FOREGROUND_DISPATCH_DIRECTIVE from src/main/pod/options.ts, so the shipped code path is what ran",
+    "hookHonored": true,
+    "hookInvokedByCli": true,
+    "directiveAloneSufficient": true,
+    "evidence": {
+      "hookOnlyRewrite": "[{\"toolName\":\"Agent\",\"returned\":{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"updatedInput\":{\"description\":\"Report current directory\",\"prompt\":\"Report the current directory name and stop.\",\"subagent_type\":\"leaf\",\"run_in_background\":false}}}}]",
+      "hookOnlySubagentMessage": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Report the current directory name and stop.\"}]},\"parent_tool_use_id\":\"toolu_01CpiJD7yG9ygwcBRaafy6pa\",\"session_id\":\"79f15061-0121-4f9d-88db-2c60f23ee1b6\",\"uuid\":\"5571f25a-0f14-4fb6-ac94-775d40880e95\",\"timestamp\":\"2026-08-19T05:36:51.998Z\",\"subagent_type\":\"leaf\",\"task_description\":\"Report current directory\"}",
+      "controlBackgroundAck": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: aac8c0305eecf062f (internal ID - do not mention to user. Use SendMessage with to: 'aac8c0305eecf062f', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the background.",
+      "controlSubagentMessages": 0
+    },
+    "notes": "Measured live against CLI 2.1.235 on win32, one trivial dispatch per run, four runs. The prompt says nothing about run_in_background, so foreground dispatch is attributable to the configuration and not to the prompt. hook-only: the CLI invoked the PreToolUse callback for tool_name \"Agent\", the callback returned updatedInput.run_in_background=false, and 6 subagent-originated messages carrying parent_tool_use_id were forwarded. control (no hook, no directive): the model omitted run_in_background, the dispatch tool_result read \"Async agent launched successfully.\" and 0 subagent messages were forwarded. In the shipped run the callback returned {} because the directive had already made the model pass false; both levers are therefore live and either one alone produced foreground dispatch in this sample. directiveAloneSufficient is a single-sample model-behaviour observation, not a guarantee — the hook is the deterministic lever.",
+    "runs": {
+      "shipped": {
+        "name": "shipped",
+        "error": null,
+        "hookInvocations": 1,
+        "hookRewroteDispatch": false,
+        "dispatchCount": 1,
+        "modelRequestedBackground": [
+          false
+        ],
+        "asyncLaunched": false,
+        "asyncEvidence": null,
+        "subagentMessages": 6,
+        "subagentEvidence": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Report the current directory name and stop.\"}]},\"parent_tool_use_id\":\"toolu_016zEvgUgN8HnwEJM9XyPVRW\",\"session_id\":\"40474fbf-dced-412b-8aca-a3f5d5755f2e\",\"uuid\":\"752260df-9444-4832-826b-696022cd7aae\",\"timestamp\":\"2026-08-19T05:36:31.546Z\",\"subagent_type\":\"leaf\",\"task_description\":\"Probe current directory name\"}",
+        "foreground": true
+      },
+      "control-none": {
+        "name": "control-none",
+        "error": null,
+        "hookInvocations": 0,
+        "hookRewroteDispatch": false,
+        "dispatchCount": 1,
+        "modelRequestedBackground": [
+          "<absent>"
+        ],
+        "asyncLaunched": true,
+        "asyncEvidence": "[{\"type\":\"text\",\"text\":\"Async agent launched successfully. (This tool result is internal metadata — never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: aac8c0305eecf062f (internal ID - do not mention to user. Use SendMessage with to: 'aac8c0305eecf062f', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the background.",
+        "subagentMessages": 0,
+        "subagentEvidence": null,
+        "foreground": false
+      },
+      "hook-only": {
+        "name": "hook-only",
+        "error": null,
+        "hookInvocations": 1,
+        "hookRewroteDispatch": true,
+        "dispatchCount": 1,
+        "modelRequestedBackground": [
+          "<absent>"
+        ],
+        "asyncLaunched": false,
+        "asyncEvidence": null,
+        "subagentMessages": 6,
+        "subagentEvidence": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Report the current directory name and stop.\"}]},\"parent_tool_use_id\":\"toolu_01CpiJD7yG9ygwcBRaafy6pa\",\"session_id\":\"79f15061-0121-4f9d-88db-2c60f23ee1b6\",\"uuid\":\"5571f25a-0f14-4fb6-ac94-775d40880e95\",\"timestamp\":\"2026-08-19T05:36:51.998Z\",\"subagent_type\":\"leaf\",\"task_description\":\"Report current directory\"}",
+        "foreground": true
+      },
+      "directive-only": {
+        "name": "directive-only",
+        "error": null,
+        "hookInvocations": 0,
+        "hookRewroteDispatch": false,
+        "dispatchCount": 1,
+        "modelRequestedBackground": [
+          false
+        ],
+        "asyncLaunched": false,
+        "asyncEvidence": null,
+        "subagentMessages": 6,
+        "subagentEvidence": "{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Report the current directory name and stop.\"}]},\"parent_tool_use_id\":\"toolu_016iWbgrVCSjPMp7b7c3NR81\",\"session_id\":\"74882472-889e-4b52-81e8-babeea5d2270\",\"uuid\":\"a1e719b2-498d-42d5-82f0-7f04f61867d7\",\"timestamp\":\"2026-08-19T05:37:06.238Z\",\"subagent_type\":\"leaf\",\"task_description\":\"Probe leaf agent for cwd\"}",
+        "foreground": true
+      }
+    }
+  }
 }

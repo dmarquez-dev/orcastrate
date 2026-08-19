@@ -79,3 +79,37 @@ check costs nothing.
    messages into the parent stream. Every prompt here that needs real nesting
    says `run_in_background: false` explicitly. Drop that and the probe silently
    captures nothing.
+
+## `verify-foreground.ts` — the A1 verification run
+
+Added after the fact by verification task A1, and throwaway on the same terms.
+It answers one question: does CLI 2.1.235 actually invoke the `PreToolUse` hook
+that `src/main/pod/options.ts` installs to force foreground dispatch?
+
+Unlike `run-probe.ts` it **imports the shipped code** (`buildSdkOptions`,
+`forceForegroundDispatch`, `FOREGROUND_DISPATCH_DIRECTIVE`) instead of
+reconstructing the options, so what it measures is the product's own
+configuration. Only additive keys (`model`, `agents`, `maxTurns`,
+`settingSources`) are layered on top.
+
+Four runs, one trivial dispatch each, prompt deliberately silent about
+`run_in_background`:
+
+| Run | Hook | Directive |
+| --- | --- | --- |
+| `shipped` | yes | yes |
+| `control-none` | no | no |
+| `hook-only` | yes | no |
+| `directive-only` | no | yes |
+
+```sh
+PROBE_SCRATCH=/some/scratch/dir node probe/verify-foreground.ts
+PROBE_REUSE=1 PROBE_SCRATCH=/some/scratch/dir node probe/verify-foreground.ts
+```
+
+It writes the redacted streams to `probe/evidence/foreground-*.ndjson` (kept
+here, **not** in `tests/fixtures/protocol/`, so the durable corpus keeps its
+frozen six-file shape and no `fixtures[]` entry is owed) and adds the
+`foregroundDispatch` key to `tests/fixtures/protocol/findings.json`, which
+§3 permits as an additive key. Answer: the hook **is** honoured. See
+`docs/protocol-findings.md`.
