@@ -1,4 +1,4 @@
-import { useState, type JSX, type ReactNode } from 'react';
+import { useMemo, useState, type JSX, type ReactNode } from 'react';
 
 import type { LaneId } from '@shared/contracts/events';
 import type { PermissionRespondArgs } from './contracts/renderer-view';
@@ -30,6 +30,13 @@ export function App(): JSX.Element {
 
   const { activePodId, session, routingMode, actions } = useWorkspace();
   const rail = useLaneRail();
+
+  // The Pod's lane registry, flattened once. `TranscriptPane` memoizes on
+  // `lanes` identity and there are two call sites, so mapping inline would hand
+  // each pane a fresh array on every render. `Loadable.value` is never
+  // undefined (renderer-state.ts): while the registry loads it is simply empty,
+  // which is what the panes are given — no `[]` default hides a real registry.
+  const lanes = useMemo(() => rail.value.map((row) => row.lane), [rail.value]);
 
   const selectedLaneId = session?.selectedLaneId ?? null;
   const pinnedLaneId = session?.pinnedLaneId ?? null;
@@ -108,6 +115,7 @@ export function App(): JSX.Element {
         hasMore={session.backfill.hasMore}
         isSplit={false}
         lane={laneOf(selectedLaneId)}
+        lanes={lanes}
         onJumpToLane={jumpToLane}
         onLoadMore={() => {
           void actions.loadMoreEvents(podId);
@@ -124,6 +132,7 @@ export function App(): JSX.Element {
           hasMore={session.backfill.hasMore}
           isSplit
           lane={laneOf(pinnedLaneId)}
+          lanes={lanes}
           onJumpToLane={jumpToLane}
           onLoadMore={() => {
             void actions.loadMoreEvents(podId);
