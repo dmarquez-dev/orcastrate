@@ -1,22 +1,23 @@
 /**
  * The `canUseTool` bridge.
  *
- * DIVERGENCE FROM THE FROZEN CONTRACT (escalation E2, already recorded):
- * the contract types the SDK callback as `(request, { signal })`. The real
- * signature — measured in probe run `06`, and confirmed in
- * `sdk.d.ts` line 209 — is `(toolName, input, options)`, three positional
- * arguments, with `options` carrying
- * `agentID, blockedPath, decisionReason, description, displayName, requestId,
- * signal, suggestions, title, toolUseID`. The contract's shape is
- * unimplementable as written. What is preserved verbatim is the abstraction the
- * contract defines FACING ORCASTRATE: consumers still supply a
+ * The SDK callback takes THREE POSITIONAL ARGUMENTS — `(toolName, input,
+ * options)` — measured in probe run `06` and confirmed in `sdk.d.ts` line 209,
+ * with `options` carrying `agentID, blockedPath, decisionReason, description,
+ * displayName, requestId, signal, suggestions, title, toolUseID`.
+ *
+ * This is no longer a divergence: amendment E2 corrected the contract, which
+ * now records the three-argument signature itself. What the contract still
+ * defines FACING ORCASTRATE is unchanged — consumers supply a
  * `PermissionHandler` taking one `PermissionPrompt` and returning one
- * `PermissionAnswer`. The three-argument reality is confined to this file.
+ * `PermissionAnswer` — and the three-argument reality stays confined to this
+ * file. `toPermissionPrompt` below is the single adapter between the two.
  */
 
 import type { PermissionResult } from '@anthropic-ai/claude-agent-sdk';
 
-import type { PermissionAnswer } from '../../shared/contracts/pod-runner';
+import type { AgentId, ToolUseId } from '../../shared/contracts/events';
+import type { PermissionAnswer, PermissionPrompt } from '../../shared/contracts/pod-runner';
 
 import { alwaysAllowUpdates } from './options';
 
@@ -27,6 +28,45 @@ export interface CanUseToolOptions {
   toolUseID?: string;
   agentID?: string;
   suggestions?: import('@anthropic-ai/claude-agent-sdk').PermissionUpdate[];
+}
+
+/**
+ * AMENDMENT E5 — the single place a `PermissionPrompt` is built from the SDK's
+ * three arguments.
+ *
+ * `options.agentID` and `options.toolUseID` used to be read for the SDK-facing
+ * result only and dropped on the way in, which is why a prompt could not be
+ * attributed to the Calf that raised it and `PodManager` had to file every one
+ * under the Matriarch. Both are carried across now.
+ *
+ * The fields stay OPTIONAL and are OMITTED rather than set to `undefined` when
+ * the SDK does not supply them, so `'agentId' in prompt` is a truthful test of
+ * whether the CLI offered an attribution at all — the distinction the
+ * Matriarch fallback downstream is allowed to key on. An empty string is
+ * treated as absent: the SDK sends `""` for a Matriarch-originated call in
+ * some builds, and an empty id would resolve to no lane anyway.
+ */
+export function toPermissionPrompt(
+  toolName: string,
+  input: unknown,
+  options: CanUseToolOptions,
+): PermissionPrompt {
+  const agentId = nonEmpty(options.agentID);
+  const toolUseId = nonEmpty(options.toolUseID);
+  return {
+    requestId: options.requestId,
+    toolName,
+    input,
+    signal: options.signal,
+    ...(agentId !== null ? { agentId: agentId as AgentId } : {}),
+    ...(toolUseId !== null ? { toolUseId: toolUseId as ToolUseId } : {}),
+  };
+}
+
+function nonEmpty(value: string | undefined): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 export class InvalidPermissionAnswerError extends Error {

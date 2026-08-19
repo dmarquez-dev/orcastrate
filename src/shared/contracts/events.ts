@@ -1,5 +1,8 @@
 /**
- * CONTRACT — Normalized event shape. Frozen at Gate 2.
+ * CONTRACT — Normalized event shape. Frozen at Gate 2; COMMENTS ONLY
+ * corrected at Gate 3 (amendment E2): the dispatch tool is `Agent`, not
+ * `Task`, and the claim that the SDK enum lacks `acceptEdits` was false. No
+ * type, field or signature in this file changed, so nothing downstream moves.
  *
  * Boundary between: LaneRouter (producer), EventStore (persistence),
  * the IPC surface (transport), and sub-sessions 2/3 (renderer consumers).
@@ -24,13 +27,20 @@ export type PodId = string;
 export type LaneId = string;
 
 /**
- * The SDK `tool_use_id` of the `Task` block that opened a Calf lane.
+ * The SDK `tool_use_id` of the dispatch block that opened a Calf lane.
  * `null` for the Matriarch lane. Correlates the stream (spec 4.3).
+ *
+ * THE DISPATCH TOOL IS NAMED `Agent` in CLI 2.1.235. `Task` is the older name
+ * and is still accepted, so a name check must match BOTH — see
+ * `DISPATCH_TOOL_NAMES` in `src/main/pod/options.ts`. A check written against
+ * `'Task'` alone opens ZERO Calf lanes on 2.1.235 and fails silently, which is
+ * why every mention in this file was corrected at Gate 3 (amendment E2).
  */
 export type ToolUseId = string;
 
 /**
- * The Claude Code agent id a Task returns. Distinct from `ToolUseId`.
+ * The Claude Code agent id a dispatch (`Agent`, formerly `Task`) returns.
+ * Distinct from `ToolUseId`.
  * This is the identifier `SendMessage` / `TaskStop` address (spec 5.3).
  * MVP persists it and does not act on it. May be null if the CLI does not
  * surface one for a given lane — the probe (T2) determines when that happens.
@@ -54,8 +64,20 @@ export type LaneStatus = 'running' | 'done' | 'orphaned';
 export type LaneKind = 'matriarch' | 'calf';
 
 /**
- * CORRECTION vs spec 4.2 / 5.1: the SDK enum has no `acceptEdits`.
- * Source: resolved-unknowns.md correction #2.
+ * The permission modes ORCASTRATE exposes. This is a PRODUCT restriction, not a
+ * platform limit.
+ *
+ * CORRECTED at Gate 3 (amendment E2). This comment previously said "the SDK
+ * enum has no `acceptEdits`", citing resolved-unknowns.md correction #2. That
+ * was derived from SDK documentation before anything measured the binary, and
+ * it is FALSE: CLI 2.1.235 accepts seven modes —
+ * `default, plan, acceptEdits, bypassPermissions, dontAsk, auto, manual`
+ * (verbatim commander rejection quoted in `findings.json` `optionsVerified`).
+ *
+ * The three-value union stands because it is the surface the UI is built
+ * against and the set the product chooses to expose, not because the platform
+ * lacks the others. `src/main/pod/options.ts` says the same thing at the
+ * runtime guard. Widening it is a product decision, not a bug fix.
  */
 export type PermissionMode = 'default' | 'plan' | 'bypassPermissions';
 
@@ -80,9 +102,9 @@ export interface Lane {
   parentLaneId: LaneId | null;
   /** 0 for the Matriarch, 1 for a Calf it dispatched, 2 for a nested Calf. */
   depth: number;
-  /** From the Task tool_use input. null for the Matriarch. */
+  /** From the dispatch tool_use input (`Agent`). null for the Matriarch. */
   subagentType: string | null;
-  /** From the Task tool_use input. null for the Matriarch. */
+  /** From the dispatch tool_use input (`Agent`). null for the Matriarch. */
   description: string | null;
   status: LaneStatus;
   startedAt: Timestamp;
@@ -150,8 +172,14 @@ export interface ToolUsePayload {
   /** Tool input verbatim from the SDK message. */
   input: unknown;
   /**
-   * Set when `name === 'Task'`: the LaneId this dispatch opened.
+   * Set when `name` is a dispatch tool: the LaneId this dispatch opened.
    * Lets the renderer render the inline dispatch card (spec 5.2) without a join.
+   *
+   * CORRECTED at Gate 3 (amendment E2): this said `name === 'Task'`. The
+   * dispatch tool is named `Agent` in CLI 2.1.235; `Task` is the older name and
+   * is still accepted. Match BOTH, via `DISPATCH_TOOL_NAMES` in
+   * `src/main/pod/options.ts` — a producer that tests only for `'Task'` never
+   * sets this field on 2.1.235, and every dispatch card silently disappears.
    */
   dispatchedLaneId?: LaneId;
 }

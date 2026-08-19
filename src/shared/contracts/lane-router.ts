@@ -1,5 +1,6 @@
 /**
- * CONTRACT — LaneRouter. Frozen at Gate 2.
+ * CONTRACT — LaneRouter. Frozen at Gate 2; one COMMENT corrected at Gate 3
+ * (amendment E2, the `Agent` / `Task` rename). No type or signature changed.
  *
  * Boundary between: T5 (implementer), T4 PodRunner (feeds it SDK messages),
  * T6 (fixture-replay tests), and sub-session 2 (consumes the emitted events).
@@ -27,8 +28,11 @@ import type {
  *
  * - 'lanes'  — `parent_tool_use_id` correlates; Calves become lanes.
  * - 'inline' — correlation absent or unreliable; every event routes to the
- *              Matriarch lane and Task blocks render as expandable inline
- *              regions. Spec 4.3 "Fallback if the assumption fails".
+ *              Matriarch lane and dispatch blocks render as expandable inline
+ *              regions. Spec 4.3 "Fallback if the assumption fails". The
+ *              dispatch tool is named `Agent` in CLI 2.1.235; `Task` is the
+ *              older name and is still accepted, so a name check must match
+ *              BOTH (`DISPATCH_TOOL_NAMES` in `src/main/pod/options.ts`).
  *
  * In 'inline' mode the router STILL emits `lane_opened` / `lane_closed` events
  * and still records `agentId`, so the event store, persistence model, and IPC

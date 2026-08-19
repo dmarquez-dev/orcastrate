@@ -476,15 +476,119 @@ export class PodManager implements PodManagerApi {
 
         this.#push.permissionRequested({
           podId: session.podId,
-          // `PermissionPrompt` (frozen) carries no tool_use_id, so the prompt
-          // cannot be attributed to a Calf here. The Matriarch lane is the
-          // Pod-level home for it and is always present.
-          laneId: session.matriarchLaneId,
+          laneId: this.#attributePrompt(session, prompt).laneId,
           requestId: prompt.requestId,
           toolName: prompt.toolName,
           input: prompt.input,
         });
       });
+  }
+
+  /**
+   * ---------------------------------------------------------------------------
+   * E5 — which lane does this prompt belong to?
+   * ---------------------------------------------------------------------------
+   * Design-spec 5.4 wants the permission card rendered "in the lane that
+   * asked". Before this amendment `PermissionPrompt` carried no identifier, so
+   * every prompt was filed under the Matriarch and a Calf's card appeared in
+   * the wrong lane. The prompt now carries the ids the SDK always had.
+   *
+   * Resolution order, strongest key first:
+   *
+   *  1. `agentId` — names the sub-agent directly. Looked up in the live
+   *     router's agent index first (it banks ids the store has not been
+   *     backfilled with yet), then in the store's persisted `agent_id`.
+   *  2. `toolUseId` — weaker. It identifies the tool CALL, not the lane, and
+   *     resolves only when the call being permitted is itself a dispatch. Kept
+   *     because it costs one indexed lookup and covers a prompt that arrives
+   *     before the agent id does.
+   *  3. The Matriarch — the EXPLICIT fallback, returned with
+   *     `attribution: 'matriarch'` rather than falling out of the code by
+   *     accident. The Matriarch lane always exists for an open session, so the
+   *     push can never be dropped for want of a lane.
+   *
+   * A resolved lane is REQUIRED to belong to this Pod. The router is per-Pod so
+   * its answers are scoped already; the store lookup is scoped by `podId`
+   * explicitly. Nothing here can attribute Pod A's prompt to Pod B's lane.
+   *
+   * ---------------------------------------------------------------------------
+   * THE FALLBACK IS TWO DIFFERENT EVENTS AND ONLY ONE OF THEM IS NORMAL
+   * ---------------------------------------------------------------------------
+   * NO ID SUPPLIED — the Matriarch raised the prompt. The common case, correct,
+   * and SILENT. A warning here would fire on ordinary traffic.
+   *
+   * AN ID WAS SUPPLIED BUT RESOLVES TO NO LANE — the CLI named an agent or a
+   * tool call this Pod does not know. That is drift, and it is logged. This
+   * branch is a DRIFT DETECTOR of exactly the same shape as `#routeLane`'s
+   * unknown-lane branch: a defensive fallback that produces a plausible wrong
+   * answer, so its silence is the contract rather than an accident. It must
+   * stay silent on every normal turn, and the test suite asserts the warn
+   * logger is never called during a clean fixture drive.
+   *
+   * KNOWN ORDERING HAZARD this warning is the only way to observe. `canUseTool`
+   * is invoked by the SDK OUT OF BAND from stream ingestion, while BOTH
+   * attribution indexes are populated only by ingesting `task_started` or the
+   * dispatch block. A Calf's first tool prompt that arrives before that
+   * ingestion lands therefore resolves against neither index and falls back to
+   * the Matriarch — a legitimate Calf prompt rendered on the wrong lane, and
+   * from the payload alone indistinguishable from the correct no-id case. The
+   * fixture tests drive the stream to completion before raising a prompt, so
+   * they cannot reproduce it. If this warning ever appears in a real log naming
+   * an `agentId`, THIS RACE IS THE FIRST THING TO SUSPECT: the id was real, the
+   * indexes were merely late. Closing it properly means either awaiting the
+   * ingestion of the dispatch that owns the id, or parking the prompt until the
+   * lane materializes — both are behaviour changes beyond this amendment.
+   */
+  #attributePrompt(
+    session: PodSession,
+    prompt: PermissionPrompt,
+  ): { laneId: LaneId; attribution: 'agent' | 'toolUse' | 'matriarch' } {
+    const { agentId, toolUseId } = prompt;
+
+    if (agentId !== undefined) {
+      for (const [laneId, banked] of session.router.agentIds()) {
+        if (banked === agentId) return { laneId, attribution: 'agent' };
+      }
+      const persisted = this.#laneByAgentIdFromStore(session, agentId);
+      if (persisted !== null) return { laneId: persisted, attribution: 'agent' };
+    }
+
+    if (toolUseId !== undefined) {
+      const routed = session.router.getLaneByToolUseId(toolUseId);
+      if (routed !== null) return { laneId: routed.id, attribution: 'toolUse' };
+      const stored = this.#store.getLaneByToolUseId(session.podId, toolUseId);
+      if (stored !== null) return { laneId: stored.id, attribution: 'toolUse' };
+    }
+
+    // Drift only. An unattributed prompt is the Matriarch's and says nothing.
+    // Both ids are named when both were supplied, so the log says which key
+    // actually missed rather than leaving the reader to guess.
+    const unresolved = [
+      ...(agentId !== undefined ? [`agentId ${agentId}`] : []),
+      ...(toolUseId !== undefined ? [`toolUseId ${toolUseId}`] : []),
+    ];
+    if (unresolved.length > 0) {
+      this.#log.warn(
+        `[orcastrate] permission request ${prompt.requestId} for pod ${session.podId} named ${unresolved.join(' and ')}, which matches no lane in this Pod; attributed to the Matriarch`,
+      );
+    }
+
+    return { laneId: session.matriarchLaneId, attribution: 'matriarch' };
+  }
+
+  /**
+   * The store has no `getLaneByAgentId` — the contract does not declare one and
+   * a contract change was not in scope for this amendment — so the persisted
+   * lookup goes through `listLanes`, which is already indexed by Pod. It runs
+   * only when the router misses, which is the beach-then-reconnect case where
+   * the router's in-memory index was rebuilt from persisted lanes and the id
+   * was never re-banked.
+   */
+  #laneByAgentIdFromStore(session: PodSession, agentId: AgentId): LaneId | null {
+    for (const lane of this.#store.listLanes(session.podId)) {
+      if (lane.agentId === agentId) return lane.id;
+    }
+    return null;
   }
 
   #settle(

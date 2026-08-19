@@ -1,5 +1,7 @@
 /**
- * CONTRACT — EventStore. Frozen at Gate 2.
+ * CONTRACT — EventStore. Frozen at Gate 2; amended at Gate 3 (E1 only) with the
+ * user's approval: `EventStoreError` is a real class rather than an ambient
+ * declaration. Nothing else in this file changed, and it is frozen again.
  *
  * Boundary between: T3 (implementer, SQLite) and T4 PodRunner / T5 LaneRouter /
  * T7 IPC handlers (consumers), plus sub-session 2's transcript hydration.
@@ -27,9 +29,33 @@ import type {
 // Errors
 // ---------------------------------------------------------------------------
 
-/** Base class for every error this module throws. Consumers may catch this. */
-export declare class EventStoreError extends Error {
+/**
+ * Base class for every error this module throws. Consumers may catch this and
+ * narrow with `instanceof`.
+ *
+ * AMENDED at Gate 3 (E1). This was `export declare class`, which is an
+ * *ambient* declaration: TypeScript emits no runtime value for it, so a
+ * consumer writing `catch (e) { if (e instanceof EventStoreError) ... }`
+ * against an import of THIS module got `undefined is not a constructor`. It is
+ * now a real exported class, and this file is its single definition — the
+ * implementation in `src/main/store/errors.ts` re-exports it rather than
+ * declaring a parallel one, so the two cannot drift and no compile-time
+ * assignability pin is needed.
+ *
+ * A contract file carrying a runtime value is not new here: `SCHEMA_TABLES`
+ * below and `EVENT_CHANNELS` in `./ipc` are both emitted values.
+ */
+export class EventStoreError extends Error {
   readonly code: EventStoreErrorCode;
+
+  constructor(code: EventStoreErrorCode, message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'EventStoreError';
+    this.code = code;
+    // Keeps `instanceof` correct when a consumer's bundler transpiles this
+    // down to an ES5-style constructor function.
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 }
 
 export type EventStoreErrorCode =

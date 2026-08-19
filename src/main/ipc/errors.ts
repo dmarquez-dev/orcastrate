@@ -7,11 +7,14 @@
  * therefore turned into data here, and every path through `toIpcError` yields
  * one of the nine `IpcErrorCode`s the frozen contract documents.
  *
- * The two concrete error classes are imported from the IMPLEMENTATION modules,
- * never from the contracts. `src/shared/contracts/{event-store,pod-runner}.ts`
- * declare `EventStoreError` / `PodRunnerError` with `export declare class`,
- * which is ambient: TypeScript emits no runtime value, so `instanceof` against
- * a contract import is always false at runtime.
+ * The two `instanceof` checks below are safe from either import path. Until
+ * Gate 3 they were not: `src/shared/contracts/{event-store,pod-runner}.ts`
+ * declared `EventStoreError` / `PodRunnerError` with `export declare class`,
+ * which is ambient — TypeScript emitted no runtime value, so `instanceof`
+ * against a contract import threw. Amendment E1 made both real exported
+ * classes, and the implementation modules now RE-EXPORT the contract's class
+ * rather than declaring a parallel one, so there is exactly one constructor per
+ * error type and the import path here is a matter of layering, not correctness.
  */
 
 import type { IpcError, IpcErrorCode, IpcResult } from '../../shared/contracts/ipc';

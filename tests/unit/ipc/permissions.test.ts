@@ -389,3 +389,201 @@ describe('only permission:respond can settle a decision (criterion 9)', () => {
     expect((await decision) as { behavior: string }).toMatchObject({ behavior: 'deny' });
   });
 });
+
+/**
+ * AMENDMENT E5 — a prompt is pushed to the lane that raised it.
+ *
+ * Before this amendment `PermissionPrompt` carried no identifier, so every
+ * prompt was pushed with the Matriarch's `laneId` and design-spec 5.4's "inline
+ * card in the lane that asked" was unimplementable for a Calf.
+ *
+ * These tests drive the WHOLE path: `sdk.callCanUseTool(toolName, input,
+ * options)` invokes the `canUseTool` the production PodRunner registered with
+ * the SDK, PodRunner adapts the three arguments into a `PermissionPrompt`
+ * carrying the ids, and PodManager resolves the owning lane against a real
+ * router and a real store before pushing. Nothing is stubbed between the SDK
+ * boundary and the push.
+ */
+describe('a prompt is attributed to the lane that raised it (E5)', () => {
+  /** A Pod driven far enough to own Calf lanes, one of them with an agentId. */
+  async function podWithCalf(): Promise<{
+    h: Harness;
+    podId: string;
+    calfLaneId: string;
+    calfAgentId: string;
+    calfToolUseId: string;
+    matriarchLaneId: string;
+  }> {
+    const h = harness();
+    const podId = await openPod(h);
+    await driveFixture(h, podId, '01-parallel-dispatch.ndjson');
+
+    const calf = h.store
+      .listLanes(podId)
+      .find((lane) => lane.kind === 'calf' && lane.agentId !== null && lane.toolUseId !== null);
+    if (calf?.agentId == null || calf.toolUseId == null) {
+      throw new Error('fixture produced no Calf carrying both an agentId and a toolUseId');
+    }
+
+    const matriarchLaneId = h.store.getMatriarchLane(podId)?.id;
+    if (matriarchLaneId === undefined) throw new Error('no Matriarch lane');
+
+    return {
+      h,
+      podId,
+      calfLaneId: calf.id,
+      calfAgentId: calf.agentId,
+      calfToolUseId: calf.toolUseId,
+      matriarchLaneId,
+    };
+  }
+
+  /**
+   * Raises a prompt exactly as the CLI does — three positional arguments, with
+   * whatever `options` the caller wants to attribute it by. `toolUseID` is
+   * pinned to `''` unless named, so "no attribution" means no attribution
+   * rather than the harness default `toolu_test`.
+   */
+  function raise(
+    h: Harness,
+    podId: string,
+    requestId: string,
+    attribution: { agentID?: string; toolUseID?: string } = {},
+  ): Promise<unknown> {
+    return h
+      .sdk(podId)
+      .callCanUseTool('Bash', { command: 'ls' }, { requestId, toolUseID: '', ...attribution });
+  }
+
+  function lastRequested(h: Harness): PermissionRequestedPush | undefined {
+    const all = h.pushesOn<PermissionRequestedPush>(EVENT_CHANNELS.permissionRequested);
+    return all[all.length - 1];
+  }
+
+  async function allow(h: Harness, podId: string, requestId: string): Promise<void> {
+    const answered = await h.invoke(INVOKE_CHANNELS.permissionRespond, {
+      podId,
+      requestId,
+      decision: 'allow',
+    });
+    expect(answered.ok).toBe(true);
+  }
+
+  it('a prompt raised inside a Calf is pushed with that Calf`s laneId', async () => {
+    const { h, podId, calfLaneId, calfAgentId, matriarchLaneId } = await podWithCalf();
+
+    const decision = raise(h, podId, 'req-calf', { agentID: calfAgentId });
+    await tick();
+
+    const pushed = lastRequested(h);
+    expect(pushed?.requestId).toBe('req-calf');
+    expect(pushed?.laneId).toBe(calfLaneId);
+    // The load-bearing half: it is NOT the old Matriarch-for-everything answer.
+    expect(pushed?.laneId).not.toBe(matriarchLaneId);
+
+    await allow(h, podId, 'req-calf');
+    await decision;
+  });
+
+  it('a prompt carrying a Calf`s dispatch toolUseId resolves to that Calf too', async () => {
+    const { h, podId, calfLaneId, calfToolUseId, matriarchLaneId } = await podWithCalf();
+
+    const decision = raise(h, podId, 'req-tooluse', { toolUseID: calfToolUseId });
+    await tick();
+
+    expect(lastRequested(h)?.laneId).toBe(calfLaneId);
+    expect(lastRequested(h)?.laneId).not.toBe(matriarchLaneId);
+
+    await allow(h, podId, 'req-tooluse');
+    await decision;
+  });
+
+  it('a prompt with no attribution falls back to the Matriarch', async () => {
+    const { h, podId, matriarchLaneId } = await podWithCalf();
+
+    const decision = raise(h, podId, 'req-none');
+    await tick();
+
+    // Calves exist and are not chosen by accident: the ABSENCE of an id is what
+    // routes this to the Matriarch.
+    expect(h.store.listLanes(podId).some((lane) => lane.kind === 'calf')).toBe(true);
+    expect(lastRequested(h)?.requestId).toBe('req-none');
+    expect(lastRequested(h)?.laneId).toBe(matriarchLaneId);
+
+    await allow(h, podId, 'req-none');
+    await decision;
+  });
+
+  it('an empty-string id counts as no attribution, not as a lookup for ""', async () => {
+    const { h, podId, matriarchLaneId } = await podWithCalf();
+
+    const decision = raise(h, podId, 'req-empty', { agentID: '   ', toolUseID: '' });
+    await tick();
+
+    expect(lastRequested(h)?.laneId).toBe(matriarchLaneId);
+
+    await allow(h, podId, 'req-empty');
+    await decision;
+  });
+
+  it('an id that names no lane in this Pod falls back to the Matriarch, not to nothing', async () => {
+    const { h, podId, matriarchLaneId } = await podWithCalf();
+
+    const decision = raise(h, podId, 'req-stale', {
+      agentID: 'a0000000000000000',
+      toolUseID: 'toolu_01NoSuchDispatchAtAll',
+    });
+    await tick();
+
+    expect(lastRequested(h)?.requestId).toBe('req-stale');
+    expect(lastRequested(h)?.laneId).toBe(matriarchLaneId);
+
+    // The behaviour is the same as the no-id case, so only the log tells the
+    // two apart. The detector must FIRE here — an id the CLI supplied that
+    // matches nothing in this Pod is drift, not routine — and it must name
+    // both ids so the warning is actionable.
+    expect(h.logged).toHaveLength(1);
+    expect(h.logged[0]?.level).toBe('warn');
+    const message = String(h.logged[0]?.args[0]);
+    expect(message).toContain('req-stale');
+    expect(message).toContain('agentId a0000000000000000');
+    expect(message).toContain('toolUseId toolu_01NoSuchDispatchAtAll');
+    expect(message).toContain('attributed to the Matriarch');
+
+    await allow(h, podId, 'req-stale');
+    await decision;
+  });
+
+  it('the Matriarch fallback is silent when no id was supplied, so the warn stays a signal', async () => {
+    const { h, podId } = await podWithCalf();
+
+    // Same destination as the test above, deliberately different observability:
+    // a detector that fires on the common path is noise, which is exactly the
+    // failure `#routeLane` was corrected for earlier in this session.
+    const decision = raise(h, podId, 'req-quiet');
+    await tick();
+
+    expect(lastRequested(h)?.laneId).toBe(h.store.getMatriarchLane(podId)?.id);
+    expect(h.logged, JSON.stringify(h.logged)).toEqual([]);
+
+    await allow(h, podId, 'req-quiet');
+    await decision;
+  });
+
+  it('attribution cannot cross Pods: another Pod`s agentId is not adopted', async () => {
+    const first = await podWithCalf();
+    const secondPodId = await openPod(first.h, { title: 'Second Pod' });
+    const secondMatriarch = first.h.store.getMatriarchLane(secondPodId)?.id;
+
+    const decision = raise(first.h, secondPodId, 'req-cross', { agentID: first.calfAgentId });
+    await tick();
+
+    const pushed = lastRequested(first.h);
+    expect(pushed?.podId).toBe(secondPodId);
+    expect(pushed?.laneId).toBe(secondMatriarch);
+    expect(pushed?.laneId).not.toBe(first.calfLaneId);
+
+    await allow(first.h, secondPodId, 'req-cross');
+    await decision;
+  });
+});

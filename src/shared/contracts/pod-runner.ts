@@ -1,5 +1,11 @@
 /**
- * CONTRACT — PodRunner. Frozen at Gate 2.
+ * CONTRACT — PodRunner. Frozen at Gate 2; amended at Gate 3 (E1, E2, E5) with
+ * the user's approval. The amendments are marked inline where they land:
+ *   E1 — `PodRunnerError` is a real class, not an ambient declaration.
+ *   E2 — the SDK's `canUseTool` signature and the foreground-dispatch
+ *        requirement are recorded as measured against CLI 2.1.235.
+ *   E5 — `PermissionPrompt` carries optional attribution ids.
+ * Nothing else in this file changed, and it is frozen again.
  *
  * Boundary between: T4 (implementer) and T7 IPC handlers / sub-session 2's
  * Pod lifecycle UI.
@@ -17,6 +23,7 @@ import type {
   PermissionMode,
   PodId,
   PodStatus,
+  ToolUseId,
 } from './events';
 
 // ---------------------------------------------------------------------------
@@ -51,6 +58,10 @@ export interface PodRunnerOptions {
    * lanes receive nothing. Source: resolved-unknowns.md correction #1.
    * Present in the contract as a required-true flag so the omission cannot
    * recur silently.
+   *
+   * NOT SUFFICIENT ON ITS OWN — see FOREGROUND DISPATCH below. Forwarding is
+   * necessary but useless if the dispatch went to the background, because a
+   * background dispatch emits no sub-agent messages to forward.
    */
   forwardSubagentText: true;
 
@@ -58,9 +69,57 @@ export interface PodRunnerOptions {
   pathToClaudeCodeExecutable?: string;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * FOREGROUND DISPATCH — a binding implementation requirement (amendment E2)
+ * ---------------------------------------------------------------------------
+ * `AgentInput.run_in_background` defaults to TRUE in CLI 2.1.235 ("Agents run
+ * in the background by default", `sdk-tools.d.ts`). A background dispatch
+ * returns `{"isAsync":true,"status":"async_launched"}` at once and forwards
+ * ZERO sub-agent messages, so every Calf lane in the product renders empty.
+ *
+ * PodRunner MUST therefore force `run_in_background: false` on every dispatch.
+ * The implementation does it with a `PreToolUse` hook that rewrites the tool
+ * input (`src/main/pod/options.ts`), backed by a system-prompt directive as a
+ * second, weaker lever. Hooks fire for every tool call, including ones
+ * auto-approved without a permission prompt, so unlike `canUseTool` the hook
+ * does not depend on the permission path being taken.
+ *
+ * THE HOOK IS NOT DECORATIVE — DO NOT REMOVE IT. This was verified live
+ * against CLI 2.1.235 by a 2x2 probe: the control run with no hook produced
+ * ZERO sub-agent messages; the hook-only run produced six. An earlier note in
+ * `options.ts` called the hook's live effect unverified; that note is
+ * superseded by this measurement.
+ *
+ * The dispatch tool is named `Agent` in CLI 2.1.235. `Task` is the older name
+ * and is still accepted, so a name check must match BOTH
+ * (`DISPATCH_TOOL_NAMES` in `src/main/pod/options.ts`). The comments in
+ * `./events` and `./lane-router` that used to say `name === 'Task'` were
+ * corrected in the same amendment; a check written against `'Task'` alone
+ * opens zero Calf lanes on 2.1.235 and fails silently.
+ */
+
 // ---------------------------------------------------------------------------
 // Permission callback (spec 5.4)
 // ---------------------------------------------------------------------------
+
+/**
+ * The SDK-side reality, recorded here so nobody re-derives it from this file's
+ * abstraction (amendment E2, measured against CLI 2.1.235 and recorded in
+ * `tests/fixtures/protocol/findings.json`, fixture `06-permission-prompt.ndjson`).
+ *
+ * The SDK's `canUseTool` takes THREE POSITIONAL ARGUMENTS —
+ * `(toolName, input, options)` — not `(request, { signal })`, which is how an
+ * earlier draft of this contract described it. `options` carries
+ * `agentID, blockedPath, decisionReason, description, displayName, requestId,
+ * signal, suggestions, title, toolUseID`.
+ *
+ * `PermissionPrompt` below is deliberately NOT that shape: it is the
+ * Orcastrate-facing abstraction, one object in and one `PermissionAnswer` out.
+ * PodRunner owns the adaptation, and the three-argument form must not leak
+ * past it. What changed in this amendment is that the adaptation now carries
+ * the attribution ids across instead of discarding them (E5).
+ */
 
 export interface PermissionPrompt {
   requestId: string;
@@ -68,6 +127,33 @@ export interface PermissionPrompt {
   input: unknown;
   /** Aborts if the turn is interrupted while the card is open. */
   signal: AbortSignal;
+
+  /**
+   * AMENDMENT E5 — attribution. Both fields are OPTIONAL, so this change is
+   * additive and every existing typed caller keeps compiling.
+   *
+   * Without them a prompt could not be traced to the Calf that raised it, and
+   * `PodManager` had to push every `push:permissionRequested` with the
+   * Matriarch's `laneId` — which makes design-spec 5.4's "inline card in the
+   * lane that asked" unimplementable for any sub-agent. The information was
+   * always present on the SDK's `options` argument and was being dropped.
+   *
+   * The sub-agent that raised the prompt, from `options.agentID`. Absent when
+   * the Matriarch raised it, and absent when the CLI has not yet surfaced an
+   * id. This is the PRIMARY attribution key: it names the agent directly.
+   */
+  agentId?: AgentId;
+
+  /**
+   * The `tool_use_id` of the call being permitted, from `options.toolUseID`.
+   *
+   * SECONDARY, and weaker than `agentId`: it identifies the tool call, not the
+   * lane. It resolves to a lane only when the call being permitted is itself
+   * the dispatch that opened one, so a consumer must try `agentId` first and
+   * must tolerate a miss. Also useful as a correlation key against the
+   * `permission_request` event this prompt produces.
+   */
+  toolUseId?: ToolUseId;
 }
 
 export type PermissionAnswer =
@@ -117,8 +203,27 @@ export interface PodRunnerHandlers {
 // Errors
 // ---------------------------------------------------------------------------
 
-export declare class PodRunnerError extends Error {
+/**
+ * Base class for every error PodRunner throws. Consumers may catch this and
+ * narrow with `instanceof`.
+ *
+ * AMENDED at Gate 3 (E1). This was `export declare class` — an *ambient*
+ * declaration that TypeScript emits no runtime value for, so
+ * `e instanceof PodRunnerError` against an import of THIS module failed with
+ * `undefined is not a constructor`. It is now a real exported class and this
+ * file is its single definition; `src/main/pod/errors.ts` re-exports it
+ * instead of declaring a parallel class pinned by an assignability check.
+ */
+export class PodRunnerError extends Error {
   readonly code: PodRunnerErrorCode;
+
+  constructor(code: PodRunnerErrorCode, message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = 'PodRunnerError';
+    this.code = code;
+    // Keeps `instanceof` correct under an ES5-style transpile.
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
 }
 
 export type PodRunnerErrorCode =

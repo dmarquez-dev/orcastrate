@@ -1,35 +1,17 @@
 /**
- * PodRunner error type and the SDK-failure -> contract error-code mapping.
+ * The SDK-failure -> contract error-code mapping.
  *
- * NOTE ON THE CONTRACT: `src/shared/contracts/pod-runner.ts` declares
- * `PodRunnerError` with `export declare class`, which is an *ambient*
- * declaration — TypeScript emits no runtime value for it, so nothing can `new`
- * it or `instanceof` it at runtime from that module. The concrete class
- * therefore lives here, mirroring what T3 did for `EventStoreError` in
- * `src/main/store/errors.ts`. The contract file is frozen, so this is reported
- * as a finding rather than fixed there. `assertContractShape` below keeps this
- * class structurally assignable to the declared one, so the two cannot drift.
+ * `PodRunnerError` itself is defined in `src/shared/contracts/pod-runner.ts`
+ * and only re-exported here. Amendment E1 turned that declaration from an
+ * ambient `export declare class` (no emitted runtime value, so `instanceof`
+ * against the contract import threw) into a real class, in the same move that
+ * fixed `EventStoreError`. The parallel class this file used to declare and its
+ * compile-time assignability pin are gone: one definition, nothing to drift.
  */
 
-import type {
-  PodRunnerError as ContractPodRunnerError,
-  PodRunnerErrorCode,
-} from '../../shared/contracts/pod-runner';
+import { PodRunnerError } from '../../shared/contracts/pod-runner';
 
-export class PodRunnerError extends Error {
-  readonly code: PodRunnerErrorCode;
-
-  constructor(code: PodRunnerErrorCode, message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = 'PodRunnerError';
-    this.code = code;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
-/** Compile-time proof that this class still satisfies the frozen declaration. */
-const assertContractShape: ContractPodRunnerError = new PodRunnerError('NOT_RUNNING', 'shape check');
-void assertContractShape;
+export { PodRunnerError };
 
 /**
  * Pulls the child-process exit code out of whatever the SDK throws.

@@ -31,6 +31,7 @@ import {
   abortedDenial,
   handlerFailureDenial,
   raceAbort,
+  toPermissionPrompt,
   toPermissionResult,
 } from './permissions';
 import type { CanUseToolOptions } from './permissions';
@@ -282,7 +283,9 @@ class PodRunnerImpl implements PodRunner {
   // -------------------------------------------------------------------------
 
   #makeCanUseTool(onPermission: PermissionHandler): CanUseTool {
-    // DIVERGENCE: three positional arguments, per the measured SDK signature.
+    // Three positional arguments, per the measured SDK signature — which the
+    // contract now records itself (amendment E2), so this is no longer a
+    // divergence from it.
     return async (toolName, input, options) => {
       const opts = options as unknown as CanUseToolOptions;
 
@@ -297,12 +300,11 @@ class PodRunnerImpl implements PodRunner {
         toolUseId: opts.toolUseID ?? null,
       });
 
-      const prompt: PermissionPrompt = {
-        requestId: opts.requestId,
-        toolName,
-        input,
-        signal: opts.signal,
-      };
+      // E5: the ids the SDK hands us are carried across, not dropped, so a
+      // prompt raised inside a Calf can be attributed to that Calf downstream.
+      // `toPermissionPrompt` is the single adapter between the SDK's three
+      // arguments and the contract's one-object abstraction.
+      const prompt: PermissionPrompt = toPermissionPrompt(toolName, input, opts);
 
       try {
         const raced = await raceAbort(Promise.resolve(onPermission(prompt)), opts.signal);

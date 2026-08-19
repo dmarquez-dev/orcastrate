@@ -18,4 +18,8 @@ export {
   forceForegroundDispatch,
   isAllowedPermissionMode,
 } from './options';
-export { toPermissionResult, InvalidPermissionAnswerError } from './permissions';
+export {
+  toPermissionPrompt,
+  toPermissionResult,
+  InvalidPermissionAnswerError,
+} from './permissions';

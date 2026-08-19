@@ -1,10 +1,11 @@
 /**
  * canUseTool wiring. Acceptance criterion 5.
  *
- * DIVERGENCE UNDER TEST: the frozen contract types the SDK callback as
- * `(request, { signal })`. The real one is `(toolName, input, options)` —
- * measured in probe run 06 and matching `sdk.d.ts` line 209. These tests drive
- * the real three-argument shape; the `PermissionHandler` abstraction the
+ * SIGNATURE UNDER TEST: the SDK callback is `(toolName, input, options)` —
+ * measured in probe run 06 and matching `sdk.d.ts` line 209. An earlier draft
+ * of the contract typed it `(request, { signal })`; amendment E2 corrected the
+ * contract, so this is no longer a divergence, and these tests drive the same
+ * three-argument shape they always did. The `PermissionHandler` abstraction the
  * contract defines is what the runner's caller still sees.
  */
 
@@ -13,6 +14,10 @@ import { describe, expect, it } from 'vitest';
 import findings from '../../fixtures/protocol/findings.json';
 import { createPodRunnerWith, InvalidPermissionAnswerError } from '../../../src/main/pod';
 import { toPermissionResult } from '../../../src/main/pod';
+// Imported from the file rather than the barrel: `src/main/pod/index.ts` is
+// outside this task's ownership set, so the new export could not be added to
+// it. See the report.
+import { toPermissionPrompt } from '../../../src/main/pod/permissions';
 import type {
   PermissionAnswer,
   PermissionPrompt,
@@ -197,5 +202,52 @@ describe('permission activity is recorded as synthetic events', () => {
     release({ decision: 'allow' });
     await pending;
     expect(runner.status).toBe('running');
+  });
+});
+
+/**
+ * AMENDMENT E5 — the adapter that carries the SDK's attribution ids into the
+ * contract's `PermissionPrompt`. `options.agentID` and `options.toolUseID` were
+ * previously read for the SDK-facing result only and dropped on the way in,
+ * which is why a prompt could not be traced to the Calf that raised it.
+ */
+describe('toPermissionPrompt carries the attribution ids (E5)', () => {
+  const base = {
+    signal: new AbortController().signal,
+    requestId: 'req-77',
+  };
+
+  it('copies agentID and toolUseID onto the prompt', () => {
+    const prompt = toPermissionPrompt(
+      'Bash',
+      { command: 'ls' },
+      { ...base, agentID: 'a3d3c9443c6195211', toolUseID: 'toolu_01Abc' },
+    );
+    expect(prompt).toEqual({
+      requestId: 'req-77',
+      toolName: 'Bash',
+      input: { command: 'ls' },
+      signal: base.signal,
+      agentId: 'a3d3c9443c6195211',
+      toolUseId: 'toolu_01Abc',
+    });
+  });
+
+  it('OMITS an absent id rather than setting it to undefined', () => {
+    const prompt = toPermissionPrompt('Bash', {}, { ...base });
+    expect('agentId' in prompt).toBe(false);
+    expect('toolUseId' in prompt).toBe(false);
+  });
+
+  it('treats an empty or whitespace id as absent', () => {
+    const prompt = toPermissionPrompt('Bash', {}, { ...base, agentID: '', toolUseID: '   ' });
+    expect('agentId' in prompt).toBe(false);
+    expect('toolUseId' in prompt).toBe(false);
+  });
+
+  it('keeps the fields optional, so an unattributed prompt is still a valid prompt', () => {
+    const prompt: PermissionPrompt = toPermissionPrompt('Read', { file_path: 'x' }, { ...base });
+    expect(prompt.requestId).toBe('req-77');
+    expect(prompt.signal).toBeInstanceOf(AbortSignal);
   });
 });

@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import type { PodRunnerErrorCode } from '../../../src/shared/contracts/pod-runner';
+import { PodRunnerError as ContractPodRunnerError } from '../../../src/shared/contracts/pod-runner';
 import { createPodRunnerWith, PodRunnerError } from '../../../src/main/pod';
 import { makeFakeSdk, podOptions, recordHandlers, tick } from './helpers';
 
@@ -150,5 +151,42 @@ describe('every documented error code is reachable (criterion 9)', () => {
   it('covers every code in the contract union', () => {
     // Guard against a code being added to the contract with no provocation.
     expect(ALL_CODES).toHaveLength(5);
+  });
+});
+
+/**
+ * AMENDMENT E1 — the mirror of the `EventStoreError` case. The contract used to
+ * declare `PodRunnerError` with `export declare class`, which emits no runtime
+ * value; the contract now declares a real class and is its single definition.
+ */
+describe('PodRunnerError is a runtime value on the contract module (E1)', () => {
+  it('the contract export is a constructor, not an ambient declaration', () => {
+    expect(typeof ContractPodRunnerError).toBe('function');
+    expect(ContractPodRunnerError.prototype).toBeInstanceOf(Error);
+  });
+
+  it('instanceof works against the contract import', () => {
+    const err: unknown = new ContractPodRunnerError('SPAWN_FAILED', 'no binary');
+    expect(err).toBeInstanceOf(ContractPodRunnerError);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as InstanceType<typeof ContractPodRunnerError>).code).toBe('SPAWN_FAILED');
+  });
+
+  it('the module barrel re-exports the SAME class, so neither import misses', () => {
+    expect(PodRunnerError).toBe(ContractPodRunnerError);
+  });
+
+  it('an error thrown by the real runner is instanceof the contract class', async () => {
+    const runner = createPodRunnerWith(makeFakeSdk({ autoInitialize: true }).bridge)(
+      podOptions({ cwd: join(process.cwd(), 'no-such-directory-ffee02') }),
+    );
+    let thrown: unknown;
+    try {
+      await runner.start(recordHandlers(), async () => ({ decision: 'allow' }));
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(ContractPodRunnerError);
+    expect((thrown as InstanceType<typeof ContractPodRunnerError>).code).toBe('CWD_MISSING');
   });
 });

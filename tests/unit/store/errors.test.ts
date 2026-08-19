@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EventStoreErrorCode } from '../../../src/shared/contracts/event-store';
+import { EventStoreError as ContractEventStoreError } from '../../../src/shared/contracts/event-store';
 import { EventStoreError, openEventStore } from '../../../src/main/store';
 import {
   catchStoreError,
@@ -134,5 +135,42 @@ describe('close()', () => {
     const store = memoryStore();
     store.close();
     expect(() => store.close()).not.toThrow();
+  });
+});
+
+/**
+ * AMENDMENT E1. `EventStoreError` used to be `export declare class` in the
+ * contract — an ambient declaration TypeScript emits no value for — so a
+ * consumer importing it from the contract and writing `e instanceof
+ * EventStoreError` got `undefined is not a constructor` at runtime. The
+ * contract now declares a real class and is the single definition.
+ */
+describe('EventStoreError is a runtime value on the contract module (E1)', () => {
+  it('the contract export is a constructor, not an ambient declaration', () => {
+    expect(typeof ContractEventStoreError).toBe('function');
+    expect(ContractEventStoreError.prototype).toBeInstanceOf(Error);
+  });
+
+  it('instanceof works against the contract import', () => {
+    const err: unknown = new ContractEventStoreError('CONFLICT', 'dup');
+    expect(err).toBeInstanceOf(ContractEventStoreError);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as InstanceType<typeof ContractEventStoreError>).code).toBe('CONFLICT');
+  });
+
+  it('the module barrel re-exports the SAME class, so neither import misses', () => {
+    expect(EventStoreError).toBe(ContractEventStoreError);
+  });
+
+  it('an error thrown by the real store is instanceof the contract class', () => {
+    const store = memoryStore();
+    let thrown: unknown;
+    try {
+      store.deletePod('ghost');
+    } catch (err) {
+      thrown = err;
+    }
+    expect(thrown).toBeInstanceOf(ContractEventStoreError);
+    expect((thrown as InstanceType<typeof ContractEventStoreError>).code).toBe('NOT_FOUND');
   });
 });

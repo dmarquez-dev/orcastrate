@@ -223,6 +223,35 @@ describe('lane persistence hazards', () => {
     expect(h.logged, JSON.stringify(h.logged)).toEqual([]);
   });
 
+  it('logs no drift warning for permission prompts raised on the normal path', async () => {
+    const h = harness();
+    const podId = await openPod(h);
+    await driveFixture(h, podId, '01-parallel-dispatch.ndjson');
+
+    const calf = h.store
+      .listLanes(podId)
+      .find((lane) => lane.kind === 'calf' && lane.agentId !== null);
+    expect(calf?.agentId, 'fixture produced no Calf carrying an agentId').toBeTruthy();
+
+    // Both normal shapes, in one drive: an unattributed prompt (the Matriarch
+    // asked) and an attributed one that resolves (a Calf asked). Neither is
+    // drift, so the attribution fallback's detector must not fire for either.
+    const prompts = [
+      { requestId: 'clean-matriarch', toolUseID: '' },
+      { requestId: 'clean-calf', toolUseID: '', agentID: calf?.agentId as string },
+    ];
+    for (const { requestId, ...attribution } of prompts) {
+      const decision = h
+        .sdk(podId)
+        .callCanUseTool('Bash', { command: 'ls' }, { requestId, ...attribution });
+      await tick();
+      await h.invoke(INVOKE_CHANNELS.permissionRespond, { podId, requestId, decision: 'allow' });
+      await decision;
+    }
+
+    expect(h.logged, JSON.stringify(h.logged)).toEqual([]);
+  });
+
   it('creates lane rows from payload.lane.id, not from the carrying event laneId', async () => {
     const h = harness();
     const podId = await openPod(h);

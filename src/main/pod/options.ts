@@ -18,14 +18,17 @@ import type { PodRunnerOptions } from '../../shared/contracts/pod-runner';
 /**
  * The permission modes Orcastrate exposes.
  *
- * This is a PRODUCT restriction, not a platform limit. The contract comment on
- * `PermissionMode` says "the SDK enum has no `acceptEdits`"; T2 measured the
- * real CLI 2.1.235 and that is FALSE — it accepts
+ * This is a PRODUCT restriction, not a platform limit. T2 measured the real
+ * CLI 2.1.235: it accepts
  * `default, plan, acceptEdits, bypassPermissions, dontAsk, auto, manual`
  * (verbatim commander rejection quoted in findings.json `optionsVerified`).
- * The three-value restriction is kept because it is what the frozen contract's
- * `PermissionMode` type admits and what the UI is built against; the false
- * justification is not repeated.
+ * The three-value restriction is kept because it is what the contract's
+ * `PermissionMode` type admits and what the UI is built against.
+ *
+ * The contract used to justify the union by claiming "the SDK enum has no
+ * `acceptEdits`", which was false; amendment E2 corrected it at the source, so
+ * `PermissionMode` in `src/shared/contracts/events.ts` and this comment now
+ * agree that widening the set is a product decision, not a bug fix.
  */
 export const ALLOWED_PERMISSION_MODES: readonly PermissionMode[] = [
   'default',
@@ -104,10 +107,17 @@ export const DISPATCH_TOOL_NAMES: readonly string[] = ['Agent', 'Task'];
  *     itself.
  *
  * Lever 1 is the one that should carry the weight; lever 2 is the belt to its
- * braces and costs a few tokens. NOT VERIFIED against the live CLI in this
- * task — acceptance criterion 11 forbids spawning the real binary, so what is
- * proven here is that the hook is registered and that its callback rewrites the
- * input. See the report's advisory.
+ * braces and costs a few tokens.
+ *
+ * VERIFIED against the live CLI. An earlier revision of this comment said "NOT
+ * VERIFIED ... acceptance criterion 11 forbids spawning the real binary"; that
+ * is superseded. The measurement and its numbers are recorded once, in the
+ * FOREGROUND DISPATCH block of `src/shared/contracts/pod-runner.ts` — read it
+ * there rather than trusting a copy here. `probe/verify-foreground.ts` is the
+ * run that produced it, and it drives THIS function.
+ *
+ * DO NOT REMOVE THE HOOK on the theory that the directive alone is enough. The
+ * directive asks the model; the hook does not ask anyone.
  */
 export const FOREGROUND_DISPATCH_DIRECTIVE = [
   'Subagent dispatch policy for this session (Orcastrate):',

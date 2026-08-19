@@ -1,36 +1,20 @@
 /**
- * EventStore error type and the SQLite -> contract error-code mapping.
+ * The SQLite -> contract error-code mapping.
  *
- * NOTE ON THE CONTRACT: `src/shared/contracts/event-store.ts` declares
- * `EventStoreError` with `export declare class`, which is an *ambient*
- * declaration — TypeScript emits no runtime value for it, so nothing can
- * `new` it or `instanceof` it at runtime from that module. The concrete class
- * therefore lives here. The contract file is frozen, so this is reported as a
- * finding rather than fixed there. `assertContractShape` below keeps this class
- * structurally assignable to the declared one, so the two cannot drift.
+ * `EventStoreError` itself is defined in `src/shared/contracts/event-store.ts`
+ * and only re-exported here. Amendment E1 turned that declaration from an
+ * ambient `export declare class` (which emitted no runtime value, so nothing
+ * could `new` it or `instanceof` it) into a real class. The parallel class this
+ * file used to declare, and the compile-time assignability pin that kept the
+ * two from drifting, are gone with it: there is now exactly one definition, so
+ * there is nothing to keep in sync. Existing importers of
+ * `src/main/store` are unaffected — the re-export keeps that path working.
  */
 
-import type {
-  EventStoreError as ContractEventStoreError,
-  EventStoreErrorCode,
-} from '../../shared/contracts/event-store';
+import type { EventStoreErrorCode } from '../../shared/contracts/event-store';
+import { EventStoreError } from '../../shared/contracts/event-store';
 
-export class EventStoreError extends Error {
-  readonly code: EventStoreErrorCode;
-
-  constructor(code: EventStoreErrorCode, message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = 'EventStoreError';
-    this.code = code;
-    // Keeps `instanceof` correct when this file is transpiled down to ES5-style
-    // constructor functions by a consumer's bundler.
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
-/** Compile-time proof that this class still satisfies the frozen declaration. */
-const assertContractShape: ContractEventStoreError = new EventStoreError('IO', 'shape check');
-void assertContractShape;
+export { EventStoreError };
 
 /** Shape of a `better-sqlite3` SqliteError, without depending on the stale types. */
 interface SqliteLikeError {
