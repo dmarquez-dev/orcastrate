@@ -42,6 +42,7 @@ import type {
 } from '../contracts/renderer-state';
 
 import { highWaterSeq } from './merge';
+import { PanelProvider } from './panel-provider';
 import { orderLanes, orderPods } from './ordering';
 import { WorkspaceStateStore, type PodRuntimeState, type WorkspaceState } from './store';
 
@@ -80,9 +81,14 @@ function resolveApi(supplied: OrcastrateApi | undefined): OrcastrateApi | null {
 // ---------------------------------------------------------------------------
 
 export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): ReactNode {
+  // Resolved ONCE, here, and handed to both stores. `PanelProvider` never
+  // reaches for the bridge itself, which is what keeps the whole state layer
+  // down to a single reference to it.
+  const resolved = useMemo(() => resolveApi(api), [api]);
+
   // One store per api identity. Constructing it never touches IPC; `start()`
   // below is the explicit lifecycle that does.
-  const store = useMemo(() => new WorkspaceStateStore(resolveApi(api)), [api]);
+  const store = useMemo(() => new WorkspaceStateStore(resolved), [resolved]);
 
   const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
 
@@ -111,7 +117,11 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
     [state, nowMs, store],
   );
 
-  return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;
+  return (
+    <WorkspaceContext.Provider value={value}>
+      <PanelProvider api={resolved}>{children}</PanelProvider>
+    </WorkspaceContext.Provider>
+  );
 }
 
 /**

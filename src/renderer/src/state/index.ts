@@ -25,4 +25,16 @@ export {
   useWorkspaceActions,
 } from './workspace-provider';
 
+/**
+ * The panel hooks the frozen `../contracts/renderer-panels.ts` declares. Same
+ * rule: the types stay owned by the contract, the implementations stay
+ * replaceable behind this barrel, and T6/T7 never see the bridge.
+ */
+export {
+  useBeachcomber,
+  useBeachcomberActions,
+  useHelm,
+  useHelmActions,
+} from './panel-provider';
+
 export { steerPrefill } from './steer';

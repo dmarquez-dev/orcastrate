@@ -26,6 +26,7 @@ import {
   type StubOrcastrateApi,
 } from '../test-utils/stub-api';
 
+import { PanelStateStore } from './panel-store';
 import { WorkspaceStateStore } from './store';
 import { steerPrefill } from './steer';
 
@@ -207,15 +208,120 @@ const ACTION_CASES: ChannelCase[] = [
   },
 ];
 
+/**
+ * The six panel channels reach the bridge through `PanelStateStore`, not
+ * through `WorkspaceStateStore`, so they need their own table — and the sweep
+ * below unions the two, which is what keeps it a COMPLETENESS check rather
+ * than a list somebody has to remember to extend.
+ *
+ * `setUp` runs against a HEALTHY stub and is awaited before the channel is
+ * failed, because `beachcomberPreview` needs a scan and `beachcomberTrash`
+ * needs a preview before either can reach the bridge at all.
+ */
+interface PanelChannelCase {
+  channel: InvokeChannelKey;
+  setUp?: (store: PanelStateStore) => Promise<unknown>;
+  run: (store: PanelStateStore) => Promise<ActionResult<unknown>>;
+  reject: (api: StubOrcastrateApi) => void;
+}
+
+const SELECTABLE_ID = 'entry-projects-orphan';
+
+const PANEL_ACTION_CASES: PanelChannelCase[] = [
+  {
+    channel: 'beachcomberScan',
+    run: (store) => store.beachcomberActions.rescan(),
+    reject: (api) => {
+      api.beachcomber.scan = boom;
+    },
+  },
+  {
+    channel: 'beachcomberPreview',
+    setUp: async (store) => {
+      await store.beachcomberActions.rescan();
+      store.beachcomberActions.toggle(SELECTABLE_ID);
+    },
+    run: (store) => store.beachcomberActions.requestPreview(),
+    reject: (api) => {
+      api.beachcomber.preview = boom;
+    },
+  },
+  {
+    channel: 'beachcomberTrash',
+    setUp: async (store) => {
+      await store.beachcomberActions.rescan();
+      store.beachcomberActions.toggle(SELECTABLE_ID);
+      await store.beachcomberActions.requestPreview();
+    },
+    run: (store) => store.beachcomberActions.trashPreviewed(),
+    reject: (api) => {
+      api.beachcomber.trash = boom;
+    },
+  },
+  {
+    channel: 'helmScopes',
+    run: (store) => store.refreshScopes(),
+    reject: (api) => {
+      api.helm.listScopes = boom;
+    },
+  },
+  {
+    channel: 'helmLoad',
+    run: (store) => store.helmActions.selectScope('user'),
+    reject: (api) => {
+      api.helm.load = boom;
+    },
+  },
+  {
+    channel: 'helmSave',
+    setUp: (store) => store.helmActions.selectScope('user'),
+    run: (store) => store.helmActions.save(),
+    reject: (api) => {
+      api.helm.save = boom;
+    },
+  },
+];
+
 describe('error discipline (criterion 3)', () => {
   it('covers every invoke channel between the action table and the lifecycle reads', () => {
     const covered = new Set<InvokeChannelKey>(ACTION_CASES.map((c) => c.channel));
+    for (const testCase of PANEL_ACTION_CASES) covered.add(testCase.channel);
     covered.add('laneList');
     covered.add('appRoutingMode');
     expect([...covered].sort()).toEqual(
       (Object.keys(INVOKE_CHANNELS) as InvokeChannelKey[]).sort(),
     );
   });
+
+  for (const testCase of PANEL_ACTION_CASES) {
+    it(`${testCase.channel}: passes the IpcError through unmodified`, async () => {
+      const api = stubOrcastrateApi();
+      const store = new PanelStateStore(api);
+      await testCase.setUp?.(store);
+
+      const error = ipcError('IO', `${testCase.channel} failed`);
+      api.failInvoke(testCase.channel, error);
+      const result = await testCase.run(store);
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error).toBe(error);
+    });
+
+    it(`${testCase.channel}: a rejecting preload becomes INTERNAL, not an unhandled rejection`, async () => {
+      const api = stubOrcastrateApi();
+      const store = new PanelStateStore(api);
+      await testCase.setUp?.(store);
+
+      testCase.reject(api);
+      const result = await testCase.run(store);
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error.code).toBe('INTERNAL');
+      expect(result.error.message).toBe('preload exploded');
+    });
+  }
 
   for (const testCase of ACTION_CASES) {
     it(`${testCase.channel}: passes the IpcError through unmodified`, async () => {

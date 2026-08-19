@@ -16,8 +16,10 @@ import { act, screen } from '@testing-library/react';
 
 import type { Lane, NormalizedEvent, Pod } from '@shared/contracts/events';
 import type { OrcastrateApi, Unsubscribe } from '@shared/contracts/ipc';
+import { EVENT_CHANNELS } from '@shared/contracts/ipc';
 
 import type * as Contract from '../contracts/renderer-state';
+import type * as PanelContract from '../contracts/renderer-panels';
 import {
   makeStubLane,
   makeStubPod,
@@ -40,6 +42,12 @@ import {
   useWorkspace,
   useWorkspaceActions,
 } from './workspace-provider';
+import {
+  useBeachcomber,
+  useBeachcomberActions,
+  useHelm,
+  useHelmActions,
+} from './panel-provider';
 import { steerPrefill } from './steer';
 
 const POD = 'pod-1';
@@ -67,6 +75,12 @@ const surface: {
   usePermissionCards: typeof Contract.usePermissionCards;
   useWorkspaceActions: typeof Contract.useWorkspaceActions;
   steerPrefill: typeof Contract.steerPrefill;
+  // The panel seams, declared by the second frozen contract file. Same rule:
+  // the barrel carries exactly what the contracts declare and nothing else.
+  useBeachcomber: typeof PanelContract.useBeachcomber;
+  useBeachcomberActions: typeof PanelContract.useBeachcomberActions;
+  useHelm: typeof PanelContract.useHelm;
+  useHelmActions: typeof PanelContract.useHelmActions;
 } = {
   WorkspaceProvider,
   useWorkspace,
@@ -78,6 +92,10 @@ const surface: {
   usePermissionCards,
   useWorkspaceActions,
   steerPrefill,
+  useBeachcomber,
+  useBeachcomberActions,
+  useHelm,
+  useHelmActions,
 };
 
 const ACTION_NAMES = [
@@ -159,13 +177,10 @@ function countingApi(): CountingApi {
   const subscribes: Record<string, number> = {};
   const unsubscribes: Record<string, number> = {};
   const base = stubOrcastrateApi();
-  const names = [
-    'podEvent',
-    'podStatus',
-    'laneChanged',
-    'permissionRequested',
-    'permissionResolved',
-  ] as const;
+  // Read off the FROZEN constant rather than listed by hand, so a seventh push
+  // channel cannot be added without this guarantee extending to cover it. It is
+  // six today: the five workspace channels plus `helmChanged`.
+  const names = Object.keys(EVENT_CHANNELS) as (keyof StubOrcastrateApi['on'])[];
 
   for (const name of names) {
     subscribes[name] = 0;
