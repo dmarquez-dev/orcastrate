@@ -383,15 +383,43 @@ class LaneRouterImpl implements LaneRouter {
   // -------------------------------------------------------------------------
 
   /**
-   * All `system` messages are session control-plane traffic emitted by the host
-   * process, so their transcript event lands on the Matriarch lane. Routing one
-   * to a Calf would force that Calf to materialize — which for `task_started`
-   * is exactly the ordering hazard the two-phase lifecycle exists to avoid. A
-   * Calf's own transcript comes from its `assistant`/`user` messages, which
-   * carry `parent_tool_use_id`.
+   * `system` messages are session control-plane traffic emitted by the host
+   * process, so their transcript event lands on the Matriarch lane — with ONE
+   * exception, `task_progress`.
+   *
+   * Routing a `system` message to a Calf forces that Calf to materialize. For
+   * `task_started` that is exactly the ordering hazard the two-phase lifecycle
+   * exists to avoid (02-nested-dispatch line 7 precedes the dispatch on line
+   * 8), so `task_started` MUST NOT move; the same goes for `init`,
+   * `task_updated`, `task_notification`, `background_tasks_changed` and any
+   * unknown subtype, which are session- or state-scoped rather than the
+   * narration of one Calf's work.
+   *
+   * `task_progress` is different in kind: it is a progress line ABOUT one
+   * Calf's own work, correlated by `tool_use_id`, and putting it on the
+   * Matriarch leaves a background Calf's lane empty while the Matriarch fills
+   * with narration of a lane the user is reading somewhere else. It is routed
+   * through `resolveLaneId`/`emit` — never pushed directly — so the lane
+   * materializes first and `lane_opened` still precedes every event carrying
+   * that lane's id. A `task_progress` with no `tool_use_id`, or one naming a
+   * lane this router has not registered, falls back to the Matriarch and is
+   * never dropped, exactly as an unknown `parent_tool_use_id` does.
    */
   private routeSystem(message: Record<string, unknown>, out: NewEvent[]): void {
     const subtype = str(message, 'subtype') ?? 'unknown';
+
+    if (subtype === 'task_progress') {
+      // `emit` materializes the resolved lane before appending, so criterion 7's
+      // ordering guarantee holds here as it does on the transcript paths.
+      this.emit(
+        out,
+        this.resolveLaneId(str(message, 'tool_use_id')),
+        'system',
+        { type: 'system', subtype, data: message },
+        message,
+      );
+      return;
+    }
 
     // The transcript event first, then the state transition it causes, so a
     // `lane_closed` always follows the `task_updated` that produced it.
@@ -628,7 +656,11 @@ class LaneRouterImpl implements LaneRouter {
   // Emission primitives
   // -------------------------------------------------------------------------
 
-  /** Resolves a `parent_tool_use_id` to a lane, falling back to the Matriarch. */
+  /**
+   * Resolves a tool_use id — a transcript message's `parent_tool_use_id`, or a
+   * `system/task_progress`'s `tool_use_id` — to the lane registered for it,
+   * falling back to the Matriarch when it is absent or names no known lane.
+   */
   private resolveLaneId(parentToolUseId: string | null): LaneId {
     if (parentToolUseId === null) return this.matriarchLaneId;
     const laneId = this.byToolUseId.get(parentToolUseId);
