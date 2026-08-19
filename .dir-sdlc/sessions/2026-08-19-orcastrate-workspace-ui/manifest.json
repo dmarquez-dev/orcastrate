@@ -1,0 +1,269 @@
+{
+  "session": "2026-08-19-orcastrate-workspace-ui",
+  "createdAt": "2026-08-19T09:00:00-07:00",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/renderer-state.ts",
+    "contracts/renderer-view.ts",
+    "contracts/renderer-theme.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Widen PermissionMode to four modes across the contract, the runtime guard, the IPC validator, and the SQLite CHECK constraint",
+      "agent": "dir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/shared/contracts/events.ts",
+        "src/main/pod/**",
+        "src/main/ipc/**",
+        "src/main/store/**",
+        "tests/unit/pod/**",
+        "tests/unit/ipc/**",
+        "tests/unit/store/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`PermissionMode` in `src/shared/contracts/events.ts` is `'default' | 'acceptEdits' | 'plan' | 'bypassPermissions'`, and the block comment above it is rewritten to state the new four-value product surface \u00e2\u20ac\u201d it must no longer read as a three-value restriction, because that comment is what a future reader treats as authoritative. This is the contract change the orchestrator escalated at Gate 2; if it was NOT approved, this task stops and reports rather than proceeding.",
+        "`ALLOWED_PERMISSION_MODES` in `src/main/pod/options.ts` contains exactly the four values, `isAllowedPermissionMode('acceptEdits')` returns true, and `createPodRunner` accepts a Pod constructed with `acceptEdits` without throwing.",
+        "The compile-time exhaustiveness guard in `src/main/store/schema.ts` still resolves to `never`: `type _UncoveredPermissionMode = Exclude<PermissionMode, (typeof PERMISSION_MODES)[number]>` compiles, proving `PERMISSION_MODES` and the union did not drift apart.",
+        "A NEW migration (version 2) widens the `pods.permission_mode` CHECK constraint. `MIGRATION_1` is NOT edited: its DDL is pinned to the literal three-mode list it shipped with, honouring the `MIGRATIONS` docblock's \"append new entries; never edit a shipped one\". A test asserts migration 1's SQL text is byte-identical to the version in `git show main:src/main/store/schema.ts`.",
+        "Migration 2 preserves data: a test opens a v1 database containing pods, lanes, and events, runs `migrate()`, and asserts every row survives with identical values, foreign keys intact, and `schema_version` = 2. If the table is rebuilt to change the constraint, `PRAGMA foreign_keys` handling is proven correct by that test rather than assumed.",
+        "`migrate()` remains idempotent at version 2 \u00e2\u20ac\u201d calling it twice on the same file leaves schema and data unchanged \u00e2\u20ac\u201d and still throws `SCHEMA_MISMATCH` when the on-disk version exceeds `CURRENT_SCHEMA_VERSION`.",
+        "Inserting `permission_mode = 'acceptEdits'` succeeds after migration and inserting an unlisted value (e.g. `'dontAsk'`, `'auto'`, `'manual'` \u00e2\u20ac\u201d all accepted by the CLI but deliberately NOT exposed by Orcastrate) is still rejected by the CHECK constraint. `tests/unit/store/schema.test.ts`'s current assertion that `acceptEdits` is rejected is updated, not deleted, so the negative case still has a named mode behind it.",
+        "`requirePermissionMode` in `src/main/ipc/validate.ts` accepts `acceptEdits` and its `INVALID_ARGUMENT` message enumerates all four modes verbatim; the existing `tests/unit/ipc/envelope.test.ts` cases that used `acceptEdits` as a known-invalid value are re-pointed at a value that is still invalid (`'dontAsk'`), so the malformed-input path keeps its coverage.",
+        "`tests/unit/pod/options.test.ts`'s 'does not accept acceptEdits' tests are inverted rather than removed: they now assert `acceptEdits` IS accepted at construction and through `setPermissionMode`, and a still-unexposed mode is rejected at both.",
+        "Nothing outside the permission-mode surface changes: the diff touches no lane routing, no PodManager wiring, no event shape, and no renderer file.",
+        "`npm test` and `npm run typecheck` both pass."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Route system/task_progress to its own Calf lane, and document the canUseTool attribution race",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/lane/**",
+        "src/main/pod-manager/**",
+        "tests/router/**",
+        "docs/known-issues/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "A `system` message with subtype `task_progress` produces a transcript event whose `laneId` is the lane registered for that message's `tool_use_id`, resolved through the router's existing `byToolUseId` index \u00e2\u20ac\u201d not the Matriarch. Today `routeSystem` sends every `system` message to the Matriarch, which leaves a background Calf's lane empty while the Matriarch fills with progress lines about a lane the user is reading elsewhere.",
+        "Fallback is explicit and tested: a `task_progress` whose `tool_use_id` is absent, or names no registered lane, still lands on the Matriarch and is never dropped. Every event the router emits continues to carry a non-null `laneId`.",
+        "The ordering guarantee the existing suite asserts is preserved: routing a `task_progress` to a not-yet-materialized Calf materializes it first, so `lane_opened` still precedes every event carrying that lane's id. This is the hazard the two-phase lifecycle exists for, and the fix must go through `emit`/`materialize` rather than pushing an event directly.",
+        "Every OTHER `system` subtype \u00e2\u20ac\u201d `init`, `task_started`, `task_updated`, `task_notification`, `background_tasks_changed`, and unknown subtypes \u00e2\u20ac\u201d keeps its current Matriarch routing, asserted by a test that enumerates the subtypes present in `tests/fixtures/protocol/*.ndjson` and pins each one's destination. `task_started` in particular must NOT move: routing it to a Calf would force premature materialization.",
+        "A replay test over `01-parallel-dispatch.ndjson` asserts the 11 `task_progress` lines in the corpus land on the two Calves per their `tool_use_id`, that the two Calves' progress events do not cross, and that the Matriarch's event count drops by exactly the number of `task_progress` lines that resolved to a Calf.",
+        "Determinism and purity hold: replaying a fixture twice through freshly constructed routers with injected `newLaneId`/`now` yields byte-identical output, and `src/main/lane/` still imports neither `better-sqlite3`, `node:fs`, `electron`, nor the SDK. The existing `tests/router/purity.test.ts` and `determinism.test.ts` still pass unmodified.",
+        "`docs/known-issues/canusetool-attribution-race.md` exists and states, as a KNOWN LIMITATION and not as a fixed bug: that `canUseTool` is invoked out of band from stream ingestion; that both attribution indexes (`agentIds()` and `byToolUseId`) are populated only by ingesting `task_started` or the dispatch block; that a Calf's first tool prompt arriving before that ingestion falls back to the Matriarch and is indistinguishable from the correct no-id case; that the warning `PodManager.#attributePrompt` emits when a supplied id resolves to no lane is the ONLY observable signal; and that the two real fixes \u00e2\u20ac\u201d awaiting ingestion of the owning dispatch, or parking the prompt until the lane materializes \u00e2\u20ac\u201d are behavior changes deliberately out of scope for this session.",
+        "That document quotes the exact log text `#attributePrompt` emits and names the file and symbol, so a reader hitting the warning in a real log can find the code from the doc alone. If the fix in this task changes that log line, the doc quotes the new one.",
+        "The write-up is documentation only: no attribution behavior in `src/main/pod-manager/` is changed to work around the race, and no test is added that pretends to cover it.",
+        "`npm test` and `npm run typecheck` both pass, including the full existing `tests/router/**` suite."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Renderer foundation: frozen contracts, design tokens, and the jsdom component-test harness",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "package.json",
+        "package-lock.json",
+        "src/renderer/src/contracts/**",
+        "src/renderer/src/styles/**",
+        "src/renderer/src/test-utils/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "The three frozen contract files are copied VERBATIM into `src/renderer/src/contracts/` and are the only definition of those types in the repo. They compile under `tsconfig.web.json` with `strict: true` and no `any` added to make them compile. They live under `src/renderer/`, not `src/shared/`, because `src/shared/**` is inside `tsconfig.node.json`'s include and these files import `react`.",
+        "`@testing-library/react` and `@testing-library/user-event` are added as devDependencies with pinned versions, alongside the already-installed `jsdom`. No RUNTIME dependency is added \u00e2\u20ac\u201d `dependencies` stays exactly `@anthropic-ai/claude-agent-sdk` and `better-sqlite3`. No styling library and no state-management library is added (resolved-unknowns U1, U4).",
+        "This task is the ONLY one that edits `package.json` or `package-lock.json`; every dependency the other renderer tasks need is declared here, so no later task touches either file.",
+        "`src/renderer/src/styles/tokens.css` defines, on `:root`, every custom property named in `contracts/renderer-theme.ts`'s `TOKENS` \u00e2\u20ac\u201d a test parses the CSS and asserts each token name appears exactly once as a definition, and that no token is defined that `TOKENS` does not name.",
+        "`src/renderer/src/styles/global.css` sets the app-level reset, the body background from `--oc-bg-app`, the UI font from `--oc-font-ui`, and a visible `:focus-visible` ring from `--oc-focus-ring`. It contains no component-specific selector: components style themselves through their own CSS Modules.",
+        "`src/renderer/src/test-utils/` exports a `renderWithWorkspace(ui, { api })` helper that mounts a component inside `WorkspaceProvider` with a supplied stub API, plus a `stubOrcastrateApi(overrides)` factory whose defaults resolve `{ ok: true }` envelopes for every invoke channel in `INVOKE_CHANNELS` and return working no-op `Unsubscribe` functions for every channel in `EVENT_CHANNELS`. A test enumerates both constant objects and asserts the stub covers every channel, so a stub cannot silently lag the frozen surface.",
+        "The stub factory exposes a way to DRIVE each push channel from a test (emit a `PodEventPush`, `LaneChangedPush`, `PermissionRequestedPush`, `PermissionResolvedPush`, `PodStatusPush`), and a way to make any invoke channel resolve `{ ok: false, error }` \u00e2\u20ac\u201d the failure path is what the other tasks' acceptance criteria are written against.",
+        "At least one test file in this task carries the `// @vitest-environment jsdom` docblock and renders a React element successfully, proving the per-file jsdom opt-in `vitest.config.ts` already anticipates actually works. `vitest.config.ts` itself is NOT edited.",
+        "No file this task adds imports a `node:` builtin, `electron`, or `window.orcastrate` outside the stub's type position.",
+        "`npm install`, `npm test`, and `npm run typecheck` all pass on Windows from the state this task leaves behind."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "App shell, Pod bar with drag-to-reorder, and the New Pod dialog",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/main.tsx",
+        "src/renderer/src/shell/**",
+        "src/renderer/src/pods/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T3"
+      ],
+      "acceptance": [
+        "`App.tsx` replaces the sub-session-1 placeholder entirely \u00e2\u20ac\u201d no inline `style` object survives \u00e2\u20ac\u201d and renders `WorkspaceLayout` with the Pod bar, and with the lane rail, transcript, split, and composer slots filled from the components T5, T6, and T7 provide. `main.tsx` mounts it inside `WorkspaceProvider` and imports `styles/global.css` exactly once.",
+        "`WorkspaceLayout` implements `WorkspaceLayoutProps` exactly: Pod bar across the top, lane rail on the left at `--oc-lane-rail-width`, transcript center, composer docked below (spec 5.1). When `split` is non-null the center region shows two side-by-side panes with `primary` on the left; when null it shows one.",
+        "The Pod bar renders one tab per `PodTabVm` in the array's order and does no sorting of its own. Each tab shows the user title and a status indicator colored from `statusToken(status)`.",
+        "Drag to reorder works and commits through `actions.reorderPods` with the FULL list in its new order; a test drags the third tab to first and asserts the single `reorderPods` call carries all ids in the new order. When the call fails, the bar reverts to the server order rather than keeping the dragged position.",
+        "A Pod with a pending permission request shows the `podTabPermissionBadge` element on its tab, and a test asserts the badge appears on a NON-ACTIVE Pod's tab \u00e2\u20ac\u201d spec 5.4's entire point is that a backgrounded Pod waiting on the user is visible without switching to it.",
+        "A Pod created with `bypassPermissions` shows a persistent `podTabBypassBadge` whose accessible text is `BYPASS_PERMISSIONS_WARNING` verbatim \u00e2\u20ac\u201d \"This Pod will never ask you about anything.\" A test asserts that exact string. Generic danger wording fails this criterion: the SDK shadows `canUseTool` entirely in this mode, so such a Pod raises no permission cards at all, and a badge implying the user will still be asked about the dangerous things is false.",
+        "`+` opens the New Pod dialog, which collects title, working directory, permission mode, and optional env overrides. The directory is obtained ONLY via `actions.pickDirectory()` behind a Browse button and displayed read-only; a test asserts there is no editable input bound to `cwd` anywhere in the dialog, and that a cancelled pick (`{ path: null }`) leaves the dialog open with no error shown.",
+        "The dialog offers exactly the four modes in `PERMISSION_MODE_OPTIONS`, rendered from that array rather than a local literal list, each with its label and summary. Selecting `bypassPermissions` requires an explicit second confirmation before Create is enabled, and surfaces `BYPASS_PERMISSIONS_WARNING` in the `newPodBypassWarning` element.",
+        "Create is disabled until title is non-empty and `cwd` is set. On `{ ok: false }` from `createPod` the dialog stays open, shows `error.message` verbatim, and does not clear the user's input.",
+        "Every element listed under the Pod-bar and New-Pod entries of `TEST_IDS` carries that `data-testid`, suffixed per the contract, so T8's tests bind without having seen this markup.",
+        "No `window.orcastrate` call, no `node:` import, and no hardcoded color, font, or spacing literal appears in this task's files \u00e2\u20ac\u201d every visual value is `var(--oc-\u00e2\u20ac\u00a6)` from `TOKENS`. Styling is CSS Modules co-located in this task's own directories.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Workspace state layer: the only caller of window.orcastrate, implementing the renderer-state contract",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/state/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T3"
+      ],
+      "acceptance": [
+        "`src/renderer/src/state/` implements `WorkspaceProvider`, `useWorkspace`, `usePods`, `usePodSession`, `useLaneRail`, `useTranscript`, `useComposer`, `usePermissionCards`, `useWorkspaceActions`, and `steerPrefill` from `contracts/renderer-state.ts` exactly \u00e2\u20ac\u201d every member present with the contract's signature, none added, none removed.",
+        "This is the ONLY directory in `src/renderer/` that references `window.orcastrate`; a test greps the renderer tree and fails if any other file does.",
+        "No action ever rejects or throws. A test forces EVERY invoke channel to resolve `{ ok: false }` in turn and asserts the corresponding action resolves `{ ok: false, error }` with the same `IpcError` object passed through unmodified. A second test makes a channel's promise reject outright and asserts the action still resolves `{ ok: false }` with code `INTERNAL`, because a preload bug must not become an unhandled rejection.",
+        "Locally detected precondition failures never reach IPC and surface as `INVALID_ARGUMENT`: sending empty or whitespace-only composer text, and denying a permission with an empty or whitespace-only reason. Both are asserted to have made zero IPC calls.",
+        "The provider subscribes to all five `EVENT_CHANNELS` exactly once on mount and calls every returned `Unsubscribe` on unmount \u00e2\u20ac\u201d asserted by mounting, unmounting, and checking each unsubscribe ran exactly once, then emitting a push and asserting no state update follows.",
+        "Transcript merge is correct and is the criterion this task lives or dies on: `TranscriptView.events` is strictly ascending by `seq`, has no duplicate `seq`, and is append-stable. A test interleaves a live `PodEventPush` carrying seq 40-45 with a backfill page that later returns seq 1-100 and asserts the result contains each seq exactly once, in order, with nothing dropped.",
+        "Backfill pages forward via `events.read` using `afterSeq` and stops on `hasMore === false` rather than on a short page; concurrent `loadMoreEvents` calls coalesce into one in-flight request. `pageSize` above 5000 is not treated as an error \u00e2\u20ac\u201d main clamps it \u00e2\u20ac\u201d and the resulting shorter page does not end paging.",
+        "`LaneChangedPush` replaces the lane list wholesale, as the snapshot the frozen contract says it is: a push omitting a previously-known lane removes that lane's row. The rail order guarantee holds \u00e2\u20ac\u201d Matriarch at index 0 always, Calves by `startedAt` then `id`, and a lane that changes only status does not move.",
+        "A permission card is removed when, and only when, a `permissionResolved` push arrives for its `requestId` \u00e2\u20ac\u201d including outcome `'aborted'`, which clears the card silently with no error state. A test asserts the card is NOT removed optimistically on click, that a failed `respond` leaves it visible with `error` set and `submitting` false, and that a `permissionResolved` for an unknown `requestId` is a no-op.",
+        "Selection and pin invariants hold: `pinnedLaneId !== selectedLaneId` at all times; pinning the selected lane is a no-op; selecting the pinned lane swaps the panes instead of closing the split; at most one lane is pinned. Asserted by a test that exercises each transition.",
+        "`steerPrefill` returns null for a lane with no `agentId`, and otherwise a string beginning with `STEER_PREFILL_PREFIX` and naming the agent id \u00e2\u20ac\u201d asserted verbatim. `steerFromLane` writes it into the Pod composer and sends nothing; a test asserts zero `pods.send` calls result.",
+        "`routingMode` is read once from `app.routingMode()` and exposed unchanged; the state layer contains no branch that assumes `'lanes'`. Unread counts behave as specified: zero for the active Pod and for the selected lane at all times.",
+        "No `node:` import, no filesystem path composed or parsed \u00e2\u20ac\u201d `cwd` is passed through as an opaque string and only ever originates from `pickDirectory`.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Lane rail, streaming transcript, inline dispatch card, and the pinned split pane",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/lanes/**",
+        "src/renderer/src/transcript/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T3"
+      ],
+      "acceptance": [
+        "The lane rail implements `LaneRailProps` and renders a LIST, not a second tab row (spec 5.1): Matriarch pinned at the top, Calves beneath, each row showing agent type, description, status, elapsed time, and an unread indicator. A test asserts the Matriarch is the first row even when the supplied array is shuffled by the caller.",
+        "Elapsed time comes from `LaneRowVm.elapsedMs` and is formatted for display only \u00e2\u20ac\u201d no row runs its own timer or reads the clock, so a finished lane's row stops re-rendering. A test renders a `done` lane with fake timers, advances them, and asserts no re-render.",
+        "Pin and unpin are wired to `onPin`/`onUnpin`, and `Steer` is offered only on rows whose lane has an `agentId`; a test asserts the `laneRowSteer` control is absent for a lane with `agentId: null`.",
+        "The transcript implements `TranscriptPaneProps` and renders the selected lane's events in `seq` order, one element per event carrying `testId(TEST_IDS.transcriptEvent, seq)`. Each `EventType` in the frozen union has a rendering \u00e2\u20ac\u201d including `malformed`, which renders the raw line visibly rather than being skipped (spec 8), and `error`, which shows the exit code when present.",
+        "New events appended by a live push land at the bottom without re-mounting existing event elements, and the pane auto-scrolls only when the user is already at the bottom \u00e2\u20ac\u201d a test asserts a scrolled-up reader is not yanked down by an incoming event.",
+        "The backfill affordance calls `onLoadMore` and is hidden when `hasMore` is false; it is never shown as an error when a page returns fewer rows than requested.",
+        "The inline dispatch card renders at the position in the Matriarch transcript where the dispatch fired (spec 5.2), showing \"dispatched N agents\" with one row per opened lane carrying that lane's status, and clicking a row calls `onJumpToLane` with that lane's id. A test asserts the count text for a three-agent dispatch.",
+        "The card is detected by `payload.dispatchedLaneId !== undefined`, NOT by the tool name. A test feeds a `tool_use` event whose `name` is `'Agent'` and another whose `name` is `'Task'` and asserts both render a card \u00e2\u20ac\u201d the dispatch tool is `Agent` on CLI 2.1.235 and `Task` on older ones, and a name check written against either alone silently renders zero cards.",
+        "In `routingMode: 'inline'` the card still renders with its count and no per-agent rows rather than disappearing, and the rail does not present lane selection as if it filtered the transcript. A test drives both routing modes through the same component and asserts neither branch is hardcoded.",
+        "The pinned split pane renders a second `TranscriptPane` with `isSplit: true`, without its own composer \u00e2\u20ac\u201d there is one composer per Pod, not per pane (spec 5.2). A test asserts the split pane contains no `composerInput`.",
+        "`permissionSlot` is rendered inside the transcript's scroll container, at the end of the lane's event stream, and this task renders nothing about its contents \u00e2\u20ac\u201d a test passes a sentinel node and asserts it appears inside the pane rather than in a portal or overlay.",
+        "Every element named in the lane-rail, transcript, and dispatch-card entries of `TEST_IDS` carries that `data-testid`.",
+        "No `window.orcastrate` call, no `node:` import, no hardcoded color, font, or spacing literal; CSS Modules only, tokens only.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Pod composer with Esc-to-interrupt, and the inline permission cards",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/composer/**",
+        "src/renderer/src/permissions/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T3"
+      ],
+      "acceptance": [
+        "The composer implements `ComposerProps` and is bound to the POD, not the lane (spec 5.2): a test selects a different lane and asserts the composer's text is unchanged and that it is still enabled while a read-only Calf lane is selected. There is exactly one composer per Pod.",
+        "Enter sends and Shift+Enter inserts a newline. Send is disabled while `state.sending` is true and while `state.disabled` is true; when disabled, the composer shows text derived from `disabledReason` rather than silently swallowing input. A test asserts a click while sending produces no second `onSend`.",
+        "`Esc` with the composer focused calls `onInterrupt` and does NOT clear the draft \u00e2\u20ac\u201d a test types text, presses Esc, and asserts the text survives and `onInterrupt` fired exactly once (spec 5.4).",
+        "The composer renders `state.error.message` verbatim when a send failed, and the message clears on the next edit.",
+        "Prefilled Steer text arrives through `ComposerState.text` like any other value \u00e2\u20ac\u201d this task neither formats the prefill string nor calls `steerPrefill`; a test asserts a prefilled composer renders the string it was handed and focuses the input.",
+        "Permission cards implement `PermissionCardListProps` and render INLINE, in document flow, in the lane that asked. A test asserts the card is not a modal: no element rendered by this task has `position: fixed`, an overlay backdrop, or a `role=\"dialog\"` that traps focus, and content behind it stays reachable.",
+        "Each card shows the tool name and the request input, and offers exactly three actions: Allow, Allow always, and Deny with reason. Allow and Allow always call `onRespond` with the decision and no reason.",
+        "Deny is DISABLED until the reason field holds non-whitespace text, so the user cannot click into an `INVALID_ARGUMENT` round trip. A test asserts the disabled state with an empty reason, with a whitespace-only reason, and that `onRespond` carries the trimmed reason once enabled.",
+        "All three buttons are disabled while `card.submitting` is true, so a double-click cannot send two decisions for one `requestId` \u00e2\u20ac\u201d asserted by a test that clicks twice and counts one `onRespond`.",
+        "A card with `error` set stays on screen showing `error.message` with its buttons re-enabled \u00e2\u20ac\u201d it does not disappear, because the request is genuinely still unanswered. A card is never removed by this component; removal is the state layer's, driven by `permissionResolved`. A test asserts clicking Allow does not remove the card from the DOM by itself.",
+        "Cards render oldest first and are keyed by `requestId`, so a card resolving out of order does not remount its siblings.",
+        "Every element named in the composer and permission entries of `TEST_IDS` carries that `data-testid`.",
+        "No `window.orcastrate` call, no `node:` import, no hardcoded color, font, or spacing literal; CSS Modules only, tokens only.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Renderer integration test suite over the assembled workspace",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/**"
+      ],
+      "dependsOn": [
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "acceptance": [
+        "Every test file lives under `src/renderer/src/__tests__/` and carries a `// @vitest-environment jsdom` docblock. Nothing is added under `tests/`, because `tests/**` is inside `tsconfig.node.json`'s include and a `.tsx` renderer test there fails the node typecheck.",
+        "The suite mounts the FULL app \u00e2\u20ac\u201d `main.tsx`'s tree, not individual components \u00e2\u20ac\u201d against `stubOrcastrateApi`, and drives it entirely through `TEST_IDS` and user-visible text. No test reaches into a component's internal state or imports a non-exported symbol.",
+        "End-to-end path, asserted as one test: stub `pods.list` with two Pods, click the second tab, drive a `LaneChangedPush` with a Matriarch and two Calves, drive a `PodEventPush`, and assert the rail lists three rows in the guaranteed order and the transcript shows the pushed events in `seq` order.",
+        "Permission path, asserted end to end: drive a `PermissionRequestedPush` for a CALF lane, assert the card renders inside that Calf's transcript and NOT in the Matriarch's; assert the asking Pod's tab shows the permission badge while a DIFFERENT Pod is active; click Deny with an empty reason and assert nothing was sent; type a reason, deny, and assert one `permissions.respond` call with the trimmed reason; then drive `permissionResolved` and assert the card and the tab badge both clear.",
+        "Aborted path: drive a `PermissionRequestedPush`, then a `permissionResolved` with outcome `'aborted'` without any user action, and assert the card disappears with no error text anywhere on screen.",
+        "Failure path: make every invoke channel resolve `{ ok: false }` in turn and assert the app renders the error message and stays interactive \u00e2\u20ac\u201d no blank window, no unhandled rejection. A test installs a `window.onunhandledrejection` spy for the whole suite and fails if it ever fires.",
+        "Wording assertions the product depends on, asserted verbatim rather than by substring: `BYPASS_PERMISSIONS_WARNING` appears in both the New Pod dialog's bypass option and the created Pod's tab badge; the Steer prefill string produced for a Calf with an `agentId` matches `steerPrefill`'s output exactly and no `pods.send` results from clicking Steer.",
+        "`PERMISSION_MODE_OPTIONS` is asserted exhaustive over the widened `PermissionMode` union by a type-level check plus a runtime assertion that the dialog renders one option per union member \u00e2\u20ac\u201d not by asserting the literal number four.",
+        "Security hygiene, as executable assertions over the source tree: no file under `src/renderer/**` imports a `node:` builtin, `electron`, or `better-sqlite3`; no file outside `src/renderer/src/state/**` references `window.orcastrate`; no file under `src/renderer/**` outside `styles/` contains a hex color, an `rgb(`/`hsl(` literal, a `px` font-size, or a hardcoded font stack. Modelled on the existing `tests/router/hygiene.test.ts`.",
+        "Unmount cleanliness: mounting and unmounting the app calls every `Unsubscribe` the stub handed out exactly once, and a push delivered after unmount updates nothing and throws nothing.",
+        "No test spawns a process, opens a network connection, touches SQLite, requires an API key, or reads a real filesystem path.",
+        "The suite is part of the default `npm test` run, not behind an opt-in flag, and `npm test` plus `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Open and reconnect an existing Pod from the UI",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/**",
+        "src/renderer/src/shell/**",
+        "src/renderer/src/App.tsx"
+      ],
+      "dependsOn": [
+        "T4",
+        "T5",
+        "T8"
+      ],
+      "acceptance": [
+        "A Pod that is listed but not opened offers a visible, keyboard-operable control that calls actions.openPod(podId). A test asserts exactly one openPod call carrying that Pod's id.",
+        "A Pod whose status is 'beached' offers a control that calls actions.reconnectPod(podId) instead. A test asserts reconnectPod, not openPod, is the call for that status.",
+        "The control is absent, or unambiguously inert, for a Pod that is already open - a test asserts no openPod call is reachable for an opened Pod.",
+        "On a failed open the Pod stays listed and the error message renders verbatim; the app stays interactive and no unhandled rejection occurs. Asserted by forcing podOpen to resolve not-ok.",
+        "After a successful open the composer for that Pod becomes enabled - the disabledReason 'not-opened' no longer renders. Asserted end to end through the assembled app.",
+        "The integration suite gains a restart-shaped test: pods.list returns Pods with opened false, and the suite drives the new control to reach a sendable composer. This is the scenario the session's definition of done omitted.",
+        "No window.orcastrate call outside state/, no node: import, no hardcoded color, font, or spacing literal; CSS Modules and TOKENS only.",
+        "npm test and npm run typecheck both pass."
+      ]
+    }
+  ]
+}

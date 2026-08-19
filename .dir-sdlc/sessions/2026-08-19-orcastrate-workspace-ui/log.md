@@ -1,0 +1,28 @@
+# Session log — 2026-08-19-orcastrate-workspace-ui
+
+- 2026-08-19 — Gate 1 presented and approved. Track: Standard. Scope confirmed to include the `task_progress` main-process routing fix alongside the renderer work.
+- 2026-08-19 — `dir-git init-session`: worktree `.claude-worktrees/2026-08-19-orcastrate-workspace-ui`, branch `dir/2026-08-19-orcastrate-workspace-ui`, base `main` at 96f6e92.
+- 2026-08-19 — Unknowns U1-U5 resolved from repository evidence; U6 (PermissionMode widening) held for Gate 2 as a contract escalation.
+- 2026-08-19 — Disciplines composed for backend (43), database (36), frontend (35), test (38); none exceeds the 500-line cap. No project fragments (no config.json).
+- 2026-08-19 — Gate 2 presented: spec.md, manifest.json (8 tasks, 97 acceptance criteria, glob disjointness verified), three contracts. Escalation E1 (PermissionMode widening) raised with three ranked options.
+- 2026-08-19 — E1 resolved: widen to four modes with a new migration 2; MIGRATION_1 pinned to its shipped literal. Gate 2 approved; manifest and contracts frozen.
+- 2026-08-19 — Dispatched T1 (database) and T2 (backend) concurrently from startRef 96f6e92.
+- 2026-08-19 — T2 implemented, reviewed (PASS, 0 blocking, 4 advisory), committed a4a2dc7 with exactly 4 files; no peer changes swept in.
+- 2026-08-19 — T1 reviewed round 1: CHANGES REQUIRED. B1 — the byte-identity pin reads `git show main:` and hard-errors once this branch merges. 6 advisory. Revision round 1 dispatched.
+- 2026-08-19 — T1 revision round 1 fixed B1 (pin moved to immutable blob 96f6e92); re-reviewed PASS, 2 further advisory. Committed 87aa69b, 9 files.
+- 2026-08-19 — T3 dispatched from startRef 87aa69b4e8d825f2940c279387a6c86816a451c3.
+- 2026-08-19 — T3 reviewed PASS (0 blocking, 4 advisory), committed 2546895, 15 files.
+- 2026-08-19 — T4, T5, T6, T7 dispatched concurrently from startRef 25468958794b07031a02af47c9c9057fb20402cd.
+- 2026-08-19 — E2 raised: testId/statusToken/cssVar declared in frozen contracts with no implementation and no owning task; T4, T6, T7 each hit it independently and wrote separate copies. Batched for Gate 3 with three ranked options.
+- 2026-08-19 — T7 reviewed PASS (0 blocking, 5 advisory), committed 1cdafa1, 11 files.
+- 2026-08-19 — T4 reviewed PASS (0 blocking, 7 advisory), committed 9c454d1, 23 files.
+- 2026-08-19 — T5 reviewed PASS (0 blocking, 6 advisory), committed 3c5e503, 11 files.
+- 2026-08-19 — T6 reviewed round 1: CHANGES REQUIRED, 2 blocking. B1: dispatch card per-agent rows unreachable in production (lane_opened carries the Calf's own laneId; verified independently at lane-router.ts:603). B2: three lane-row test ids rendered suffixed where the contract specifies them bare.
+- 2026-08-19 — Batched escalation E2 + E3 asked as one interaction. E2 resolved: consolidate onto shell/contract-runtime.ts, no contract change. E3 resolved: amend TranscriptPaneProps to carry a lane registry. T6 revision round 1 dispatched with both.
+- 2026-08-19 — T4 revision round 1 wired the approved `lanes` prop; re-reviewed PASS (0 blocking, 1 advisory), committed 41b242d, 1 file.
+- 2026-08-19 — T6 revision round 1 closed B1 and B2; re-reviewed PASS (0 blocking, 3 advisory), committed 83bc8f4, 20 files incl. the approved contract amendment.
+- 2026-08-19 — T8 implemented (857 tests, 54 files) and reviewed round 1: CHANGES REQUIRED, 2 blocking. B1: the rail-order assertion is degenerate — the reviewer reproduced the Matriarch-pin mutation and the suite stayed green, contradicting T8's claim that all 14 mutations went red. B2: criterion 6's error coverage rests on an inverted justification; eventsRead has an unasserted surface. T8 also reported four defects in other tasks' code without patching them; the reviewer confirmed all four real and classified defect A as a scope gap in the session's definition of done.
+- 2026-08-19 — T8 revision round 1 dispatched.
+- 2026-08-19 — T8 revision round 1 closed B1 and B2 and corrected two of the reviewer's own premises (eventsRead has no surface; the rail is pinned twice); re-reviewed PASS, committed 5eaf2ad, 6 files, 876 tests.
+- 2026-08-19 — Gate 3 presented. 97/97 acceptance criteria met, 0 unresolved blocking, 51 advisory. User decided: fix the Pod-reopen scope gap now rather than deferring it, and approved the merge to follow. T9 added to the frozen manifest by that Gate 3 decision.
+- 2026-08-19 — T9 implemented (881 tests) and reviewed PASS (0 blocking, 4 advisory); committed 7b25ff5, 8 files. The commit agent died after committing but before reporting; the commit was verified directly and matched T9's ownership exactly.

@@ -1,0 +1,200 @@
+{
+  "session": "2026-08-19-orcastrate-workspace-ui",
+  "updatedAt": "2026-08-19T00:00:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-19-orcastrate-workspace-ui",
+  "branch": "dir/2026-08-19-orcastrate-workspace-ui",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "startRef": "96f6e925f75c9b101903116a0522c98971e0f347",
+      "revisionRounds": 1,
+      "commit": "87aa69b4e8d825f2940c279387a6c86816a451c3"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "startRef": "96f6e925f75c9b101903116a0522c98971e0f347",
+      "revisionRounds": 0,
+      "commit": "a4a2dc7ec8ac874709f779a20963a122e6cc5b40"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "startRef": "87aa69b4e8d825f2940c279387a6c86816a451c3",
+      "revisionRounds": 0,
+      "commit": "25468958794b07031a02af47c9c9057fb20402cd"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "startRef": "25468958794b07031a02af47c9c9057fb20402cd",
+      "revisionRounds": 1,
+      "commit": "41b242d"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "startRef": "25468958794b07031a02af47c9c9057fb20402cd",
+      "revisionRounds": 0,
+      "commit": "3c5e503e5b4556ac52d6a5c2fdce8467a99f7bdf"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "startRef": "25468958794b07031a02af47c9c9057fb20402cd",
+      "revisionRounds": 1,
+      "commit": "83bc8f48d9810e94d3a807af4a2d11b0700ddb65"
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "startRef": "25468958794b07031a02af47c9c9057fb20402cd",
+      "revisionRounds": 0,
+      "commit": "1cdafa19ccf20e4df3e4c18eae1e29d1cda96dce"
+    },
+    {
+      "id": "T8",
+      "status": "done",
+      "startRef": "83bc8f48d9810e94d3a807af4a2d11b0700ddb65",
+      "revisionRounds": 1,
+      "commit": "5eaf2ad8776d2e034beaa3d7b79d51687ebb89a5"
+    },
+    {
+      "id": "T9",
+      "status": "done",
+      "startRef": "5eaf2ad8776d2e034beaa3d7b79d51687ebb89a5",
+      "revisionRounds": 0,
+      "commit": "7b25ff5"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "Widen the frozen PermissionMode union from three values to four by adding 'acceptEdits'. The change reaches the shared contract, the runtime guard in src/main/pod/options.ts, the IPC validator in src/main/ipc/validate.ts, and the SQLite CHECK constraint - the last requiring a new migration 2, because MIGRATION_1's DDL interpolates PERMISSION_MODES and would otherwise be silently rewritten.",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Approve the widening as decomposed: four modes, new migration 2, MIGRATION_1 pinned to its shipped literal.",
+          "rationale": "This is what the previous session's Gate 3 decided, and the decomposition is built on it. acceptEdits was excluded originally on the false premise that the SDK lacked it; the CLI accepts seven modes. Pinning MIGRATION_1 honours the append-only migration rule the schema's own docblock states.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/backlog.md",
+              "src/main/store/schema.ts:32,57,89,151",
+              "src/shared/contracts/events.ts:82"
+            ]
+          }
+        },
+        {
+          "summary": "Approve the widening but have migration 2 drop the CHECK constraint rather than restate it, so no future mode change needs a migration.",
+          "rationale": "The constraint is duplicated validation: requirePermissionMode already rejects unknown modes at the IPC boundary, and the compile-time exhaustiveness guard catches drift. Dropping it trades one layer of defence-in-depth for never paying this migration cost again.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/ipc/validate.ts",
+              "src/main/store/schema.ts:57"
+            ]
+          }
+        },
+        {
+          "summary": "Decline the widening: ship the dialog with the three existing modes and defer acceptEdits to a later session.",
+          "rationale": "Keeps a previous session's frozen contract frozen and removes the migration from this session entirely, which also removes T1 as a dependency blocking all frontend work. Costs a decided product requirement.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Approved as decomposed: widen to four modes with a new migration 2 that widens the CHECK constraint, MIGRATION_1 pinned to its shipped three-mode literal and asserted byte-identical, plus a data-preservation test."
+    },
+    {
+      "id": "E2",
+      "question": "The frozen renderer contracts declare three pure utility functions with `export declare function` and no implementation, and no task's ownership set contains a place to implement them: `testId` (renderer-view.ts:324), `statusToken` and `cssVar` (renderer-theme.ts:103,109). Unlike the hooks and WorkspaceProvider, which are declared the same way but are deliberately T5's deliverable, these have no owner. Three tasks each solved it independently: T4 created src/renderer/src/shell/contract-runtime.ts, T6 created src/renderer/src/transcript/test-id.ts, and T7 inlined template literals. Two duplicate runtime definitions of testId now exist, which is exactly the divergence the contract existed to prevent, and T8's integration suite binds to the ids they generate. T4 raised this independently and identified a fourth divergence: T6 also wrote src/renderer/src/lanes/lane-status.ts, duplicating statusToken. T6 raised it independently as well, and reports the two testId bodies are already byte-identical.",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Consolidate onto the existing src/renderer/src/shell/contract-runtime.ts: T6 deletes transcript/test-id.ts and lanes/lane-status.ts and imports from there instead. No contract amendment.",
+          "rationale": "Least churn and no frozen file is touched. T4's module already implements all three functions, and T6 reports the two testId bodies are byte-identical, so consolidation is a delete plus an import change rather than a rewrite. Costs one cross-ownership edit after the parallel phase, when nothing is in flight.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/shell/contract-runtime.ts",
+              "src/renderer/src/transcript/test-id.ts",
+              "src/renderer/src/lanes/lane-status.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Amend the three frozen contracts to ship real implementations instead of `export declare`.",
+          "rationale": "Puts the definition where every consumer already imports from, so no consumer has to know which peer owns the helper module. The contract docblocks already give the exact intended behavior. Costs a contract amendment and reopens a committed T3 file.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/contracts/renderer-view.ts:324",
+              "src/renderer/src/contracts/renderer-theme.ts:103,109"
+            ]
+          }
+        },
+        {
+          "summary": "Leave the copies and add a T8 assertion that every implementation agrees.",
+          "rationale": "No contract change and no reopening of committed work; T8 already owns cross-cutting hygiene assertions. The drift stays real but becomes detectable rather than silent.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "manifest.json T8 acceptance criteria"
+            ]
+          }
+        }
+      ],
+      "answer": "Consolidate without amending any contract: T6 deletes its transcript/test-id.ts and lanes/lane-status.ts and imports testId and statusToken from T4's existing shell/contract-runtime.ts. Folded into T6's revision round."
+    },
+    {
+      "id": "E3",
+      "taskId": "T6",
+      "question": "The dispatch card's per-agent rows are unreachable in production. TranscriptPaneProps carries no lane registry, so the pane builds its lane index from view.events - but view is one lane's stream, and lane-router materialize() stamps lane_opened with the new Calf's own laneId, which pod-manager deliberately does not redirect onto the Matriarch. The Matriarch's transcript therefore holds the dispatching tool_use but never the lane_opened, so the index is always empty and every card degrades to count-only. Independently confirmed by the orchestrator at lane-router.ts:603 and store.ts:315. Spec 5.2's clickable dispatch card does not currently exist in the default routing mode.",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Amend TranscriptPaneProps to carry the lane registry (e.g. lanes: Lane[]), fed from PodSessionView.lanes.",
+          "rationale": "The only route that satisfies the criterion in full, because the row must carry status, and status lives on the lane row the state layer already maintains and refreshes on every laneChanged push. The pane has no other legitimate source for it, and renderer-state.ts already exposes exactly this with a matching ordering guarantee.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/contracts/renderer-state.ts PodSessionView.lanes",
+              "src/main/lane/lane-router.ts:603",
+              "src/renderer/src/state/store.ts:315"
+            ]
+          }
+        },
+        {
+          "summary": "Derive the row from the dispatch event itself: dispatchedLaneId for the jump target, input.subagent_type and input.description for the label, status defaulting until the lane is known.",
+          "rationale": "No contract change, and it restores a clickable labelled row today. The weakness is that status is a guess rather than the lane's real state, so it satisfies the click and label halves of the criterion but only approximates 'carrying its status'.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/shared/contracts/events.ts Lane.subagentType and Lane.description"
+            ]
+          }
+        },
+        {
+          "summary": "Accept count-only cards this session; fix the fixture that hid the bug and document the limitation.",
+          "rationale": "Cheapest and honest about what ships, but concedes that spec 5.2's clickable dispatch card does not exist in the routing mode the product defaults to.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend TranscriptPaneProps to carry a lane registry fed from PodSessionView.lanes, so the dispatch card's per-agent rows render with each lane's real status. Approved as a contract amendment; T6's revision round extends its ownership to src/renderer/src/contracts/renderer-view.ts for this change only."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 3,
+    "reviewRounds": 4
+  }
+}
