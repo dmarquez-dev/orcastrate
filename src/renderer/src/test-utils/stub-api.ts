@@ -44,6 +44,22 @@ import type {
 import { EVENT_CHANNELS, INVOKE_CHANNELS } from '@shared/contracts/ipc';
 import type { Lane, PermissionMode, Pod, PodId } from '@shared/contracts/events';
 import type { RoutingMode } from '@shared/contracts/lane-router';
+import type {
+  BeachcomberEntry,
+  BeachcomberPreview,
+  BeachcomberPreviewRequest,
+  BeachcomberScan,
+  BeachcomberTrashRequest,
+  BeachcomberTrashResult,
+} from '@shared/contracts/beachcomber';
+import type {
+  HelmChangedPush,
+  HelmDocument,
+  HelmSaveRequest,
+  HelmSaveResult,
+  HelmScope,
+  HelmScopeId,
+} from '@shared/contracts/helm';
 
 // ---------------------------------------------------------------------------
 // Channel keys, and where each one lives on the API object
@@ -73,6 +89,12 @@ export const INVOKE_CHANNEL_METHODS = {
   permissionRespond: ['permissions', 'respond'],
   dialogPickDirectory: ['dialog', 'pickDirectory'],
   appRoutingMode: ['app', 'routingMode'],
+  beachcomberScan: ['beachcomber', 'scan'],
+  beachcomberPreview: ['beachcomber', 'preview'],
+  beachcomberTrash: ['beachcomber', 'trash'],
+  helmScopes: ['helm', 'listScopes'],
+  helmLoad: ['helm', 'load'],
+  helmSave: ['helm', 'save'],
 } as const satisfies Record<InvokeChannelKey, readonly [string, string]>;
 
 /** The mapping from a frozen push-channel key to its `api.on.*` subscriber. */
@@ -82,6 +104,7 @@ export const EVENT_CHANNEL_METHODS = {
   laneChanged: 'laneChanged',
   permissionRequested: 'permissionRequested',
   permissionResolved: 'permissionResolved',
+  helmChanged: 'helmChanged',
 } as const satisfies Record<EventChannelKey, keyof OrcastrateApi['on']>;
 
 // ---------------------------------------------------------------------------
@@ -126,10 +149,296 @@ export function makeStubLane(overrides: Partial<Lane> = {}): Lane {
 }
 
 // ---------------------------------------------------------------------------
+// Beachcomber and Helm fixtures
+//
+// THESE ARE DELIBERATELY RICH, and that is a decision rather than an accident.
+// A default that carries only one bland row makes every downstream suite build
+// its own corpus, and three hand-built corpora drift from the contract in
+// three different directions. So the default scan below carries every shape
+// the panel has to render — a blocked row, an orphan, a guessed path, an empty
+// root — and the default Helm document carries the unmanaged keys and the
+// hooks text that "round-trips untouched" is actually about.
+//
+// Every value here is contract-valid, including the rule that is easiest to
+// break by hand: `orphan` may only ever be true when
+// `pathSource === 'session-record'`, because "this path does not exist" is
+// unfalsifiable when the path itself is a guess.
+// ---------------------------------------------------------------------------
+
+/** Sorted by root order, then `sizeBytes` descending — as the contract says. */
+export function makeStubBeachcomberEntries(): BeachcomberEntry[] {
+  return [
+    {
+      // BLOCKED, and it names what blocked it, so the panel can say "Stub Pod
+      // is using this" instead of "blocked".
+      id: 'entry-projects-blocked',
+      root: 'projects',
+      name: 'C--stub-workspace',
+      displayPath: 'C:\\stub\\workspace',
+      pathSource: 'session-record',
+      sizeBytes: 4_194_304,
+      fileCount: 12,
+      lastModified: '2026-01-03T00:00:00.000Z',
+      sessionCount: 5,
+      orphan: false,
+      blocked: 'pod-cwd',
+      blockedBy: { podId: 'pod-1', title: 'Stub Pod' },
+    },
+    {
+      // ORPHAN. Legal only because the path came from a session record.
+      id: 'entry-projects-orphan',
+      root: 'projects',
+      name: 'C--stub-deleted-project',
+      displayPath: 'C:\\stub\\deleted-project',
+      pathSource: 'session-record',
+      sizeBytes: 1_048_576,
+      fileCount: 6,
+      lastModified: '2025-11-01T00:00:00.000Z',
+      sessionCount: 2,
+      orphan: true,
+      blocked: null,
+      blockedBy: null,
+    },
+    {
+      // A GUESS. The directory name contains a hyphen, which is exactly the
+      // case where decoding is ambiguous — so `orphan` stays false no matter
+      // what the filesystem says.
+      id: 'entry-projects-decoded',
+      root: 'projects',
+      name: 'C--stub-repos-dir-ect',
+      displayPath: 'C:\\stub\\repos\\dir-ect',
+      pathSource: 'decoded-name',
+      sizeBytes: 262_144,
+      fileCount: 3,
+      lastModified: '2026-01-02T00:00:00.000Z',
+      sessionCount: 1,
+      orphan: false,
+      blocked: null,
+      blockedBy: null,
+    },
+    {
+      id: 'entry-shell-1',
+      root: 'shellSnapshots',
+      name: 'snapshot-bash-1735689600.sh',
+      displayPath: '~/.claude/shell-snapshots/snapshot-bash-1735689600.sh',
+      pathSource: 'session-record',
+      sizeBytes: 65_536,
+      fileCount: 1,
+      lastModified: '2026-01-01T12:00:00.000Z',
+      sessionCount: null,
+      orphan: false,
+      blocked: null,
+      blockedBy: null,
+    },
+    {
+      id: 'entry-history-1',
+      root: 'fileHistory',
+      name: 'a1b2c3d4',
+      displayPath: '~/.claude/file-history/a1b2c3d4',
+      pathSource: 'session-record',
+      sizeBytes: 32_768,
+      fileCount: 9,
+      lastModified: '2026-01-01T09:00:00.000Z',
+      sessionCount: null,
+      orphan: false,
+      blocked: null,
+      blockedBy: null,
+    },
+    {
+      id: 'entry-paste-1',
+      root: 'pasteCache',
+      name: 'paste-0001.png',
+      displayPath: '~/.claude/paste-cache/paste-0001.png',
+      pathSource: 'session-record',
+      sizeBytes: 8_192,
+      fileCount: 1,
+      lastModified: '2026-01-01T08:00:00.000Z',
+      sessionCount: null,
+      orphan: false,
+      blocked: null,
+      blockedBy: null,
+    },
+  ];
+}
+
+/** A full four-root scan. Every override is shallow — pass whole fields. */
+export function makeStubBeachcomberScan(overrides: Partial<BeachcomberScan> = {}): BeachcomberScan {
+  const entries = overrides.entries ?? makeStubBeachcomberEntries();
+  const bytesIn = (root: BeachcomberEntry['root']): number =>
+    entries.filter((e) => e.root === root).reduce((sum, e) => sum + e.sizeBytes, 0);
+  const countIn = (root: BeachcomberEntry['root']): number =>
+    entries.filter((e) => e.root === root).length;
+
+  return {
+    scanId: 'stub-scan-1',
+    scannedAt: '2026-01-03T00:00:00.000Z',
+    roots: [
+      {
+        key: 'projects',
+        displayPath: '~/.claude/projects',
+        present: true,
+        entryCount: countIn('projects'),
+        totalBytes: bytesIn('projects'),
+        error: null,
+      },
+      {
+        key: 'shellSnapshots',
+        displayPath: '~/.claude/shell-snapshots',
+        present: true,
+        entryCount: countIn('shellSnapshots'),
+        totalBytes: bytesIn('shellSnapshots'),
+        error: null,
+      },
+      {
+        key: 'fileHistory',
+        displayPath: '~/.claude/file-history',
+        present: true,
+        entryCount: countIn('fileHistory'),
+        totalBytes: bytesIn('fileHistory'),
+        error: null,
+      },
+      {
+        key: 'pasteCache',
+        displayPath: '~/.claude/paste-cache',
+        present: true,
+        entryCount: countIn('pasteCache'),
+        totalBytes: bytesIn('pasteCache'),
+        error: null,
+      },
+    ],
+    entries,
+    ...overrides,
+  };
+}
+
+/**
+ * A preview of whatever ids were asked for, drawn from the default scan.
+ * An id the scan does not know is REFUSED rather than dropped — the preview's
+ * whole job is to say no before the confirm button, and a blocked row is
+ * refused for the same reason with a message that says what to do about it.
+ */
+export function makeStubBeachcomberPreview(ids: readonly string[]): BeachcomberPreview {
+  const entries = makeStubBeachcomberEntries();
+  const preview: BeachcomberPreview = { items: [], refused: [], totalBytes: 0, totalFiles: 0 };
+
+  for (const id of ids) {
+    const entry = entries.find((candidate) => candidate.id === id);
+    if (entry === undefined) {
+      preview.refused.push({ id, reason: 'This entry is not part of the current scan. Rescan and try again.' });
+      continue;
+    }
+    if (entry.blocked !== null) {
+      preview.refused.push({
+        id,
+        reason: `${entry.blockedBy?.title ?? 'A Pod'} is using this directory. Delete the Pod first if you want to clear it.`,
+      });
+      continue;
+    }
+    preview.items.push({
+      id: entry.id,
+      displayPath: entry.displayPath,
+      root: entry.root,
+      sizeBytes: entry.sizeBytes,
+      fileCount: entry.fileCount,
+      sampleNames: ['session-a1b2.jsonl', 'session-c3d4.jsonl'],
+      stale: false,
+    });
+    preview.totalBytes += entry.sizeBytes;
+    preview.totalFiles += entry.fileCount;
+  }
+  return preview;
+}
+
+/**
+ * The user scope plus BOTH project scopes for one Pod, because the pair is the
+ * thing the form has to get right and a single scope hides the bug where
+ * `settings.local.json` silently resolves to `settings.json`.
+ */
+export function makeStubHelmScopes(): HelmScope[] {
+  return [
+    {
+      id: 'user',
+      kind: 'user',
+      podId: null,
+      label: 'All projects',
+      displayPath: '~/.claude/settings.json',
+      exists: true,
+    },
+    {
+      id: 'project:pod-1',
+      kind: 'project',
+      podId: 'pod-1',
+      label: 'Stub Pod',
+      displayPath: 'C:\\stub\\workspace\\.claude\\settings.json',
+      exists: true,
+    },
+    {
+      // Absent is the NORMAL case for the gitignored overlay, not an error.
+      id: 'projectLocal:pod-1',
+      kind: 'projectLocal',
+      podId: 'pod-1',
+      label: 'Stub Pod',
+      displayPath: 'C:\\stub\\workspace\\.claude\\settings.local.json',
+      exists: false,
+    },
+  ];
+}
+
+/**
+ * A document with real unmanaged keys and real hooks text. Both matter: a save
+ * that loses `statusLine` or flattens `hooks` is the failure this feature is
+ * most likely to ship, and a default that carried neither would let a suite
+ * pass without ever exercising the round trip.
+ */
+export function makeStubHelmDocument(
+  scopeId: HelmScopeId = 'user',
+  overrides: Partial<HelmDocument> = {},
+): HelmDocument {
+  const scopes = makeStubHelmScopes();
+  const scope = scopes.find((candidate) => candidate.id === scopeId);
+  return {
+    // `scopes` is a non-empty literal, so index 0 always exists;
+    // `noUncheckedIndexedAccess` still wants the branch spelled out.
+    scope: scope ?? scopes[0] ?? {
+      id: scopeId,
+      kind: 'user',
+      podId: null,
+      label: 'All projects',
+      displayPath: '~/.claude/settings.json',
+      exists: true,
+    },
+    revision: { sha256: 'a'.repeat(64), sizeBytes: 512, mtimeMs: 1_767_225_600_000 },
+    managed: {
+      model: 'claude-sonnet-4-6',
+      permissionsAllow: ['Bash(npm run test:*)', 'Read(~/.claude/**)'],
+      permissionsDeny: ['Bash(rm:*)'],
+      env: { CLAUDE_CODE_ENABLE_TELEMETRY: '0' },
+      crossSessionInbound: 'accept',
+    },
+    // Two keys Helm does not manage. They must survive a round trip verbatim.
+    unmanaged: {
+      statusLine: { type: 'command', command: 'npx ccstatusline@latest' },
+      outputStyle: 'Explanatory',
+    },
+    hooksJson: JSON.stringify(
+      {
+        PreToolUse: [
+          { matcher: 'Bash', hooks: [{ type: 'command', command: 'echo pre-bash' }] },
+        ],
+      },
+      null,
+      2,
+    ),
+    parseError: null,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // The stub
 // ---------------------------------------------------------------------------
 
-/** Drives the five push channels. Each call is synchronous and fans out to
+/** Drives the six push channels. Each call is synchronous and fans out to
  *  every live subscriber; a subscriber added during the fan-out is not called
  *  for the in-flight emit. */
 export interface StubEmitters {
@@ -138,6 +447,8 @@ export interface StubEmitters {
   laneChanged(push: LaneChangedPush): void;
   permissionRequested(push: PermissionRequestedPush): void;
   permissionResolved(push: PermissionResolvedPush): void;
+  /** Advisory. Drives the staleness banner, never the save safety. */
+  helmChanged(push: HelmChangedPush): void;
 }
 
 /**
@@ -176,6 +487,8 @@ export interface StubApiOverrides {
   permissions?: Partial<OrcastrateApi['permissions']>;
   dialog?: Partial<OrcastrateApi['dialog']>;
   app?: Partial<OrcastrateApi['app']>;
+  beachcomber?: Partial<OrcastrateApi['beachcomber']>;
+  helm?: Partial<OrcastrateApi['helm']>;
   on?: Partial<OrcastrateApi['on']>;
 }
 
@@ -290,12 +603,65 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       routingMode: channel('appRoutingMode', (): RoutingMode => 'lanes'),
       ...overrides.app,
     },
+    beachcomber: {
+      scan: channel('beachcomberScan', (): BeachcomberScan => makeStubBeachcomberScan()),
+      preview: channel('beachcomberPreview', (req: BeachcomberPreviewRequest): BeachcomberPreview =>
+        // `req.ids` is non-optional in the contract, but this stub is also
+        // driven by the coverage walk in `stub-api.test.ts`, which calls every
+        // channel with one generic object. A default that threw there would
+        // report as a missing method rather than as a bad call.
+        makeStubBeachcomberPreview(req?.ids ?? []),
+      ),
+      trash: channel('beachcomberTrash', (req: BeachcomberTrashRequest): BeachcomberTrashResult => {
+        const requested = req?.ids ?? [];
+        const preview = makeStubBeachcomberPreview(requested);
+        const trashed = preview.items.map((item) => item.id);
+        return {
+          trashed,
+          // Partial success is a VALUE, not an error — the default models the
+          // shape rather than the happy case only, so nothing downstream has
+          // to invent a `failed` row to test the message that renders it.
+          failed: [],
+          refused: preview.refused,
+          scan: makeStubBeachcomberScan({
+            entries: makeStubBeachcomberEntries().filter(
+              (entry) => !trashed.includes(entry.id),
+            ),
+          }),
+        };
+      }),
+      ...overrides.beachcomber,
+    },
+    helm: {
+      listScopes: channel('helmScopes', (): HelmScope[] => makeStubHelmScopes()),
+      load: channel('helmLoad', (scopeId: HelmScopeId): HelmDocument =>
+        makeStubHelmDocument(typeof scopeId === 'string' ? scopeId : 'user'),
+      ),
+      save: channel('helmSave', (req: HelmSaveRequest): HelmSaveResult => {
+        const scopeId = typeof req?.scopeId === 'string' ? req.scopeId : 'user';
+        return {
+          // Freshly re-read after the write, so the form's revision is current
+          // — and carrying back exactly what the caller sent, which is what
+          // "preserves unmanaged keys" means from the renderer's side.
+          document: makeStubHelmDocument(scopeId, {
+            ...(req?.managed === undefined ? {} : { managed: req.managed }),
+            ...(req?.unmanaged === undefined ? {} : { unmanaged: req.unmanaged }),
+            ...(req?.hooksJson === undefined ? {} : { hooksJson: req.hooksJson }),
+            revision: { sha256: 'b'.repeat(64), sizeBytes: 640, mtimeMs: 1_767_312_000_000 },
+          }),
+          backupDisplayPath: '~/.claude/settings.json.2026-01-03T000000.bak',
+          warnings: [],
+        };
+      }),
+      ...overrides.helm,
+    },
     on: {
       podEvent: subscribe<PodEventPush>('podEvent'),
       podStatus: subscribe<PodStatusPush>('podStatus'),
       laneChanged: subscribe<LaneChangedPush>('laneChanged'),
       permissionRequested: subscribe<PermissionRequestedPush>('permissionRequested'),
       permissionResolved: subscribe<PermissionResolvedPush>('permissionResolved'),
+      helmChanged: subscribe<HelmChangedPush>('helmChanged'),
       ...overrides.on,
     },
 
@@ -305,6 +671,7 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       laneChanged: (push) => emitTo('laneChanged', push),
       permissionRequested: (push) => emitTo('permissionRequested', push),
       permissionResolved: (push) => emitTo('permissionResolved', push),
+      helmChanged: (push) => emitTo('helmChanged', push),
     },
 
     failInvoke(channelKey, error) {

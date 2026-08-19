@@ -14,6 +14,17 @@
 
 import type { PermissionMode } from '../../shared/contracts/events';
 import type {
+  BeachcomberPreviewRequest,
+  BeachcomberTrashRequest,
+} from '../../shared/contracts/beachcomber';
+import type {
+  HelmManagedFields,
+  HelmRevision,
+  HelmSaveRequest,
+  HelmScopeId,
+} from '../../shared/contracts/helm';
+import { CROSS_SESSION_INBOUND_VALUES } from '../../shared/contracts/helm';
+import type {
   CreatePodRequest,
   PermissionRespondRequest,
   ReadEventsRequest,
@@ -187,4 +198,166 @@ export function requirePermissionRespondRequest(value: unknown): PermissionRespo
     req.reason = requireString(raw['reason'], 'reason');
   }
   return req;
+}
+
+// ---------------------------------------------------------------------------
+// Beachcomber and Helm
+//
+// SHAPE ONLY, and that is the point. NOTHING below resolves, joins, normalizes
+// or stats a path — there is no `node:path` and no `node:fs` in this module,
+// and the ipc source scan asserts it. An id is checked for being a non-empty
+// string and nothing more: whether it names anything is a question only the
+// service that MINTED it can answer, and it answers with NOT_FOUND.
+//
+// Every returned object is REBUILT from the fields the contract declares, so a
+// path-shaped extra key the renderer bolted on cannot ride through to a
+// service. That is what makes `preview`/`trash` accept `{ scanId, ids }` and
+// nothing else, and `load`/`save` accept a scopeId-keyed payload and nothing
+// else.
+// ---------------------------------------------------------------------------
+
+/**
+ * A trash of every `~/.claude/projects` entry on a busy machine is a few
+ * hundred rows; 500 is comfortably past any real selection and well short of
+ * a payload that could wedge main. A larger request is a bug or an attack, and
+ * either way the answer is the same.
+ */
+export const MAX_BEACHCOMBER_IDS = 500;
+
+/** `scanId` + ids. Shared by `preview` and `trash`, which take the same shape. */
+function requireEntryIdRequest(
+  value: unknown,
+  what: string,
+): { scanId: string; ids: string[] } {
+  const raw = requireObject(value, what);
+  const scanId = requireString(raw['scanId'], 'scanId');
+
+  const ids = raw['ids'];
+  if (!Array.isArray(ids)) {
+    throw invalidArgument('ids must be an array of entry ids');
+  }
+  if (ids.length > MAX_BEACHCOMBER_IDS) {
+    throw invalidArgument(
+      `ids may name at most ${MAX_BEACHCOMBER_IDS} entries (received ${ids.length})`,
+    );
+  }
+  const out: string[] = [];
+  for (let index = 0; index < ids.length; index += 1) {
+    out.push(requireString(ids[index], `ids[${index}]`));
+  }
+  return { scanId, ids: out };
+}
+
+export function requireBeachcomberPreviewRequest(value: unknown): BeachcomberPreviewRequest {
+  return requireEntryIdRequest(value, 'BeachcomberPreviewRequest');
+}
+
+export function requireBeachcomberTrashRequest(value: unknown): BeachcomberTrashRequest {
+  return requireEntryIdRequest(value, 'BeachcomberTrashRequest');
+}
+
+/**
+ * A scope id is a KEY the renderer picked out of `listScopes()`. Shape-checked
+ * here; resolved to a settings file by `HelmService` alone, which answers
+ * NOT_FOUND for one it did not mint.
+ */
+export function requireHelmScopeId(value: unknown): HelmScopeId {
+  return requireString(value, 'scopeId');
+}
+
+/** `null` is a legitimate revision: "the file did not exist when I loaded it". */
+function requireHelmRevision(value: unknown): HelmRevision | null {
+  if (value === null || value === undefined) return null;
+  const raw = requireObject(value, 'revision');
+  const sizeBytes = raw['sizeBytes'];
+  const mtimeMs = raw['mtimeMs'];
+  if (typeof sizeBytes !== 'number' || !Number.isFinite(sizeBytes) || sizeBytes < 0) {
+    throw invalidArgument('revision.sizeBytes must be a non-negative number');
+  }
+  if (typeof mtimeMs !== 'number' || !Number.isFinite(mtimeMs)) {
+    throw invalidArgument('revision.mtimeMs must be a number');
+  }
+  return { sha256: requireString(raw['sha256'], 'revision.sha256'), sizeBytes, mtimeMs };
+}
+
+function requireStringArray(value: unknown, what: string): string[] {
+  if (!Array.isArray(value)) {
+    throw invalidArgument(`${what} must be an array of strings`);
+  }
+  return value.map((entry, index) => {
+    if (typeof entry !== 'string') {
+      throw invalidArgument(`${what}[${index}] must be a string`);
+    }
+    return entry;
+  });
+}
+
+function requireStringRecord(value: unknown, what: string): Record<string, string> {
+  const raw = requireObject(value, what);
+  const out: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(raw)) {
+    if (typeof entry !== 'string') {
+      throw invalidArgument(`${what}.${key} must be a string`);
+    }
+    out[key] = entry;
+  }
+  return out;
+}
+
+/**
+ * `null` and `''`/`[]`/`{}` collapse to "the key is absent" per the contract,
+ * so an absent-key file round-trips without Helm inventing keys.
+ *
+ * `crossSessionInbound: 'hold'` is ACCEPTED here. It is unverified against CLI
+ * 2.1.235, and the contract's answer to that is a validation WARNING the user
+ * sees — not a refusal at the transport boundary, which would make Helm less
+ * capable than a text editor.
+ */
+function requireHelmManagedFields(value: unknown): HelmManagedFields {
+  const raw = requireObject(value, 'managed');
+
+  const model = raw['model'];
+  if (model !== null && model !== undefined && typeof model !== 'string') {
+    throw invalidArgument('managed.model must be a string or null');
+  }
+
+  const inbound = raw['crossSessionInbound'];
+  if (
+    inbound !== null &&
+    inbound !== undefined &&
+    !(CROSS_SESSION_INBOUND_VALUES as readonly unknown[]).includes(inbound)
+  ) {
+    throw invalidArgument(
+      `managed.crossSessionInbound must be one of ${CROSS_SESSION_INBOUND_VALUES.join(', ')} or null (received ${JSON.stringify(inbound)})`,
+    );
+  }
+
+  return {
+    model: typeof model === 'string' ? model : null,
+    permissionsAllow: requireStringArray(raw['permissionsAllow'], 'managed.permissionsAllow'),
+    permissionsDeny: requireStringArray(raw['permissionsDeny'], 'managed.permissionsDeny'),
+    env: requireStringRecord(raw['env'], 'managed.env'),
+    crossSessionInbound: (inbound ?? null) as HelmManagedFields['crossSessionInbound'],
+  };
+}
+
+/**
+ * Note what is NOT checked: whether `hooksJson` parses. That is a `validate`
+ * concern the service reports as a `HelmValidationIssue` the form can render
+ * against the field, not an INVALID_ARGUMENT that tells the user nothing about
+ * where the brace went missing.
+ */
+export function requireHelmSaveRequest(value: unknown): HelmSaveRequest {
+  const raw = requireObject(value, 'HelmSaveRequest');
+  const hooksJson = raw['hooksJson'];
+  if (typeof hooksJson !== 'string') {
+    throw invalidArgument('hooksJson must be a string (empty when the key is absent)');
+  }
+  return {
+    scopeId: requireHelmScopeId(raw['scopeId']),
+    revision: requireHelmRevision(raw['revision']),
+    managed: requireHelmManagedFields(raw['managed']),
+    unmanaged: requireObject(raw['unmanaged'], 'unmanaged'),
+    hooksJson,
+  };
 }

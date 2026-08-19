@@ -18,14 +18,28 @@
  * `electron` is NOT imported here. `ipcMain` and the directory picker arrive as
  * narrow injected interfaces, which is what lets the whole surface be exercised
  * in a plain Node test.
+ *
+ * NEITHER IS `node:fs`, NOR `../beachcomber`, NOR `../helm`. Both panel
+ * services arrive on `IpcHandlerDeps` as the interfaces their frozen contracts
+ * declare, for the same reason `ipcMain` does: this module is a transport, and
+ * a transport that could reach the filesystem would be one more place a path
+ * could be composed. A source scan over `src/main/ipc/**` asserts all four
+ * absences, because "we do not import that" is a claim a review makes once and
+ * then stops making.
  */
 
+import type { BeachcomberService } from '../../shared/contracts/beachcomber';
+import type { HelmService } from '../../shared/contracts/helm';
 import { INVOKE_CHANNELS, type IpcResult } from '../../shared/contracts/ipc';
 import type { PodManagerApi } from '../pod-manager';
 
 import { fail, IpcFailure, ok } from './errors';
 import {
+  requireBeachcomberPreviewRequest,
+  requireBeachcomberTrashRequest,
   requireCreatePodRequest,
+  requireHelmSaveRequest,
+  requireHelmScopeId,
   requirePermissionMode,
   requirePermissionRespondRequest,
   requirePodId,
@@ -51,6 +65,17 @@ export interface IpcHandlerDeps {
    * filesystem path in the whole application.
    */
   pickDirectory: () => Promise<string | null>;
+  /**
+   * The Beachcomber and Helm ports, INJECTED — never resolved from a module
+   * global or imported from `../beachcomber` / `../helm`. This module knows
+   * both services only as the interfaces the frozen contracts declare, which
+   * is what keeps the whole IPC surface exercisable against a fake that does
+   * not touch a disk. `src/main/index.ts` (T8) is the only place the real
+   * implementations are constructed, and the only place their own dangerous
+   * capabilities (`shell.trashItem`, the Pod list) are supplied.
+   */
+  beachcomber: BeachcomberService;
+  helm: HelmService;
 }
 
 /** Every channel `registerIpcHandlers` installed, in registration order. */
@@ -144,6 +169,45 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): string[] {
    * could drift from the router's actual mode.
    */
   register(INVOKE_CHANNELS.appRoutingMode, () => manager.routingMode);
+
+  // -- beachcomber ----------------------------------------------------------
+
+  /**
+   * No try/catch here, and none in the five below it. `register` already
+   * wraps every handler in `envelope`, so a `NOT_FOUND` `IpcFailure` from the
+   * service crosses as its own code and anything else becomes `INTERNAL` with
+   * a safe message. A local catch could only make that worse — either by
+   * swallowing the code the service chose, or by putting a stack in a string
+   * the renderer shows a user.
+   *
+   * Note also what does NOT happen: no path is composed, resolved or checked.
+   * The validators prove shape; `BeachcomberService` owns every question that
+   * needs the disk, including whether an id belongs to this scan.
+   */
+  register(INVOKE_CHANNELS.beachcomberScan, () => deps.beachcomber.scan());
+
+  register(INVOKE_CHANNELS.beachcomberPreview, (req) =>
+    deps.beachcomber.preview(requireBeachcomberPreviewRequest(req)),
+  );
+
+  register(INVOKE_CHANNELS.beachcomberTrash, (req) =>
+    deps.beachcomber.trash(requireBeachcomberTrashRequest(req)),
+  );
+
+  // -- helm -----------------------------------------------------------------
+
+  register(INVOKE_CHANNELS.helmScopes, () => deps.helm.listScopes());
+
+  register(INVOKE_CHANNELS.helmLoad, (scopeId) => deps.helm.load(requireHelmScopeId(scopeId)));
+
+  /**
+   * `save` is the one call in this file that can destroy a developer's
+   * settings, and every guarantee about that lives in `HelmService`: backup,
+   * re-read-and-compare, atomic rename. The boundary's only job is to refuse a
+   * malformed payload and to let `CONFLICT` through unmodified — a conflict is
+   * a value the form branches on, not a fault.
+   */
+  register(INVOKE_CHANNELS.helmSave, (req) => deps.helm.save(requireHelmSaveRequest(req)));
 
   const expected = Object.values(INVOKE_CHANNELS) as string[];
   const missing = expected.filter((channel) => !registered.has(channel));
