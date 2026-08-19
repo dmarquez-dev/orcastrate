@@ -1,0 +1,57 @@
+# Session log — 2026-08-18-orcastrate-mvp
+
+- 2026-08-18T17:55 -07:00  Gate 1 presented (track: Large; 3-way decomposition). Approved.
+- 2026-08-18T17:58 -07:00  dir-git init-session -> branch dir/2026-08-18-orcastrate-mvp.
+- 2026-08-18T18:00 -07:00  dir-git relocate worktree: scratch dir -> .claude-worktrees/2026-08-18-orcastrate-mvp (orchestrator error at dispatch; corrected).
+- 2026-08-18T18:03 -07:00  dir-inference ladder run; rung 3 resolved SDK surface. Four spec corrections recorded in resolved-unknowns.md. 0 escalations.
+- 2026-08-18T18:06 -07:00  dir-architect dispatched (strong) for sub-session 1 decomposition.
+- 2026-08-18T18:18 -07:00  dir-architect returned: manifest.json (7 tasks, T1-T7) + 6 contracts drafted. 0 escalations raised by architect; 6 items queued for Gate 2.
+- 2026-08-18T18:20 -07:00  PAUSED before Gate 2 at user request (CC usage limits). Nothing frozen, nothing dispatched. spec.md not yet assembled.
+- 2026-08-18T18:35 -07:00  spec.md assembled (11 assumptions, 12 definition-of-done items, 5 spec corrections). Self-review passed.
+- 2026-08-18T18:38 -07:00  Gate 2 presented: spec.md + draft manifest.json (T1-T7) + 6 draft contracts.
+- 2026-08-18T18:40 -07:00  Gate 2 decision: bypassPermissions exposed in New Pod dialog behind a confirmation + persistent Pod-tab warning badge (sub-session 2 scope). Contract enum keeps all three modes.
+- 2026-08-18T18:42 -07:00  Gate 2 APPROVED. manifest.json and contracts/ frozen. Phase -> implement.
+- 2026-08-18T18:45 -07:00  T1 dispatched (dir-backend-engineer, opus). startRef 07f36e0.
+- 2026-08-18T19:05 -07:00  T1 review PASS (0 blocking, 8 advisory). reviews/T1.md written.
+- 2026-08-18T19:10 -07:00  T1 committed 305d503 (26 files). T1 -> done.
+- 2026-08-18T19:15 -07:00  T2 + T3 dispatched concurrently (disjoint owns). startRef 305d503.
+- 2026-08-18T19:40 -07:00  T3 reported done (100 tests green). E1 raised (contract EventStoreError is ambient). T3 -> in_review.
+- 2026-08-18T19:55 -07:00  T3 review PASS (0 blocking, 5 advisory). reviews/T3.md written.
+- 2026-08-18T20:05 -07:00  T3 committed fb4c525 (11 files). T3 -> done. All remaining tasks blocked on T2.
+- 2026-08-18T20:40 -07:00  T2 reported done: routing=lanes, nesting distinguishable, agentId observable, all 3 steering tools present. 3 of 5 doc-derived spec corrections DISPROVEN. E2 raised (pod-runner contract vs observed CLI). T2 -> in_review.
+- 2026-08-18T21:00 -07:00  T2 review round 1: CHANGES REQUIRED (2 blocking: B1 home path in fixture README; B2 04-substitution absent from findings.json). Authenticity verified constructively.
+- 2026-08-18T21:05 -07:00  T2 re-dispatched to original implementer, revisionRounds -> 1.
+- 2026-08-18T21:30 -07:00  T2 revision round 1 delivered; env answer reversed AGAIN to 'replaces' on a decisive test. spec.md corrections table rewritten with measured verdicts. Re-review dispatched; reviewRounds -> 1.
+- 2026-08-18T21:55 -07:00  T2 review round 2: PASS. reviews/T2.md written. Committed 04e0938 (15 files). T2 -> done.
+- 2026-08-18T22:00 -07:00  T4 + T5 dispatched concurrently (disjoint owns). startRef 04e0938.
+- 2026-08-18T22:45 -07:00  T5 reported done (145 tests green, mode=lanes read from findings.json). T5 -> in_review. T4 still in flight.
+- 2026-08-18T23:10 -07:00  T4 reported done (84 new tests, 229 total). E3 raised (foreground-dispatch hook unverified against live CLI). T4 -> in_review.
+- 2026-08-18T23:40 -07:00  T5 review PASS (0 blocking, 8 advisory). E4 raised (agentId backfill trigger owned by no task).
+- 2026-08-18T23:55 -07:00  T5 committed 0a1c8b4 (5 files). T5 -> done. T4 still in review; T6 unblocked but held until T4 clears (T7 needs T4).
+- 2026-08-19T00:00 -07:00  T6 dispatched (owns tests/router/**, disjoint from T4's in-flight files). startRef 0a1c8b4.
+- 2026-08-19T00:15 -07:00  T4 review PASS (0 blocking, 6 advisory). reviews/T4.md written. Committed 907dce7 (15 files). T4 -> done.
+- 2026-08-19T00:20 -07:00  T7 dispatched (final task), concurrent with T6. startRef 907dce7.
+- 2026-08-19T00:50 -07:00  T6 reported done (202 router tests, 431 total). T6 -> in_review. T7 still implementing.
+- 2026-08-19T01:15 -07:00  T6 review PASS (0 blocking, 6 advisory). Mutation-tested: 7/8 mutants killed; M8 (inline mode ignored) survived -> advisory A3.
+- 2026-08-19T01:20 -07:00  T7 reported done (49 ipc tests, 480 total, incl. out-of-criteria E4 backfill). T7 -> in_review.
+- 2026-08-19T01:35 -07:00  T6 committed ae67886 (9 files). T6 -> done. Only T7 remains (in review).
+- 2026-08-19T02:00 -07:00  T7 review round 1: CHANGES REQUIRED (2 blocking, both reproduced: lane_opened restamped to Matriarch; #pending keyed by bare requestId collides across Pods). E5 raised (PermissionPrompt cannot attribute a prompt to a Calf). T7 -> revising, round 1. reviewRounds -> 2.
+- 2026-08-19T02:30 -07:00  T7 revision round 1 delivered: B1 fixed via option 1, B2 via option 2. Async-rejection advisory surfaced a THIRD defect (4 handlers discarded return values -> silent ok:true + unhandled rejection). 485 tests. Re-review dispatched.
+- 2026-08-19T02:45 -07:00  T7 review round 2: PASS. reviews/T7.md written. Committed 13bd78a (14 files). T7 -> done.
+- 2026-08-19T02:50 -07:00  All 7 tasks done. Phase -> awaiting-final. Gate 3 presented.
+- 2026-08-19T03:00 -07:00  Gate 3 decisions: E3 probe now; E5 widen PermissionPrompt now; E4 ratified as shipped; E1+E2+design-spec amended now. All 5 escalations resolved. Merge held until amendment work lands.
+- 2026-08-19T03:20 -07:00  A2 amended design spec in place (all 9 corrections + 6 it found itself: stale 'No such tool available', unresolved s11 questions, missing forwardSubagentText, missing parent_lane_id/depth, unsourced agent_id, live inline fallback). Follow-up sent: mark unmeasured SDK options (resumeSessionAt/continue/forkSession) as doc-sourced, not probe-verified.
+- 2026-08-19T03:20 -07:00  A1 (E3 foreground-dispatch probe) still running. Contract amendments for E1/E2/E5 held until it reports.
+- 2026-08-19T03:45 -07:00  A1 RESOLVED E3: PreToolUse hook IS honored (2x2, causal attribution vs control). No src change needed. Secondary: directive alone sufficed once (model behavior, not guaranteed); background ack is prose not async_launched JSON; bypassPermissions shadows canUseTool entirely (CLAUDE_SDK_CAN_USE_TOOL_SHADOWED) so such Pods raise no permission cards.
+- 2026-08-19T04:20 -07:00  A3 amended contracts (E1 real classes replacing ambient declarations, pins deleted; E2 canUseTool 3-arg + Agent naming + foreground-hook requirement documented; E5 optional agentId/toolUseId on PermissionPrompt + PodManager #attributePrompt with explicit labelled Matriarch fallback). 502 tests. Escalated: E5 unwired because #makeCanUseTool is in pod-runner.ts, not permissions.ts (orchestrator scoping error). Also found probe/verify-foreground.ts breaks npm run typecheck (introduced by A1).
+- 2026-08-19T04:20 -07:00  Ownership extended to A3: pod-runner.ts, pod/index.ts, probe/verify-foreground.ts, contracts/events.ts, contracts/lane-router.ts, options.ts, ipc/errors.ts. Finishing pass dispatched.
+- 2026-08-19T05:10 -07:00  A3 review PASS (0 blocking, 5 advisory). Negative control reproduced exactly by reviewer; probe-import dilemma independently measured; helpers.ts confirmed byte-identical to committed version; comment-only restriction on events.ts/lane-router.ts verified.
+- 2026-08-19T05:10 -07:00  Acting on advisory 1 (not deferring): #attributePrompt fallback is silent where #routeLane's equivalent warns. Same failure shape as the earlier blocking finding. Follow-up dispatched to A3.
+- 2026-08-19T05:10 -07:00  REMAINING BEFORE MERGE: (1) A3 warn follow-up lands; (2) commit amendments A1+A2+A3 (currently ALL UNCOMMITTED in worktree); (3) merge approval, then push as a separate question.
+- 2026-08-19T05:30 -07:00  A3 drift-warn follow-up landed. 505 tests, both gates green. Detector proven both directions: warn removed -> 1 fail (stale-id test); warn unconditional -> 2 fails (both silence tests). Ordering hazard recorded as a comment naming this warn as its only observation channel.
+- 2026-08-19T05:35 -07:00  dir-git dispatched for three amendment commits (A1 verification / A2 spec / A3 contracts). RESUME POINT: check that commit result, then Gate 3 merge approval.
+- 2026-08-19T05:45 -07:00  Amendment commits landed: 163feda (A1 verification, 10 files), a5eef95 (A2 spec, 1 file), 9f959e9 (A3 contracts, 17 files). Worktree clean. VERIFIED main..branch = 10 commits (agent's report showed only 3; it was truncated, not wrong).
+- 2026-08-19T05:45 -07:00  READY FOR MERGE. main still at 07f36e0. Awaiting user merge approval; push to be asked separately.
+- NOTE: the 3 amendment commit subjects lack Conventional Commits prefixes, unlike the 7 task commits. Cosmetic; not corrected (would require a history rewrite, which is forbidden).
+- 2026-08-19T06:05 -07:00  Gate 3 APPROVED: merge to main + push main to origin. Sub-session 2 decisions: task_progress routes to its own Calf; New Pod dialog gets 4 permission modes incl. acceptEdits with a truthful bypass badge; Steer stays deferred (reachable, not blocked). backlog.md written.
+- 2026-08-19T06:10 -07:00  Phase -> merged. dir-git dispatched: merge-session, artifact commit, push, cleanup.

@@ -1,0 +1,241 @@
+{
+  "session": "2026-08-18-orcastrate-mvp",
+  "updatedAt": "2026-08-19T06:10:00-07:00",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-18-orcastrate-mvp",
+  "branch": "dir/2026-08-18-orcastrate-mvp",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "07f36e03a6c4e21d15f29d05a4d8a17cc052ec45",
+      "commit": "305d503b90f0dc1e364ea26945dec070bee37b5d"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "305d503b90f0dc1e364ea26945dec070bee37b5d",
+      "commit": "04e09382abb4f0246c1296adc97a87079d556fce"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "305d503b90f0dc1e364ea26945dec070bee37b5d",
+      "commit": "fb4c525"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "04e09382abb4f0246c1296adc97a87079d556fce",
+      "commit": "907dce7"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "04e09382abb4f0246c1296adc97a87079d556fce",
+      "commit": "0a1c8b4"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "0a1c8b4",
+      "commit": "ae67886"
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "907dce7",
+      "commit": "13bd78a"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T3",
+      "question": "contracts/event-store.ts declares EventStoreError as `declare class` (ambient, no runtime value), so `instanceof` against the contract import fails at runtime. Correct the contract, or accept the workaround where consumers import the concrete class from src/main/store?",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Leave the contract as-is; consumers import EventStoreError from src/main/store (already implemented).",
+          "rationale": "Costs nothing now and is shipping; the concrete class is pinned to the declaration by a compile-time assignability check so the two cannot drift. Residual risk is a later consumer importing the name from the contract path out of habit and failing only at runtime.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/shared/contracts/event-store.ts",
+              "tests/unit/store/errors.test.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Amend the contract to `export type EventStoreErrorLike = Error & { readonly code: EventStoreErrorCode }`.",
+          "rationale": "Removes the trap entirely by making the name un-importable as a value, at the cost of losing instanceof narrowing. Requires a Gate-2 contract amendment and re-notifying every consumer.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Move the concrete class into src/shared/contracts/ as a real class.",
+          "rationale": "Cleanest for consumers, but puts implementation into a declaration-only file owned by T1.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend the contract. User chose \"amend everything now\" at Gate 3: correct contracts/event-store.ts so EventStoreError has a runtime value, and update the concrete classes and their compile-time pins in src/main/store and src/main/pod to match."
+    },
+    {
+      "id": "E2",
+      "taskId": "T4",
+      "question": "The probe found contracts/pod-runner.ts encodes three things the real CLI 2.1.235 contradicts: canUseTool is (toolName, input, options) not (request, {signal}); the dispatch tool is named Agent not Task; and subagents run in the background by default so run_in_background:false must be forced or Calf lanes stay empty. Amend the frozen contract, or have T4/T5 implement against observed reality and document the divergence?",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Implement against observed reality; document divergence in the task reports and amend the contract at Gate 3.",
+          "rationale": "Keeps T4 and T5 unblocked now and matches how E1 was handled. The contract's canUseTool signature is unimplementable as written, so following it literally would produce code that cannot work against the real binary.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "tests/fixtures/protocol/findings.json",
+              "docs/protocol-findings.md"
+            ]
+          }
+        },
+        {
+          "summary": "Amend contracts/pod-runner.ts now, before dispatching T4 and T5.",
+          "rationale": "The contract stays the single source of truth and no divergence note is needed, at the cost of reopening a Gate-2 freeze mid-session and re-notifying every consumer.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Amend only the canUseTool signature now; leave the Agent/Task naming and run_in_background to implementation notes.",
+          "rationale": "Narrowest change that removes the unimplementable part, since the other two are behavioral rather than type-level.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend contracts/pod-runner.ts to match the measured CLI: the real three-argument canUseTool signature, Agent rather than Task as the dispatch tool name, and the background-by-default dispatch reality."
+    },
+    {
+      "id": "E3",
+      "taskId": "T4",
+      "question": "Forcing foreground sub-agent dispatch (run_in_background:false via a PreToolUse hook rewriting updatedInput) is implemented but never verified against the live CLI, because test criteria forbid spawning the real binary. If CLI 2.1.235 does not honor updatedInput for the Agent tool, only a system-prompt directive remains and every Calf lane can render empty. Run a verification probe before Gate 3, or accept the risk into sub-session 2?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Run one short throwaway probe now to confirm the CLI honors the PreToolUse updatedInput rewrite for the Agent tool.",
+          "rationale": "The lane feature is the product's centerpiece and this is its only unproven mechanism. One live session answers it definitively; discovering it in sub-session 2 means rebuilding the dispatch path after the UI is built on it.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod/options.ts",
+              "tests/fixtures/protocol/findings.json"
+            ]
+          }
+        },
+        {
+          "summary": "Accept into sub-session 2 and verify when the UI first renders a Calf lane end to end.",
+          "rationale": "Costs nothing now and the failure is loud rather than silent \u2014 an empty lane is immediately visible the first time a real Pod dispatches. Defers a known risk onto a sub-session that has not been decomposed.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Treat the system-prompt directive as the primary mechanism and the hook as belt-and-braces, documenting the model-compliance dependency.",
+          "rationale": "Honest about what is actually guaranteed, but makes a user-visible feature depend on model compliance rather than a deterministic hook.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Probe run and RESOLVED: the PreToolUse hook IS honored by CLI 2.1.235. Four live runs in a 2x2 (hook x directive) with the prompt silent about run_in_background. Control (neither) reproduced the background default with 0 subagent messages; hook-only produced 6 subagent messages and a verbatim updatedInput rewrite with run_in_background:false. Directive alone also sufficed, but that is one observation of model behavior, so it is a real-looking fallback rather than a second deterministic lever. No change to src/main/pod/options.ts."
+    },
+    {
+      "id": "E4",
+      "taskId": "T7",
+      "question": "No task owns the agentId backfill trigger. LaneRouter emits lane_opened with agentId:null (the dispatching tool_use precedes system/task_started in every fixture), EventStore exposes setLaneAgentId() to backfill, and LaneRouter.agentIds() is the source - but no acceptance criterion in the frozen manifest assigns the call. Left as is, lanes.agent_id is permanently NULL and design-spec 5.3 Steer has nothing to interpolate. Add it to T7 as an out-of-criteria requirement, or carry it to sub-session 2?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Instruct T7 to diff router.agentIds() after each ingest() batch and call setLaneAgentId for newly-known ids; review it as advisory since it sits outside the frozen criteria.",
+          "rationale": "Both halves of the seam already exist and T7 owns the append loop where they meet. Closing it now costs one small addition; deferring means sub-session 2 builds Steer against a column that is always null.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/shared/contracts/event-store.ts:152",
+              "src/main/lane/lane-router.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Carry it to sub-session 2 as an explicit decomposition input.",
+          "rationale": "Keeps the frozen manifest authoritative and avoids widening a task mid-flight, at the cost of shipping sub-session 1 with a column that is structurally always null.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Amend T7's acceptance criteria formally, which reopens the Gate 2 freeze.",
+          "rationale": "Most rigorous - the reviewer would then judge it - but reopening the freeze mid-session is the heavier precedent.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Ratified as shipped. #backfillAgentIds stays; no revert."
+    },
+    {
+      "id": "E5",
+      "taskId": "T7",
+      "question": "PermissionRequestedPush.laneId is always the Matriarch because the frozen PermissionPrompt carries no agentID/toolUseId - the information exists in canUseTool's options one layer down and is discarded. Design-spec 5.4 requires the prompt to raise an inline card 'in the lane that asked', which is therefore unimplementable for any Calf. Widen the contract now, or let sub-session 2 build the lane rail around Matriarch-only prompts?",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Add one optional field (agentId or toolUseId) to PermissionPrompt in the frozen contract before sub-session 2 is decomposed.",
+          "rationale": "The fix is one field; the router already keeps a byAgentId index that resolves it immediately. Much cheaper now than after the lane rail is built around the wrong assumption, and it makes design-spec 5.4 implementable as written.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/shared/contracts/pod-runner.ts",
+              "src/main/pod/permissions.ts",
+              "tests/fixtures/protocol/findings.json"
+            ]
+          }
+        },
+        {
+          "summary": "Leave the contract frozen; sub-session 2 renders all permission cards on the Matriarch and design-spec 5.4 is amended to match.",
+          "rationale": "Preserves the freeze and ships a coherent, if less precise, UX. Costs a named design-spec behavior and makes a Calf's permission request appear to come from the wrong lane.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Defer to sub-session 2's decomposition and decide it there with the lane rail design in hand.",
+          "rationale": "The right attribution partly depends on how the Calf pane renders, which is not yet designed. Risks the decision arriving after the code that depends on it.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Widen the frozen PermissionPrompt now with an optional agent/tool identifier, before sub-session 2 is decomposed, so design-spec 5.4 becomes implementable."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 5,
+    "reviewRounds": 2
+  }
+}

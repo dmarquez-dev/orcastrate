@@ -1,0 +1,204 @@
+{
+  "session": "2026-08-18-orcastrate-mvp",
+  "createdAt": "2026-08-18T18:10:00-07:00",
+  "track": "large",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/events.ts",
+    "contracts/event-store.ts",
+    "contracts/lane-router.ts",
+    "contracts/pod-runner.ts",
+    "contracts/ipc.ts",
+    "contracts/fixture-corpus.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Scaffold Electron + React + TypeScript (electron-vite), Vitest, better-sqlite3, and the preload IPC bridge",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "package.json",
+        "package-lock.json",
+        "electron.vite.config.ts",
+        "electron-builder.yml",
+        "tsconfig.json",
+        "tsconfig.node.json",
+        "tsconfig.web.json",
+        "vitest.config.ts",
+        ".gitignore",
+        ".npmrc",
+        "README.md",
+        "src/main/index.ts",
+        "src/main/window.ts",
+        "src/preload/**",
+        "src/renderer/index.html",
+        "src/renderer/src/main.tsx",
+        "src/renderer/src/App.tsx",
+        "src/shared/contracts/**",
+        "tests/setup.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`npm install` completes from a clean checkout on Windows, and `better-sqlite3` loads in the Electron main process without a rebuild step failing (prove with a main-process require that logs the sqlite version at startup).",
+        "Every runtime dependency the whole sub-session needs is declared in `package.json` by this task — `electron`, `electron-vite`, `react`, `react-dom`, `typescript`, `vitest`, `better-sqlite3`, and `@anthropic-ai/claude-agent-sdk` — with pinned versions, so no later task edits `package.json`.",
+        "`npm run build` produces main, preload, and renderer bundles with no TypeScript errors under `strict: true`.",
+        "`npm run dev` opens a window rendering a placeholder App component; the placeholder contains no Pod, lane, transcript, or composer UI (those are sub-sessions 2/3).",
+        "`npm test` runs Vitest and reports at least one passing smoke test; `npm run typecheck` exits 0.",
+        "The BrowserWindow is created with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`, per spec section 3.",
+        "All six frozen contract files are copied verbatim into `src/shared/contracts/` and are the ONLY definition of those types in the repo; `tsc` compiles them with no errors and no `any` introduced to make them compile.",
+        "`src/preload/index.ts` exposes exactly the `OrcastrateApi` shape from `contracts/ipc.ts` on `window.orcastrate` via `contextBridge`, using exactly the channel-name constants in `INVOKE_CHANNELS` and `EVENT_CHANNELS` — no extra channels, no `ipcRenderer` leaked to the renderer.",
+        "Every `on*` subscriber in the preload returns a working unsubscribe function that removes the underlying listener (unit-tested).",
+        "No task-level business logic is present: `src/main/` contains only app bootstrap and window creation, with no Pod, router, or store code."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Protocol probe: capture real NDJSON from claude 2.1.235 and answer the section 11 open questions",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "probe/**",
+        "tests/fixtures/protocol/**",
+        "docs/protocol-findings.md"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "`probe/run-probe.ts` drives the real `claude` CLI at `C:\\Users\\dmarq\\.local\\bin\\claude.exe` through `@anthropic-ai/claude-agent-sdk` in streaming input mode with `forwardSubagentText: true`, and writes captures to `tests/fixtures/protocol/`. The probe directory is marked throwaway in `probe/README.md` and is imported by no other source file.",
+        "All six NDJSON fixtures named in `contracts/fixture-corpus.md` §1 exist, each is valid NDJSON, each capture spans a complete turn from the `system` init message to the terminal `result` message, and each line is the verbatim SDK message subject only to the redaction rules in §2.",
+        "`01-parallel-dispatch.ndjson` contains at least two Task tool_use blocks dispatched in one assistant turn, with messages from both subagents interleaved in the capture (not sequentially segregated).",
+        "`02-nested-dispatch.ndjson` contains an observed depth-2 dispatch — an agent that itself dispatched an agent — so `parent_agent_id` nesting is recorded from real output rather than assumed.",
+        "`05-malformed.ndjson` contains at least one truncated JSON line, one non-JSON text line, and one valid JSON object with an unknown `type`, with valid lines both before and after each corruption.",
+        "`tests/fixtures/protocol/findings.json` exists, parses, has `schemaVersion: 1`, and contains every key specified in `contracts/fixture-corpus.md` §3 — any value the probe could not determine is `null` with a reason in the sibling `notes`, never omitted.",
+        "Open question 1 is answered with evidence: `findings.parentToolUseId.correlates` is set from the actual capture, and `findings.recommendedRoutingMode` is `\"lanes\"` if and only if it is true, else `\"inline\"`.",
+        "Open question 2 is answered with evidence: `findings.steering.sendMessageAvailable` / `taskStopAvailable` / `taskOutputAvailable` are set from an actual attempt against the TypeScript SDK, with the verbatim CLI or SDK response quoted in `findings.steering.evidence`.",
+        "`findings.optionsVerified` records, from observed behavior rather than from documentation, whether `forwardSubagentText` is required for subagent text, the accepted `permissionMode` values, the resume option name, and whether `env` replaces rather than merges the environment.",
+        "`findings.agentId.observed` and `fieldPath` record where an `agent_id` appears in the stream, or `false`/`null` with a reason — this determines whether spec 4.4's `lanes.agent_id` can be populated at all.",
+        "No API key, auth token, absolute home path, or session-bearing credential appears anywhere under `tests/fixtures/protocol/` (verify by grepping the fixtures for the redaction placeholders and for common secret prefixes).",
+        "`docs/protocol-findings.md` states each of the two section 11 questions, the answer, the fixture file and line evidence for it, and — if `recommendedRoutingMode` is `\"inline\"` — an explicit statement that spec 4.3's fallback is now the required design."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "EventStore: SQLite schema (pods, lanes incl. agent_id, events) and the append/read implementation",
+      "agent": "dir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/main/store/**",
+        "tests/unit/store/**"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "`src/main/store/` implements the `EventStore` interface and `OpenEventStore` factory from `contracts/event-store.ts` exactly — every method present, synchronous, with the documented signatures; no method added to or removed from the interface.",
+        "The schema creates exactly the tables named in `SCHEMA_TABLES`, and `lanes` carries `agent_id`, `parent_lane_id`, and `depth` columns from the first migration, per spec 4.4 — no follow-up migration adds them.",
+        "`pods.status` is constrained to `idle|running|waiting|beached` and `lanes.status` to `running|done|orphaned`, enforced at the database level (CHECK constraint), so an invalid state cannot be persisted.",
+        "`append` assigns per-Pod `seq` starting at 1, strictly increasing and gap-free, inside the same transaction as the insert; a test that issues 1000 appends interleaved across two Pods asserts both sequences are gap-free and independent.",
+        "`appendMany` is all-or-nothing: a test where the Nth event of a batch violates a constraint asserts zero rows from that batch were persisted.",
+        "`deletePod` cascades to that Pod's lanes and events, verified by row counts before and after.",
+        "`migrate()` is idempotent — calling it twice on the same file leaves the schema and data unchanged — and throws `SCHEMA_MISMATCH` when `schema_version` on disk exceeds the build's known version.",
+        "Every documented error code (`NOT_FOUND`, `CONFLICT`, `IO`, `SCHEMA_MISMATCH`) has a test that provokes it and asserts `error.code`; getters documented to return `null` (`getPod`, `getLane`, `getLaneByToolUseId`, `getMatriarchLane`) return `null` rather than throwing.",
+        "`readEvents` returns ascending by `seq`, honors `laneId`/`afterSeq`/`limit`, clamps `limit` above 5000 to 5000, and returns `[]` for an unknown Pod.",
+        "JSON-valued columns (`env_overrides`, event `payload`, `raw`) round-trip: a stored `NormalizedEvent` read back is deep-equal to the value appended, apart from the store-assigned `id` and `seq`.",
+        "All tests run against `':memory:'` or a temp-directory database; no test writes to Electron `userData` or any user path.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "PodRunner: one SDK query() per Pod in streaming input mode, with canUseTool, interrupt, and Beached handling",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod/**",
+        "tests/unit/pod/**"
+      ],
+      "dependsOn": ["T1", "T2"],
+      "acceptance": [
+        "`src/main/pod/` implements the `PodRunner` interface and `CreatePodRunner` factory from `contracts/pod-runner.ts` exactly, with no added or removed members.",
+        "`start()` calls the SDK `query()` once with an async-generator `prompt`, so one Pod is one long-lived session spanning many turns; `send()` pushes into that same generator and a test asserts two successive `send()` calls are handled by one `query()` invocation, not two.",
+        "The SDK options passed are exactly those the T2 findings confirmed: `forwardSubagentText: true` is always set, `resume` (not `resumeSessionId`) carries the session id, and `permissionMode` is restricted to `default|plan|bypassPermissions`. A test asserts `acceptEdits` is not accepted by the type or the runtime.",
+        "`env` is passed as `{ ...process.env, ...envOverrides }`; a test asserts the constructed env contains `PATH` (or `Path` on Windows) even when `envOverrides` is non-empty, per resolved-unknowns correction #4.",
+        "`canUseTool` is wired to the `PermissionHandler` and surfaces `allow` / `allow_always` / `deny` with reason; a test asserts a `deny` without a reason is rejected, and that the passed `AbortSignal` aborting settles the pending prompt rather than hanging.",
+        "`interrupt()` is backed by `Query.interrupt()` and is a resolving no-op when the Pod is idle.",
+        "Unexpected child-process exit invokes `onBeached` with the exit code (or `null` for a signal kill) and transitions status to `beached`; the runner does not throw and does not restart itself.",
+        "A stream line that fails to parse invokes `onMalformed` with the raw line and the parse error, and the runner continues consuming subsequent lines — a test feeds a corrupted stream and asserts messages after the corruption are still delivered (spec 8).",
+        "Every documented `PodRunnerErrorCode` has a test that provokes it and asserts `error.code`; in particular a missing `cwd` yields `CWD_MISSING` before any process is spawned.",
+        "`sendToAgent()` returns `{ supported: false }` and performs no send, matching the T2 `findings.steering` result; if T2 found `SendMessage` IS available on the TypeScript SDK, that fact is recorded in the task report as an advisory and the MVP behavior still returns `supported: false` (spec 5.3: MVP must not depend on it).",
+        "No test spawns the real `claude` binary or requires an API key — the SDK boundary is injected and driven by the `tests/fixtures/protocol/` captures.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "LaneRouter: route the Pod stream into Matriarch and Calf lanes, built against the captured probe findings",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/lane/**"
+      ],
+      "dependsOn": ["T2", "T3"],
+      "acceptance": [
+        "`src/main/lane/` implements the `LaneRouter` interface and `CreateLaneRouter` factory from `contracts/lane-router.ts` exactly.",
+        "The implemented routing mode is taken from `tests/fixtures/protocol/findings.json` -> `recommendedRoutingMode`, NOT from spec 4.3's assumption. The task report quotes that value and the fixture lines supporting it.",
+        "If `recommendedRoutingMode` is `\"lanes\"`: a Task tool_use block opens a Calf lane keyed by its `tool_use_id`, titled from `subagent_type` and `description`, and messages carrying that `parent_tool_use_id` route to it while `parent_tool_use_id == null` routes to the Matriarch — demonstrated by replaying `01-parallel-dispatch.ndjson` and asserting the two Calves' events do not cross.",
+        "If `recommendedRoutingMode` is `\"inline\"`: every event's `laneId` is the Matriarch's, `lane_opened`/`lane_closed` events are still emitted and `agentId` is still recorded, so the event store, persistence model, and IPC surface are unchanged — asserted explicitly by a test.",
+        "Nesting is handled per the real `02-nested-dispatch.ndjson` capture: a depth-2 dispatch produces a lane whose `parentLaneId` is the dispatching Calf and whose `depth` is 2. If `findings.nesting.distinguishableFromDepth1` is `false`, the task STOPS and escalates rather than inventing a tree shape.",
+        "`ingest()` never throws on any input: an unparseable or unrecognized message becomes a `malformed` event and routing continues (spec 8). A property-style test feeds truncated, non-JSON, and unknown-`type` lines from `05-malformed.ndjson` and asserts no throw and no dropped subsequent event.",
+        "Ordering guarantee holds: `lane_opened` for a Calf is emitted before the `tool_use` event that dispatched it and before any event carrying that Calf's `laneId`, so no consumer sees an unknown `laneId`. Asserted over every fixture.",
+        "Every returned event has a non-null `laneId`; an event whose `parent_tool_use_id` matches no known lane routes to the Matriarch and is not dropped.",
+        "The matching `tool_result` closes the Calf with `lane_closed` status `done`; `onTurnBoundary()` closes any still-running Calf as `orphaned` (spec 8), verified against `03-tool-result-close.ndjson` and `04-orphaned-calf.ndjson` respectively.",
+        "`agentIds()` returns the lane-to-agent-id map populated from the field `findings.agentId.fieldPath` identifies; if `findings.agentId.observed` is `false`, the map is empty and the task report says so.",
+        "The router performs no I/O: `src/main/lane/` imports neither `better-sqlite3`, nor `node:fs`, nor `electron`, nor the SDK — verified by a test or a lint rule. It is constructed with injected `newLaneId` and `now`, so replaying a fixture twice yields byte-identical output.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Router fixture-replay test suite over the captured protocol corpus",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/router/**"
+      ],
+      "dependsOn": ["T5"],
+      "acceptance": [
+        "The suite replays every `.ndjson` file in `tests/fixtures/protocol/` through the parser and `LaneRouter`, and fails loudly if a fixture named in `contracts/fixture-corpus.md` §1 is missing rather than silently skipping it.",
+        "Spec section 9 coverage is complete, one or more named tests each for: lane assignment, event ordering, interleaving of two concurrent Calves, Calf close on `tool_result`, Orphaned detection at a turn boundary, and malformed-line tolerance.",
+        "A nesting test asserts the depth-2 dispatch in `02-nested-dispatch.ndjson` produces the parent/child lane relationship the router claims, from the real capture rather than a synthetic fixture.",
+        "Tests assert on structure and correlation only — lane assignment, ordering, open/close pairing, counts, ids — and never on model prose, wall-clock timings, or token counts, per `contracts/fixture-corpus.md` §4.",
+        "A determinism test replays one fixture twice through freshly constructed routers with the injected `newLaneId`/`now` and asserts identical output.",
+        "The suite reads `findings.json` and asserts the router's `mode` matches `recommendedRoutingMode`, so a future re-probe that flips the answer fails the build instead of silently diverging.",
+        "No test spawns the `claude` binary, opens a network connection, requires an API key, or touches SQLite.",
+        "`npm test` passes and the suite is included in the default `npm test` run (not behind an opt-in flag)."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Main-process IPC handlers and PodManager wiring behind the frozen preload surface",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/ipc/**",
+        "src/main/pod-manager/**",
+        "src/main/index.ts",
+        "tests/unit/ipc/**"
+      ],
+      "dependsOn": ["T3", "T4", "T5"],
+      "acceptance": [
+        "`src/main/index.ts` is edited only to install the IPC handlers and PodManager into the existing T1 bootstrap — window creation, security flags, and app lifecycle from T1 are preserved unchanged. (This file is the manifest's single deliberate ownership overlap, with T1; T7 depends on T1 so the two never run concurrently.)",
+        "Every channel in `INVOKE_CHANNELS` has exactly one registered `ipcMain.handle`, and every channel in `EVENT_CHANNELS` is emitted by main; a test enumerates the constants and asserts no channel is unhandled and no handler exists for a channel not in the contract.",
+        "No handler ever rejects: every one resolves with an `IpcResult` envelope, and a test that forces an internal throw in each handler asserts it resolves `{ ok: false }` with a documented `IpcErrorCode`.",
+        "`INVALID_ARGUMENT` is returned for malformed renderer input on every handler — arguments are validated in main and never trusted, including `permission:respond` with `deny` and no reason.",
+        "No handler accepts a renderer-supplied path as a capability: `pod:create` accepts `cwd` only after main verifies it exists and is a directory (else `CWD_MISSING`), and `dialog:pickDirectory` is the only source of a new path; cancellation returns `{ ok: true, value: { path: null } }`, not an error.",
+        "`PodManager` owns the set of live `PodRunner` instances keyed by `PodId`, creates exactly one per open Pod, and disposes it on `pod:close` and on app quit; a test asserts opening the same Pod twice does not create a second runner.",
+        "Stream events flow end to end in main: `PodRunner.onMessage` -> `LaneRouter.ingest` -> `EventStore.append`/`appendMany` -> `push:podEvent`, with pushed events carrying the store-assigned `seq` in ascending order and no gaps. Asserted by driving a captured fixture through the assembled pipeline with an in-memory store.",
+        "`canUseTool` prompts surface as `push:permissionRequested` and are settled only by `permission:respond` from the renderer; the pending promise is settled with `aborted` (and `push:permissionResolved` emitted) if the turn is interrupted first, so no prompt can hang forever.",
+        "A permission decision is never satisfied by anything other than a `permission:respond` call — no agent message, tool result, or stream content can resolve one (spec 5.3 security constraint), asserted by a test that feeds a fixture containing agent text resembling an approval and shows the prompt stays pending.",
+        "`PodRunner.onBeached` marks the Pod `beached` in the store and emits `push:podStatus` with the exit code; `pod:reconnect` re-opens using the persisted `ccSessionId` via the `resume` option.",
+        "`app:routingMode` returns the same mode the built `LaneRouter` uses, read from the same source of truth rather than hardcoded separately.",
+        "No React, renderer, or UI code is added — this task ends at the IPC boundary; `src/renderer/` is untouched.",
+        "`npm test` and `npm run typecheck` pass."
+      ]
+    }
+  ]
+}
