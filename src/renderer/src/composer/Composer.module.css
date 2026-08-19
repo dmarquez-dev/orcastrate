@@ -1,0 +1,110 @@
+/*
+ * Composer styling. Tokens only — no colour, font, or spacing literal lives
+ * here (frozen `renderer-theme.ts`, rule 3). The one bare number below is the
+ * textarea's `rows`-equivalent minimum, expressed through the shared layout
+ * token so the composer and the shell agree on the region's height.
+ */
+
+.composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-3);
+  min-height: var(--oc-composer-min-height);
+  background: var(--oc-bg-panel);
+  border-top: thin solid var(--oc-border);
+}
+
+/*
+ * Visually hidden, still in the accessibility tree. No px literal: the box is
+ * clipped away entirely, so the smallest step on the spacing scale does the job
+ * of the customary hairline box and keeps this file token-only.
+ */
+.srOnly {
+  position: absolute;
+  inline-size: var(--oc-space-1);
+  block-size: var(--oc-space-1);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.input {
+  width: 100%;
+  min-height: var(--oc-composer-min-height);
+  resize: vertical;
+  padding: var(--oc-space-2);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-ui);
+  font-size: var(--oc-text-md);
+  border: thin solid var(--oc-border);
+  border-radius: var(--oc-radius-md);
+}
+
+.input:read-only {
+  background: var(--oc-bg-app);
+  color: var(--oc-fg-muted);
+  border-style: dashed;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oc-space-3);
+}
+
+.hint {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+}
+
+.send {
+  padding: var(--oc-space-1) var(--oc-space-4);
+  background: var(--oc-bg-selected);
+  color: var(--oc-fg-primary);
+  border: thin solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+}
+
+.send:hover:not(:disabled) {
+  background: var(--oc-bg-hover);
+}
+
+.send:disabled {
+  color: var(--oc-fg-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+/*
+ * Status lines. Each pairs its hue with words — colour is never the only
+ * carrier of meaning (frontend discipline, accessibility floor).
+ */
+.disabledNote {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  color: var(--oc-status-waiting);
+  font-size: var(--oc-text-sm);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-2);
+  color: var(--oc-status-beached);
+  background: var(--oc-danger-bg);
+  border-radius: var(--oc-radius-sm);
+  font-size: var(--oc-text-sm);
+}
+
+.marker {
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+}

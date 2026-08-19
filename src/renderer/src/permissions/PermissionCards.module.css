@@ -1,0 +1,141 @@
+/*
+ * Permission cards. Tokens only (frozen `renderer-theme.ts`, rule 3).
+ *
+ * THE LOAD-BEARING ABSENCE: there is no `position: fixed`, no `z-index`, no
+ * backdrop, and no overlay in this file, and adding one is a regression. A
+ * card is a block in the transcript's document flow, in the lane that asked.
+ * Orcastrate is a multi-Pod window; a modal here would block work that has
+ * nothing to do with the request (spec 5.4). `PermissionCardList.test.tsx`
+ * reads this stylesheet as text and fails if any of those appear.
+ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-3);
+  margin: 0;
+  padding: var(--oc-space-3);
+  list-style: none;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-3);
+  background: var(--oc-bg-raised);
+  border: thin solid var(--oc-status-waiting);
+  border-radius: var(--oc-radius-md);
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--oc-space-2);
+}
+
+.kicker {
+  color: var(--oc-status-waiting);
+  font-size: var(--oc-text-xs);
+  text-transform: uppercase;
+}
+
+.tool {
+  margin: 0;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-md);
+  color: var(--oc-fg-primary);
+}
+
+.asked {
+  margin-left: auto;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+}
+
+.input {
+  margin: 0;
+  padding: var(--oc-space-2);
+  max-height: var(--oc-composer-min-height);
+  overflow: auto;
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-muted);
+  border-radius: var(--oc-radius-sm);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reasonRow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.reasonLabel {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+}
+
+.reason {
+  padding: var(--oc-space-1) var(--oc-space-2);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+  border: thin solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  font-size: var(--oc-text-sm);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--oc-space-2);
+}
+
+.action {
+  padding: var(--oc-space-1) var(--oc-space-3);
+  background: var(--oc-bg-selected);
+  color: var(--oc-fg-primary);
+  border: thin solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+}
+
+.action:hover:not(:disabled) {
+  background: var(--oc-bg-hover);
+}
+
+.action:disabled {
+  color: var(--oc-fg-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.deny {
+  border-color: var(--oc-danger);
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-2);
+  color: var(--oc-status-beached);
+  background: var(--oc-danger-bg);
+  border-radius: var(--oc-radius-sm);
+  font-size: var(--oc-text-sm);
+}
+
+/* Colour never carries meaning alone: every state above pairs with a glyph. */
+.marker {
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+}
