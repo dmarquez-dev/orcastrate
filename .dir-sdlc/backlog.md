@@ -34,7 +34,11 @@ Read at session setup; append only at Gate 3.
 - **macOS and Linux validation.** The stack supports all three; only Windows is
   validated.
 
-## Decided for sub-session 2 (not deferred — inputs to its decomposition)
+## Decided for sub-session 2 — CONSUMED 2026-08-19 (session 2026-08-19-orcastrate-workspace-ui)
+
+All four shipped. Kept for provenance; not pending work.
+
+### Original heading: Decided for sub-session 2 (not deferred — inputs to its decomposition)
 
 These were settled at this session's Gate 3 and are requirements, not backlog:
 
@@ -65,3 +69,33 @@ These were settled at this session's Gate 3 and are requirements, not backlog:
   `agentId`, this race is the first thing to suspect. The two real fixes — await
   ingestion of the owning dispatch, or park the prompt until the lane materializes
   — are both behavior changes beyond sub-session 1's scope.
+
+## 2026-08-19 — 2026-08-19-orcastrate-workspace-ui
+
+Advisory findings promoted from that session's reviews because they outlive it.
+The other 48 advisories stay in `.dir-sdlc/sessions/2026-08-19-orcastrate-workspace-ui/reviews/T1.md`–`T9.md`.
+
+- **`TOKENS` has no border-width, tracking, or font-weight token.** Six renderer
+  directories independently reached for bare `1px`, `0.04em`, and `font-weight:
+  700` because nothing else existed, and every reviewer judged it a token-set gap
+  rather than a deviation. Adding `TOKENS.borderHairline`, `TOKENS.tracking*`, and
+  `TOKENS.weight*` would let T8's hygiene rule widen to all raw lengths. This is a
+  change to the frozen `renderer-theme.ts`, so it needs an escalation.
+  **Sub-session 3 will hit this the moment it styles Beachcomber or Helm.**
+
+- **`MIGRATION_1` still interpolates four live enums** — `POD_STATUSES`,
+  `LANE_STATUSES`, `LANE_KINDS`, `EVENT_TYPES` — into already-shipped DDL, the
+  identical latent bug T1 fixed for `PERMISSION_MODES`. Widening any of the four
+  silently rewrites history. Partially mitigated: the byte-identity pin now fails
+  loudly instead of shipping, but the pin is not a fix. Pinning all five
+  per-migration lists in one pass would close the class.
+  `src/main/store/schema.ts:141-201`
+
+- **Nine of fifteen invoke channels have no surface that renders their error**,
+  and four of those (`podUpdate`, `podDelete`, `podSetPermissionMode`,
+  `podReconnect`) are never invoked by any affordance at all. Enforced as an
+  executable allowlist in `src/renderer/src/__tests__/failure-paths.e2e.test.tsx`,
+  so the set cannot silently grow — but a user currently gets no feedback when any
+  of the nine fails. Related: `TranscriptPane.tsx:140-142` has an unreachable
+  error branch, because the sole writer of that state always writes `null`, while
+  the backfill failure it looks like it covers is silent in `runtime.backfill.error`.
