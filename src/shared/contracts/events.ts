@@ -64,22 +64,37 @@ export type LaneStatus = 'running' | 'done' | 'orphaned';
 export type LaneKind = 'matriarch' | 'calf';
 
 /**
- * The permission modes ORCASTRATE exposes. This is a PRODUCT restriction, not a
- * platform limit.
+ * The FOUR permission modes Orcastrate exposes:
+ * `default`, `acceptEdits`, `plan`, `bypassPermissions`.
  *
- * CORRECTED at Gate 3 (amendment E2). This comment previously said "the SDK
- * enum has no `acceptEdits`", citing resolved-unknowns.md correction #2. That
- * was derived from SDK documentation before anything measured the binary, and
- * it is FALSE: CLI 2.1.235 accepts seven modes —
- * `default, plan, acceptEdits, bypassPermissions, dontAsk, auto, manual`
- * (verbatim commander rejection quoted in `findings.json` `optionsVerified`).
+ * This is the product's full permission surface. Every one of the four is
+ * selectable in the UI, accepted by the IPC validator, accepted by the
+ * PodRunner guard, and permitted by the `pods.permission_mode` CHECK
+ * constraint. Treat this union as the single source of truth for that surface.
  *
- * The three-value union stands because it is the surface the UI is built
- * against and the set the product chooses to expose, not because the platform
- * lacks the others. `src/main/pod/options.ts` says the same thing at the
- * runtime guard. Widening it is a product decision, not a bug fix.
+ * It is deliberately NARROWER than the platform. CLI 2.1.235 accepts seven
+ * modes — `default, plan, acceptEdits, bypassPermissions, dontAsk, auto,
+ * manual` (verbatim commander rejection quoted in `findings.json`
+ * `optionsVerified`). `dontAsk`, `auto` and `manual` are a deliberate product
+ * omission and must stay rejected at every layer; the negative tests in
+ * `tests/unit/pod/options.test.ts`, `tests/unit/ipc/envelope.test.ts` and
+ * `tests/unit/store/schema.test.ts` are named after them.
+ *
+ * History, so no future reader re-derives it wrongly: this union was three
+ * values (`acceptEdits` excluded) up to and including the previous session.
+ * The stated reason was "the SDK enum has no `acceptEdits`", which was read
+ * from documentation and is FALSE — Gate 3 amendment E2 corrected the
+ * justification, and this amendment widens the union itself. Widening was a
+ * product decision, not a bug fix, and it required a new schema migration
+ * (migration 2 in `src/main/store/schema.ts`) because migration 1's CHECK
+ * constraint had already shipped with the three-value list.
+ *
+ * Adding a fifth mode means: this union, `ALLOWED_PERMISSION_MODES` in
+ * `src/main/pod/options.ts`, `PERMISSION_MODES` in
+ * `src/main/store/schema.ts`, the `requirePermissionMode` message in
+ * `src/main/ipc/validate.ts`, and a NEW migration. Never edit a shipped one.
  */
-export type PermissionMode = 'default' | 'plan' | 'bypassPermissions';
+export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
 
 // ---------------------------------------------------------------------------
 // Lane

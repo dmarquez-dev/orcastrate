@@ -117,16 +117,46 @@ class SqliteEventStore implements EventStore {
       const pending = MIGRATIONS.filter((m) => m.version > onDisk);
       if (pending.length === 0) return;
 
-      // Idempotency comes from the version gate above plus the transaction: a
-      // second call finds nothing pending and touches neither schema nor data.
-      const apply = this.db.transaction(() => {
-        const record = this.db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)');
-        for (const migration of pending) {
-          this.db.exec(migration.sql);
-          record.run(migration.version, now());
-        }
-      });
-      apply.immediate();
+      // FOREIGN KEYS ARE SUSPENDED FOR THE MIGRATION TRANSACTION.
+      //
+      // Changing a CHECK constraint in SQLite requires the documented 12-step
+      // table rebuild: create, copy, DROP, rename (migration 2 does exactly
+      // this to `pods`). `lanes` and `events` reference `pods(id)` ON DELETE
+      // CASCADE, so with enforcement ON that DROP would quietly delete every
+      // lane and event and the migration would "succeed" against an emptied
+      // store. Enforcement off, the DROP is inert and the rename leaves the
+      // other tables' REFERENCES clauses pointing at the rebuilt table.
+      //
+      // `PRAGMA foreign_keys` is a NO-OP inside a transaction, so the toggle
+      // has to happen out here, and `foreign_key_check` runs inside the
+      // transaction so a migration that really did orphan a row rolls back
+      // rather than committing the damage.
+      const fkWasOn = this.db.pragma('foreign_keys', { simple: true }) === 1;
+      if (fkWasOn) this.db.pragma('foreign_keys = OFF');
+
+      try {
+        // Idempotency comes from the version gate above plus the transaction: a
+        // second call finds nothing pending and touches neither schema nor data.
+        const apply = this.db.transaction(() => {
+          const record = this.db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)');
+          for (const migration of pending) {
+            this.db.exec(migration.sql);
+            record.run(migration.version, now());
+          }
+
+          const violations = this.db.pragma('foreign_key_check') as unknown[];
+          if (violations.length > 0) {
+            throw new EventStoreError(
+              'IO',
+              `migration left ${violations.length} orphaned row(s); rolled back ` +
+                `(versions ${pending.map((m) => m.version).join(', ')})`,
+            );
+          }
+        });
+        apply.immediate();
+      } finally {
+        if (fkWasOn) this.db.pragma('foreign_keys = ON');
+      }
     });
   }
 

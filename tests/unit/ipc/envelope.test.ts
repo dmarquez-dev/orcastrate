@@ -67,7 +67,10 @@ const BAD_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podClose]: [123],
   [INVOKE_CHANNELS.podSend]: ['p1', ''],
   [INVOKE_CHANNELS.podInterrupt]: [undefined],
-  [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'acceptEdits'],
+  // `acceptEdits` used to sit here as the known-invalid mode. It is now part of
+  // the exposed four-mode surface, so this case is re-pointed at `dontAsk` —
+  // a mode the CLI accepts but Orcastrate deliberately does not expose.
+  [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'dontAsk'],
   [INVOKE_CHANNELS.podReconnect]: [['p1']],
   [INVOKE_CHANNELS.laneList]: [false],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1', limit: -3 }],
@@ -255,7 +258,7 @@ describe('renderer input is never trusted (criterion 4)', () => {
   it('refuses a permission mode outside the contract union', async () => {
     const h = makeHarness();
     try {
-      for (const mode of ['acceptEdits', 'root', 42, null]) {
+      for (const mode of ['dontAsk', 'root', 42, null]) {
         const result = await h.invoke(
           INVOKE_CHANNELS.podSetPermissionMode,
           'p1',

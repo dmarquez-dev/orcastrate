@@ -54,26 +54,48 @@ describe('SDK options (criterion 3)', () => {
   });
 });
 
-describe('permissionMode is restricted to three values (criterion 3)', () => {
-  it('allows exactly default | plan | bypassPermissions', () => {
-    expect([...ALLOWED_PERMISSION_MODES]).toEqual(['default', 'plan', 'bypassPermissions']);
+describe('permissionMode is restricted to four values (criterion 3)', () => {
+  it('allows exactly default | acceptEdits | plan | bypassPermissions', () => {
+    expect([...ALLOWED_PERMISSION_MODES]).toEqual([
+      'default',
+      'acceptEdits',
+      'plan',
+      'bypassPermissions',
+    ]);
   });
 
-  it('does not accept acceptEdits at runtime — construction throws', () => {
+  // Inverted from "does not accept acceptEdits at runtime". `acceptEdits` is
+  // now part of the exposed product surface; `dontAsk` inherits the
+  // known-unexposed role so the negative path keeps a named mode behind it.
+  it('accepts acceptEdits at construction', () => {
+    const sdk = makeFakeSdk({ autoInitialize: true });
+    expect(() =>
+      createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'acceptEdits' })),
+    ).not.toThrow();
+    expect(isAllowedPermissionMode('acceptEdits')).toBe(true);
+  });
+
+  it('still rejects a mode the product does not expose at construction', () => {
     const sdk = makeFakeSdk({ autoInitialize: true });
     expect(() =>
       // @ts-expect-error criterion 3: the TYPE rejects it too. This directive
       // failing to be "unused" is itself the type-level half of the assertion.
-      createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'acceptEdits' })),
+      createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'dontAsk' })),
     ).toThrow(/unsupported permissionMode/);
-    expect(isAllowedPermissionMode('acceptEdits')).toBe(false);
+    expect(isAllowedPermissionMode('dontAsk')).toBe(false);
   });
 
-  it('does not accept acceptEdits through setPermissionMode either', async () => {
+  it('accepts acceptEdits through setPermissionMode too', async () => {
+    const { runner, sdk } = await startWith();
+    await runner.setPermissionMode('acceptEdits');
+    expect(sdk.permissionModes).toEqual(['acceptEdits']);
+  });
+
+  it('still rejects an unexposed mode through setPermissionMode', async () => {
     const { runner } = await startWith();
     await expect(
       // @ts-expect-error same, on the mid-session path.
-      runner.setPermissionMode('acceptEdits'),
+      runner.setPermissionMode('dontAsk'),
     ).rejects.toThrow(/unsupported permissionMode/);
   });
 
@@ -84,10 +106,11 @@ describe('permissionMode is restricted to three values (criterion 3)', () => {
   });
 
   it('records that the restriction is a PRODUCT choice, not a platform limit', () => {
-    // The frozen contract says "the SDK enum has no acceptEdits". T2 measured
-    // the real CLI and that is false. Keep the restriction, drop the false
-    // justification — this test is the standing evidence.
+    // T2 measured the real CLI: it accepts seven modes. Orcastrate exposes four
+    // and hides three. This test is the standing evidence that the remaining
+    // restriction is a product decision, not a platform limit.
     expect(findings.optionsVerified.permissionModeValues).toContain('acceptEdits');
+    expect(findings.optionsVerified.permissionModeValues).toContain('dontAsk');
   });
 
   it('accepts a valid mode change and forwards it to the SDK', async () => {
