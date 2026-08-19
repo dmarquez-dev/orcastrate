@@ -1,4 +1,4 @@
-import type { CSSProperties, DragEvent, JSX, KeyboardEvent } from 'react';
+import { useEffect, useRef, type CSSProperties, type DragEvent, type JSX, type KeyboardEvent } from 'react';
 
 import type { PodStatus } from '@shared/contracts/events';
 import type { PodTabVm } from '../contracts/renderer-state';
@@ -15,6 +15,21 @@ const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
   beached: 'Beached, process stopped',
 };
 
+/**
+ * The run-control's `data-testid` base, suffixed with the PodId:
+ * `pod-tab-open:<podId>`.
+ *
+ * NOT in the frozen `TEST_IDS`, deliberately. That object's own note allows an
+ * id a component adds for its internal use as long as it does not collide, and
+ * `pod-tab-open` collides with nothing (`pod-tab:` and `pod-tab-permission:` /
+ * `pod-tab-bypass:` are all anchored on their own colon). Adding it to the
+ * contract would be a contract change, which is out of scope here.
+ *
+ * ONE id covers both modes — Open and Reconnect — so "no run control is
+ * reachable for an opened Pod" is a single query rather than two.
+ */
+export const POD_TAB_OPEN_TEST_ID = 'pod-tab-open';
+
 export interface PodTabProps {
   tab: PodTabVm;
   index: number;
@@ -23,6 +38,12 @@ export interface PodTabProps {
   dropTarget: boolean;
   onSelect(): void;
   onClose(): void;
+  /**
+   * Starts the Pod's process. The parent decides whether that is `openPod` or
+   * `reconnectPod`; this component only decides whether to OFFER the control
+   * and what to call it.
+   */
+  onOpen(): void;
   /** Keyboard reorder. `delta` is -1 or +1; the bar clamps. */
   onMove(delta: number): void;
   /** Roving focus between tabs, for the unmodified arrow keys. */
@@ -48,6 +69,7 @@ export function PodTab({
   dropTarget,
   onSelect,
   onClose,
+  onOpen,
   onMove,
   onFocusSibling,
   onDragStart,
@@ -58,6 +80,36 @@ export function PodTab({
   const { pod, active, opened, status, awaitingPermission, pendingPermissionCount, unreadEventCount } =
     tab;
   const bypass = pod.permissionMode === 'bypassPermissions';
+
+  /*
+   * A listed Pod with no live process needs somewhere to start one, or its
+   * composer stays disabled with no way out — which is exactly what happens to
+   * every Pod after a restart, since `pods.list` restores rows and nothing
+   * else. Beached is the same predicament reached from the other direction, so
+   * it gets the same slot with the verb the state layer actually needs
+   * (`reconnectPod`); the word is never the only difference, because the
+   * status line above already says "Beached, process stopped".
+   */
+  const beached = status === 'beached';
+  const showRunControl = beached || !opened;
+  const runLabel = beached ? 'Reconnect' : 'Open';
+
+  const tabRef = useRef<HTMLButtonElement>(null);
+  const hadRunControl = useRef(showRunControl);
+
+  /*
+   * The run control unmounts the moment the Pod opens, which strands keyboard
+   * focus on `document.body`. Focus then moves to the tab the user was
+   * operating — predictable, and adjacent to where the control stood. If focus
+   * had already moved somewhere else it is left alone.
+   */
+  useEffect(() => {
+    const had = hadRunControl.current;
+    hadRunControl.current = showRunControl;
+    if (!had || showRunControl) return;
+    if (document.activeElement !== null && document.activeElement !== document.body) return;
+    tabRef.current?.focus();
+  }, [showRunControl]);
 
   const itemClass = [
     styles.tabItem,
@@ -112,6 +164,7 @@ export function PodTab({
         onDragStart={onDragStart}
         onDrop={onDrop}
         onKeyDown={handleKeyDown}
+        ref={tabRef}
         type="button"
       >
         <span className={styles.statusDot} data-status={status} style={dotStyle} />
@@ -152,6 +205,18 @@ export function PodTab({
           </span>
         ) : null}
       </button>
+
+      {showRunControl ? (
+        <button
+          aria-label={`${runLabel} ${pod.title}`}
+          className={styles.runControl}
+          data-testid={testId(POD_TAB_OPEN_TEST_ID, pod.id)}
+          onClick={onOpen}
+          type="button"
+        >
+          {runLabel}
+        </button>
+      ) : null}
 
       <button
         aria-label={`Close ${pod.title}`}

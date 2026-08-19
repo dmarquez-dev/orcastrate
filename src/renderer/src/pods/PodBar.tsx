@@ -17,7 +17,26 @@ import { PodTab } from './PodTab';
  *   - `Ctrl`/`Cmd` + `ArrowLeft`/`ArrowRight` on a focused tab.
  * Both commit through the same `onReorder(orderedPodIds)` with the FULL list.
  */
-export function PodBar({ tabs, onSelect, onReorder, onNewPod, onClose }: PodBarProps): JSX.Element {
+/**
+ * `PodBarProps` plus one prop that does NOT cross a task boundary and is
+ * therefore deliberately absent from the frozen `renderer-view.ts` ("a
+ * component's internal props are its own business and must not be added to
+ * this file"). It is required, not optional: a bar rendered without it would
+ * silently drop the only affordance that starts a Pod.
+ */
+export interface PodBarInternalProps extends PodBarProps {
+  /** Start the Pod's process. The connector picks open vs. reconnect. */
+  onOpen(podId: PodId): void;
+}
+
+export function PodBar({
+  tabs,
+  onSelect,
+  onReorder,
+  onNewPod,
+  onClose,
+  onOpen,
+}: PodBarInternalProps): JSX.Element {
   const listRef = useRef<HTMLUListElement>(null);
   const [draggingId, setDraggingId] = useState<PodId | null>(null);
   const [dropTargetId, setDropTargetId] = useState<PodId | null>(null);
@@ -89,6 +108,9 @@ export function PodBar({ tabs, onSelect, onReorder, onNewPod, onClose }: PodBarP
               // Focus follows the tab the user just moved, so a second
               // keypress keeps moving the same Pod.
               if (to >= 0 && to < ids.length) window.requestAnimationFrame(() => { focusTabAt(to); });
+            }}
+            onOpen={() => {
+              onOpen(tab.pod.id);
             }}
             onSelect={() => {
               onSelect(tab.pod.id);

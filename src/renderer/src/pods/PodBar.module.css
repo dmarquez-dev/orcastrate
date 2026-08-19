@@ -163,6 +163,24 @@
   font-size: var(--oc-text-xs);
 }
 
+/* Open / Reconnect. A word, not a colour: the label carries the meaning. */
+.runControl {
+  display: flex;
+  align-items: center;
+  padding-block: var(--oc-space-1);
+  padding-inline: var(--oc-space-2);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-size: var(--oc-text-xs);
+}
+
+.runControl:hover {
+  background: var(--oc-bg-hover);
+}
+
 .close {
   display: flex;
   align-items: center;

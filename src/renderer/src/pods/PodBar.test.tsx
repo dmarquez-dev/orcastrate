@@ -19,17 +19,19 @@ function renderBar(
   const onSelect = vi.fn();
   const onClose = vi.fn();
   const onNewPod = vi.fn();
+  const onOpen = vi.fn();
   const result = render(
     <PodBar
       onClose={onClose}
       onNewPod={onNewPod}
+      onOpen={onOpen}
       onReorder={onReorder}
       onSelect={onSelect}
       tabs={tabs}
       {...overrides}
     />,
   );
-  return { ...result, onReorder, onSelect, onClose, onNewPod };
+  return { ...result, onReorder, onSelect, onClose, onNewPod, onOpen };
 }
 
 const THREE = [

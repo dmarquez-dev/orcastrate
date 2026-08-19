@@ -10,6 +10,8 @@ export interface PodBarPanelProps {
   tabs: PodTabVm[];
   onSelect(podId: PodId): void;
   onClose(podId: PodId): void;
+  /** Start the Pod's process; the connector picks open vs. reconnect. */
+  onOpen(podId: PodId): void;
   onNewPod(): void;
   /**
    * `WorkspaceActions.reorderPods`. Resolves and never rejects (frozen
@@ -31,6 +33,7 @@ export function PodBarPanel({
   tabs,
   onSelect,
   onClose,
+  onOpen,
   onNewPod,
   reorderPods,
 }: PodBarPanelProps): JSX.Element {
@@ -74,6 +77,7 @@ export function PodBarPanel({
       <PodBar
         onClose={onClose}
         onNewPod={onNewPod}
+        onOpen={onOpen}
         onReorder={handleReorder}
         onSelect={onSelect}
         tabs={ordered}
