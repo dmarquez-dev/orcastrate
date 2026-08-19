@@ -55,6 +55,38 @@ export interface WorkspaceLayoutProps {
    * a first-run state whose only affordance is opening the New Pod dialog.
    */
   empty?: ReactNode;
+
+  /**
+   * AMENDMENT (sub-session 3, T4) — the panel region. Beachcomber and Helm had
+   * literally nowhere to render: none of the six slots above is a panel. See
+   * `renderer-panels.ts` for the three candidates and why a new region beat a
+   * modal and a fourth Pod-bar tab.
+   *
+   * `panelBar` is a strip directly beneath the Pod bar and is ALWAYS present.
+   *
+   * BOTH NEW SLOTS ARE OPTIONAL, AND THAT IS A CONCESSION, NOT A DESIGN. A
+   * required prop would make `WorkspaceLayout.tsx` and `App.tsx` fail to
+   * compile the moment T4 lands and keep them red until T9 does — a
+   * deliberately-broken intermediate state that makes a task unreviewable.
+   *
+   * T9 AND T10 ARE WHAT MAKE AN `undefined` VALUE A TEST FAILURE RATHER THAN A
+   * VALID STATE: T9's acceptance criteria require the shell to pass both slots,
+   * and T10's suite asserts that the region renders, that opening a panel hides
+   * the transcript, and that closing it restores the previously selected lane.
+   * Nothing here is optional because an absent panel bar is acceptable.
+   *
+   * No existing slot is renamed, removed, or made optional by this amendment,
+   * and `TEST_IDS` is untouched — the panel ids live in `PANEL_TEST_IDS`.
+   */
+  panelBar?: ReactNode;
+  /**
+   * AMENDMENT (sub-session 3, T4). When non-null this REPLACES the body — rail,
+   * transcript pane(s) and composer — leaving the Pod bar and the strip in
+   * place, so the user can still see which Pod they will come back to. null (or
+   * absent) means the workspace is showing. Optional for the reason given on
+   * `panelBar` above.
+   */
+  panel?: ReactNode | null;
 }
 
 // ---------------------------------------------------------------------------
