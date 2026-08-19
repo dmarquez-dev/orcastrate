@@ -1,0 +1,31 @@
+.claude-worktrees/
+
+# Dependencies
+node_modules/
+
+# Build output
+out/
+dist/
+release/
+
+# Native build artifacts
+build/
+prebuilds/
+
+# Logs and caches
+*.log
+npm-debug.log*
+.vite/
+.eslintcache
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Local environment
+.env
+.env.local
+.env.*.local

@@ -1,0 +1,190 @@
+/**
+ * Renderer input validation (acceptance criterion 4).
+ *
+ * NOTHING that arrives over `ipcMain.handle` is trusted. The renderer is
+ * sandboxed, but a compromised renderer still speaks the bridge, so every
+ * argument is re-checked in main before it reaches the store, the router or a
+ * child process. A rejected argument becomes `INVALID_ARGUMENT`; it never
+ * becomes an exception the renderer has to guess at.
+ *
+ * These validators check SHAPE only. Facts that need the world — does this cwd
+ * exist, does this Pod id resolve to a row — belong to PodManager, which
+ * answers them with `CWD_MISSING` / `NOT_FOUND`.
+ */
+
+import type { PermissionMode } from '../../shared/contracts/events';
+import type {
+  CreatePodRequest,
+  PermissionRespondRequest,
+  ReadEventsRequest,
+  UpdatePodRequest,
+} from '../../shared/contracts/ipc';
+import { isAllowedPermissionMode } from '../pod';
+
+import { invalidArgument } from './errors';
+
+/** Contract: `ReadEventsRequest.limit` is "clamped to 5000 by main". */
+export const MAX_READ_LIMIT = 5000;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+export function requireObject(value: unknown, what: string): Record<string, unknown> {
+  if (!isPlainObject(value)) {
+    throw invalidArgument(`${what} must be an object`);
+  }
+  return value;
+}
+
+export function requireString(value: unknown, what: string): string {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw invalidArgument(`${what} must be a non-empty string`);
+  }
+  return value;
+}
+
+/** Text may legitimately contain whitespace-only? No — an empty turn is a bug. */
+export function requireText(value: unknown, what: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    throw invalidArgument(`${what} must be a non-empty string`);
+  }
+  return value;
+}
+
+export function requirePodId(value: unknown): string {
+  return requireString(value, 'podId');
+}
+
+export function requirePermissionMode(value: unknown): PermissionMode {
+  if (!isAllowedPermissionMode(value)) {
+    throw invalidArgument(
+      `permissionMode must be one of default, plan, bypassPermissions (received ${JSON.stringify(value)})`,
+    );
+  }
+  return value;
+}
+
+function optionalEnvOverrides(value: unknown): Record<string, string> | undefined {
+  if (value === undefined) return undefined;
+  const record = requireObject(value, 'envOverrides');
+  const out: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (typeof entry !== 'string') {
+      throw invalidArgument(`envOverrides.${key} must be a string`);
+    }
+    out[key] = entry;
+  }
+  return out;
+}
+
+/**
+ * `cwd` is checked for SHAPE here and for EXISTENCE in PodManager. The contract
+ * says the renderer never types one — it comes back from
+ * `dialog:pickDirectory` — but main cannot prove provenance, so it proves the
+ * only thing that matters instead: that the path resolves to a real directory
+ * (PodManager, `CWD_MISSING`). A relative path is refused outright; every path
+ * the picker returns is absolute.
+ */
+export function requireCreatePodRequest(value: unknown): CreatePodRequest {
+  const raw = requireObject(value, 'CreatePodRequest');
+  const cwd = requireString(raw['cwd'], 'cwd');
+  if (!isAbsolutePath(cwd)) {
+    throw invalidArgument('cwd must be an absolute path obtained from dialog.pickDirectory');
+  }
+  const req: CreatePodRequest = {
+    title: requireString(raw['title'], 'title'),
+    cwd,
+    permissionMode: requirePermissionMode(raw['permissionMode']),
+  };
+  const env = optionalEnvOverrides(raw['envOverrides']);
+  if (env !== undefined) req.envOverrides = env;
+  return req;
+}
+
+/**
+ * Absolute on either platform: a POSIX root, or a Windows drive/UNC root. Done
+ * without `node:path` so the check does not change meaning with the host OS —
+ * a path picked on one machine must not be judged relative on another.
+ */
+export function isAbsolutePath(value: string): boolean {
+  return /^\//.test(value) || /^[a-zA-Z]:[\\/]/.test(value) || /^\\\\/.test(value);
+}
+
+export function requireUpdatePodRequest(value: unknown): UpdatePodRequest {
+  const raw = requireObject(value, 'UpdatePodRequest');
+  const req: UpdatePodRequest = { podId: requirePodId(raw['podId']) };
+
+  if (raw['title'] !== undefined) req.title = requireString(raw['title'], 'title');
+  if (raw['tabOrder'] !== undefined) {
+    const order = raw['tabOrder'];
+    if (typeof order !== 'number' || !Number.isInteger(order) || order < 0) {
+      throw invalidArgument('tabOrder must be a non-negative integer');
+    }
+    req.tabOrder = order;
+  }
+  if (raw['permissionMode'] !== undefined) {
+    req.permissionMode = requirePermissionMode(raw['permissionMode']);
+  }
+  const env = optionalEnvOverrides(raw['envOverrides']);
+  if (env !== undefined) req.envOverrides = env;
+
+  // `cwd` is deliberately absent from UpdatePodRequest (spec 4.2: immutable
+  // after creation). Refusing it loudly beats ignoring it silently.
+  if (raw['cwd'] !== undefined) {
+    throw invalidArgument('cwd is immutable after creation and cannot be updated');
+  }
+  return req;
+}
+
+export function requireReadEventsRequest(value: unknown): ReadEventsRequest {
+  const raw = requireObject(value, 'ReadEventsRequest');
+  const req: ReadEventsRequest = { podId: requirePodId(raw['podId']) };
+
+  if (raw['laneId'] !== undefined) req.laneId = requireString(raw['laneId'], 'laneId');
+  if (raw['afterSeq'] !== undefined) {
+    const after = raw['afterSeq'];
+    if (typeof after !== 'number' || !Number.isInteger(after) || after < 0) {
+      throw invalidArgument('afterSeq must be a non-negative integer');
+    }
+    req.afterSeq = after;
+  }
+  if (raw['limit'] !== undefined) {
+    const limit = raw['limit'];
+    if (typeof limit !== 'number' || !Number.isInteger(limit) || limit < 1) {
+      throw invalidArgument('limit must be a positive integer');
+    }
+    req.limit = Math.min(limit, MAX_READ_LIMIT);
+  }
+  return req;
+}
+
+/**
+ * The `deny` branch is the one that matters: a denial with no reason is
+ * refused with INVALID_ARGUMENT rather than defaulted to an empty string. The
+ * contract types `reason` as required on deny, the model is shown it verbatim,
+ * and `toPermissionResult` in the pod module throws on an empty one — so
+ * accepting it here would only move the failure somewhere less legible.
+ */
+export function requirePermissionRespondRequest(value: unknown): PermissionRespondRequest {
+  const raw = requireObject(value, 'PermissionRespondRequest');
+  const decision = raw['decision'];
+  if (decision !== 'allow' && decision !== 'allow_always' && decision !== 'deny') {
+    throw invalidArgument(
+      `decision must be one of allow, allow_always, deny (received ${JSON.stringify(decision)})`,
+    );
+  }
+
+  const req: PermissionRespondRequest = {
+    podId: requirePodId(raw['podId']),
+    requestId: requireString(raw['requestId'], 'requestId'),
+    decision,
+  };
+
+  if (decision === 'deny') {
+    req.reason = requireString(raw['reason'], 'reason (required when decision is "deny")');
+  } else if (raw['reason'] !== undefined) {
+    req.reason = requireString(raw['reason'], 'reason');
+  }
+  return req;
+}
