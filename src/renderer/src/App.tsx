@@ -1,6 +1,7 @@
 import { useMemo, useState, type JSX, type ReactNode } from 'react';
 
 import type { LaneId } from '@shared/contracts/events';
+import type { PanelKey } from './contracts/renderer-panels';
 import type { PermissionRespondArgs } from './contracts/renderer-view';
 import {
   useComposer,
@@ -14,7 +15,11 @@ import { LaneRail } from './lanes';
 import { PermissionCardList } from './permissions';
 import { TranscriptPane } from './transcript';
 import { PodsChrome } from './pods/PodsChrome';
+import { BeachcomberPanelConnected } from './beachcomber';
+import { ConnectedHelmPanel } from './helm';
 import { EmptyWorkspace, LoadingWorkspace } from './shell/EmptyWorkspace';
+import { PanelBar } from './shell/PanelBar';
+import { PanelRegion } from './shell/PanelRegion';
 import { WorkspaceLayout } from './shell/WorkspaceLayout';
 
 /**
@@ -27,6 +32,13 @@ import { WorkspaceLayout } from './shell/WorkspaceLayout';
  */
 export function App(): JSX.Element {
   const [newPodOpen, setNewPodOpen] = useState(false);
+
+  // WHICH PANEL IS OPEN LIVES HERE AND NOWHERE ELSE. It is client interaction
+  // state, not server data, so per the frontend discipline it does not go in
+  // the workspace store — `panel-provider.tsx` says the same thing from the
+  // other side, and its suite asserts the store has no such field. Nothing
+  // outside this file needs to know: the strip is told, the region is told.
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
 
   const { activePodId, session, routingMode, actions } = useWorkspace();
   const rail = useLaneRail();
@@ -59,6 +71,24 @@ export function App(): JSX.Element {
       }}
     />
   );
+
+  const closePanel = (): void => {
+    setOpenPanel(null);
+  };
+
+  const panelBar = <PanelBar onClose={closePanel} onOpen={setOpenPanel} open={openPanel} />;
+
+  // PANELS DO NOT REQUIRE A POD, so this is decided before `empty` is and
+  // independently of it. Cleanup and settings are precisely what a user with
+  // no Pods reaches for. Mounting the connected panel is also what issues its
+  // first fetch — the hooks' own mount effects do that — so nothing here
+  // fetches, and neither panel's hook is mounted while its panel is closed.
+  const panel: ReactNode =
+    openPanel === null ? null : (
+      <PanelRegion onClose={closePanel} panelKey={openPanel}>
+        {openPanel === 'beachcomber' ? <BeachcomberPanelConnected /> : <ConnectedHelmPanel />}
+      </PanelRegion>
+    );
 
   // `routingMode` is null until `app.routingMode()` answers. Rendering the
   // rail or the transcript before then would force a `'lanes'` assumption,
@@ -165,6 +195,8 @@ export function App(): JSX.Element {
       composer={composerNode}
       empty={empty}
       laneRail={laneRail}
+      panel={panel}
+      panelBar={panelBar}
       podBar={podBar}
       primary={primary}
       split={split}
