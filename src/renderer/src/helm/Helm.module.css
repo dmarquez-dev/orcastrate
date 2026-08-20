@@ -1,0 +1,327 @@
+/*
+ * Helm. Tokens only (frozen `renderer-theme.ts`, rule 3), and this session's
+ * seven added tokens are exactly why the border widths, the tracking on the
+ * legends and the label/value weight contrast are not literals.
+ *
+ * `Helm.styles.test.ts` reads this file as TEXT and fails on a hex colour, an
+ * `rgb(`/`hsl(` literal, ANY `px`/`rem`/`em`/`pt` length, an `!important`, an
+ * `outline: none`, or a `var(--…)` name the frozen `TOKENS` map does not hold.
+ *
+ * THERE IS NO VISUALLY-HIDDEN CLASS HERE, and none is needed: nothing in Helm
+ * carries meaning by colour that a visible word does not also carry, so no
+ * text has to be hidden from the paint to reach a screen reader. Should one
+ * ever be wanted, `shell/a11y.module.css` already has it and `pods/` already
+ * imports it — its `1px` clip box is a recipe rather than a spacing decision,
+ * and copying it here would put a raw length in the one file whose whole rule
+ * is that there are none.
+ *
+ * Ratios (`100%`, `minmax(0, 1fr)`, unitless `line-height`) are not lengths
+ * and have no token; everything that resolves to a physical size does.
+ */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-4);
+  padding: var(--oc-space-4);
+  max-width: var(--oc-panel-max-width);
+  height: 100%;
+  overflow-y: auto;
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+}
+
+.status {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- sections ------------------------------------------------------------ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-3);
+  margin: 0;
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-raised);
+}
+
+.section:disabled {
+  color: var(--oc-fg-muted);
+}
+
+.legend {
+  padding: 0 var(--oc-space-1);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.label {
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-medium);
+}
+
+.hint {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-regular);
+}
+
+.path {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  word-break: break-all;
+}
+
+/* --- controls ------------------------------------------------------------ */
+
+.input,
+.select,
+.textarea {
+  padding: var(--oc-space-1) var(--oc-space-2);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  font-size: var(--oc-text-sm);
+}
+
+.input:disabled,
+.select:disabled,
+.textarea:disabled {
+  color: var(--oc-fg-muted);
+  border-style: dashed;
+}
+
+.mono {
+  font-family: var(--oc-font-mono);
+}
+
+.textarea {
+  min-height: var(--oc-composer-min-height);
+  resize: vertical;
+  white-space: pre;
+  overflow-wrap: normal;
+}
+
+.button {
+  padding: var(--oc-space-1) var(--oc-space-3);
+  background: var(--oc-bg-selected);
+  color: var(--oc-fg-primary);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  font-size: var(--oc-text-sm);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--oc-bg-hover);
+}
+
+.button:disabled {
+  color: var(--oc-fg-muted);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+.primary:not(:disabled) {
+  border-color: var(--oc-status-running);
+  border-width: var(--oc-border-thick);
+}
+
+/* --- row editors --------------------------------------------------------- */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--oc-space-2);
+}
+
+.envRow {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) auto;
+}
+
+.rowCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+  min-width: 0;
+}
+
+.rowInput {
+  width: 100%;
+}
+
+.empty {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- radio group --------------------------------------------------------- */
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+}
+
+.choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--oc-space-2);
+}
+
+.choiceBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.caveat {
+  color: var(--oc-status-waiting);
+  font-size: var(--oc-text-xs);
+}
+
+/* --- notices -------------------------------------------------------------
+ * Colour NEVER carries meaning alone: every notice renders a mono glyph and a
+ * heading word beside its hue, and every inline issue prints "Error" or
+ * "Warning" as text.
+ */
+
+.notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-raised);
+  font-size: var(--oc-text-sm);
+}
+
+.noticeBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+  min-width: 0;
+}
+
+.noticeHeading {
+  margin: 0;
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-bold);
+}
+
+.noticeText {
+  margin: 0;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.marker {
+  font-family: var(--oc-font-mono);
+  font-weight: var(--oc-weight-bold);
+}
+
+.danger {
+  border-color: var(--oc-danger);
+  background: var(--oc-danger-bg);
+}
+
+.danger .marker {
+  color: var(--oc-danger);
+}
+
+.warning {
+  border-color: var(--oc-status-waiting);
+}
+
+.warning .marker {
+  color: var(--oc-status-waiting);
+}
+
+.success {
+  border-color: var(--oc-status-done);
+}
+
+.success .marker {
+  color: var(--oc-status-done);
+}
+
+.info {
+  border-color: var(--oc-border-strong);
+}
+
+.info .marker {
+  color: var(--oc-fg-muted);
+}
+
+/* --- inline issues ------------------------------------------------------- */
+
+.issues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue {
+  font-size: var(--oc-text-xs);
+}
+
+.issueError {
+  color: var(--oc-danger);
+}
+
+.issueWarning {
+  color: var(--oc-status-waiting);
+}
+
+.issueSeverity {
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+/* --- action bar ---------------------------------------------------------- */
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--oc-space-2);
+  padding-top: var(--oc-space-2);
+  border-top: var(--oc-border-hairline) solid var(--oc-border);
+}
+
+.actionsSpacer {
+  margin-left: auto;
+}
