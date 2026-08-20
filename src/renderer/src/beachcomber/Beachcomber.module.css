@@ -1,0 +1,393 @@
+/*
+ * Beachcomber panel styling.
+ *
+ * TOKENS ONLY. Every color, length, border width, letter-spacing and weight is
+ * a `var(--oc-…)`. The nine tokens this session added to `tokens.css` exist
+ * precisely so this file never needs a bare `1px`, a bare `0.04em` or a bare
+ * `700` — six directories in sub-session 2 reached for all three because there
+ * was nothing to reach for.
+ *
+ * No `!important` anywhere, and no `outline: none` — the global focus ring in
+ * `global.css` is the accessibility floor and this file does not compete with
+ * it.
+ *
+ * SCOPE: these classes are applied only by components in this directory.
+ */
+
+.panel {
+  display: flex;
+  overflow-y: auto;
+  width: 100%;
+  height: 100%;
+  flex-direction: column;
+  padding: var(--oc-space-6);
+  gap: var(--oc-space-4);
+  background: var(--oc-bg-app);
+}
+
+.header {
+  display: flex;
+  max-width: var(--oc-panel-max-width);
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.heading {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-lg);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-tight);
+}
+
+.description {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- toolbar ------------------------------------------------------------- */
+
+.toolbar {
+  display: flex;
+  max-width: var(--oc-panel-max-width);
+  flex-wrap: wrap;
+  align-items: center;
+  padding-block: var(--oc-space-2);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
+  gap: var(--oc-space-2);
+}
+
+.selectionSummary {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.button {
+  padding-block: var(--oc-space-2);
+  padding-inline: var(--oc-space-4);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-medium);
+}
+
+.button:hover:enabled {
+  background: var(--oc-bg-hover);
+}
+
+.button:disabled {
+  color: var(--oc-fg-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonPrimary {
+  border-color: var(--oc-status-running);
+}
+
+/* --- panel-level messages ------------------------------------------------ */
+
+.error {
+  display: flex;
+  max-width: var(--oc-panel-max-width);
+  flex-direction: column;
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  gap: var(--oc-space-1);
+}
+
+.errorLine {
+  margin: 0;
+  color: var(--oc-danger);
+  font-size: var(--oc-text-sm);
+}
+
+.status {
+  max-width: var(--oc-panel-max-width);
+  margin: 0;
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) dashed var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- groups -------------------------------------------------------------- */
+
+.groups {
+  display: flex;
+  max-width: var(--oc-panel-max-width);
+  flex-direction: column;
+  gap: var(--oc-space-6);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+}
+
+.groupHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  padding-bottom: var(--oc-space-2);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
+  gap: var(--oc-space-3);
+}
+
+.groupToggle {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+}
+
+.groupToggleLabel {
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  font-size: var(--oc-text-xs);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.groupHeading {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-bold);
+}
+
+.groupPath {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.groupFacts {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.groupError {
+  width: 100%;
+  margin: 0;
+  padding: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  color: var(--oc-danger);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- rows ---------------------------------------------------------------- */
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-1);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  padding: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-panel);
+  gap: var(--oc-space-1);
+}
+
+/*
+ * COLOR IS NOT THE CARRIER. A blocked row reads as blocked because it says
+ * "Cannot be selected", names the Pod, and is `aria-disabled`. This rule only
+ * agrees with that; it does not replace it.
+ */
+.rowBlocked {
+  border-left: var(--oc-border-thick) solid var(--oc-status-waiting);
+  background: var(--oc-bg-app);
+}
+
+.rowSelect {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+}
+
+.rowSelectLabel {
+  min-width: 0;
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.rowPath {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.rowFacts {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  letter-spacing: var(--oc-tracking-wide);
+}
+
+.marker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--oc-space-2);
+}
+
+.markerLabel {
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.rowBlockedReason {
+  min-width: 0;
+  color: var(--oc-status-waiting);
+  font-size: var(--oc-text-sm);
+}
+
+.rowUnverified {
+  min-width: 0;
+  color: var(--oc-status-orphaned);
+  font-size: var(--oc-text-sm);
+}
+
+.rowOrphan {
+  min-width: 0;
+  padding-inline: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-status-orphaned);
+  border-radius: var(--oc-radius-sm);
+  color: var(--oc-status-orphaned);
+  font-size: var(--oc-text-xs);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+/* --- result -------------------------------------------------------------- */
+
+.result {
+  display: flex;
+  max-width: var(--oc-panel-max-width);
+  flex-direction: column;
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-panel);
+  gap: var(--oc-space-2);
+}
+
+.resultHeading {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-bold);
+}
+
+.resultSummary {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+}
+
+.resultSubheading {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.resultFailures {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-1);
+  list-style: none;
+}
+
+.resultFailure {
+  display: flex;
+  flex-direction: column;
+  padding: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-danger-bg);
+  gap: var(--oc-space-1);
+}
+
+.resultFailurePath {
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.resultFailureMessage {
+  color: var(--oc-danger);
+  font-size: var(--oc-text-sm);
+}
+
+/* --- refusals (shared by the preview and the result) ---------------------- */
+
+.refusals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+}
+
+.refusalsHeading {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.refusalList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-1);
+  list-style: none;
+}
+
+.refusal {
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+}
