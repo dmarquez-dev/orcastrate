@@ -30,7 +30,14 @@ import { createPodRunnerWith, parseStreamLine } from '../../../src/main/pod';
 import type { PodStreamItem } from '../../../src/main/pod';
 import { createPushes, PodManager, ROUTING_MODE } from '../../../src/main/pod-manager';
 import { openEventStore } from '../../../src/main/store';
+import { EVENT_CHANNELS } from '../../../src/shared/contracts/ipc';
 import { makeFakeSdk, type FakeSdk } from '../pod/helpers';
+import {
+  fakeBeachcomberService,
+  fakeHelmService,
+  type FakeBeachcomberService,
+  type FakeHelmService,
+} from './panel-fakes';
 
 export const FIXTURE_DIR = join(
   fileURLToPath(new URL('../../', import.meta.url)),
@@ -78,6 +85,13 @@ export interface Harness {
    * hides. Tests assert this stays empty.
    */
   logged: { level: 'warn' | 'error'; args: unknown[] }[];
+  /**
+   * The two injected panel ports, so a test can arm a failure or read what the
+   * boundary forwarded. They are FAKES: this suite tests the transport, and
+   * `src/main/ipc/**` is written against the interface, not the implementation.
+   */
+  beachcomber: FakeBeachcomberService;
+  helm: FakeHelmService;
   /** Whatever `pickDirectory` should answer next. */
   setPickedDirectory(path: string | null): void;
   /** Force the directory picker to fail. */
@@ -140,6 +154,15 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
   let picked: string | null = 'C:\\picked';
   let pickError: unknown = null;
 
+  const beachcomber = fakeBeachcomberService();
+  // The same `pushed` sink PodManager writes to. In production T8 supplies
+  // `sendToRenderers` here, which is the same function it supplies to
+  // `createPushes` — so this harness models the one-sink arrangement rather
+  // than inventing a second channel for helm.
+  const helm = fakeHelmService((push) => {
+    pushed.push({ channel: EVENT_CHANNELS.helmChanged, payload: push });
+  });
+
   const channels = registerIpcHandlers({
     ipcMain,
     manager,
@@ -147,12 +170,16 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
       if (pickError !== null) throw pickError;
       return picked;
     },
+    beachcomber,
+    helm,
   });
 
   return {
     store,
     manager,
     pushed,
+    beachcomber,
+    helm,
     logged,
     channels,
     runnerCount: (podId) => runnerCounts.get(podId) ?? 0,

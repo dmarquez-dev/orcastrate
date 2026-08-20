@@ -1,0 +1,28 @@
+/*
+ * The panel region: what replaces the body — rail, transcript pane(s) and
+ * composer — while a panel is open.
+ *
+ * The region itself fills the body row; `--oc-panel-max-width` caps the
+ * MEASURE of the content inside it, so a form-heavy panel does not stretch
+ * its labels and inputs across a 2000px window.
+ */
+
+.region {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: auto;
+  background: var(--oc-bg-app);
+}
+
+.content {
+  display: flex;
+  width: 100%;
+  max-width: var(--oc-panel-max-width);
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  margin: 0 auto;
+}

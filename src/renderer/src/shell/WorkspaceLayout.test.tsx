@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { EmptyWorkspace } from './EmptyWorkspace';
 import { WorkspaceLayout } from './WorkspaceLayout';
@@ -48,6 +49,126 @@ describe('WorkspaceLayout', () => {
     expect(screen.queryByTestId('slot-primary')).toBeNull();
     expect(screen.queryByTestId('slot-composer')).toBeNull();
     expect(screen.getByRole('button', { name: 'New Pod' })).toBeDefined();
+  });
+});
+
+/**
+ * The panel region (sub-session 3). The strip is chrome and is always there;
+ * the panel replaces the body when it is non-null, and replaces the EMPTY
+ * state too — panels do not require a Pod.
+ */
+const PANEL_SLOTS = {
+  ...SLOTS,
+  panelBar: <div data-testid="slot-panel-bar">strip</div>,
+};
+
+describe('WorkspaceLayout panel region', () => {
+  it('renders the strip beneath the Pod bar on every render', () => {
+    const { container, rerender } = render(
+      <WorkspaceLayout {...PANEL_SLOTS} panel={null} split={null} />,
+    );
+    const order = Array.from(container.firstElementChild?.children ?? []).map(
+      (child) => child.firstElementChild?.getAttribute('data-testid'),
+    );
+    expect(order.slice(0, 2)).toEqual(['slot-pod-bar', 'slot-panel-bar']);
+
+    rerender(
+      <WorkspaceLayout
+        {...PANEL_SLOTS}
+        panel={<div data-testid="slot-panel">panel</div>}
+        split={null}
+      />,
+    );
+    expect(screen.getByTestId('slot-panel-bar')).toBeDefined();
+
+    rerender(
+      <WorkspaceLayout
+        {...PANEL_SLOTS}
+        empty={<EmptyWorkspace onNewPod={vi.fn()} />}
+        panel={null}
+        split={null}
+      />,
+    );
+    expect(screen.getByTestId('slot-panel-bar')).toBeDefined();
+  });
+
+  it('renders the panel inside the panel region INSTEAD of the body', () => {
+    render(
+      <WorkspaceLayout
+        {...PANEL_SLOTS}
+        panel={<div data-testid="slot-panel">panel</div>}
+        split={<div data-testid="slot-split">split</div>}
+      />,
+    );
+
+    const region = screen.getByTestId(PANEL_TEST_IDS.panelRegion);
+    expect(region.contains(screen.getByTestId('slot-panel'))).toBe(true);
+    // Pod bar and strip stay: the user can see which Pod they come back to.
+    expect(screen.getByTestId('slot-pod-bar')).toBeDefined();
+    expect(screen.getByTestId('slot-panel-bar')).toBeDefined();
+    // Rail, transcript pane(s) and composer are gone.
+    expect(screen.queryByTestId('slot-lane-rail')).toBeNull();
+    expect(screen.queryByTestId('slot-primary')).toBeNull();
+    expect(screen.queryByTestId('slot-split')).toBeNull();
+    expect(screen.queryByTestId('slot-composer')).toBeNull();
+  });
+
+  it('replaces the empty state too — a panel does not require a Pod', () => {
+    render(
+      <WorkspaceLayout
+        {...PANEL_SLOTS}
+        empty={<EmptyWorkspace onNewPod={vi.fn()} />}
+        panel={<div data-testid="slot-panel">panel</div>}
+        split={null}
+      />,
+    );
+    expect(screen.getByTestId('slot-panel')).toBeDefined();
+    expect(screen.queryByRole('heading', { name: 'No Pod open' })).toBeNull();
+  });
+
+  /**
+   * The strip's region renders on EVERY render — with no `panelBar` supplied it
+   * is simply empty. Deleting it from both trees is what isolates the question
+   * this task has to answer: is everything ELSE the DOM it was before?
+   */
+  const withoutStrip = (container: HTMLElement): string => {
+    const workspace = container.firstElementChild;
+    workspace?.children[1]?.remove();
+    return container.innerHTML;
+  };
+
+  it('leaves the tree byte-identical when no panel is open', () => {
+    // The tree as it was BEFORE this task: neither new slot supplied.
+    const before = render(<WorkspaceLayout {...SLOTS} split={null} />);
+    const beforeHtml = withoutStrip(before.container);
+    cleanup();
+
+    const after = render(<WorkspaceLayout {...PANEL_SLOTS} panel={null} split={null} />);
+    // Guard against a vacuous pass: the strip really was in the second tree.
+    expect(screen.getByTestId('slot-panel-bar').parentElement).toBe(
+      after.container.firstElementChild?.children[1],
+    );
+    expect(withoutStrip(after.container)).toBe(beforeHtml);
+    expect(beforeHtml).toContain('data-testid="slot-composer"');
+  });
+
+  it('leaves the empty state byte-identical when no panel is open', () => {
+    const before = render(
+      <WorkspaceLayout {...SLOTS} empty={<EmptyWorkspace onNewPod={vi.fn()} />} split={null} />,
+    );
+    const beforeHtml = withoutStrip(before.container);
+    cleanup();
+
+    const after = render(
+      <WorkspaceLayout
+        {...PANEL_SLOTS}
+        empty={<EmptyWorkspace onNewPod={vi.fn()} />}
+        panel={null}
+        split={null}
+      />,
+    );
+    expect(withoutStrip(after.container)).toBe(beforeHtml);
+    expect(beforeHtml).toContain('No Pod open');
   });
 });
 

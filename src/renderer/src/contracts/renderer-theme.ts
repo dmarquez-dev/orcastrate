@@ -92,11 +92,34 @@ export const TOKENS = {
   radiusSm: '--oc-radius-sm',
   radiusMd: '--oc-radius-md',
 
+  // AMENDMENT (sub-session 3, T4) — ADDITIONS ONLY. These are the seven
+  // `ADDED_TOKENS` of `renderer-panels.ts`. The sub-session 2 backlog predicted
+  // them exactly: six renderer directories independently reached for bare
+  // `1px`, `0.04em` and `font-weight: 700` because `TOKENS` had nothing to
+  // offer, and every reviewer called it a token-set gap rather than a
+  // deviation. A form-heavy panel needs all three groups — table rules and
+  // input borders, column headings, and the weight contrast that distinguishes
+  // a field label from its value. Nothing above is renamed or removed, so no
+  // sub-session 2 component is touched by this change.
+  borderHairline: '--oc-border-hairline',
+  borderThick: '--oc-border-thick',
+  trackingTight: '--oc-tracking-tight',
+  trackingWide: '--oc-tracking-wide',
+  weightRegular: '--oc-weight-regular',
+  weightMedium: '--oc-weight-medium',
+  weightBold: '--oc-weight-bold',
+
   // Layout, so the four regions of spec 5.1 agree on their own geometry
   // without any task measuring another's markup.
   podBarHeight: '--oc-pod-bar-height',
   laneRailWidth: '--oc-lane-rail-width',
   composerMinHeight: '--oc-composer-min-height',
+
+  // AMENDMENT (sub-session 3, T4) — the two `ADDED_LAYOUT_TOKENS`. Panel
+  // geometry, so the strip and the region agree without either task measuring
+  // the other's markup, for the same reason `podBarHeight` exists.
+  panelBarHeight: '--oc-panel-bar-height',
+  panelMaxWidth: '--oc-panel-max-width',
 } as const;
 
 /** `cssVar(TOKENS.bgPanel)` -> `"var(--oc-bg-panel)"`. */

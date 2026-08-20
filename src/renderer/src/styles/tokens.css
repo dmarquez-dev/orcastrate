@@ -77,9 +77,36 @@
   --oc-radius-sm: 3px;
   --oc-radius-md: 6px;
 
+  /* Border widths. `hairline` is the table rule and the resting input border;
+     `thick` is reserved for the emphasis a hairline cannot carry (a selected
+     row's leading edge). Sub-session 2 wrote bare `1px` in six directories
+     because neither existed. */
+  --oc-border-hairline: 1px;
+  --oc-border-thick: 2px;
+
+  /* Letter-spacing. `wide` is the uppercase column heading and section label —
+     the `0.04em` six directories hardcoded. `tight` is for the large display
+     sizes, where the default tracking reads loose. */
+  --oc-tracking-tight: -0.01em;
+  --oc-tracking-wide: 0.04em;
+
+  /* Weights. A form-heavy panel needs the contrast between a field label and
+     its value; `bold` is the `font-weight: 700` that had no token. */
+  --oc-weight-regular: 400;
+  --oc-weight-medium: 500;
+  --oc-weight-bold: 700;
+
   /* Layout. The four regions of spec 5.1 agree on their geometry here, so no
      task has to measure another task's markup. */
   --oc-pod-bar-height: 38px;
   --oc-lane-rail-width: 240px;
   --oc-composer-min-height: 76px;
+
+  /* Panel geometry (sub-session 3). The strip sits directly beneath the Pod
+     bar and is a shade shorter than it, so the two read as chrome and
+     sub-chrome rather than as two peer tab rows. `panel-max-width` caps the
+     measure of the panel region's form content on a wide window; the region
+     itself still fills the body. */
+  --oc-panel-bar-height: 32px;
+  --oc-panel-max-width: 880px;
 }

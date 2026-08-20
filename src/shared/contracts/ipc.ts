@@ -13,9 +13,28 @@
  * filesystem path the renderer can act on directly. Paths are opaque display
  * strings; every operation on one is named by id or performed by main.
  *
- * Sub-sessions 2/3 will add Beachcomber and Helm channels. Those namespaces are
- * RESERVED below but intentionally left unpopulated — adding to them is a
- * contract change and requires an escalation.
+ * THE HARD RULE, RESTATED FOR BEACHCOMBER AND HELM — because both panels are
+ * path-shaped by nature and "we obviously would not do that" is not a rule.
+ * Beachcomber rows carry `displayPath` as an OPAQUE DISPLAY STRING: the
+ * renderer prints it and never parses, joins, splits, resolves or sends it
+ * back. Every mutating call on either namespace names a `BeachcomberEntryId`
+ * or a `HelmScopeId` instead — `beachcomber.preview`/`beachcomber.trash` take
+ * `{ scanId, ids }` and nothing else, and `helm.load`/`helm.save` take a
+ * scopeId-keyed payload and nothing else. Those ids are MAIN-MINTED TOKENS the
+ * renderer cannot forge: main alone holds the id -> absolute-path map, so a
+ * renderer that wanted to trash or overwrite an arbitrary path on disk has no
+ * way to name one. `HelmScope.displayPath` and `BeachcomberEntry.displayPath`
+ * travel outward only; neither is ever accepted inward.
+ *
+ * BEACHCOMBER AND HELM ARE NOW POPULATED. They were held as optional
+ * unpopulatable members reserved for sub-sessions 2/3; DIR session
+ * 2026-08-19-orcastrate-beachcomber-helm escalated that reservation, had the
+ * change approved at Gate 2, and filled both namespaces from the frozen
+ * `./beachcomber` and `./helm` contracts. They are non-optional members: every
+ * constructor of an `OrcastrateApi` — `src/preload/api.ts` and
+ * `src/renderer/src/test-utils/stub-api.ts`, the only two in the tree — must
+ * supply them. Changing either namespace's shape is still a contract change
+ * and still requires an escalation.
  */
 
 import type {
@@ -28,6 +47,13 @@ import type {
   Seq,
 } from './events';
 import type { RoutingMode } from './lane-router';
+// Type-only, and DELIBERATELY CIRCULAR: `./beachcomber` and `./helm` each
+// import `IpcResult` from here. Both directions are `import type`, so nothing
+// exists at runtime to cycle. The alternative — declaring those signatures
+// inline — would split each panel's contract across two files.
+import type { BeachcomberApi } from './beachcomber';
+import type { HelmApi } from './helm';
+import type { HelmChangedPush } from './helm';
 
 // ---------------------------------------------------------------------------
 // Error envelope
@@ -80,6 +106,12 @@ export const INVOKE_CHANNELS = {
   permissionRespond: 'permission:respond',
   dialogPickDirectory: 'dialog:pickDirectory',
   appRoutingMode: 'app:routingMode',
+  beachcomberScan: 'beachcomber:scan',
+  beachcomberPreview: 'beachcomber:preview',
+  beachcomberTrash: 'beachcomber:trash',
+  helmScopes: 'helm:scopes',
+  helmLoad: 'helm:load',
+  helmSave: 'helm:save',
 } as const;
 
 /** Push channels, main -> renderer, delivered via `ipcRenderer.on`. */
@@ -89,6 +121,8 @@ export const EVENT_CHANNELS = {
   laneChanged: 'push:laneChanged',
   permissionRequested: 'push:permissionRequested',
   permissionResolved: 'push:permissionResolved',
+  /** Advisory only. See the `helm.ts` header: the watch is never a guard. */
+  helmChanged: 'push:helmChanged',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -238,15 +272,17 @@ export interface OrcastrateApi {
     laneChanged(cb: (p: LaneChangedPush) => void): Unsubscribe;
     permissionRequested(cb: (p: PermissionRequestedPush) => void): Unsubscribe;
     permissionResolved(cb: (p: PermissionResolvedPush) => void): Unsubscribe;
+    /** Advisory. The form goes stale; it does NOT become safe to save. */
+    helmChanged(cb: (p: HelmChangedPush) => void): Unsubscribe;
   };
 
   /**
-   * RESERVED for sub-session 3. Declared so the renderer's global type is
-   * stable, and deliberately optional so sub-session 1 ships without it.
-   * Populating these is a contract change requiring an escalation.
+   * POPULATED by DIR session 2026-08-19-orcastrate-beachcomber-helm, from the
+   * frozen `./beachcomber` and `./helm` contracts. Non-optional: both
+   * constructors of this type must supply them.
    */
-  beachcomber?: never;
-  helm?: never;
+  beachcomber: BeachcomberApi;
+  helm: HelmApi;
 }
 
 declare global {

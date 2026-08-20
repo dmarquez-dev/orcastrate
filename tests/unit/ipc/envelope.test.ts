@@ -30,6 +30,11 @@ import type { PodManagerApi } from '../../../src/main/pod-manager';
 import { EventStoreError } from '../../../src/main/store';
 
 import { makeHarness } from './helpers';
+import {
+  fakeBeachcomberService,
+  fakeHelmService,
+  VALID_PANEL_PAYLOADS,
+} from './panel-fakes';
 
 /**
  * Valid arguments for every channel — valid enough to clear validation, so the
@@ -56,6 +61,12 @@ const VALID_ARGS: Record<string, unknown[]> = {
   ],
   [INVOKE_CHANNELS.dialogPickDirectory]: [],
   [INVOKE_CHANNELS.appRoutingMode]: [],
+  [INVOKE_CHANNELS.beachcomberScan]: [],
+  [INVOKE_CHANNELS.beachcomberPreview]: [VALID_PANEL_PAYLOADS.preview],
+  [INVOKE_CHANNELS.beachcomberTrash]: [VALID_PANEL_PAYLOADS.trash],
+  [INVOKE_CHANNELS.helmScopes]: [],
+  [INVOKE_CHANNELS.helmLoad]: [VALID_PANEL_PAYLOADS.scopeId],
+  [INVOKE_CHANNELS.helmSave]: [VALID_PANEL_PAYLOADS.save],
 };
 
 /** Malformed arguments for every channel that takes one. */
@@ -75,13 +86,19 @@ const BAD_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.laneList]: [false],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1', limit: -3 }],
   [INVOKE_CHANNELS.permissionRespond]: [{ podId: 'p1', requestId: 'r1', decision: 'maybe' }],
+  [INVOKE_CHANNELS.beachcomberPreview]: [{ scanId: 'scan-1', ids: 'entry-1' }],
+  [INVOKE_CHANNELS.beachcomberTrash]: [{ ids: ['entry-1'] }],
+  [INVOKE_CHANNELS.helmLoad]: [42],
+  [INVOKE_CHANNELS.helmSave]: [{ scopeId: 'user', hooksJson: '' }],
 };
 
-/** The three channels that take no arguments, so have nothing to validate. */
+/** The channels that take no arguments, so have nothing to validate. */
 const ZERO_ARG_CHANNELS = [
   INVOKE_CHANNELS.podList,
   INVOKE_CHANNELS.dialogPickDirectory,
   INVOKE_CHANNELS.appRoutingMode,
+  INVOKE_CHANNELS.beachcomberScan,
+  INVOKE_CHANNELS.helmScopes,
 ] as string[];
 
 interface Rig {
@@ -128,7 +145,20 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
     disposeAll: boom,
   };
 
-  registerIpcHandlers({ ipcMain, manager, pickDirectory: async () => boom() });
+  // The panel ports fail the same way the manager does, so the sweep below
+  // covers all 21 channels rather than 15 plus six that quietly succeed.
+  const beachcomber = fakeBeachcomberService();
+  const helm = fakeHelmService();
+  beachcomber.throwWith(err());
+  helm.throwWith(err());
+
+  registerIpcHandlers({
+    ipcMain,
+    manager,
+    pickDirectory: async () => boom(),
+    beachcomber,
+    helm,
+  });
 
   return {
     async invoke(channel, ...args) {
@@ -212,7 +242,9 @@ describe('renderer input is never trusted (criterion 4)', () => {
       const argTaking = Object.values(INVOKE_CHANNELS).filter(
         (channel) => !ZERO_ARG_CHANNELS.includes(channel),
       );
-      expect(argTaking.length).toBe(Object.values(INVOKE_CHANNELS).length - 3);
+      expect(argTaking.length).toBe(
+        Object.values(INVOKE_CHANNELS).length - ZERO_ARG_CHANNELS.length,
+      );
 
       for (const channel of argTaking) {
         const bad = BAD_ARGS[channel];

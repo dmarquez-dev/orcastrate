@@ -1,0 +1,162 @@
+/*
+ * The preview dialog — the only route in this feature to a deletion.
+ *
+ * TOKENS ONLY, no `!important`, no `outline: none`. Same rules as
+ * `Beachcomber.module.css`; the two files are separate because the dialog is
+ * the one surface that sits above the panel rather than inside it.
+ *
+ * The scrim is opaque rather than translucent for the same reason
+ * `NewPodDialog.module.css` is: the token set has no alpha layer, and inventing
+ * one would be a color literal.
+ */
+
+.scrim {
+  position: fixed;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--oc-space-6);
+  background: var(--oc-bg-app);
+  inset: 0;
+}
+
+.dialog {
+  display: flex;
+  overflow-y: auto;
+  width: 100%;
+  max-width: var(--oc-panel-max-width);
+  max-height: 100%;
+  flex-direction: column;
+  padding: var(--oc-space-6);
+  border: var(--oc-border-thick) solid var(--oc-danger);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-panel);
+  gap: var(--oc-space-3);
+}
+
+.heading {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-lg);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-tight);
+}
+
+.lead {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+}
+
+.totals {
+  margin: 0;
+  padding-block: var(--oc-space-2);
+  border-block: var(--oc-border-hairline) solid var(--oc-border);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-medium);
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-2);
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  flex-direction: column;
+  padding: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  gap: var(--oc-space-1);
+}
+
+.itemPath {
+  margin: 0;
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.itemFacts {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  letter-spacing: var(--oc-tracking-wide);
+}
+
+.itemStale {
+  margin: 0;
+  color: var(--oc-status-waiting);
+  font-size: var(--oc-text-sm);
+}
+
+.itemSampleHeading {
+  margin: 0;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+}
+
+.itemSamples {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  gap: var(--oc-space-1);
+  list-style: none;
+}
+
+.itemSample {
+  padding-inline: var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-xs);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: var(--oc-space-2);
+  gap: var(--oc-space-2);
+}
+
+.button {
+  padding-block: var(--oc-space-2);
+  padding-inline: var(--oc-space-4);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-medium);
+}
+
+.button:hover:enabled {
+  background: var(--oc-bg-hover);
+}
+
+.button:disabled {
+  color: var(--oc-fg-muted);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.buttonDanger {
+  border-color: var(--oc-danger);
+  background: var(--oc-danger-bg);
+  color: var(--oc-danger);
+  font-weight: var(--oc-weight-bold);
+}

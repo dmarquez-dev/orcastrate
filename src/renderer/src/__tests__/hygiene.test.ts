@@ -10,14 +10,27 @@
  *   - no file outside `src/renderer/src/state/**` references the preload
  *     bridge;
  *   - no file under `src/renderer/**` outside `styles/` carries a hex colour,
- *     an `rgb(`/`hsl(` literal, a px font-size, or a hardcoded font stack.
+ *     an `rgb(`/`hsl(` literal, a px font-size, or a hardcoded font stack;
+ *   - no `*.module.css` under `beachcomber/`, `helm/` or `shell/` sets a
+ *     border width, a letter-spacing or a font weight to anything but a token.
  *
- * WHAT IS DELIBERATELY NOT CHECKED: raw lengths in general. `1px` hairlines,
- * the screen-reader clip recipe and em letter-spacing appear across six
- * component directories because `TOKENS` has no border-width, tracking or
- * font-weight token. That is a known gap in the token set, not a deviation by
- * any of those tasks, and a rule that failed on it would be asserting a
- * decision nobody made. See T8's report.
+ * THE LAST RULE IS NEW, AND THIS PARAGRAPH USED TO SAY THE OPPOSITE. It said
+ * those three properties were deliberately unchecked "because `TOKENS` has no
+ * border-width, tracking or font-weight token". That was true when it was
+ * written and stopped being true the moment `renderer-theme.ts` gained
+ * `--oc-border-hairline`, `--oc-border-thick`, `--oc-tracking-tight`,
+ * `--oc-tracking-wide` and the three `--oc-weight-*` keys. The rule that used
+ * to have nothing to point at now has seven tokens to point at, so it is
+ * enforced — and the rationale for not enforcing it is deleted rather than
+ * left standing, because a stale rationale is what a later reader treats as
+ * the current decision.
+ *
+ * WHAT IS STILL DELIBERATELY NOT CHECKED: raw lengths in general. The
+ * screen-reader clip recipe (`width: 1px; height: 1px`) is the recipe itself
+ * and not a spacing decision; there is no token for it and inventing one
+ * would be a contract change. Spacing, radius and layout lengths outside the
+ * three panel directories are also out of scope here — `Helm.styles.test.ts`
+ * and the two Beachcomber style suites cover their own directories in full.
  *
  * HOW THE FILESYSTEM IS REACHED: exactly as `state/isolation.test.ts` reaches
  * it. `tsconfig.web.json` sets `"types": []`, so a static `node:` import in
@@ -300,6 +313,218 @@ describe('this suite has no live dependencies (criterion 11)', () => {
         if (allowed.has(specifier)) continue;
         offenders.push(`${relative(file)} imports ${specifier}`);
       }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The widened rule: border widths, tracking and weights (criterion 10)
+// ---------------------------------------------------------------------------
+
+/**
+ * The three directories the widened rule covers, and why exactly these three.
+ *
+ * `beachcomber/` and `helm/` are the panels this session added; `shell/` is
+ * where the panel strip and the panel region landed. They are the directories
+ * whose stylesheets were written AFTER the tokens existed, so they are the
+ * ones the rule can hold to without asking anyone to redecide a shipped
+ * design. The backlog item this closes named six sub-session 2 directories
+ * that reached for bare `1px`, `0.04em` and `font-weight: 700`; widening the
+ * rule over those as well is a change to their pixels, not to a test, and is
+ * reported rather than made here.
+ */
+const TOKENISED_STYLE_ROOTS: readonly string[] = [
+  `${RENDERER_ROOT}/src/beachcomber`,
+  `${RENDERER_ROOT}/src/helm`,
+  `${RENDERER_ROOT}/src/shell`,
+];
+
+/** Assembled from fragments, like every other needle in this file. */
+const LETTER_SPACING = 'letter-' + 'spacing';
+const FONT_WEIGHT = 'font-' + 'weight';
+
+/**
+ * Every property that declares a border WIDTH, including the shorthands.
+ *
+ * `border-radius` is deliberately absent and cannot be reached by accident:
+ * `declaredValues` anchors on `<prop>:`, and `border-radius:` does not match
+ * `border:`. A radius is a length, not a border width, and it has its own
+ * `--oc-radius-*` tokens.
+ */
+const BORDER_PROPERTIES: readonly string[] = [
+  'border',
+  'border-top',
+  'border-right',
+  'border-bottom',
+  'border-left',
+  'border-width',
+  'outline',
+];
+
+/**
+ * A raw physical length. `0` is NOT one: a zero border has no unit to
+ * tokenise and `border: 0` is how a reset is spelled in every stylesheet in
+ * this tree.
+ */
+const RAW_LENGTH = /\b\d+(?:\.\d+)?(?:px|rem|em|pt|ch)\b/;
+
+/** A value that defers to the token set. The only permitted one. */
+function isTokenValue(value: string): boolean {
+  return value.trim().startsWith('var(');
+}
+
+/**
+ * WHY THIS CHECKS THE VALUE INSTEAD OF PATTERN-MATCHING THE DECLARATION.
+ *
+ * The obvious form, `prop:\s*(?!var\()`, is broken in a way that is hard to
+ * see and harder to notice: `\s*` can match zero characters, so on the CLEAN
+ * `font-weight: var(--oc-weight-bold)` the engine backtracks to zero, the
+ * lookahead sees a space rather than `var(`, and the rule fires on a
+ * perfectly tokenised declaration. `helm/rules.ts` hit this and fixed it by
+ * moving the whitespace inside the lookahead (`prop:(?!\s*var\()`), which is
+ * correct — its own header describes the symptom in the opposite direction,
+ * but the pattern it ships discriminates.
+ *
+ * Reading the declared VALUE avoids the class of bug entirely, and it also
+ * lets an offender say what it actually found instead of only where.
+ */
+function tokenOffenders(text: string, properties: readonly string[]): string[] {
+  const found: string[] = [];
+  for (const prop of properties) {
+    for (const value of declaredValues(text, prop)) {
+      if (!isTokenValue(value)) found.push(`${prop}: ${value}`);
+    }
+  }
+  return found;
+}
+
+/** Border widths are the one group where a non-token value can still be fine. */
+function borderOffenders(text: string): string[] {
+  const found: string[] = [];
+  for (const prop of BORDER_PROPERTIES) {
+    for (const value of declaredValues(text, prop)) {
+      if (RAW_LENGTH.test(value)) found.push(`${prop}: ${value}`);
+    }
+  }
+  return found;
+}
+
+/**
+ * THE DECLARATIONS THIS RULE FINDS THAT THIS TASK DOES NOT FIX, EXHAUSTIVELY.
+ *
+ * Two `shell/` stylesheets predate the tokens: they are sub-session 2 files
+ * that landed when `TOKENS` had nothing to offer, and both live outside this
+ * task's ownership (`src/renderer/src/__tests__/**`). Fixing them is a change
+ * to shipped pixels — `font-weight: 600` in particular has NO token, since the
+ * set offers 400/500/700 — and belongs to whoever owns `shell/`, with the
+ * weight decision made deliberately rather than rounded by a test author.
+ *
+ * The assertion below compares against this list EXACTLY, in both directions.
+ * A seventh raw declaration anywhere in the three directories fails. So does
+ * FIXING one of these six without deleting its line here — which is the point:
+ * the exception list shrinks under review rather than quietly outliving the
+ * problem, exactly as `SURFACELESS_CHANNELS` does in the failure-path suite.
+ */
+const PRE_TOKEN_SHELL_DECLARATIONS: readonly string[] = [
+  'src/renderer/src/shell/EmptyWorkspace.module.css: border: 1px solid var(--oc-border-strong)',
+  'src/renderer/src/shell/EmptyWorkspace.module.css: font-weight: 600',
+  'src/renderer/src/shell/WorkspaceLayout.module.css: border-bottom: 1px solid var(--oc-border)',
+  'src/renderer/src/shell/WorkspaceLayout.module.css: border-left: 1px solid var(--oc-border)',
+  'src/renderer/src/shell/WorkspaceLayout.module.css: border-right: 1px solid var(--oc-border)',
+  'src/renderer/src/shell/WorkspaceLayout.module.css: border-top: 1px solid var(--oc-border)',
+];
+
+async function panelStylesheets(): Promise<string[]> {
+  const sheets: string[] = [];
+  for (const root of TOKENISED_STYLE_ROOTS) {
+    for (const file of await filesUnder(root, /\.module\.css$/)) sheets.push(file);
+  }
+  return sheets.sort();
+}
+
+describe('the widened matchers themselves', () => {
+  it('catches a synthetic violation of each new rule and passes its tokenised twin', () => {
+    // Border widths: a raw length is the violation, a token and a bare `0`
+    // are not.
+    expect(borderOffenders('border: 1' + 'px solid var(--oc-border);')).toEqual([
+      'border: 1' + 'px solid var(--oc-border)',
+    ]);
+    expect(borderOffenders('border: var(--oc-border-hairline) solid var(--oc-border);')).toEqual([]);
+    expect(borderOffenders('border: 0;')).toEqual([]);
+    expect(borderOffenders('border-bottom: 2' + 'px solid var(--oc-border);')).toHaveLength(1);
+    // A radius is a length but not a border width, and must not be caught.
+    expect(borderOffenders('border-radius: 4' + 'px;')).toEqual([]);
+
+    // Tracking and weight: anything but a token is the violation.
+    expect(tokenOffenders(`${FONT_WEIGHT}: 700;`, [FONT_WEIGHT])).toEqual([
+      `${FONT_WEIGHT}: 700`,
+    ]);
+    expect(tokenOffenders(`${FONT_WEIGHT}: var(--oc-weight-bold);`, [FONT_WEIGHT])).toEqual([]);
+    expect(tokenOffenders(`${LETTER_SPACING}: 0.04` + 'em;', [LETTER_SPACING])).toHaveLength(1);
+    expect(tokenOffenders(`${LETTER_SPACING}: var(--oc-tracking-wide);`, [LETTER_SPACING])).toEqual(
+      [],
+    );
+  });
+
+  it('does not use the lookahead form that fires on a tokenised declaration', () => {
+    // Kept as an executable warning rather than a comment. The left-hand
+    // pattern is the one `helm/rules.ts` had to replace: it fires on CLEAN
+    // code, because `\s*` backtracks to zero and the lookahead then sees a
+    // space instead of `var(`. The right-hand one is the corrected form.
+    const broken = new RegExp(`${FONT_WEIGHT}:\\s*(?!var\\()`);
+    const fixed = new RegExp(`${FONT_WEIGHT}:(?!\\s*var\\()`);
+    const clean = `${FONT_WEIGHT}: var(--oc-weight-bold);`;
+    expect(broken.test(clean)).toBe(true);
+    expect(fixed.test(clean)).toBe(false);
+    // And the rule this file actually enforces agrees with the fixed form.
+    expect(tokenOffenders(clean, [FONT_WEIGHT])).toEqual([]);
+  });
+});
+
+describe('panel token hygiene: border widths, tracking and weights (criterion 10)', () => {
+  it('finds the panel stylesheets to scan at all', async () => {
+    const sheets = await panelStylesheets();
+    // Beachcomber has two, Helm one, the shell four. A rule that scanned an
+    // empty list would report as a pass.
+    expect(sheets.length).toBeGreaterThanOrEqual(7);
+    expect(sheets.map(relative)).toContain('src/renderer/src/helm/Helm.module.css');
+    expect(sheets.map(relative)).toContain(
+      'src/renderer/src/beachcomber/Beachcomber.module.css',
+    );
+    expect(sheets.map(relative)).toContain('src/renderer/src/shell/PanelBar.module.css');
+  });
+
+  it('sets every border width, letter-spacing and font weight from a token', async () => {
+    const offenders: string[] = [];
+    for (const file of await panelStylesheets()) {
+      const text = stripCssComments(await read(file));
+      for (const offender of borderOffenders(text)) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+      for (const offender of tokenOffenders(text, [LETTER_SPACING, FONT_WEIGHT])) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+    }
+    // Exactly the six pre-token `shell/` declarations, and nothing else. Both
+    // directions fail loudly: see `PRE_TOKEN_SHELL_DECLARATIONS`.
+    expect(offenders.sort()).toEqual([...PRE_TOKEN_SHELL_DECLARATIONS]);
+  });
+
+  it('leaves the two panel directories with no exception at all', async () => {
+    // Stated separately from the assertion above so the exception list can
+    // never be read as covering Beachcomber or Helm. Those two directories are
+    // clean, and this is what says so on its own.
+    const offenders: string[] = [];
+    for (const file of await panelStylesheets()) {
+      if (file.startsWith(`${RENDERER_ROOT}/src/shell/`)) continue;
+      const text = stripCssComments(await read(file));
+      offenders.push(
+        ...borderOffenders(text).map((offender) => `${relative(file)}: ${offender}`),
+        ...tokenOffenders(text, [LETTER_SPACING, FONT_WEIGHT]).map(
+          (offender) => `${relative(file)}: ${offender}`,
+        ),
+      );
     }
     expect(offenders).toEqual([]);
   });

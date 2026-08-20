@@ -71,7 +71,8 @@ export function internalError(message: string): IpcError {
   return { code: 'INTERNAL', message };
 }
 
-const NO_BRIDGE_MESSAGE =
+/** Exported so `panel-store.ts` fails closed with the SAME sentence. */
+export const NO_BRIDGE_MESSAGE =
   'The Orcastrate bridge is unavailable. The window was loaded without its preload script.';
 
 export interface LaneTranscriptState {

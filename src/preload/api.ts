@@ -32,6 +32,21 @@ import type {
   Pod,
   PodId,
 } from '../shared/contracts/events';
+import type {
+  BeachcomberPreview,
+  BeachcomberPreviewRequest,
+  BeachcomberScan,
+  BeachcomberTrashRequest,
+  BeachcomberTrashResult,
+} from '../shared/contracts/beachcomber';
+import type {
+  HelmChangedPush,
+  HelmDocument,
+  HelmSaveRequest,
+  HelmSaveResult,
+  HelmScope,
+  HelmScopeId,
+} from '../shared/contracts/helm';
 import type { RoutingMode } from '../shared/contracts/lane-router';
 
 /** A push listener as Electron delivers it: an event object, then the payload. */
@@ -109,6 +124,25 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
       routingMode: () => call<RoutingMode>(INVOKE_CHANNELS.appRoutingMode),
     },
 
+    /**
+     * Note what does not cross: no method here takes a path. `preview` and
+     * `trash` forward `{ scanId, ids }` verbatim, and the ids are tokens main
+     * minted — this bridge cannot construct one and neither can its caller.
+     */
+    beachcomber: {
+      scan: () => call<BeachcomberScan>(INVOKE_CHANNELS.beachcomberScan),
+      preview: (req: BeachcomberPreviewRequest) =>
+        call<BeachcomberPreview>(INVOKE_CHANNELS.beachcomberPreview, req),
+      trash: (req: BeachcomberTrashRequest) =>
+        call<BeachcomberTrashResult>(INVOKE_CHANNELS.beachcomberTrash, req),
+    },
+
+    helm: {
+      listScopes: () => call<HelmScope[]>(INVOKE_CHANNELS.helmScopes),
+      load: (scopeId: HelmScopeId) => call<HelmDocument>(INVOKE_CHANNELS.helmLoad, scopeId),
+      save: (req: HelmSaveRequest) => call<HelmSaveResult>(INVOKE_CHANNELS.helmSave, req),
+    },
+
     on: {
       podEvent: (cb: (p: PodEventPush) => void) =>
         subscribe(EVENT_CHANNELS.podEvent, cb),
@@ -120,6 +154,8 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
         subscribe(EVENT_CHANNELS.permissionRequested, cb),
       permissionResolved: (cb: (p: PermissionResolvedPush) => void) =>
         subscribe(EVENT_CHANNELS.permissionResolved, cb),
+      helmChanged: (cb: (p: HelmChangedPush) => void) =>
+        subscribe(EVENT_CHANNELS.helmChanged, cb),
     },
   };
 }

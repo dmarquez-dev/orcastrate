@@ -6,7 +6,7 @@
 
 .workspace {
   display: grid;
-  grid-template-rows: var(--oc-pod-bar-height) minmax(0, 1fr);
+  grid-template-rows: var(--oc-pod-bar-height) var(--oc-panel-bar-height) minmax(0, 1fr);
   height: 100%;
   min-height: 0;
   background: var(--oc-bg-app);
@@ -19,6 +19,26 @@
   min-width: 0;
   border-bottom: 1px solid var(--oc-border);
   background: var(--oc-bg-panel);
+}
+
+/* The panel strip, directly beneath the Pod bar and always present. Its own
+   height comes from the same token as the grid row above, so the strip cannot
+   disagree with the cell it sits in. */
+.panelBarRegion {
+  min-width: 0;
+  height: var(--oc-panel-bar-height);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
+  background: var(--oc-bg-panel);
+}
+
+/* A panel is open: the body — rail, transcript and composer — is replaced,
+   and so is the empty state. The Pod bar and the strip stay. */
+.panelRegion {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* No active Pod: the rail, transcript and composer are replaced wholesale. */
