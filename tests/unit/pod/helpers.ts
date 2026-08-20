@@ -68,6 +68,18 @@ export interface FakeSdk {
   ): Promise<unknown>;
   /** Invoke the registered PreToolUse hook the way the CLI would. */
   callPreToolUseHook(input: unknown): Promise<unknown>;
+  /**
+   * True once the runner aborted the `AbortController` it handed to `query()`.
+   * Read straight off the recorded call, so this is the injected double
+   * answering rather than the runner reporting on itself.
+   */
+  readonly aborted: boolean;
+  /**
+   * True once the streaming-input generator the runner handed to `query()` has
+   * been closed. The prompt IS the runner's `InputQueue`, so this is that
+   * object's own state.
+   */
+  readonly promptClosed: boolean;
   bridge: (params: { prompt: AsyncIterable<unknown>; options: SdkOptions }) => SdkSession;
 }
 
@@ -104,6 +116,13 @@ export function makeFakeSdk(opts: { autoInitialize?: boolean } = {}): FakeSdk {
   const fake: FakeSdk = {
     calls,
     sent,
+    get aborted() {
+      return calls[0]?.options.abortController?.signal.aborted ?? false;
+    },
+    get promptClosed() {
+      const prompt = calls[0]?.prompt;
+      return prompt instanceof InputQueue ? prompt.closed : false;
+    },
     get interrupts() {
       return state.interrupts;
     },
@@ -255,4 +274,39 @@ export function podOptions(overrides: Partial<PodRunnerOptions> = {}): PodRunner
 /** Waits for pending microtasks and timers to flush. */
 export function tick(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+/**
+ * Waits until `predicate` holds, bounded by a number of flushes rather than by
+ * the wall clock. The test discipline forbids sleeping for a fixed duration and
+ * forbids reading the clock, so a wait is a condition plus a bound and nothing
+ * else. The bound is generous enough that a passing test never reaches it and
+ * small enough that a failing one reports rather than hangs.
+ */
+export async function waitFor(
+  predicate: () => boolean,
+  label = 'condition',
+  maxFlushes = 200,
+): Promise<void> {
+  for (let i = 0; i < maxFlushes; i += 1) {
+    if (predicate()) return;
+    await tick();
+  }
+  throw new Error(`waitFor gave up after ${maxFlushes} flushes: ${label}`);
+}
+
+/** A `Pick<Console, 'warn'>` that records instead of printing. */
+export interface RecordingLogger {
+  warn(...args: unknown[]): void;
+  readonly warnings: unknown[][];
+}
+
+export function recordLogger(): RecordingLogger {
+  const warnings: unknown[][] = [];
+  return {
+    warnings,
+    warn(...args: unknown[]) {
+      warnings.push(args);
+    },
+  };
 }
