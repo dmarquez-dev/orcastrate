@@ -322,3 +322,49 @@ the running app or against `%APPDATA%\orcastrate\orcastrate.db`, not inferred.
   keeps the lane reachable while getting it out of the way. The second is almost
   certainly right, but it is a real fork and should be chosen deliberately rather
   than discovered.
+
+### Pane model: pin the Matriarch always, and let one Calf pane follow selection
+
+Raised from using the app, 2026-08-20. **Design question, not a defect** — the
+current model works as specified. Decide it before, or together with, the pinning
+refinement above, because that item's "where does unpin live" question has a
+different answer under this model.
+
+**Today.** `selectedLaneId` and `pinnedLaneId` are both `LaneId | null`, either
+can hold any lane, at most one lane is pinned, and the pair carries an invariant
+that they are never equal (`renderer-state.ts:194-203`). Pinning the lane that is
+already selected therefore cannot mean "show it twice", so it means **swap**: the
+previously selected lane becomes the pinned one (`:459-469`). Two panes maximum,
+either able to hold the Matriarch or a Calf.
+
+**Proposed.** The Matriarch is *always* the primary pane and is never pinnable,
+un-selectable-away, or displaceable. Calves get a single toggleable pane beside
+it: clicking a Calf in the rail updates that pane rather than pinning that
+specific lane, and an unpin control on the pane itself closes it. In multiplexer
+terms, one fixed orchestrator view plus one follower view you steer with the rail.
+
+**What it removes, which is the main argument for it.** Two nullable lane ids
+become one lane id plus a boolean. The `pinnedLaneId !== selectedLaneId`
+invariant disappears, and with it the swap-on-pin rules — the subtlest behaviour
+in the workspace and the one hardest to predict while actually using it. Clicking
+a Calf would do one thing, always.
+
+**What it strengthens.** The composer is bound to the Pod and Calf lanes are
+read-only (spec 5.2, items 11 and 13), so the Matriarch is the only lane you can
+ever type into. Keeping it permanently on screen puts the thing you type into
+beside the thing you are reading. It also makes Steer legible: prefilling a
+message addressed to the Matriarch reads very differently when the Matriarch is
+visibly right there.
+
+**What it costs, and this is the trade to make deliberately.** Today you can put
+Calf A in one pane and Calf B in the other and compare two workers side by side.
+Reserving pane one for the Matriarch removes that. Whether anyone wants it is the
+question — for watching one orchestrator drive one worker it is no loss, and for
+diffing two parallel sub-agents it is the whole feature.
+
+**Blast radius.** `WorkspaceLayoutProps`' `primary` / `split` slots survive
+unchanged — what changes is which lane feeds which slot. The state contract does
+change: `pinnedLaneId` collapses to a boolean and the swap rules in
+`WorkspaceActions` are deleted, so `renderer-state.ts` needs an amendment and the
+lane-rail and shell tests that assert the swap behaviour will need rewriting
+rather than extending. The Matriarch's pin control disappears entirely.
