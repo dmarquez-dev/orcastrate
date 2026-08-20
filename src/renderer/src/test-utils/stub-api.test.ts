@@ -19,6 +19,8 @@ import {
   INVOKE_CHANNEL_METHODS,
   expectOk,
   ipcError,
+  makeStubPod,
+  makeStubPods,
   stubOrcastrateApi,
   type EventChannelKey,
   type InvokeChannelKey,
@@ -261,6 +263,34 @@ describe('stubOrcastrateApi — the beachcomber and helm namespaces', () => {
  * inventing three private corpora, so the content is part of the contract they
  * are relying on.
  */
+describe('the Pod fixtures cannot be satisfied by guessing one constant', () => {
+  // Openness is derived from `status` alone, so a fixture whose Pods all fall
+  // the same side of that derivation lets an assertion pass by answering one
+  // constant about everything. These two guard the fixture, not the renderer.
+
+  it('makeStubPods supplies at least two Pods on opposite sides of the derivation', () => {
+    const isOpen = (status: string): boolean =>
+      status === 'idle' || status === 'running' || status === 'waiting';
+    const pods = makeStubPods();
+
+    expect(pods.length).toBeGreaterThanOrEqual(2);
+    expect(pods.some((pod) => isOpen(pod.status))).toBe(true);
+    expect(pods.some((pod) => !isOpen(pod.status))).toBe(true);
+    // Stable identities and tab order, so a suite can assert on rendered order.
+    expect(pods.map((pod) => pod.id)).toEqual(['pod-1', 'pod-2']);
+    expect(pods.map((pod) => pod.tabOrder)).toEqual([0, 1]);
+  });
+
+  it('makeStubPod is born closed, so no suite gets an open Pod it never asked for', () => {
+    expect(makeStubPod().status).toBe('closed');
+    expect(makeStubPod({ status: 'waiting' }).status).toBe('waiting');
+  });
+
+  it('the default pods.list stays empty, which is the first-run premise', async () => {
+    expect(expectOk(await stubOrcastrateApi().pods.list())).toEqual([]);
+  });
+});
+
 describe('the stub defaults are rich enough to build on', () => {
   it('carries at least one entry in each of the four roots', async () => {
     const scan = expectOk(await stubOrcastrateApi().beachcomber.scan());

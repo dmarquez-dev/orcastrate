@@ -14,8 +14,8 @@ import { useState, type ReactNode } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { act, screen } from '@testing-library/react';
 
-import type { Lane, NormalizedEvent, Pod } from '@shared/contracts/events';
-import type { OrcastrateApi, Unsubscribe } from '@shared/contracts/ipc';
+import type { Lane, NormalizedEvent, Pod, PodStatus } from '@shared/contracts/events';
+import type { IpcResult, OrcastrateApi, Unsubscribe } from '@shared/contracts/ipc';
 import { EVENT_CHANNELS } from '@shared/contracts/ipc';
 
 import type * as Contract from '../contracts/renderer-state';
@@ -410,7 +410,14 @@ describe('derived views', () => {
   });
 
   it('disables the composer with the most specific reason', async () => {
-    const api = podsApi([makeStubPod({ id: POD, status: 'idle' })]);
+    // CHANGED FIXTURE, NOT A CHANGED ASSERTION. The ladder below is untouched:
+    // `not-opened`, then enabled, then `awaiting-permission`, then `beached`.
+    // What moved is where the first rung's answer comes from — it used to be a
+    // renderer-local `opened: false` default that said "not opened" about an
+    // `'idle'` Pod main was holding open, and it is now main's own `status`.
+    // So the fixture states the Pod is `'closed'`, which is what it had to
+    // have meant all along.
+    const api = podsApi([makeStubPod({ id: POD, status: 'closed' })]);
     function Probe(): ReactNode {
       const composer = useComposer();
       const actions = useWorkspaceActions();
@@ -498,5 +505,258 @@ describe('missing bridge', () => {
     });
 
     expect(screen.getByTestId('pods').textContent).toBe('error/INTERNAL/0');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Openness is DERIVED from `pod.status`
+//
+// The invariants pinned by section 6 of `contracts/renderer-lifecycle.ts`.
+// I1 through I5 and I7 live here; I1's "no `opened` on the runtime record" half
+// is asserted against the store itself in `store.test.ts`, and I6 is a lane
+// concern that belongs to the views.
+// ---------------------------------------------------------------------------
+
+/**
+ * The derivation expressed as DATA rather than by importing the implementation,
+ * so the test is an independent oracle and not a tautology. It is an exhaustive
+ * `Record<PodStatus, boolean>` on purpose: a sixth status added by a later
+ * session fails to compile HERE, loudly, instead of quietly rendering as open.
+ */
+const OPENNESS: Readonly<Record<PodStatus, boolean>> = {
+  closed: false,
+  idle: true,
+  running: true,
+  waiting: true,
+  beached: false,
+};
+
+const OPEN_STATUSES = ['idle', 'running', 'waiting'] as const satisfies readonly PodStatus[];
+
+/** Tabs as `id/status/opened`, plus the active Pod's composer verdict. */
+function LifecycleProbe(): ReactNode {
+  const pods = usePods();
+  const composer = useComposer();
+  const actions = useWorkspaceActions();
+  return (
+    <div>
+      <div data-testid="tabs">
+        {pods.value.map((tab) => `${tab.pod.id}/${tab.status}/${String(tab.opened)}`).join(',')}
+      </div>
+      <div data-testid="phase">{pods.phase}</div>
+      <button data-testid="composer" type="button" onClick={() => void actions.openPod(POD)}>
+        {`${String(composer?.disabled)}/${composer?.disabledReason ?? 'null'}`}
+      </button>
+    </div>
+  );
+}
+
+function tabsText(): string {
+  return screen.getByTestId('tabs').textContent ?? '';
+}
+
+function composerText(): string {
+  return screen.getByTestId('composer').textContent ?? '';
+}
+
+describe('openness is derived from status (renderer-lifecycle section 6)', () => {
+  it('I7: every status derives the openness the contract states, and no other', async () => {
+    const pods = (Object.keys(OPENNESS) as PodStatus[]).map((status, index) =>
+      makeStubPod({ id: `pod-${status}`, tabOrder: index, status }),
+    );
+    await act(async () => {
+      renderWithWorkspace(<LifecycleProbe />, { api: podsApi(pods) });
+    });
+
+    const expected = pods.map((pod) => `${pod.id}/${pod.status}/${String(OPENNESS[pod.status])}`);
+    expect(tabsText()).toBe(expected.join(','));
+    // Both sides of the derivation are actually present, so the sweep cannot
+    // pass by answering one constant.
+    expect(expected.some((row) => row.endsWith('/true'))).toBe(true);
+    expect(expected.some((row) => row.endsWith('/false'))).toBe(true);
+  });
+
+  it.each(OPEN_STATUSES)(
+    'I2: a Pod listed as %s has an enabled composer and an open tab, with no pods.open call',
+    async (status) => {
+      const api = podsApi([makeStubPod({ id: POD, tabOrder: 0, status })]);
+      await act(async () => {
+        renderWithWorkspace(<LifecycleProbe />, { api });
+      });
+
+      // The HMR case: main already holds the runner, and the renderer must not
+      // have to ask for it again to believe it.
+      expect(composerText()).toBe('false/null');
+      expect(tabsText()).toBe(`${POD}/${status}/true`);
+      expect(api.calls.podOpen).toHaveLength(0);
+    },
+  );
+
+  it('I3: a Pod listed as closed is not open, beside a Pod in the same reply that is', async () => {
+    const api = podsApi([
+      makeStubPod({ id: POD, tabOrder: 0, status: 'closed' }),
+      // The second Pod is the point: neither verdict can come from the renderer
+      // answering one constant about everything.
+      makeStubPod({ id: 'pod-live', tabOrder: 1, status: 'running' }),
+    ]);
+    await act(async () => {
+      renderWithWorkspace(<LifecycleProbe />, { api });
+    });
+
+    expect(tabsText()).toBe(`${POD}/closed/false,pod-live/running/true`);
+    expect(composerText()).toBe('true/not-opened');
+  });
+
+  it('I4: beached yields beached and closed yields not-opened, never confused', async () => {
+    const api = podsApi([
+      makeStubPod({ id: POD, tabOrder: 0, status: 'beached' }),
+      makeStubPod({ id: 'pod-closed', tabOrder: 1, status: 'closed' }),
+    ]);
+    let actions: Contract.WorkspaceActions | null = null;
+    function Probe(): ReactNode {
+      actions = useWorkspaceActions();
+      return <LifecycleProbe />;
+    }
+    await act(async () => {
+      renderWithWorkspace(<Probe />, { api });
+    });
+
+    // Both are not-open; the LADDER's order is what separates them, because a
+    // beached Pod sent to "not opened" would be sent to the wrong affordance.
+    expect(tabsText()).toBe(`${POD}/beached/false,pod-closed/closed/false`);
+    expect(composerText()).toBe('true/beached');
+
+    await act(async () => {
+      actions?.setActivePod('pod-closed');
+    });
+    expect(composerText()).toBe('true/not-opened');
+  });
+
+  it('I5: a podStatus push carrying closed disables the composer with no pods.list in between', async () => {
+    // Counted here rather than read off `api.calls`, because an override
+    // replaces the recording wrapper the default channel installs.
+    let lists = 0;
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async (): Promise<IpcResult<Pod[]>> => {
+          lists += 1;
+          return { ok: true, value: [makeStubPod({ id: POD, tabOrder: 0, status: 'running' })] };
+        },
+      },
+    });
+    await act(async () => {
+      renderWithWorkspace(<LifecycleProbe />, { api });
+    });
+    expect(composerText()).toBe('false/null');
+    expect(lists).toBe(1);
+
+    act(() => {
+      api.emit.podStatus({ podId: POD, status: 'closed' });
+    });
+
+    expect(tabsText()).toBe(`${POD}/closed/false`);
+    expect(composerText()).toBe('true/not-opened');
+    // No refetch: the push alone carried the whole answer.
+    expect(lists).toBe(1);
+  });
+
+  it('I1: openness stays a pure function of status while a refresh is in flight', async () => {
+    const pods = [
+      makeStubPod({ id: POD, tabOrder: 0, status: 'waiting' }),
+      makeStubPod({ id: 'pod-shut', tabOrder: 1, status: 'closed' }),
+    ];
+    let released: (() => void) | null = null;
+    let calls = 0;
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async (): Promise<IpcResult<Pod[]>> => {
+          calls += 1;
+          if (calls > 1) {
+            await new Promise<void>((resolve) => {
+              released = resolve;
+            });
+          }
+          return { ok: true, value: pods };
+        },
+      },
+    });
+    let actions: Contract.WorkspaceActions | null = null;
+    function Probe(): ReactNode {
+      actions = useWorkspaceActions();
+      return <LifecycleProbe />;
+    }
+    await act(async () => {
+      renderWithWorkspace(<Probe />, { api });
+    });
+
+    let pending: Promise<unknown> | null = null;
+    act(() => {
+      pending = actions?.refreshPods() ?? null;
+    });
+
+    expect(screen.getByTestId('phase').textContent).toBe('loading');
+    expect(tabsText()).toBe(`${POD}/waiting/true,pod-shut/closed/false`);
+
+    await act(async () => {
+      released?.();
+      await pending;
+    });
+    expect(screen.getByTestId('phase').textContent).toBe('ready');
+    expect(tabsText()).toBe(`${POD}/waiting/true,pod-shut/closed/false`);
+  });
+
+  it('does not enable the composer until main answers the open, and enables when it does', async () => {
+    // THE ACCEPTED TRADE. The three optimistic `opened: true` patches used to
+    // enable the composer on click, before main answered. Openness is now
+    // main's answer, so the composer enables when the reply lands instead — an
+    // enabled composer over a process that failed to start is the worse error.
+    let answer: ((pod: Pod) => void) | null = null;
+    // Counted here rather than read off `api.calls`, because an override
+    // replaces the recording wrapper the default channel installs.
+    let opens = 0;
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async (): Promise<IpcResult<Pod[]>> => ({
+          ok: true,
+          value: [makeStubPod({ id: POD, tabOrder: 0, status: 'closed' })],
+        }),
+        open: async (): Promise<IpcResult<Pod>> => {
+          opens += 1;
+          return new Promise<IpcResult<Pod>>((resolve) => {
+            answer = (pod: Pod) => resolve({ ok: true, value: pod });
+          });
+        },
+      },
+    });
+    await act(async () => {
+      renderWithWorkspace(<LifecycleProbe />, { api });
+    });
+    expect(composerText()).toBe('true/not-opened');
+
+    await act(async () => {
+      screen.getByTestId('composer').click();
+    });
+    // The call is out; main has not answered; the composer is still disabled.
+    expect(opens).toBe(1);
+    expect(composerText()).toBe('true/not-opened');
+
+    await act(async () => {
+      answer?.(makeStubPod({ id: POD, tabOrder: 0, status: 'idle' }));
+    });
+    expect(composerText()).toBe('false/null');
+  });
+
+  it('enables the composer from a podStatus push alone, with no reply at all', async () => {
+    const api = podsApi([makeStubPod({ id: POD, tabOrder: 0, status: 'closed' })]);
+    await act(async () => {
+      renderWithWorkspace(<LifecycleProbe />, { api });
+    });
+    expect(composerText()).toBe('true/not-opened');
+
+    act(() => {
+      api.emit.podStatus({ podId: POD, status: 'idle' });
+    });
+    expect(composerText()).toBe('false/null');
+    expect(api.calls.podOpen).toHaveLength(0);
   });
 });

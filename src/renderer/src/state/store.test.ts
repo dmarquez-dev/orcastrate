@@ -21,13 +21,14 @@ import {
   ipcError,
   makeStubLane,
   makeStubPod,
+  makeStubPods,
   stubOrcastrateApi,
   type InvokeChannelKey,
   type StubOrcastrateApi,
 } from '../test-utils/stub-api';
 
 import { PanelStateStore } from './panel-store';
-import { WorkspaceStateStore } from './store';
+import { newRuntime, WorkspaceStateStore } from './store';
 import { steerPrefill } from './steer';
 
 const POD = 'pod-1';
@@ -1075,24 +1076,69 @@ describe('pod actions', () => {
     expect(api.calls.podList).toHaveLength(1);
   });
 
-  it('tracks opened across open, close and a beaching', async () => {
-    const api = stubOrcastrateApi();
+  // -------------------------------------------------------------------------
+  // Openness is NOT STORED. Invariant I1 of `contracts/renderer-lifecycle.ts`
+  // section 6, asserted against the store, where the field used to live.
+  //
+  // WHICH BEHAVIOUR MOVED: the deleted `tracks opened across open, close and a
+  // beaching` test asserted that `runtime.opened` latched true on open, false
+  // on close, false on a beaching and true on reconnect. Every one of those
+  // four facts is still asserted — but on the POD ROW's `status`, which is now
+  // the only field that carries them, and the derivation from that field to
+  // `PodTabVm.opened` is pinned in `workspace-provider.test.tsx` (I2-I5, I7).
+  // Nothing is dropped; the same four transitions are read off their real
+  // owner. The tri-state `OpenedKnowledge` was never implemented.
+  // -------------------------------------------------------------------------
+
+  it('never stores openness: the runtime record carries no `opened` property', () => {
+    const runtime = newRuntime('idle', null);
+
+    // The property NAME, not its value — so the deletion cannot silently
+    // regress into a re-added convenience field with a plausible default.
+    expect(Object.keys(runtime)).not.toContain('opened');
+    expect('opened' in runtime).toBe(false);
+    expect(Object.keys(runtime).some((key) => key.toLowerCase().includes('open'))).toBe(false);
+  });
+
+  it('carries openness on the Pod row across open, close and a beaching', async () => {
+    // `makeStubPods()` is two Pods on OPPOSITE sides of the derivation, so no
+    // single constant can satisfy this walk.
+    const seeded = makeStubPods();
+    const api = stubOrcastrateApi({
+      pods: { list: async (): Promise<IpcResult<Pod[]>> => ({ ok: true, value: seeded }) },
+    });
     const store = makeStore(api);
     store.start();
+    await flush();
 
-    expect(store.getState().runtimes[POD]?.opened ?? false).toBe(false);
+    const statusOf = (id: string = POD): string | undefined =>
+      store.getState().pods.find((pod) => pod.id === id)?.status;
+    expect(statusOf()).toBe('closed');
+    // The other side of the same reply, unaffected by everything below.
+    expect(statusOf('pod-2')).toBe('running');
+
+    // OPEN — the reply's status is the whole answer, and no runtime patch
+    // accompanies it.
     await store.actions.openPod(POD);
-    expect(runtimeOf(store).opened).toBe(true);
+    expect(statusOf()).toBe('running');
+    expect('opened' in runtimeOf(store)).toBe(false);
 
+    // CLOSE — `pod:close` returns void; main reports the new status by push,
+    // which is the one line in `onPodStatus` that keeps the row in step.
     await store.actions.closePod(POD);
-    expect(runtimeOf(store).opened).toBe(false);
+    api.emit.podStatus({ podId: POD, status: 'closed' });
+    expect(statusOf()).toBe('closed');
 
+    // BEACHING — the push alone, with no runtime reset behind it.
     await store.actions.openPod(POD);
+    expect(statusOf()).toBe('running');
     api.emit.podStatus({ podId: POD, status: 'beached', exitCode: 1 });
-    expect(runtimeOf(store).opened).toBe(false);
+    expect(statusOf()).toBe('beached');
+    expect('opened' in runtimeOf(store)).toBe(false);
 
+    // RECONNECT — the reply's status again, and nothing else.
     await store.actions.reconnectPod(POD);
-    expect(runtimeOf(store).opened).toBe(true);
+    expect(statusOf()).toBe('running');
     store.stop();
   });
 

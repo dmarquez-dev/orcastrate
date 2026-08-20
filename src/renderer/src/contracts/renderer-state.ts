@@ -155,11 +155,19 @@ export interface PodTabVm {
   /** `pod.id === activePodId`. */
   active: boolean;
   /**
-   * The Pod's process is live (`pods.open` succeeded and no `close`/beach has
-   * followed). A Pod row can exist with no process; the tab renders it dimmed.
+   * Main holds a live PodRunner for this Pod. DERIVED from `pod.status`: true
+   * for `idle`, `running` and `waiting`; false for `closed` and `beached`.
+   * Never stored, never latched, never defaulted, and never inferred from a
+   * call the renderer made. `status` is the single authoritative field — see
+   * `PodStatus` in `events.ts`. A Pod row can exist with no process; the tab
+   * renders it dimmed.
    */
   opened: boolean;
-  /** Mirrors `pod.status`, restated so a consumer never re-derives it. */
+  /**
+   * Mirrors `pod.status`, restated so a consumer never re-derives it.
+   * `opened` beside it IS that derivation, performed once, so a consumer never
+   * repeats it either.
+   */
   status: PodStatus;
   /**
    * TRUE when this Pod has at least one UNANSWERED permission request, in any
