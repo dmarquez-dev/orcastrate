@@ -113,8 +113,8 @@ describe('migration 1 is frozen (criterion 4)', () => {
   });
 
   it('widening happens in migration 2, which is the head of the list', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
     expect(migration(2)).toContain(
       `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions'])})`,
     );
@@ -285,7 +285,7 @@ describe('migration 2 preserves data (criterion 5)', () => {
       rawDb(before.path)
         .prepare<unknown[], { v: number }>('SELECT MAX(version) AS v FROM schema_version')
         .get()?.v,
-    ).toBe(2);
+    ).toBe(3);
   });
 
   it('leaves no orphaned rows: PRAGMA foreign_key_check is clean afterwards', () => {
@@ -396,7 +396,7 @@ describe('migrate() at version 2 (criterion 6)', () => {
           "SELECT group_concat(version, ',') AS versions FROM (SELECT version FROM schema_version ORDER BY version)",
         )
         .get()?.versions,
-    ).toBe('1,2');
+    ).toBe('1,2,3');
   });
 
   it('is idempotent on a fresh file migrated straight to 2', () => {
@@ -412,7 +412,7 @@ describe('migrate() at version 2 (criterion 6)', () => {
       rawDb(path)
         .prepare<unknown[], { n: number }>('SELECT COUNT(*) AS n FROM schema_version')
         .get()?.n,
-    ).toBe(2);
+    ).toBe(3);
   });
 
   it('still throws SCHEMA_MISMATCH above CURRENT_SCHEMA_VERSION', () => {

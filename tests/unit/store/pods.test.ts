@@ -17,7 +17,7 @@ describe('createPod / getPod', () => {
     expect(pod.id).toBe('pod-a');
     expect(pod.title).toBe('Alpha');
     expect(pod.ccSessionId).toBeNull();
-    expect(pod.status).toBe('idle');
+    expect(pod.status).toBe('closed');
     expect(pod.tabOrder).toBe(3);
     expect(pod.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
     expect(pod.lastActiveAt).toBe(pod.createdAt);
@@ -112,7 +112,7 @@ describe('updatePod', () => {
       store.updatePod(pod.id, { status: 'capsized' as never }),
     );
     expect(err.code).toBe('CONFLICT');
-    expect(store.getPod(pod.id)?.status).toBe('idle');
+    expect(store.getPod(pod.id)?.status).toBe('closed');
   });
 });
 
