@@ -1,0 +1,152 @@
+{
+  "session": "2026-08-20-orcastrate-pod-lifecycle",
+  "updatedAt": "2026-08-20T17:00:00Z",
+  "phase": "awaiting-final",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-20-orcastrate-pod-lifecycle",
+  "branch": "dir/2026-08-20-orcastrate-pod-lifecycle",
+  "tasks": [
+    {
+      "id": "T0",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "49151c9966a070cf8e6fe4bda3e6045efe73bf52",
+      "commit": "16927acb8878f1cd128ec51511ab5c58ffabc992"
+    },
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "16927acb8878f1cd128ec51511ab5c58ffabc992",
+      "commit": "a2e3935"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "16927acb8878f1cd128ec51511ab5c58ffabc992",
+      "commit": "f55f3c9"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "49151c9966a070cf8e6fe4bda3e6045efe73bf52",
+      "commit": "16d48cfc2f7117e583307d93440f94ffb43f9606"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "16927acb8878f1cd128ec51511ab5c58ffabc992",
+      "commit": "e326c863cb8d71a6550eb3106ac823bdaa0bd29c"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "e326c863cb8d71a6550eb3106ac823bdaa0bd29c",
+      "commit": "d3dbc208f1f63ad5e17e1a73e9c04d70dff970c0"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "d3dbc208f1f63ad5e17e1a73e9c04d70dff970c0",
+      "commit": "8c4ee9e08fe8ff70a9c1216b66df9444131747b0"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "What shape should the opened contract change take across ipc.ts and renderer-state.ts?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Widen PodStatus with a 'closed' value so status alone is authoritative. No PodView, no parallel opened boolean on the IPC surface. Chosen over the recommended PodView option after being shown its costs explicitly: the MIGRATION_1 rewrite hazard, the reach into src/main/store/**, and the frozen renderer-theme.ts status tokens. Rationale given: one authoritative field beats a parallel boolean. Manifest and contracts were amended before freeze; a database task T0 was added for the schema and migration-pinning work, and dropping PodView removed the T1->T2 and T1->T4 edges, widening wave 2.",
+      "options": [
+        {
+          "summary": "PodView extends Pod { opened: boolean }, returned by every pods.* method that returns a Pod; PodStatusPush gains the same field.",
+          "rationale": "Uniform rule a reviewer checks by reading the type. No new channel, so INVOKE_CHANNELS stays at 21 and EVENT_CHANNELS at 6, keeping the completeness sweeps green on count. Hydration stays one round trip because refreshPods already calls pods.list().",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/shared/contracts/ipc.ts:224-242",
+              "src/renderer/src/state/store.ts:430-459"
+            ]
+          }
+        },
+        {
+          "summary": "A new read-only channel, pods.runtime(): PodRuntimeState[].",
+          "rationale": "Smallest change to existing shapes; nothing returning Pod moves. But it makes hydration a two-request dependent chain the frontend discipline requires be justified or removed, and leaves two sources of openness to drift apart.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "disciplines/frontend.md Data fetching",
+              "INVOKE_CHANNELS 21 to 22 breaks two sweeps"
+            ]
+          }
+        },
+        {
+          "summary": "Widen PodStatus with a 'closed' value so status alone is authoritative.",
+          "rationale": "Conceptually cleanest: one field, no parallel boolean. Cost is the MIGRATION_1 interpolation hazard, which must be disarmed by pinning MIGRATION_1_POD_STATUSES and adding migration 3, plus reach into every PodStatus consumer including frozen renderer-theme.ts status tokens.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/store/schema.ts:32-41,147",
+              "tests/unit/store/migration-2.test.ts:45-67",
+              "docs/superpowers/specs/2026-08-18-orcastrate-design.md:53-55"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T3",
+      "question": "Is cc_session_id capture narrowed now, instrumented now and decided later, or deferred?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Narrow capture now: accept session_id only from system/init and result messages, latest such id wins, and warn when it changes. T3 keeps its full size. Decided in the light of the architect's correction that capture is first-message-wins per runner, not last, and that the real hazard is stream.ts accepting session_id off any message type with no filter.",
+      "options": [
+        {
+          "summary": "Narrow capture to system/init and result messages; latest such id wins; warn when it changes.",
+          "rationale": "Those are the two message types the repo has actually measured as authoritative. Narrowing removes the only mechanism by which a foreign id can be stored, and decides nothing about hooks. Testable with a fixture emitting a hook-shaped message carrying a foreign id before init, which fails against today's code.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod/pod-runner.ts:233-236",
+              "src/main/pod/stream.ts:64-65",
+              "probe/run-probe.ts:638-641,740-741",
+              "docs/protocol-findings.md:165"
+            ]
+          }
+        },
+        {
+          "summary": "Change nothing about capture; add the divergence diagnostic only.",
+          "rationale": "The repo holds no captured artifact of a run with more than one session_id. The three-ids observation exists only as backlog prose, and that prose contradicts the code. Logging every id change makes the next real run produce the evidence.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "no ndjson or JSON under probe/evidence records more than one id"
+            ]
+          }
+        },
+        {
+          "summary": "Out of scope; correct the backlog entry's code reading and defer.",
+          "rationale": "Cheapest and honest. Risk: pods.reconnect stays untrusted, and design section 8 line 369 is the spec's entire definition of which id to use.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "docs/superpowers/specs/2026-08-18-orcastrate-design.md:369"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  }
+}

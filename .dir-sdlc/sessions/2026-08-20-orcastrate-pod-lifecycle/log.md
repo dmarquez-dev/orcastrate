@@ -1,0 +1,29 @@
+# Session log — 2026-08-20-orcastrate-pod-lifecycle
+
+- 2026-08-20T11:30Z — Gate 1 presented. Track: Large, decomposed into sub-sessions A (pod lifecycle), B (workspace refinement), C (panel polish, deferred). User approved A and B now, C later.
+- 2026-08-20T11:30Z — Gate 1 answer on pane model: no option chosen; user directed a research round on industry practice for CC tools and multiplexers, with a stated prior of Matriarch-always-primary plus one Calf pane, open to >1 Calf later. Carried to sub-session B.
+- 2026-08-20T11:32Z — Baseline verified on main: 91 test files, 1392 tests, exit 0.
+- 2026-08-20T11:34Z — dir-git init-session: worktree .claude-worktrees/2026-08-20-orcastrate-pod-lifecycle, branch dir/2026-08-20-orcastrate-pod-lifecycle, base main at 49151c9.
+- 2026-08-20T11:35Z — Disciplines composed from bundled bases only (no project fragments): backend 43, database 36, frontend 35, test 38 lines. All under the 500-line cap.
+- 2026-08-20T12:20Z — Gate 2 approved. E1 resolved: widen PodStatus with a closed value (option 3), not PodView. E2 resolved: narrow session_id capture to system/init and result now. Manifest and contracts returned to dir-architect for amendment before freeze, because option 3 adds src/main/store/** and renderer-theme.ts to the change surface and needs a migration-pinning task the draft lacks.
+- 2026-08-20T12:45Z — Amendment landed. Manifest and contracts FROZEN. 7 tasks (T0 added, database domain). Waves: {T0,T3} -> {T1,T2,T4} -> {T5} -> {T6}. Ownership re-derived across all 21 pairs, zero intersections.
+- 2026-08-20T12:45Z — Dispatched T0 (dir-database-engineer, opus) and T3 (dir-backend-engineer, opus), startRef 49151c9966a070cf8e6fe4bda3e6045efe73bf52.
+- 2026-08-20T13:00Z — T0 reported done (102 store tests green; migration 3 added; MIGRATION_1_POD_STATUSES pinned). Dispatched dir-reviewer for T0.
+- 2026-08-20T13:15Z — T3 reported done (reap via #teardown extraction; session-id capture narrowed; full suite 94 files / 1426 tests green). Dispatched dir-reviewer for T3.
+- 2026-08-20T13:25Z — T0 review PASS, no blocking findings, 2 advisories. Committed 16927ac.
+- 2026-08-20T13:30Z — Dispatched wave 2: T1, T2, T4 concurrently, startRef 16927ac.
+- 2026-08-20T13:45Z — T3 review PASS, no blocking findings, 4 advisories. Reviewer verified red-first claims independently by reverting in a scratch copy. Advisory 3 (contract section 7 half A names the wrong suppression mechanism) relayed to T2 in flight.
+- 2026-08-20T13:50Z — T3 committed 16d48cf.
+- 2026-08-20T14:00Z — T1 reported done (E1 prohibition written into ipc.ts docblock; type-level and runtime guards against a parallel openness field, proven non-vacuous). Dispatched dir-reviewer for T1.
+- 2026-08-20T14:20Z — INFRASTRUCTURE FAILURE: session limit killed three in-flight agents (T1 reviewer, T2 implementer, T4 implementer). No work lost; T0 and T3 already committed. Resumed per the dir resume table: T2 and T4 re-dispatched to implementers (revisionRounds NOT incremented — dead agent, not a revision). T1 stays in_review; its reviewer re-dispatch is held until an implementer lands, to keep concurrent load down. reviewRounds stays 0: a reviewer re-dispatched onto an unchanged diff is recovery, not a revision round.
+- 2026-08-20T14:35Z — T2 reported done (full suite 97 files / 1516 tests green). Kept all of the dead agent work, added lifecycle/call-site suites. Proved C3,C5,C8,C10,C12 by source mutation rather than red-first, since the fixes already existed. Dispatched reviewers for T1 (recovery re-dispatch) and T2.
+- 2026-08-20T14:50Z — T4 reported done (full suite 97 files / 1516 tests green; I2 observed red by degrading isPodOpen). Corrected two broken tests inherited from the dead agent. Raised a criterion-8 deviation: the literal default-fixture reading would break three App.smoke.test.tsx tests outside T4 ownership. Dispatched dir-reviewer for T4 with that deviation flagged for judgment.
+- 2026-08-20T15:10Z — T1 review PASS (reviewer reproduced the vacuity probe against 4 violating shapes). T2 review PASS (reviewer reproduced ALL FIVE source mutations; every failure count matched). T4 review PASS (reviewer reproduced the App.smoke justification and the I2 red-first). Zero blocking findings across all three.
+- 2026-08-20T15:15Z — T1 committed a2e3935, T2 committed f55f3c9.
+- 2026-08-20T15:25Z — T4 committed e326c86. Dispatched T5, startRef e326c86.
+- 2026-08-20T15:50Z — T5 reported done. typecheck:web closed 2 errors -> 0 with no suppression. Whole repo 101 files / 1541 tests green. Criterion 4 passed with NO production change, as designed. Dispatched dir-reviewer for T5.
+- 2026-08-20T16:05Z — T5 review PASS (reviewer stashed the tree to reproduce the pre-T5 typecheck: 2 errors before, 0 after, closed not suppressed). Committed d3dbc20.
+- 2026-08-20T16:10Z — Dispatched T6, startRef d3dbc20. Carried forward T5 advisory 1 (renderer close test near-tautological) as T6 criterion 1 work.
+- 2026-08-20T16:40Z — T6 reported done. Whole repo green: 102 files / 1551 tests, exit 0; both typechecks green. Red-first caught a substring bug that made the frozen-duration assertion unable to fail. Raised an advisory with 3 ranked options about relaunch.e2e.test.tsx importing src/main from the renderer test directory. Dispatched dir-reviewer for T6.
+- 2026-08-20T16:55Z — T6 review PASS (reviewer ran the gate itself: 102 files / 1551 tests exit 0, both typechecks exit 0; reproduced 3 of 5 mutations; confirmed the frozen-duration assertion falsifies). Committed 8c4ee9e.
+- 2026-08-20T17:00Z — All 7 tasks done. Gate 3 presented.

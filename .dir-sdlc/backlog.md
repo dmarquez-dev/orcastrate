@@ -230,7 +230,16 @@ Pods, one of which dispatched two sub-agents. These are the findings from that
 run, for a follow-up refinement session. Everything below was verified against
 the running app or against `%APPDATA%\orcastrate\orcastrate.db`, not inferred.
 
-### Bugs
+### Bugs — CONSUMED 2026-08-20 (session 2026-08-20-orcastrate-pod-lifecycle)
+
+All four shipped. Kept for provenance; not pending work. The relaunch stranding,
+the renderer-local `runtime.opened`, and the unreapable orphaned child are fixed
+and each carries a regression test that was observed failing first. The open
+question about `cc_session_id` was answered: the finding's premise was wrong —
+capture was first-message-wins per runner, not last — and the real hazard was
+that `stream.ts` accepted a `session_id` off any message type with no filter.
+Capture now narrows to `system/init` and `result`, latest wins, with a warning
+when it changes.
 
 - **Nothing reconciles persisted Pod and lane state at startup, and it strands
   the Pod on every relaunch.** *Confirmed by reproduction.* Close the app and
@@ -368,3 +377,66 @@ change: `pinnedLaneId` collapses to a boolean and the swap rules in
 `WorkspaceActions` are deleted, so `renderer-state.ts` needs an amendment and the
 lane-rail and shell tests that assert the swap behaviour will need rewriting
 rather than extending. The Matriarch's pin control disappears entirely.
+
+**Research round completed 2026-08-20.** Full findings, with citations, are in
+`.dir-sdlc/sessions/2026-08-20-orcastrate-workspace-refinement/resolved-unknowns.md`.
+Headline: the *behaviour* is well supported — four Anthropic surfaces converge on
+one-orchestrator-plus-one-viewed-worker, and the swap rule has no prior art
+anywhere in the survey — but the proposed *state shape* is not. `pinnedLaneId`
+collapsing to a `boolean` forecloses more than one Calf and would force a second
+contract amendment and a second round of test rewrites. Adopt
+`primaryLaneId: LaneId` plus `followerLaneIds: readonly LaneId[]` instead: the
+invariant becomes ordinary list uniqueness, today's model becomes two assertions
+rather than a different shape, and growing to N Calves is a cap change. The
+decision itself is still open and belongs to sub-session B's Gate 2.
+
+## 2026-08-20 — 2026-08-20-orcastrate-pod-lifecycle
+
+Advisory findings promoted from that session's reviews because they outlive it.
+The other 19 stay in
+`.dir-sdlc/sessions/2026-08-20-orcastrate-pod-lifecycle/reviews/T0.md`–`T6.md`.
+Deferred at Gate 3 by explicit user decision; the rest were left in the review
+files rather than promoted.
+
+### Correctness risks
+
+- **`_UncoveredAtSchemaHead` for `PermissionMode` is still the inert spelling.**
+  `src/main/store/schema.ts:210-212`. T0 proved by experiment that the
+  empty-array-literal form of this guard **never fires** — an empty array literal
+  is assignable to any array type — and replaced it for `PodStatus` with a
+  generic-constraint spelling (`_AssertNever<T extends never>`) that was verified
+  to error on a sixth member. The `PermissionMode` guard one enum over was left
+  alone because it was outside T0's criteria. A fifth `PermissionMode` would
+  therefore not break the build the way a sixth `PodStatus` now does; it would
+  fail as a runtime CHECK violation on a user's machine instead. The fix is a
+  one-line change to a spelling that is already validated in the same file.
+  Note the same weakness applies to the pre-existing `_UncoveredPodStatus` guard
+  at `schema.ts:65-78`, which T0 kept but documented as not-to-be-relied-on.
+
+### Contract gaps
+
+- **The frozen contract names a suppression mechanism that is not the one that
+  shipped.** `contracts/pod-lifecycle.ts` section 7 half A states that `stop()`'s
+  trailing `#setStatus('idle')` is suppressed on the failed-start path "by the
+  runner's own beached latch (`pod-runner.ts:424`)". The runner is **not** beached
+  on that path; suppression comes from `#setStatus`'s equality guard, and on the
+  manager side from the `session.disposed` handler guard. Same observable
+  outcome, different cause. This was caught mid-session and relayed to T2 before
+  it coded against the false premise — T2's mutation testing then confirmed the
+  correction, because removing the `session.disposed` guard let a parting
+  `'idle'` overwrite `'beached'`, which the beached latch would have prevented if
+  it had existed. A consumer reasoning from that sentence would reach the wrong
+  conclusion about why the race is closed.
+- **A stated test-directory rule is now false about a file in that directory.**
+  `src/renderer/src/transcript/startup-reconciliation.test.tsx`'s header states
+  that the renderer may not import main and that `hygiene.test.ts` holds that
+  line. `src/renderer/src/__tests__/relaunch.e2e.test.tsx:66-67` imports
+  `src/main/pod-manager` and `src/main/store` — deliberately, because its
+  criterion required driving the real `reconcileStartup()` before mount, and that
+  is what makes the suite non-tautological. It passes every rule `hygiene.test.ts`
+  actually enforces (relative specifiers are exempt at `:387`) and compiles under
+  the web project. So the rule as enforced and the rule as stated disagree.
+  T6 raised three ranked options: widen `hygiene.test.ts` to state the real rule
+  with a named exception (recommended); relocate the world builder, which moves
+  the crossing rather than removing it; or accept a renderer-only suite driven by
+  a hand-written fake, which reintroduces the tautology the suite exists to avoid.
