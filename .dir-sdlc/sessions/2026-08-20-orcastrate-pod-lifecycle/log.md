@@ -27,3 +27,5 @@
 - 2026-08-20T16:40Z — T6 reported done. Whole repo green: 102 files / 1551 tests, exit 0; both typechecks green. Red-first caught a substring bug that made the frozen-duration assertion unable to fail. Raised an advisory with 3 ranked options about relaunch.e2e.test.tsx importing src/main from the renderer test directory. Dispatched dir-reviewer for T6.
 - 2026-08-20T16:55Z — T6 review PASS (reviewer ran the gate itself: 102 files / 1551 tests exit 0, both typechecks exit 0; reproduced 3 of 5 mutations; confirmed the frozen-duration assertion falsifies). Committed 8c4ee9e.
 - 2026-08-20T17:00Z — All 7 tasks done. Gate 3 presented.
+- 2026-08-20T17:15Z — Gate 3 approved. Backlog appended: first-run Bugs marked CONSUMED, pane-model research outcome recorded, 3 advisories carried forward (PermissionMode inert guard; 2 contract-prose gaps). Merged 1ba979c; artifacts committed 006f728.
+- 2026-08-20T17:20Z — Session merged. 7 tasks, 0 revision rounds, 0 blocking findings.
