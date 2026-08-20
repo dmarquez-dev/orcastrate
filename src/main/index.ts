@@ -124,15 +124,26 @@ app.whenReady().then(
       routingMode: ROUTING_MODE,
     });
 
+    // No runner survives a process restart, so any Pod or lane the store still
+    // records as live is stale. Swept here: after `store.migrate()`, whose
+    // migration 3 is what admits the `'closed'` this writes, and before
+    // `createMainWindow()`, so the renderer's first `pod:list` cannot observe
+    // an unreconciled row. The behaviour lives in `./pod-manager`; this file
+    // takes no logic.
+    manager.reconcileStartup();
+
     /**
      * Every Pod Orcastrate knows about, projected to exactly the three fields
      * the panel boundary declares. The persistence-shaped `Pod` row — status,
      * ccSessionId, envOverrides, tabOrder — does not cross into the services.
      *
-     * This is deliberately every KNOWN Pod, not every OPEN one: `PodManagerApi`
-     * has no liveness predicate and `status: 'idle'` covers both open-and-quiet
-     * and closed, so blocking a superset is the safe reading (Gate 2 decision,
-     * recorded on `PodDirectoryProvider`).
+     * This is deliberately every KNOWN Pod, not every OPEN one. `status` now
+     * DOES distinguish open from closed — `'idle'` means a live runner between
+     * turns, and `'closed'` means no runner at all — and this provider
+     * deliberately ignores that distinction: blocking a superset is the safe
+     * reading for a cleanup boundary, because a Pod that is merely closed still
+     * owns its working directory and its transcript (Gate 2 decision, recorded
+     * on `PodDirectoryProvider`).
      */
     const pods: PodDirectoryProvider = (): readonly PodDirectory[] =>
       manager.listPods().map((pod) => ({

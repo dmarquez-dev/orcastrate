@@ -73,6 +73,14 @@ import { createLaneRouter } from '../lane';
 import { UNROUTED_LANE_ID } from '../pod';
 
 import type { Pushes } from './pushes';
+import {
+  STARTUP_RECONCILIATION_REASON,
+  STARTUP_RECONCILIATION_SUBTYPE,
+  type ReconciledPod,
+  type StartupReconciliation,
+  type StartupReconciliationData,
+  type StartupReconciler,
+} from './startup-reconciliation';
 
 /** The reason handed to the model when a prompt dies with its turn. */
 const ABORTED_REASON = 'the turn was interrupted before the user answered';
@@ -158,7 +166,14 @@ interface PendingPermission {
   settled: boolean;
 }
 
-export class PodManager implements PodManagerApi {
+/**
+ * `StartupReconciler` is implemented by the CLASS and deliberately not added to
+ * `PodManagerApi`. The IPC handlers have no business calling the boot sweep —
+ * it has exactly one caller, `src/main/index.ts` — and widening the handler
+ * interface would force every stub that implements it to grow a member for a
+ * method the transport never reaches.
+ */
+export class PodManager implements PodManagerApi, StartupReconciler {
   readonly routingMode: RoutingMode;
 
   readonly #store: EventStore;
@@ -183,6 +198,156 @@ export class PodManager implements PodManagerApi {
     this.#now = deps.now ?? ((): string => new Date().toISOString());
     this.#isDirectory = deps.isDirectory ?? defaultIsDirectory;
     this.#log = deps.logger ?? console;
+  }
+
+  // -------------------------------------------------------------------------
+  // Startup reconciliation
+  // -------------------------------------------------------------------------
+
+  /**
+   * Reconciles the store against the fact that a process restart destroyed
+   * every runner. Called ONCE, from `src/main/index.ts`, after `migrate()` and
+   * the `PodManager` constructor and before `createMainWindow()`.
+   *
+   * SYNCHRONOUS because the whole `EventStore` API is synchronous, and
+   * IDEMPOTENT: after one sweep every Pod is `'closed'` or `'beached'` with no
+   * running lanes, so a second call with no intervening runner writes no row,
+   * appends no event, and returns `pods: []`.
+   *
+   * For each Pod from `listPods()`, in that order:
+   *
+   *  a. LANES. Every lane at `'running'` — Matriarch and Calf alike — becomes
+   *     `'orphaned'`, stamped from the sweep's single `now()`. A Matriarch left
+   *     open by a killed process is exactly the reproduced bug.
+   *
+   *  b. EVENTS, only when step (a) changed at least one lane. ONE `appendMany`
+   *     per Pod so `seq` is contiguous and the batch is all-or-nothing: the
+   *     `system` notice on the Matriarch lane first, then one `lane_closed` per
+   *     orphaned lane on its own lane id.
+   *
+   *     THE CONDITION IS "A LANE CHANGED", NOT "ANYTHING CHANGED", and that
+   *     narrowing is deliberate. Step (c) rewrites EVERY non-beached Pod on
+   *     every boot, including quiet ones that were merely `'idle'`. A
+   *     transcript row for each of those would put a reconciliation notice in
+   *     every Pod on every relaunch, forever — noise that trains the user to
+   *     ignore the one notice that matters. A pure status correction is
+   *     bookkeeping; the Pod still appears in the returned `pods`, so nothing
+   *     is hidden from the log or from a test.
+   *
+   *  c. POD STATUS. Every Pod that is not `'beached'` becomes `'closed'`.
+   *     `'idle'` now means OPEN AND BETWEEN TURNS, and at application start no
+   *     runner exists by construction, so an `'idle'` row is a lie about a
+   *     process that is not there. This is the step that makes the relaunch
+   *     defect impossible at the DATA level rather than papered over in a view.
+   *
+   *     `'beached'` IS LEFT ALONE. It is already a truthful not-open resting
+   *     state WITH a recorded cause; rewriting it to `'closed'` would erase why
+   *     the Pod stopped and send the user to `Open` instead of `Reconnect`.
+   *
+   *  d. A Pod with no running lane and a status already `'closed'` or
+   *     `'beached'` produces no write and no entry in the result.
+   *
+   * ORDERING is lanes before the pod-status write, so a crash mid-sweep leaves
+   * lanes reconciled and the status stale — recoverable by the next boot —
+   * rather than a Pod already `'closed'` with `running` lanes, which is the bug
+   * this fixes.
+   *
+   * N+1 over Pods is accepted: `listLanes` runs once per Pod, Pod counts are
+   * single digits, and the alternative is a change to the frozen `EventStore`
+   * contract for no measured gain.
+   *
+   * PUSHES ARE NOT THE DELIVERY MECHANISM. No window exists at this point in
+   * startup and `sendToRenderers` drops a payload with no window, so everything
+   * the renderer needs is READ from the store by its first `pod:list` /
+   * `lane:list`. The sweep therefore pushes nothing.
+   */
+  reconcileStartup(): StartupReconciliation {
+    const at = this.#now();
+    const reconciled: ReconciledPod[] = [];
+
+    for (const pod of this.#store.listPods()) {
+      // (a) lanes first.
+      const orphanedLaneIds: LaneId[] = [];
+      for (const lane of this.#store.listLanes(pod.id)) {
+        if (lane.status !== 'running') continue;
+        this.#store.setLaneStatus(lane.id, 'orphaned', at);
+        orphanedLaneIds.push(lane.id);
+      }
+
+      // (d) `'beached'` keeps its status; `'closed'` is already right. Anything
+      // else is a stale claim that a runner exists.
+      const statusBefore = pod.status;
+      const statusAfter: PodStatus = statusBefore === 'beached' ? 'beached' : 'closed';
+      const statusNeedsWrite = statusBefore !== statusAfter;
+
+      if (orphanedLaneIds.length === 0 && !statusNeedsWrite) continue;
+
+      // (b) the durable record, ONLY when a lane actually changed.
+      if (orphanedLaneIds.length > 0) {
+        this.#appendReconciliationEvents(pod.id, {
+          subtypeMarker: STARTUP_RECONCILIATION_SUBTYPE,
+          reason: STARTUP_RECONCILIATION_REASON,
+          statusBefore,
+          statusAfter,
+          orphanedLaneIds,
+          at,
+        });
+      }
+
+      // (c) THE `lastActiveAt` IS PASSED EXPLICITLY AND IT IS LOAD-BEARING.
+      // `EventStore.updatePod` refreshes `lastActiveAt` to now unless it is
+      // supplied. This sweep touches every non-beached Pod on every boot, so
+      // omitting it would reset every Pod's last-used stamp to boot time on
+      // every launch and destroy the field within one session of use.
+      if (statusNeedsWrite) {
+        this.#store.updatePod(pod.id, { status: statusAfter, lastActiveAt: pod.lastActiveAt });
+      }
+
+      reconciled.push({ podId: pod.id, statusBefore, statusAfter, orphanedLaneIds });
+    }
+
+    if (reconciled.length > 0) {
+      this.#log.warn(
+        `[orcastrate] startup reconciliation closed ${reconciled.length} Pod(s) and orphaned ` +
+          `${reconciled.reduce((n, p) => n + p.orphanedLaneIds.length, 0)} lane(s) left running by a previous process`,
+      );
+    }
+    return { at, pods: reconciled };
+  }
+
+  /**
+   * ONE `appendMany` per Pod, so the batch is all-or-nothing and the `seq` run
+   * is contiguous: the `system` notice first, then one `lane_closed` per
+   * orphaned lane on its OWN lane id. Both are synthetic, so neither carries
+   * `raw`.
+   */
+  #appendReconciliationEvents(podId: PodId, data: StartupReconciliationData): void {
+    // The notice belongs on the Matriarch, which is the lane the transcript
+    // reads by default. A Pod with a running lane always has one; the fallback
+    // keeps the durable record from being dropped if a store ever hands back a
+    // Pod whose Matriarch row is missing, rather than silently losing it.
+    const matriarchLaneId = this.#store.getMatriarchLane(podId)?.id ?? data.orphanedLaneIds[0];
+    if (matriarchLaneId === undefined) return;
+
+    const events: NewEvent[] = [
+      {
+        podId,
+        laneId: matriarchLaneId,
+        type: 'system',
+        payload: { type: 'system', subtype: STARTUP_RECONCILIATION_SUBTYPE, data },
+        createdAt: data.at,
+      },
+      ...data.orphanedLaneIds.map(
+        (laneId): NewEvent => ({
+          podId,
+          laneId,
+          type: 'lane_closed',
+          payload: { type: 'lane_closed', laneId, status: 'orphaned' },
+          createdAt: data.at,
+        }),
+      ),
+    ];
+    this.#store.appendMany(events);
   }
 
   // -------------------------------------------------------------------------
@@ -283,9 +448,13 @@ export class PodManager implements PodManagerApi {
     this.#requirePod(podId);
     await this.#dispose(podId);
     const pod = this.#store.getPod(podId);
+    // `'closed'`, not `'idle'`: after `#dispose` there is no runner, and
+    // `'idle'` now means a runner exists and is between turns. The
+    // `'beached'` guard is preserved — closing a Beached Pod must not erase
+    // why it died, or the user is sent to `Open` instead of `Reconnect`.
     if (pod !== null && pod.status !== 'beached') {
-      this.#store.updatePod(podId, { status: 'idle' });
-      this.#push.podStatus({ podId, status: 'idle' });
+      this.#store.updatePod(podId, { status: 'closed' });
+      this.#push.podStatus({ podId, status: 'closed' });
     }
   }
 
@@ -296,6 +465,7 @@ export class PodManager implements PodManagerApi {
 
   async #start(pod: Pod, resume: boolean): Promise<Pod> {
     const matriarchLaneId = this.#ensureMatriarchLane(pod.id);
+    this.#reviveMatriarchLane(pod.id, matriarchLaneId);
     const router = createLaneRouter({
       podId: pod.id,
       matriarchLaneId,
@@ -338,9 +508,32 @@ export class PodManager implements PodManagerApi {
     } catch (err) {
       this.#sessions.delete(pod.id);
       session.disposed = true;
-      // Spec 8: a Pod that cannot come up is Beached, not merely errored. The
-      // envelope the renderer receives still carries the specific cause
-      // (CWD_MISSING / SPAWN_FAILED) — this only records the resting state.
+      // THE MANAGER HALF OF THE REAP. A `start()` that rejects after the SDK
+      // bridge already returned can leave a Claude Code child streaming with no
+      // owner: the manager drops the session, so nothing else will ever call
+      // `stop()` on this runner. `#dispose` reaps on the normal path; this is
+      // the failure path's equivalent, and the two halves of the reap (this one
+      // and the runner's own teardown) each stand alone.
+      //
+      // WRAPPED SO A THROWING `stop()` CANNOT MASK THE START FAILURE. The error
+      // the caller receives must still be `err`, with its CWD_MISSING /
+      // SPAWN_FAILED / RESUME_FAILED classification intact — that
+      // classification lives on `err` and nowhere else. A teardown failure is
+      // real but secondary, so it is logged rather than swallowed silently.
+      try {
+        await session.runner.stop();
+      } catch (stopErr) {
+        this.#log.warn(
+          `[orcastrate] stop() failed while reaping a failed start for pod ${pod.id}`,
+          stopErr,
+        );
+      }
+      // Spec 8: a Pod that cannot come up is Beached, not merely errored — a
+      // failure WITH a cause, so `'beached'` and never `'closed'`. The envelope
+      // the renderer receives still carries the specific cause; this only
+      // records the resting state. `session.disposed` above has already
+      // detached the runner's handlers, so a trailing `onStatus('idle')` from
+      // `stop()` cannot overwrite it.
       this.#markBeached(pod.id, null, describe(err));
       throw err;
     }
@@ -348,6 +541,30 @@ export class PodManager implements PodManagerApi {
     const opened = this.#store.updatePod(pod.id, { status: 'idle' });
     this.#push.podStatus({ podId: pod.id, status: 'idle' });
     return opened;
+  }
+
+  /**
+   * WITHOUT THIS THE BOOT SWEEP IS A ONE-WAY DOOR.
+   *
+   * `#ensureMatriarchLane` returns an existing Matriarch unchanged whatever its
+   * status, and nothing else in `#start` sets a lane back to `running`. After a
+   * sweep has orphaned it, every subsequent Open would leave the rail showing
+   * the Matriarch as Orphaned forever while the Pod ran normally underneath it.
+   *
+   * `setLaneStatus(id, 'running')` with NO `endedAt` clears `ended_at`, which
+   * is what the `(status = 'running') = (ended_at IS NULL)` CHECK requires.
+   *
+   * CALF LANES ARE NOT REVIVED. A Calf's worker process is genuinely gone and
+   * cannot be resumed, so `orphaned` is the truth for it. Only the Matriarch —
+   * the lane the new runner will actually write into — comes back.
+   *
+   * Runs before `router.restore`, so the router restores from the revived rows.
+   */
+  #reviveMatriarchLane(podId: PodId, matriarchLaneId: LaneId): void {
+    const matriarch = this.#store.getLane(matriarchLaneId);
+    if (matriarch === null || matriarch.status === 'running') return;
+    this.#store.setLaneStatus(matriarchLaneId, 'running');
+    this.#push.laneChanged({ podId, lanes: this.#store.listLanes(podId) });
   }
 
   async #dispose(podId: PodId): Promise<void> {
@@ -627,6 +844,19 @@ export class PodManager implements PodManagerApi {
 
   #handlersFor(session: PodSession): PodRunnerHandlers {
     const guard = (what: string, fn: () => void): void => {
+      // THE HANDLERS ARE DETACHED WHEN THE SESSION IS DISPOSED, and this closes
+      // the race that `'closed'` exposes. `PodRunner.stop()` ends by emitting
+      // `onStatus('idle')`, and `stop()` is called from inside `#dispose` —
+      // which `closePod` runs BEFORE it writes `'closed'`. Letting that late
+      // callback through would write `'idle'` over the close, or push an
+      // `'idle'` status for a Pod with no runner. While both writes were
+      // `'idle'` the race had no consequence; it does now.
+      //
+      // Detaching here rather than relying on `closePod`'s statement order is
+      // the point: statement order is invisible to a reviewer and a reorder
+      // would reintroduce the bug silently. A disposed session speaks for
+      // nothing.
+      if (session.disposed) return;
       // A throw here would unwind inside PodRunner's consume loop and tear the
       // stream down. Persistence failures are reported and the stream survives.
       try {

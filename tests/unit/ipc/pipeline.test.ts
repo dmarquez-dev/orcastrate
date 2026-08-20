@@ -71,6 +71,12 @@ describe('one runner per open Pod (criterion 6)', () => {
     const closed = await h.invoke(INVOKE_CHANNELS.podClose, podId);
     expect(closed.ok).toBe(true);
 
+    // `'closed'`, not `'idle'`: this session split the two meanings
+    // `'idle'` used to carry, and closing is the transition the split
+    // turns on. Asserted here, at the real IPC boundary, because the
+    // value has to survive `PodRunner.stop()`'s trailing `'idle'`.
+    expect(h.store.getPod(podId)?.status).toBe('closed');
+
     // The runner is gone: control calls now answer NOT_RUNNING rather than
     // silently succeeding against a dead session.
     const send = await h.invoke(INVOKE_CHANNELS.podSend, podId, 'hello');

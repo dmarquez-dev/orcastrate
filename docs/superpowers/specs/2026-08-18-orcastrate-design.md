@@ -213,9 +213,18 @@ stored events, so it is recorded even though MVP does not yet act on it.
 
 Enumerated states, so the two tables agree with the lexicon:
 
-- Pod status: `idle` | `running` | `waiting` (on user input or a permission
-  decision) | `beached`.
-- Lane status: `running` | `done` | `orphaned`.
+- Pod status: `closed` | `idle` | `running` | `waiting` (on user input or a
+  permission decision) | `beached`. Five values, because `idle` used to mean two
+  different things — "a runner is live and between turns" and "there is no
+  runner at all" — and a Pod that has never been opened, or has been closed, or
+  has just come through the startup reconciliation of section 8, is `closed`.
+  `status` alone is therefore authoritative about whether main holds a live
+  runner: a Pod is open exactly when its status is `idle`, `running` or
+  `waiting`. `beached` is also not-open, but unlike `closed` it carries a cause
+  and its affordance is Reconnect rather than Open.
+- Lane status: `running` | `done` | `orphaned`. `orphaned` covers two
+  boundaries: a turn boundary (section 8) and a process boundary (section 8's
+  startup-reconciliation row).
 
 Orcastrate maintains its **own** normalized transcript and deliberately does not
 parse `~/.claude/projects/*.jsonl` for history. That file is Claude Code's
@@ -369,6 +378,7 @@ Write safety:
 | CC process exits unexpectedly | Pod marked **Beached** with exit code; a Reconnect action re-resumes from the last known `cc_session_id`. The transcript is Orcastrate's own, so nothing is lost. |
 | Malformed NDJSON line | Skipped; the stream is not torn down. The SDK parses stdout itself and drops unparseable lines to its own logger, so Orcastrate never sees the raw line and cannot log it — the tolerance is real, the raw-line diagnostic is not available to us. Orcastrate's own tolerance applies one level up, to well-formed messages of unrecognized `type`. |
 | Calf still open when the turn's `result` arrives | Marked **Orphaned** at that turn boundary rather than spinning indefinitely. Note this is *not* "a `tool_use` with no `tool_result`": CLI 2.1.235 answers every `tool_use` before `result`, including on interrupt, where it synthesizes an `is_error` result. The condition is a lane opened by `system`/`task_started` with no terminal `system`/`task_updated`. |
+| Lane still open at process start | Marked **Orphaned** by the startup reconciliation sweep, which runs once at application start before any window exists. No Claude Code process survives an application restart, so a lane the store still records as `running` cannot ever reach `done` — the process that owned it is gone. Both Matriarch and Calf lanes are swept, every reconciled Pod keeps a durable `system` event naming what changed and why, and the Pod itself becomes `closed` (section 4.4) unless it was already **Beached**, which is left alone with its cause intact. The recovery is **Open**: opening the Pod puts its Matriarch lane back to `running`, so the sweep is reversible. Distinct from the turn-boundary row above, which orphans a Calf inside a live process; this row is about a process that no longer exists. |
 | Settings file unwritable | OS error surfaced; no partial write (atomic rename guarantees this). |
 | Working directory missing at resume | Pod opens read-only in a **Beached** state with an explanation; the user may repoint or delete it. |
 
