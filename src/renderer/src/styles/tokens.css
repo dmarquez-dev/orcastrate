@@ -39,7 +39,8 @@
   --oc-border-strong: #454d5b;
   --oc-focus-ring: #6aa9ff;
 
-  /* Status. Pod `idle|running|waiting|beached`, Lane `running|done|orphaned`.
+  /* Status. Pod `idle|running|waiting|beached|closed`,
+     Lane `running|done|orphaned`.
      Status is never the only carrier of meaning — every consumer pairs the hue
      with a label or an icon (frontend discipline, accessibility floor). */
   --oc-status-idle: #7c8598;
@@ -48,6 +49,12 @@
   --oc-status-done: #4bb87a;
   --oc-status-beached: #d95c5c;
   --oc-status-orphaned: #a97fd6;
+  /* Closed — no process at all. The same neutral family as `idle`, pulled
+     well down in lightness so the two separate in greyscale and not only by
+     hue; `idle` still reads as the lighter, live-but-quiet state. The `Closed`
+     label and the `Open` control carry the meaning, and the dot's own SHAPE
+     (a flat bar, `PodBar.module.css`) is the second non-colour signal. */
+  --oc-status-closed: #4a5060;
 
   /* `bypassPermissions`. Deliberately unlike every routine status above. */
   --oc-danger: #ff6b6b;

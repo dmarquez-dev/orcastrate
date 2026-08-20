@@ -13,6 +13,11 @@ const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
   running: 'Running',
   waiting: 'Waiting on you',
   beached: 'Beached, process stopped',
+  // Literal, per design §2: a routine steady state is not themed. It reads
+  // correctly beside `Idle` — `Idle` is open and between turns, `Closed` is
+  // no process at all — and it is what makes the dot's colour a secondary
+  // signal rather than the message.
+  closed: 'Closed',
 };
 
 /**

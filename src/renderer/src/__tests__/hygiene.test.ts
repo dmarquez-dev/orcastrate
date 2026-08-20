@@ -278,6 +278,92 @@ describe('renderer token hygiene (criterion 9)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Status token VALUES, not just names
+// ---------------------------------------------------------------------------
+
+/**
+ * `WorkspaceLayout.test.tsx` proves every status maps to its own token NAME.
+ * That is one half of the guarantee and it is the half a shared value slips
+ * through: `--oc-status-closed: #7c8598` would satisfy it while painting a
+ * closed Pod exactly like an idle one.
+ *
+ * This asserts the other half — the DECLARED VALUES in `tokens.css` are
+ * distinct too — which is what the widening in this session actually needed.
+ * It is an addition; nothing above is relaxed to make room for it.
+ */
+const TOKENS_CSS = `${STYLES_ROOT}/tokens.css`;
+const STATUS_VARIABLE = /--oc-status-([a-z]+)\s*:\s*([^;]+);/g;
+
+const THEME_CONTRACT = `${RENDERER_ROOT}/src/contracts/renderer-theme.ts`;
+const CONTRACT_RUNTIME = `${RENDERER_ROOT}/src/shell/contract-runtime.ts`;
+
+/** The members of a hand-written string-literal union, in source order. */
+function unionMembers(source: string): string[] {
+  return [...source.matchAll(/'([a-z]+)'/g)].map((match) => match[1] ?? '');
+}
+
+describe('status token values in tokens.css', () => {
+  it('declares one distinct value per status, idle and closed included', async () => {
+    const text = stripCssComments(await read(TOKENS_CSS));
+    const declared = new Map<string, string>();
+    for (const match of text.matchAll(STATUS_VARIABLE)) {
+      const name = match[1];
+      const value = match[2];
+      if (name === undefined || value === undefined) continue;
+      // A second definition of one token would make "distinct" meaningless.
+      expect(declared.has(name), `--oc-status-${name} declared twice`).toBe(false);
+      declared.set(name, value.trim().toLowerCase());
+    }
+
+    // Both status unions, exhaustively: Pod plus Lane, seven names.
+    expect([...declared.keys()].sort()).toEqual([
+      'beached',
+      'closed',
+      'done',
+      'idle',
+      'orphaned',
+      'running',
+      'waiting',
+    ]);
+
+    const values = [...declared.values()];
+    expect(new Set(values).size, 'every status colour is its own').toBe(values.length);
+    // Named on its own, because aliasing idle is the specific shortcut the
+    // widening had available and did not take.
+    expect(declared.get('closed')).not.toBe(declared.get('idle'));
+  });
+
+  /**
+   * `renderer-theme.ts` DECLARES `statusToken`'s parameter union by hand and
+   * `contract-runtime.ts` IMPLEMENTS it against `AnyStatus`. They are a
+   * declare/implement pair, and nothing in the type system connects them: the
+   * declared union is a duplicate, so widening one without the other does not
+   * break the build — it breaks the CALL SITES, somewhere else, later.
+   *
+   * `Readonly<Record<AnyStatus, string>>` guards the map against `AnyStatus`.
+   * This guards `AnyStatus` against the declaration, which is the half that
+   * had no guard at all.
+   */
+  it('keeps statusToken declared and implemented over the same union', async () => {
+    const declared = (await read(THEME_CONTRACT)).match(
+      /declare function statusToken\(\s*status:([^)]*)\)/,
+    )?.[1];
+    const implemented = (await read(CONTRACT_RUNTIME)).match(
+      /export type AnyStatus =([^;]*);/,
+    )?.[1];
+
+    expect(declared, 'the declaration in renderer-theme.ts').toBeDefined();
+    expect(implemented, 'AnyStatus in contract-runtime.ts').toBeDefined();
+    expect([...unionMembers(declared ?? '')].sort()).toEqual(
+      [...unionMembers(implemented ?? '')].sort(),
+    );
+    // Both must actually carry the fifth PodStatus, or the pair agrees by
+    // being equally wrong.
+    expect(unionMembers(declared ?? '')).toContain('closed');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criterion 11
 // ---------------------------------------------------------------------------
 

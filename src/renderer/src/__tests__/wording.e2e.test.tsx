@@ -10,12 +10,14 @@
  * pass while the app and the contract drifted apart together.
  */
 
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import type { PermissionMode, Pod } from '@shared/contracts/events';
+import type { PermissionMode, Pod, PodStatus } from '@shared/contracts/events';
+import type { ComposerState } from '../contracts/renderer-state';
 import { BYPASS_PERMISSIONS_WARNING, PERMISSION_MODE_OPTIONS, TEST_IDS } from '../contracts/renderer-view';
+import { disabledMessage } from '../composer/Composer';
 import { steerPrefill } from '../state';
 import { testId } from '../shell/contract-runtime';
 import { makeStubPod, stubOrcastrateApi, type StubOrcastrateApi } from '../test-utils';
@@ -194,4 +196,97 @@ describe('Steer on a Calf lane', () => {
     // Prefill and nothing else: no send, no new protocol.
     expect(api.calls.podSend).toEqual([]);
   });
+});
+
+// ---------------------------------------------------------------------------
+// Symptom 2: the composer sentence for a closed Pod, pinned verbatim
+// ---------------------------------------------------------------------------
+
+/**
+ * THE COPY IS NOT REWRITTEN BY THIS SESSION, AND THAT IS THE POINT.
+ *
+ * "This Pod is not running. Open it before sending a message." is exactly true
+ * of a Pod whose `status` is `'closed'`, and it already names the way out — the
+ * `Open` control that `status: 'closed'` puts on the tab. What changed under
+ * the widened union is where the answer COMES FROM: `not-opened` is computed
+ * from main's `status` instead of from a renderer-local default, so an HMR
+ * reload of a LIVE Pod no longer shows the sentence at all.
+ *
+ * Both halves are asserted, and the sentence is compared two ways: against the
+ * literal, so the WORDS are pinned, and against `disabledMessage`, so the copy
+ * the app renders and the copy the composer declares cannot drift apart while
+ * agreeing with each other.
+ */
+const NOT_OPENED_SENTENCE = 'This Pod is not running. Open it before sending a message.';
+
+/** The composer's own copy for the rung a closed Pod lands on. */
+function notOpenedCopy(): string | null {
+  const state: ComposerState = {
+    podId: 'pod-1',
+    text: '',
+    disabled: true,
+    disabledReason: 'not-opened',
+    sending: false,
+    error: null,
+  };
+  return disabledMessage(state);
+}
+
+function apiWithStatus(status: PodStatus): StubOrcastrateApi {
+  return stubOrcastrateApi({
+    pods: {
+      list: async () => ({
+        ok: true,
+        value: [makeStubPod({ id: 'pod-1', title: 'Alpha', status })],
+      }),
+    },
+  });
+}
+
+describe('the composer sentence for a Pod that is not running', () => {
+  it('is the contract copy, word for word, and the composer agrees with it', () => {
+    expect(notOpenedCopy()).toBe(NOT_OPENED_SENTENCE);
+  });
+
+  it('is shown, verbatim, for a Pod main reported as closed', async () => {
+    const api = apiWithStatus('closed');
+    mountWorkspace(api);
+
+    const note = await screen.findByTestId('composer-disabled-note');
+    // The note carries an aria-hidden `[!]` marker beside the sentence, so the
+    // sentence is matched as its own text node rather than as the whole row.
+    // `getByText` with a string matches an element's OWN text nodes in full,
+    // so this is the verbatim sentence and not a substring of a longer one —
+    // the aria-hidden `[!]` marker beside it is an element and is not counted.
+    expect(within(note).getByText(NOT_OPENED_SENTENCE)).toBe(note);
+    expect(note.textContent).toContain(notOpenedCopy());
+
+    // Disabled, and the reason is stated in TEXT rather than by appearance.
+    const input = screen.getByTestId(TEST_IDS.composerInput) as HTMLTextAreaElement;
+    expect(input.readOnly).toBe(true);
+    expect(input.getAttribute('aria-describedby')).toContain(note.id);
+    expect(screen.getByTestId(TEST_IDS.composerSend).hasAttribute('disabled')).toBe(true);
+
+    // Nothing was opened to learn this: the status came from the reply.
+    expect(api.calls.podOpen).toEqual([]);
+  });
+
+  for (const status of ['idle', 'running', 'waiting'] as const) {
+    it(`is absent, with an enabled composer, for a Pod main reported as ${status}`, async () => {
+      const api = apiWithStatus(status);
+      mountWorkspace(api);
+
+      await screen.findByTestId(testId(TEST_IDS.podTab, 'pod-1'));
+      await waitFor(() => {
+        expect(screen.queryByTestId('composer-disabled-note')).toBeNull();
+      });
+      expect(screen.queryByText(NOT_OPENED_SENTENCE)).toBeNull();
+
+      const input = screen.getByTestId(TEST_IDS.composerInput) as HTMLTextAreaElement;
+      expect(input.readOnly).toBe(false);
+
+      // The HMR case: a live Pod is never opened again to find out it is live.
+      expect(api.calls.podOpen).toEqual([]);
+    });
+  }
 });
