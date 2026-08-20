@@ -51,7 +51,7 @@ import type {
   BeachcomberTrashRequest,
   BeachcomberTrashResult,
 } from '@shared/contracts/beachcomber';
-import { INVOKE_CHANNELS } from '@shared/contracts/ipc';
+import { EVENT_CHANNELS, INVOKE_CHANNELS } from '@shared/contracts/ipc';
 import { PANEL_TEST_IDS, type PanelKey } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
@@ -490,6 +490,12 @@ describe('which channels can say what went wrong', () => {
     expect(INVOKE_KEYS.length).toBe(21);
     expect(SURFACELESS_CHANNELS.length).toBe(9);
     expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(12);
+    // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
+    // `PodStatus` and added a `system` subtype; it added NO channel in either
+    // direction, and this is where that stays true. A push channel is not
+    // classified for an error surface — pushes carry no envelope — so the only
+    // thing to pin here is the count.
+    expect(Object.keys(EVENT_CHANNELS).length).toBe(6);
   });
 
   it.each(INVOKE_KEYS)(

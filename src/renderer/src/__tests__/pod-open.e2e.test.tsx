@@ -2,13 +2,22 @@
 /**
  * THE RESTART PATH (T9).
  *
- * `pods.list` restores Pod ROWS; it does not restore PROCESSES. `opened` is
- * set only by create, open and reconnect, so after a restart every listed Pod
- * has `opened: false` and its composer is disabled reading "This Pod is not
- * running. Open it before sending a message." The frozen contract has declared
+ * `pods.list` restores Pod ROWS; it does not restore PROCESSES. A Pod that no
+ * runner is behind comes back `status: 'closed'`, `opened` is DERIVED from that
+ * status, and its composer is disabled reading "This Pod is not running. Open
+ * it before sending a message." The frozen contract has declared
  * `openPod`/`reconnectPod` since Gate 2 and the state layer implements both —
  * but until this task no component called either, so that sentence named an
  * affordance the app did not have.
+ *
+ * SINCE THE `PodStatus` WIDENING THERE ARE TWO NOT-OPEN STATES, and telling
+ * them apart is this file's second subject. `'closed'` means no process and no
+ * recorded cause, so the way back in is `Open`; `'beached'` means a process
+ * that stopped for a reason worth keeping, so the way back in is `Reconnect`
+ * against the stored session id. Sending a beached Pod to `Open` would discard
+ * the resume; sending a closed Pod to `Reconnect` would ask main to resume a
+ * session that was never lost. The pair is therefore driven from ONE fixture
+ * below, so neither verb can be produced by a renderer answering a constant.
  *
  * Every test here mounts the assembled app through the shared harness and
  * drives it as a user would: by the run control's `data-testid`, by role, and
@@ -53,9 +62,26 @@ const BEACHED: Pod = makeStubPod({
   status: 'beached',
 });
 
+/**
+ * The OTHER not-open state, listed beside the beached one so the two are
+ * distinguished within a single reply rather than across two fixtures.
+ */
+const CLOSED: Pod = makeStubPod({
+  id: 'pod-closed',
+  title: 'Closed',
+  tabOrder: 1,
+  status: 'closed',
+});
+
+/**
+ * One `pods.list` carrying both not-open states. Neither Pod is open, so a
+ * renderer that decided openness alone would answer identically for both; only
+ * a renderer reading `status` can offer `Reconnect` for one and `Open` for the
+ * other.
+ */
 function afterBeaching(): StubOrcastrateApi {
   return stubOrcastrateApi({
-    pods: { list: async () => ({ ok: true, value: [BEACHED] }) },
+    pods: { list: async () => ({ ok: true, value: [BEACHED, CLOSED] }) },
   });
 }
 
@@ -88,21 +114,56 @@ describe('starting a listed Pod that has no process', () => {
     expect(api.calls.podReconnect).toEqual([]);
   });
 
-  it('calls reconnectPod, not openPod, for a beached Pod', async () => {
+  it('calls reconnectPod for the beached Pod and openPod for the closed one, from the same list reply', async () => {
     const user = userEvent.setup();
     const api = afterBeaching();
     mountWorkspace(api);
 
-    const control = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, BEACHED.id));
-    expect(control.textContent).toBe('Reconnect');
-    await user.click(control);
+    // Both not-open states offer a control, and the two controls say DIFFERENT
+    // words — which is the only way a user learns that one Pod is resumable and
+    // the other simply is not running.
+    const beachedControl = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, BEACHED.id));
+    const closedControl = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, CLOSED.id));
+    expect(beachedControl.textContent).toBe('Reconnect');
+    expect(closedControl.textContent).toBe('Open');
+    expect(beachedControl.getAttribute('aria-label')).toBe(`Reconnect ${BEACHED.title}`);
+    expect(closedControl.getAttribute('aria-label')).toBe(`Open ${CLOSED.title}`);
 
+    await user.click(beachedControl);
     await waitFor(() => {
       expect(api.calls.podReconnect).toEqual([[BEACHED.id]]);
     });
     // The whole point of the branch: `pods.open` answers a beached Pod with an
     // error, so calling it here would be the wrong verb.
     expect(api.calls.podOpen).toEqual([]);
+
+    // ...and the closed Pod takes the other branch, in the same mount, so the
+    // routing cannot have come from a single constant.
+    await user.click(closedControl);
+    await waitFor(() => {
+      expect(api.calls.podOpen).toEqual([[CLOSED.id]]);
+    });
+    expect(api.calls.podReconnect).toEqual([[BEACHED.id]]);
+  });
+
+  it('shows the beached composer reason for the beached Pod and the not-opened one for the closed Pod', async () => {
+    const user = userEvent.setup();
+    const api = afterBeaching();
+    mountWorkspace(api);
+
+    // The beached Pod is leftmost and therefore active first. It is ALSO not
+    // open, so a ladder that checked openness before beaching would say
+    // "not running. Open it" here and send the user to the wrong affordance.
+    await screen.findByTestId(testId(TEST_IDS.podTab, BEACHED.id));
+    const beachedNote = screen.getByTestId('composer-disabled-note').textContent ?? '';
+    expect(beachedNote).not.toContain(NOT_OPENED_NOTE);
+
+    await user.click(screen.getByTestId(testId(TEST_IDS.podTab, CLOSED.id)));
+    await waitFor(() => {
+      expect(screen.getByTestId('composer-disabled-note').textContent).toContain(NOT_OPENED_NOTE);
+    });
+    // Two not-open Pods, two different sentences, one reply.
+    expect(screen.getByTestId('composer-disabled-note').textContent).not.toBe(beachedNote);
   });
 
   it('offers no run control at all once the Pod is open', async () => {
