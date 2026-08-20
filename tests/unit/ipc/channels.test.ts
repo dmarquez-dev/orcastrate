@@ -15,6 +15,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { EVENT_CHANNELS, INVOKE_CHANNELS } from '../../../src/shared/contracts/ipc';
+import type { IpcResult, OrcastrateApi } from '../../../src/shared/contracts/ipc';
+import type { Pod } from '../../../src/shared/contracts/events';
 import { ROUTING_MODE } from '../../../src/main/pod-manager';
 
 import { driveFixture, findings, makeHarness, openPod, tick, type Harness } from './helpers';
@@ -229,5 +231,292 @@ describe('this task ends at the IPC boundary (criterion 12)', () => {
     const all = files.map((entry) => entry.text).join('\n');
     expect(all).toContain('shared/contracts/beachcomber');
     expect(all).toContain('shared/contracts/helm');
+  });
+});
+
+/**
+ * THE NEGATIVE GUARD FOR THE E1 DECISION.
+ *
+ * Escalation E1 was resolved at Gate 2 AGAINST a `PodView` wrapper and AGAINST
+ * a parallel `opened` boolean: `Pod.status` is the single authoritative field
+ * for whether main holds a live runner, and openness is DERIVED from it. A
+ * decision recorded only in a docblock is a hope. These tests are the part that
+ * fails a build, so the rejected shape cannot return through a later
+ * well-meaning patch that "just adds a convenience field".
+ *
+ * Both halves are here on purpose. The TYPE half catches a field added to the
+ * contract; the RUNTIME half catches a field a handler adds without the
+ * contract admitting it, which the type half cannot see.
+ */
+describe('openness is derived from status, never carried beside it', () => {
+  type PodsApi = OrcastrateApi['pods'];
+  type Unwrap<T> = T extends Promise<IpcResult<infer V>> ? V : never;
+  type ValueOf<M extends keyof PodsApi> = Unwrap<ReturnType<PodsApi[M]>>;
+  /** A reply is often a list; the prohibition is on the ELEMENT's shape. */
+  type Element<T> = T extends readonly (infer E)[] ? E : T;
+
+  type ForbiddenReturnKey<M extends keyof PodsApi> = Extract<
+    keyof Element<ValueOf<M>>,
+    'opened' | 'isOpen'
+  >;
+
+  /**
+   * Fails to COMPILE — not at runtime — the moment any `pods` method's return
+   * type grows a parallel openness field. `npm run typecheck:node` is where
+   * this one is enforced. The object literal below is what forces EVERY member
+   * of the namespace through the check, rather than only the ones a test
+   * remembered to name.
+   */
+  type NoOpenedOnAnyReturn = {
+    [M in keyof PodsApi]: [ForbiddenReturnKey<M>] extends [never]
+      ? true
+      : { POD_METHOD_RETURNS_A_PARALLEL_OPENNESS_FIELD: M };
+  };
+
+  const returnsAreClean: NoOpenedOnAnyReturn = {
+    list: true,
+    create: true,
+    update: true,
+    delete: true,
+    open: true,
+    close: true,
+    reconnect: true,
+    send: true,
+    interrupt: true,
+    setPermissionMode: true,
+  };
+
+  /** Type-level EXACT equality, checked in both directions. */
+  type Exact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false;
+
+  /**
+   * THE SIGNATURES DO NOT MOVE. Every method that returns `Pod` today still
+   * returns `Pod` — not a wrapper, not a widened union, not a `Pod & {...}`.
+   * `Exact` is bidirectional, so a supertype fails here too.
+   */
+  const podReturningMethodsStillReturnPod: {
+    list: Exact<ValueOf<'list'>, Pod[]>;
+    create: Exact<ValueOf<'create'>, Pod>;
+    update: Exact<ValueOf<'update'>, Pod>;
+    open: Exact<ValueOf<'open'>, Pod>;
+    reconnect: Exact<ValueOf<'reconnect'>, Pod>;
+    delete: Exact<ValueOf<'delete'>, void>;
+    close: Exact<ValueOf<'close'>, void>;
+    send: Exact<ValueOf<'send'>, void>;
+    interrupt: Exact<ValueOf<'interrupt'>, void>;
+    setPermissionMode: Exact<ValueOf<'setPermissionMode'>, void>;
+  } = {
+    list: true,
+    create: true,
+    update: true,
+    open: true,
+    reconnect: true,
+    delete: true,
+    close: true,
+    send: true,
+    interrupt: true,
+    setPermissionMode: true,
+  };
+
+  /**
+   * `status` TRAVELS OUTWARD ONLY. No request payload on this namespace
+   * declares one, which is precisely why `src/main/ipc/**` needs no status
+   * validator: there is no inbound status to validate.
+   */
+  type ForbiddenArgKey<M extends keyof PodsApi> = {
+    [K in keyof Parameters<PodsApi[M]>]: Extract<
+      keyof Parameters<PodsApi[M]>[K],
+      'status' | 'opened'
+    >;
+  }[number];
+
+  type NoStatusInboundOnAnyMethod = {
+    [M in keyof PodsApi]: [ForbiddenArgKey<M>] extends [never]
+      ? true
+      : { POD_METHOD_ACCEPTS_A_STATUS_OR_OPENED_ARGUMENT: M };
+  };
+
+  const argumentsAreClean: NoStatusInboundOnAnyMethod = {
+    list: true,
+    create: true,
+    update: true,
+    delete: true,
+    open: true,
+    close: true,
+    reconnect: true,
+    send: true,
+    interrupt: true,
+    setPermissionMode: true,
+  };
+
+  it('type-checks the three prohibitions above (they fail the build, not this run)', () => {
+    // The assertions ARE the type annotations. This body exists so the three
+    // constants are used: an unused const is a lint failure, and a guard a
+    // linter deletes is not a guard.
+    expect(Object.values(returnsAreClean).every((v) => v === true)).toBe(true);
+    expect(Object.values(podReturningMethodsStillReturnPod).every((v) => v === true)).toBe(true);
+    expect(Object.values(argumentsAreClean).every((v) => v === true)).toBe(true);
+  });
+
+  /** Every key named anywhere in `value`, however deeply nested. */
+  function allKeys(value: unknown, seen = new Set<unknown>()): string[] {
+    if (value === null || typeof value !== 'object') return [];
+    if (seen.has(value)) return [];
+    seen.add(value);
+    if (Array.isArray(value)) return value.flatMap((entry) => allKeys(entry, seen));
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, nested]) => [
+      key,
+      ...allKeys(nested, seen),
+    ]);
+  }
+
+  const FORBIDDEN = ['opened', 'isOpen'];
+
+  it('no reply on any frozen invoke channel carries an openness field', async () => {
+    const h = harness();
+    const podId = await openPod(h);
+
+    // Arguments that make the pod-shaped channels actually SUCCEED. An
+    // envelope that failed validation carries no Pod, and the sweep over it
+    // would be vacuous.
+    const args: Record<string, unknown[]> = {
+      [INVOKE_CHANNELS.podCreate]: [
+        { title: 'Sweep', cwd: process.cwd(), permissionMode: 'default' },
+      ],
+      [INVOKE_CHANNELS.podUpdate]: [{ podId, title: 'Renamed' }],
+      [INVOKE_CHANNELS.podOpen]: [podId],
+      [INVOKE_CHANNELS.podSend]: [podId, 'hello'],
+      [INVOKE_CHANNELS.podInterrupt]: [podId],
+      [INVOKE_CHANNELS.podSetPermissionMode]: [podId, 'plan'],
+      [INVOKE_CHANNELS.laneList]: [podId],
+      [INVOKE_CHANNELS.eventsRead]: [{ podId }],
+    };
+
+    // Driven separately below, so this sweep does not tear down the Pod it is
+    // still using.
+    const deferred = new Set<string>([
+      INVOKE_CHANNELS.podClose,
+      INVOKE_CHANNELS.podReconnect,
+      INVOKE_CHANNELS.podDelete,
+    ]);
+
+    let sawAPod = false;
+    for (const channel of Object.values(INVOKE_CHANNELS)) {
+      if (deferred.has(channel)) continue;
+
+      const result = await h.invoke(channel, ...(args[channel] ?? []));
+      if (!result.ok) continue;
+      const keys = allKeys(result.value);
+      if (keys.includes('status') && keys.includes('lastActiveAt')) sawAPod = true;
+      for (const forbidden of FORBIDDEN) {
+        expect(keys, `${channel} replied with a '${forbidden}' field`).not.toContain(forbidden);
+      }
+    }
+
+    // Vacuity guard: the sweep must have seen a Pod-shaped reply, or "no reply
+    // carried `opened`" is a statement about nothing.
+    expect(sawAPod, 'the sweep never observed a Pod-shaped reply').toBe(true);
+  });
+
+  it('close and reconnect answer without an openness field either', async () => {
+    const h = harness();
+    const podId = await openPod(h);
+
+    const closed = await h.invoke(INVOKE_CHANNELS.podClose, podId);
+    expect(closed.ok).toBe(true);
+    expect(allKeys(closed.ok ? closed.value : null)).not.toContain('opened');
+
+    const reconnected = await h.invoke<Record<string, unknown>>(
+      INVOKE_CHANNELS.podReconnect,
+      podId,
+    );
+    expect(reconnected.ok).toBe(true);
+    if (!reconnected.ok) return;
+    // Vacuity guard for this one: reconnect really did answer with a Pod.
+    expect(reconnected.value).toHaveProperty('status');
+    expect(allKeys(reconnected.value)).not.toContain('opened');
+  });
+
+  it('every podStatus push carries exactly the contract shape and nothing else', async () => {
+    const h = harness();
+    const podId = await openPod(h);
+    await driveFixture(h, podId, '01-parallel-dispatch.ndjson');
+    await h.invoke(INVOKE_CHANNELS.podClose, podId);
+
+    const pushes = h.pushesOn<Record<string, unknown>>(EVENT_CHANNELS.podStatus);
+    expect(pushes.length, 'no podStatus push was observed').toBeGreaterThan(0);
+
+    // `PodStatusPush` is `podId`, `status`, and — for `'beached'` alone —
+    // `exitCode` and `detail`. Nothing else may ride along.
+    const allowed = new Set(['podId', 'status', 'exitCode', 'detail']);
+    for (const push of pushes) {
+      for (const key of Object.keys(push)) {
+        expect(allowed.has(key), `podStatus push carried an undeclared '${key}'`).toBe(true);
+      }
+      expect(push).toHaveProperty('podId');
+      expect(push).toHaveProperty('status');
+    }
+  });
+
+  /**
+   * The runtime half of "no inbound status". The request validators are
+   * WHITELISTS, and this pins that they stay whitelists rather than growing a
+   * pass-through that would let a renderer dictate main's view of its own
+   * session registry.
+   */
+  it('ignores a status or opened smuggled into a pods request', async () => {
+    const h = harness();
+
+    const created = await h.invoke<Record<string, unknown>>(INVOKE_CHANNELS.podCreate, {
+      title: 'Smuggler',
+      cwd: process.cwd(),
+      permissionMode: 'default',
+      status: 'running',
+      opened: true,
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    expect(created.value['status'], 'pod:create accepted a caller-supplied status').not.toBe(
+      'running',
+    );
+    expect(Object.keys(created.value)).not.toContain('opened');
+
+    const podId = created.value['id'] as string;
+    const before = created.value['status'];
+
+    const updated = await h.invoke<Record<string, unknown>>(INVOKE_CHANNELS.podUpdate, {
+      podId,
+      title: 'Same status as before',
+      status: 'beached',
+      opened: true,
+    });
+    expect(updated.ok).toBe(true);
+    if (!updated.ok) return;
+    expect(updated.value['status'], 'pod:update accepted a caller-supplied status').toBe(before);
+    expect(Object.keys(updated.value)).not.toContain('opened');
+  });
+
+  /**
+   * NO NEW VALIDATOR, asserted at the source. The product's ONLY runtime
+   * enforcement of the status set is SQLite's CHECK constraint at the schema
+   * head. That is a PRE-EXISTING property and this session does not change it:
+   * a second enforcement point here would be a design change nobody licensed,
+   * and — worse — a second copy of the status union, free to drift from the
+   * contract in silence.
+   */
+  it('src/main/ipc validates no status and knows no openness field', () => {
+    const IPC = fileURLToPath(new URL('../../../src/main/ipc/', import.meta.url));
+    const files = readdirSync(IPC).filter((name) => name.endsWith('.ts'));
+    expect(files.length).toBeGreaterThanOrEqual(4);
+
+    for (const name of files) {
+      const text = readFileSync(join(IPC, name), 'utf8');
+      expect(/\bopened\b/.test(text), `${name} mentions an openness field`).toBe(false);
+      expect(/\bPodStatus\b/.test(text), `${name} imports the status union`).toBe(false);
+      expect(
+        /\b(requireStatus|isAllowedStatus|POD_STATUSES)\b/.test(text),
+        `${name} added a status validator`,
+      ).toBe(false);
+    }
   });
 });

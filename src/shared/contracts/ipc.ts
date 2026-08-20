@@ -223,6 +223,49 @@ export interface PermissionResolvedPush {
 export type Unsubscribe = () => void;
 
 export interface OrcastrateApi {
+  /**
+   * `Pod.status` IS THE SINGLE AUTHORITATIVE FIELD for whether main holds a
+   * live `PodRunner` for a Pod. Nothing else on this surface reports it, and
+   * NO METHOD HERE MAY EVER CARRY A PARALLEL OPENNESS FIELD — not on a reply,
+   * not on a push, not on a request. This is a PROHIBITION, not a preference:
+   * two fields describing one fact are two fields in a position to disagree,
+   * which is the exact defect class this rule exists to prevent.
+   *
+   * OPENNESS IS DERIVED FROM `status`, by exactly one rule, written in the
+   * POSITIVE form:
+   *
+   *     opened  <=>  status === 'idle' || status === 'running' || status === 'waiting'
+   *
+   * `'closed'` and `'beached'` are the not-open statuses. The positive form is
+   * mandatory because it fails CLOSED: a status a future build does not
+   * recognise reads as not-open, which shows a redundant run control rather
+   * than enabling a composer over a process that is not there. The negative
+   * spelling (`status !== 'closed' && status !== 'beached'`) must be
+   * re-audited every time the union grows, and is forbidden here for that
+   * reason.
+   *
+   * THERE IS EXACTLY ONE IMPLEMENTATION OF THAT RULE IN THE REPOSITORY, and it
+   * lives in the renderer's `derivePodList`. Main does not need it: main knows
+   * from its own session registry and simply writes the correct status. No
+   * shared helper is exported from this file — `ipc.ts` would become a
+   * dependency edge between otherwise independent consumers for a three-token
+   * expression.
+   *
+   * WHAT THAT MEANS FOR THIS NAMESPACE, stated so a later patch cannot drift:
+   * every method that returns a `Pod` returns a plain `Pod` — no wrapper type,
+   * no projection, no added field. A `PodView`-shaped wrapper WAS PROPOSED and
+   * was REJECTED at Gate 2 of DIR session 2026-08-20-orcastrate-pod-lifecycle;
+   * it must not reappear. `PodStatusPush` likewise keeps its exact shape:
+   * `podId`, `status`, and — for `'beached'` alone — `exitCode` and `detail`.
+   *
+   * `status` TRAVELS OUTWARD ONLY. No request payload on this surface carries
+   * one, so `src/main/ipc/**` performs no status validation; the product's
+   * only runtime enforcement of the status set is the SQLite CHECK constraint
+   * at the schema head. Adding a status validator at this boundary would be a
+   * design change, not a hardening.
+   *
+   * See `PodStatus` in `./events` for the meaning of each of the five values.
+   */
   pods: {
     list(): Promise<IpcResult<Pod[]>>;
     create(req: CreatePodRequest): Promise<IpcResult<Pod>>;
