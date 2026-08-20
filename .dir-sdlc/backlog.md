@@ -222,3 +222,103 @@ finding's full text are in that session's `reviews/T1.md`–`T10.md`.
   user-visible sentence composed in JSX rather than routed through `copy.ts`.
 - `src/renderer/src/beachcomber/BeachcomberRefusals.tsx:36-38` — a refusal names
   its reason but not which entry it refers to.
+
+## 2026-08-20 — first run findings (no session; observed directly)
+
+The app was launched for the first time on 2026-08-20 and driven by hand: two
+Pods, one of which dispatched two sub-agents. These are the findings from that
+run, for a follow-up refinement session. Everything below was verified against
+the running app or against `%APPDATA%\orcastrate\orcastrate.db`, not inferred.
+
+### Bugs
+
+- **Nothing reconciles persisted Pod and lane state at startup, and it strands
+  the Pod on every relaunch.** *Confirmed by reproduction.* Close the app and
+  reopen it, and the Pod is unusable: the rail shows its Matriarch lane as
+  **Running** with a duration ticking from the original `started_at`, the
+  composer is disabled with "This Pod is not running. Open it before sending a
+  message.", and the tab's `x` refuses with a not-running error. Nothing on boot
+  marks an open lane orphaned or reconciles a Pod's status against the fact that
+  no runner exists. Evidence: with the app **closed** and no Claude Code process
+  alive, the database holds two Matriarch lanes with `status: 'running'` and
+  `ended_at: null`, while both Pods read `idle`.
+  **Recovery works and is the Open button on the Pod tab**
+  (`PodTab.tsx:94`, `showRunControl = beached || !opened`) — pressing it restored
+  full functionality. But nothing tells the user that is the way out, and the
+  three symptoms all say the opposite. Design §8 defines Orphaned for a lane open
+  at a *turn* boundary; it says nothing about a lane open at *process start*, and
+  that is the gap.
+
+- **`runtime.opened` is renderer-local, in-memory, and initialised `false`.**
+  `store.ts:161`. It is set true only by a successful `pods.open`
+  (`store.ts:473,533,552`) and reset only on a `beached` push
+  (`store.ts:357-360`). So any fresh renderer — a reload, an HMR cycle, a
+  relaunch — believes every Pod is unopened regardless of what main knows. This
+  is the state-model half of the bug above; reconciling lanes at boot fixes the
+  display, but the composer stays disabled until `opened` derives from main
+  rather than from renderer memory.
+
+- **A failed `start()` orphans the Claude Code child, and `stop()` cannot reap
+  it.** `pod-manager.ts:338-347` deletes the session from the registry and marks
+  the Pod beached, but never calls `session.runner.stop()` — unlike `#dispose()`
+  at `:353-360`, which does. Worse, `start()` sets `#phase = 'stopped'` before
+  throwing (`pod-runner.ts:189-191`), and `stop()` early-returns when the phase is
+  already `'stopped'` (`:379`), so it never reaches `#abort.abort()`. The child
+  keeps streaming into the store with no owner and no reaper. Not observed on this
+  run — the Pods opened successfully — but the path is real.
+
+- **Open question: the stored `cc_session_id` may not be the session you want to
+  resume.** The first Pod's transcript carried **three** distinct `session_id`s
+  during startup (`f70fbdf4`, `1045d714`, `c794f73b`) and the store recorded the
+  last one seen. Pressing Open later started a fresh session and overwrote it
+  again (`c794f73b` → `2c98e7f0`). Since `pods.reconnect` resumes whatever id is
+  stored, a wrong id means resuming the wrong conversation. The user's own
+  `SessionStart` hook reports `sdk_bootstrap` metrics and may be spawning nested
+  SDK sessions, so this may not be Orcastrate's doing — but which id is
+  authoritative needs deciding before Reconnect is trusted.
+
+### UX refinements
+
+- **The transcript shows everything the CLI emits, and it is mostly noise.**
+  Of 109 stored events, **53 are `system`** — `hook_started` 10, `hook_progress`
+  8, `task_progress` 8, `hook_response` 6, `thinking_tokens` 5, `init` 4,
+  `result` 4, `rate_limit_event` 2 — against only 11 `assistant_text`. A first-run
+  Pod fills its Matriarch lane with hook plumbing before the model says anything.
+  **Default the transcript to the conversation** — assistant text, user messages,
+  tool use and results, permissions — and put the rest behind a toggle.
+  Note this is a *render filter*, not a routing or storage change: the events are
+  correctly captured and spec 5.2 requires every `EventType` to remain
+  renderable, including `malformed`. Hiding must stay reversible in the UI, never
+  a silent drop.
+
+- **The Pod tab's `x` stops a Pod but can never remove one.** For an already
+  stopped Pod, `x` should open a confirmation offering to delete the Pod **and,
+  optionally, its Claude Code session** on disk. `deletePod` already exists in the
+  frozen contract (`renderer-state.ts:413`) and in the state layer
+  (`store.ts:509-512`) with **no component caller anywhere** — this closes the
+  gap sub-session 2 recorded as "`podDelete` … never invoked by any affordance at
+  all". *That item can be struck once this ships.*
+  **Constraint for whoever builds it:** deleting the CC session means removing a
+  directory under `~/.claude/projects/`, which is Beachcomber's territory. It must
+  go through the single injected `TrashItem` port, not a new deletion primitive —
+  the "one deletion capability in the whole application" invariant is asserted by
+  a source scan and is worth keeping.
+
+- **Pinning should read as an icon, and unpin belongs on the pinned pane.**
+  Today the control lives only on the left-hand rail row. Make it a pin/unpin
+  icon reflecting current state, and put an unpin affordance on the right-hand
+  pinned pane itself — that is where a user looks to dismiss it. Keeping it in
+  both places is fine and faster; the pinned pane is the one that must not be
+  missing it.
+
+- **Finished sub-agent lanes stay in the rail with no way to clear them.**
+  A test session's two Calves were killed by the parent and are correctly
+  recorded — both `status: 'done'` with real `ended_at` stamps — so the lifecycle
+  is right; the rail simply never clears them. Wanted: clear or collapse finished
+  lanes.
+  **Decide where it happens.** `LaneChangedPush` replaces the rail wholesale, so
+  omitting done lanes from the snapshot removes them everywhere, including from
+  history the user may still want to read. A renderer-side filter or collapse
+  keeps the lane reachable while getting it out of the way. The second is almost
+  certainly right, but it is a real fork and should be chosen deliberately rather
+  than discovered.
