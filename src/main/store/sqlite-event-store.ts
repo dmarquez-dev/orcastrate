@@ -168,7 +168,11 @@ class SqliteEventStore implements EventStore {
       const row = this.stmt<PodRow>(
         `INSERT INTO pods (id, title, cwd, cc_session_id, permission_mode, env_overrides,
                            tab_order, status, created_at, last_active_at)
-         VALUES (?, ?, ?, NULL, ?, ?, ?, 'idle', ?, ?)
+         -- Born 'closed': a Pod that has never been opened has no PodRunner,
+         -- so its tab must offer Open. Under the old four-status union this
+         -- row was 'idle', which claimed open-and-quiet about a Pod with no
+         -- process. Requires migration 3's widened CHECK.
+         VALUES (?, ?, ?, NULL, ?, ?, ?, 'closed', ?, ?)
          RETURNING ${POD_COLUMNS}`,
       ).get(
         input.id,

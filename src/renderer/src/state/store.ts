@@ -98,8 +98,12 @@ export interface PodRuntimeState {
   composerText: string;
   composerSending: boolean;
   composerError: IpcError | null;
-  /** `pods.open` succeeded and no `close`/beach has followed. */
-  opened: boolean;
+  // NO `opened` HERE, DELIBERATELY. Openness is a fact about main's session
+  // registry and `pod.status` is the only field that reports it, so the
+  // renderer stores nothing and derives it once in `workspace-provider.tsx`.
+  // A renderer-local copy had two owners and disagreed with main on every
+  // fresh renderer — reload, HMR or relaunch — which is the defect this
+  // session removed. See `contracts/renderer-lifecycle.ts` section 1.
   unreadEventCount: number;
   laneUnread: Record<LaneId, number>;
   /** Set the first time this Pod becomes active, so backfill starts once. */
@@ -158,7 +162,6 @@ export function newRuntime(
     composerText: '',
     composerSending: false,
     composerError: null,
-    opened: false,
     unreadEventCount: 0,
     laneUnread: {},
     activated: false,
@@ -343,6 +346,13 @@ export class WorkspaceStateStore {
     });
   }
 
+  /**
+   * Writing `push.status` onto the Pod row is the WHOLE of this handler, and
+   * it is what makes a push update the tab with no refetch: openness is
+   * derived from that field, so there is nothing else to keep in step. The
+   * `beached` branch that used to clear a renderer-local `opened` went with
+   * the field rather than being rewritten.
+   */
   private onPodStatus(push: PodStatusPush): void {
     this.update((state) => {
       if (!state.pods.some((pod) => pod.id === push.podId)) return state;
@@ -353,11 +363,6 @@ export class WorkspaceStateStore {
         ),
       };
     });
-    if (push.status === 'beached') {
-      this.patchRuntime(push.podId, (runtime) =>
-        runtime.opened ? { ...runtime, opened: false } : runtime,
-      );
-    }
   }
 
   /**
@@ -467,10 +472,11 @@ export class WorkspaceStateStore {
         store.actions.setActivePod(pod.id);
         // "Creates the Pod row AND opens its process." A failed open leaves
         // the row in place, unopened, and reports the error verbatim.
+        // `applyPod` writes the returned status, and that status IS the
+        // openness — no optimistic patch is issued or needed.
         const opened = await safeInvoke(() => api.pods.open(pod.id));
         if (!opened.ok) return opened;
         store.applyPod(opened.value);
-        store.patchRuntime(pod.id, (runtime) => ({ ...runtime, opened: true }));
         return { ok: true, value: opened.value };
       },
 
@@ -530,7 +536,6 @@ export class WorkspaceStateStore {
         const result = await safeInvoke(() => api.pods.open(podId));
         if (!result.ok) return result;
         store.applyPod(result.value);
-        store.patchRuntime(podId, (runtime) => ({ ...runtime, opened: true }));
         return result;
       },
 
@@ -539,7 +544,9 @@ export class WorkspaceStateStore {
         if (api === null) return store.failClosed<void>();
         const result = await safeInvoke(() => api.pods.close(podId));
         if (!result.ok) return result;
-        store.patchRuntime(podId, (runtime) => ({ ...runtime, opened: false }));
+        // No `opened: false` patch. `pod:close` triggers a `podStatus` push
+        // carrying `'closed'`, and `onPodStatus` writing that onto the Pod row
+        // is the whole update — openness is derived from it.
         return { ok: true, value: undefined };
       },
 
@@ -548,8 +555,9 @@ export class WorkspaceStateStore {
         if (api === null) return store.failClosed<Pod>();
         const result = await safeInvoke(() => api.pods.reconnect(podId));
         if (!result.ok) return result;
+        // `applyPod` writes the returned status, and that status IS the
+        // openness — no optimistic patch is issued or needed.
         store.applyPod(result.value);
-        store.patchRuntime(podId, (runtime) => ({ ...runtime, opened: true }));
         return result;
       },
 

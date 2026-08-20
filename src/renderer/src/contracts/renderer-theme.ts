@@ -59,7 +59,8 @@ export const TOKENS = {
   focusRing: '--oc-focus-ring',
 
   // Status. These map to the lexicon (spec 2) and to the two status unions in
-  // `events.ts`: Pod `idle|running|waiting|beached`, Lane `running|done|orphaned`.
+  // `events.ts`: Pod `idle|running|waiting|beached|closed`,
+  // Lane `running|done|orphaned`.
   statusIdle: '--oc-status-idle',
   statusRunning: '--oc-status-running',
   /** Waiting on the user — including waiting on a permission decision. */
@@ -68,6 +69,15 @@ export const TOKENS = {
   /** Beached (dead process) and Orphaned (lane open at a turn boundary). */
   statusBeached: '--oc-status-beached',
   statusOrphaned: '--oc-status-orphaned',
+  /**
+   * AMENDMENT (this session) — the fifth `PodStatus`. Main holds no runner for
+   * this Pod. DISTINCT from `statusIdle` by requirement, not by taste:
+   * `WorkspaceLayout.test.tsx` asserts every status maps to its own token, so
+   * aliasing idle is not available. The value is quiet and inactive and
+   * separates from idle by LIGHTNESS as well as hue; the `Closed` label and the
+   * `Open` control carry the meaning, and the dot only has to not lie.
+   */
+  statusClosed: '--oc-status-closed',
 
   /** The `bypassPermissions` badge. Distinct from every routine status. */
   danger: '--oc-danger',
@@ -130,5 +140,5 @@ export declare function cssVar(token: string): string;
  * and the lane rail row cannot drift into different colors for one state.
  */
 export declare function statusToken(
-  status: 'idle' | 'running' | 'waiting' | 'beached' | 'done' | 'orphaned',
+  status: 'idle' | 'running' | 'waiting' | 'beached' | 'closed' | 'done' | 'orphaned',
 ): string;

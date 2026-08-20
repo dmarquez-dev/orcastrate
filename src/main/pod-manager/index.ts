@@ -8,3 +8,13 @@ export type { PodManagerApi, PodManagerDeps } from './pod-manager';
 export { createPushes } from './pushes';
 export type { Pushes, SendToRenderer } from './pushes';
 export { ROUTING_MODE } from './routing-mode';
+export {
+  STARTUP_RECONCILIATION_REASON,
+  STARTUP_RECONCILIATION_SUBTYPE,
+} from './startup-reconciliation';
+export type {
+  ReconciledPod,
+  StartupReconciler,
+  StartupReconciliation,
+  StartupReconciliationData,
+} from './startup-reconciliation';

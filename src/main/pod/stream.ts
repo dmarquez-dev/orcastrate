@@ -70,3 +70,27 @@ export function asEnvelope(value: unknown): StreamMessageEnvelope | null {
 export function isTurnEnd(envelope: StreamMessageEnvelope): boolean {
   return envelope.type === 'result';
 }
+
+/**
+ * True for the two message types the repo has MEASURED as authoritatively
+ * naming the CLI session that this query is talking to. Contract
+ * `pod-lifecycle.ts` section 8, escalation E2 resolved as option A at Gate 2:
+ *
+ *   - `system` with `subtype: 'init'` — what `probe/run-probe.ts:740` reads back
+ *     to prove a resume worked;
+ *   - `result` — what `probe/run-probe.ts:638-641` fed to `options.resume` in
+ *     the one verified resume run.
+ *
+ * A `session_id` on ANY other message type is ignored for capture. Nothing
+ * requires the first `session_id`-bearing message in the stream to name THIS
+ * query's session: a hook-emitted message carrying a foreign id and arriving
+ * before `system/init` would otherwise become the Pod's permanent resume id,
+ * and `pods.reconnect` would then resume someone else's conversation.
+ *
+ * This narrows CAPTURE only. Every message is still forwarded to the consumer
+ * unmodified — routing is LaneRouter's job and is unaffected.
+ */
+export function isAuthoritativeSessionSource(envelope: StreamMessageEnvelope): boolean {
+  if (envelope.type === 'result') return true;
+  return envelope.type === 'system' && envelope.subtype === 'init';
+}

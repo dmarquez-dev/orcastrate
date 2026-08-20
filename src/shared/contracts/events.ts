@@ -57,7 +57,46 @@ export type Timestamp = string;
 // Enumerated states (spec 4.4)
 // ---------------------------------------------------------------------------
 
-export type PodStatus = 'idle' | 'running' | 'waiting' | 'beached';
+/**
+ * The FIVE states a Pod can be in. `'closed'` is FIRST because it is the
+ * initial state of every Pod; order in a union is documentation, not
+ * semantics, but it is fixed here so two implementers cannot produce two
+ * orderings.
+ *
+ *   'closed'   Main holds NO live `PodRunner` for this Pod, and that is the
+ *              intended, non-error state of affairs. The Pod row exists; there
+ *              is no process. Reached by creation, by `closePod`, and by the
+ *              boot sweep. The affordance is `Open`.
+ *
+ *   'idle'     Main HOLDS a live runner and it is between turns. This is a
+ *              NARROWING: before `'closed'` existed, `'idle'` also covered the
+ *              closed case, and that conflation was the defect.
+ *
+ *   'running'  Main holds a live runner and a turn is streaming.
+ *
+ *   'waiting'  Main holds a live runner and at least one permission request is
+ *              unanswered.
+ *
+ *   'beached'  Main holds no live runner because the process DIED or a start
+ *              FAILED. Not open, like `'closed'`, but distinguished from it by
+ *              carrying a CAUSE: `PodStatusPush.exitCode` and `.detail` are
+ *              populated for `'beached'` and for nothing else. The affordance
+ *              is `Reconnect`, which resumes against `ccSessionId`.
+ *
+ * `'closed'` and `'beached'` therefore both mean "no runner"; the difference
+ * is that `'beached'` records why.
+ *
+ * Openness is DERIVED from this field and from nothing else, in exactly one
+ * place, written in the positive form so it fails closed:
+ *
+ *     opened  <=>  status === 'idle' || status === 'running' || status === 'waiting'
+ *
+ * Widening this union is not free: `src/main/store/schema.ts` mirrors it into
+ * a CHECK constraint, and SQLite's CHECK is the only runtime enforcement of
+ * the status set anywhere in the product. A sixth member needs a new
+ * migration, which the schema-head guard in that file demands at build time.
+ */
+export type PodStatus = 'closed' | 'idle' | 'running' | 'waiting' | 'beached';
 
 export type LaneStatus = 'running' | 'done' | 'orphaned';
 

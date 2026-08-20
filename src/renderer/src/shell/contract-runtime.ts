@@ -24,14 +24,29 @@ export function cssVar(token: string): string {
 }
 
 /** The union `statusToken` accepts: both status unions from `events.ts`. */
-export type AnyStatus = 'idle' | 'running' | 'waiting' | 'beached' | 'done' | 'orphaned';
+export type AnyStatus =
+  | 'idle'
+  | 'running'
+  | 'waiting'
+  | 'beached'
+  | 'closed'
+  | 'done'
+  | 'orphaned';
 
+/**
+ * `Readonly<Record<AnyStatus, string>>` is the real guard in the widening: add
+ * a member to `AnyStatus` without an entry here and this file stops compiling.
+ * The declaration in `renderer-theme.ts` is a hand-written duplicate of the
+ * same union and must be kept in step with it — the two are a declare/implement
+ * pair and never land apart.
+ */
 const STATUS_TOKENS: Readonly<Record<AnyStatus, string>> = {
   idle: TOKENS.statusIdle,
   running: TOKENS.statusRunning,
   waiting: TOKENS.statusWaiting,
   done: TOKENS.statusDone,
   beached: TOKENS.statusBeached,
+  closed: TOKENS.statusClosed,
   orphaned: TOKENS.statusOrphaned,
 };
 

@@ -122,11 +122,37 @@ export function makeStubPod(overrides: Partial<Pod> = {}): Pod {
     permissionMode: 'default',
     envOverrides: {},
     tabOrder: 0,
-    status: 'idle',
+    // RECONSIDERED for the derived-openness meaning of `status`. `'idle'` now
+    // reads as OPEN (main holds a live runner between turns), so defaulting to
+    // it would hand every suite an open Pod it never asked for. A Pod is BORN
+    // `'closed'` — see `PodStatus` in `events.ts` — and that is the honest
+    // default here too.
+    status: 'closed',
     createdAt: '2026-01-01T00:00:00.000Z',
     lastActiveAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
+}
+
+/**
+ * THE DEFAULT POD-LIST FIXTURE: two Pods on OPPOSITE sides of the openness
+ * derivation, in tab order.
+ *
+ * Openness is a pure function of `status` now, so a fixture holding one Pod —
+ * or holding several that all fall the same side — lets an assertion pass by
+ * guessing whichever constant the renderer happens to produce about
+ * everything. `pod-1` is `'closed'` and `pod-2` is `'running'`, so only a
+ * reply-driven answer satisfies both rows at once.
+ *
+ * `overrides` are applied to BOTH Pods, so a suite can vary an unrelated field
+ * without losing the opposition; pass explicit `makeStubPod` calls instead
+ * when the statuses themselves are the subject.
+ */
+export function makeStubPods(overrides: Partial<Pod> = {}): Pod[] {
+  return [
+    makeStubPod({ id: 'pod-1', title: 'Closed Pod', tabOrder: 0, status: 'closed', ...overrides }),
+    makeStubPod({ id: 'pod-2', title: 'Running Pod', tabOrder: 1, status: 'running', ...overrides }),
+  ];
 }
 
 /** A fully populated Matriarch `Lane` unless overridden into a Calf. */
@@ -543,6 +569,10 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
 
   const stub: StubOrcastrateApi = {
     pods: {
+      // STAYS EMPTY. The zero-Pod reply is the first-run premise several
+      // suites assert against by NOT overriding this channel, so it is not a
+      // "default fixture" of Pods at all. `makeStubPods()` above is that
+      // fixture, and it is the one that cannot be passed by guessing.
       list: channel('podList', (): Pod[] => []),
       create: channel('podCreate', (req: CreatePodRequest): Pod =>
         makeStubPod({

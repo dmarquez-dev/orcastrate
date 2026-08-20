@@ -37,7 +37,8 @@ import {
 import type { CanUseToolOptions } from './permissions';
 import { defaultSdkBridge } from './sdk-bridge';
 import type { SdkBridge, SdkSession } from './sdk-bridge';
-import { asEnvelope, isTurnEnd } from './stream';
+import { asEnvelope, isAuthoritativeSessionSource, isTurnEnd } from './stream';
+import type { StreamMessageEnvelope } from './stream';
 
 /**
  * Lane id stamped on the synthetic events the runner emits.
@@ -52,6 +53,14 @@ import { asEnvelope, isTurnEnd } from './stream';
 export const UNROUTED_LANE_ID = '';
 
 type Phase = 'new' | 'running' | 'stopped';
+
+/**
+ * The warn sink for the session-id diagnostic. Same shape and same default as
+ * `PodManager`'s (`pod-manager.ts:100,185`), so main has one logging idiom
+ * rather than two. It is injected at the module-level factory rather than
+ * added to `PodRunnerOptions`, which is frozen and does not widen for this.
+ */
+export type PodRunnerLogger = Pick<Console, 'warn'>;
 
 /** How long `stop()` waits for the stream to drain before giving up on it. */
 const STOP_GRACE_MS = 2_000;
@@ -100,11 +109,18 @@ function deferred<T>(): Deferred<T> {
 class PodRunnerImpl implements PodRunner {
   readonly #options: PodRunnerOptions;
   readonly #bridge: SdkBridge;
+  readonly #log: PodRunnerLogger;
 
   #phase: Phase = 'new';
   #status: PodStatus = 'idle';
   #permissionMode: PermissionMode;
-  #sessionIdReported = false;
+  /**
+   * The latest AUTHORITATIVE session id seen in this run, or null before the
+   * first one. Contract section 8: latest-wins among `system`/`init` and
+   * `result`. This replaces the first-message-wins latch it grew out of, which
+   * accepted an id off any message type at all.
+   */
+  #capturedSessionId: string | null = null;
   #pendingPermissions = 0;
   #beached = false;
 
@@ -115,9 +131,10 @@ class PodRunnerImpl implements PodRunner {
   #ready = deferred<void>();
   #consumed: Promise<void> = Promise.resolve();
 
-  constructor(options: PodRunnerOptions, bridge: SdkBridge) {
+  constructor(options: PodRunnerOptions, bridge: SdkBridge, logger: PodRunnerLogger) {
     this.#options = options;
     this.#bridge = bridge;
+    this.#log = logger;
     // Validated eagerly so an unsupported mode is a construction-time
     // programming error rather than a spawn-time surprise.
     this.#permissionMode = assertAllowedPermissionMode(options.permissionMode);
@@ -127,6 +144,17 @@ class PodRunnerImpl implements PodRunner {
     return this.#options.podId;
   }
 
+  /**
+   * The RUNNER's status, and it NEVER takes `'closed'`.
+   *
+   * `PodStatus` has five values since the E1 amendment, but a runner exists
+   * only while the Pod is open, so `'closed'` is unreachable from inside this
+   * class: the initial value is `'idle'` and `stop()` still ends at `'idle'`.
+   * Making the runner emit `'closed'` was considered and REJECTED at Gate 2 —
+   * it would race with `PodManager.#dispose`, and closedness is a fact about
+   * the manager's session registry, not about a runner that is by then gone.
+   * This docblock is the only place `'closed'` is named in `src/main/pod/**`.
+   */
   get status(): PodStatus {
     return this.#status;
   }
@@ -187,7 +215,14 @@ class PodRunnerImpl implements PodRunner {
     try {
       await this.#ready.promise;
     } catch (err) {
-      this.#phase = 'stopped';
+      // THE LEAK, and this is the only throw site that has one. `#bridge` has
+      // already returned, the stream is being consumed, and a Claude Code child
+      // may well be alive; the two earlier throws (`buildSdkOptions` and
+      // `#bridge` itself) happen before any query exists, so there is nothing
+      // to reap there. Reap here, then rethrow the ORIGINAL error unchanged —
+      // its CWD_MISSING / SPAWN_FAILED / RESUME_FAILED classification is what
+      // the caller acts on.
+      await this.#teardown();
       throw err;
     }
   }
@@ -230,10 +265,7 @@ class PodRunnerImpl implements PodRunner {
 
         this.#handlers?.onMessage(item.message);
 
-        if (!this.#sessionIdReported && envelope.session_id !== undefined) {
-          this.#sessionIdReported = true;
-          this.#handlers?.onSessionId(envelope.session_id);
-        }
+        this.#captureSessionId(envelope);
 
         if (isTurnEnd(envelope)) {
           this.#handlers?.onTurnEnd();
@@ -256,6 +288,40 @@ class PodRunnerImpl implements PodRunner {
       if (this.#phase !== 'running') return; // torn down deliberately
       this.#beach(exitCodeFromError(err), errorMessage(err));
     }
+  }
+
+  /**
+   * Contract `pod-lifecycle.ts` section 8 (E2, resolved as option A). Capture
+   * narrows to the message types that authoritatively name the session, and the
+   * LATEST such id in a run wins — both types name the same session in every
+   * captured corpus, and latest-wins keeps a mid-run rotation from being missed.
+   *
+   * The warn is the required diagnostic: the repo holds NO captured artifact of
+   * a run carrying more than one `session_id`, so the next real run has to
+   * produce the evidence. The line states what happened and carries the
+   * identifiers needed to find it again — the Pod, both ids, and the message
+   * type that brought the new one. It logs no secret: a session id is an opaque
+   * conversation handle, already persisted in the clear as `pods.cc_session_id`,
+   * and it is the whole subject of the line.
+   */
+  #captureSessionId(envelope: StreamMessageEnvelope): void {
+    const id = envelope.session_id;
+    if (id === undefined) return;
+    if (!isAuthoritativeSessionSource(envelope)) return;
+    if (id === this.#capturedSessionId) return;
+
+    if (this.#capturedSessionId !== null) {
+      const source =
+        envelope.subtype === undefined ? envelope.type : `${envelope.type}/${envelope.subtype}`;
+      this.#log.warn(
+        `[orcastrate] pod ${this.podId}: Claude Code session id changed mid-run from ` +
+          `${this.#capturedSessionId} to ${id} (from a ${source} message); the latest id ` +
+          `wins and is the one a reconnect will resume`,
+      );
+    }
+
+    this.#capturedSessionId = id;
+    this.#handlers?.onSessionId(id);
   }
 
   #reportMalformed(rawLine: string, parseError: string): void {
@@ -377,6 +443,21 @@ class PodRunnerImpl implements PodRunner {
   }
 
   async stop(): Promise<void> {
+    await this.#teardown();
+    if (!this.#beached) this.#setStatus('idle');
+  }
+
+  /**
+   * The reap, shared by `stop()` and by the failed-start path.
+   *
+   * Extracted rather than reached by calling `stop()` from `start()`, so that
+   * the failed-start path reaps without also taking `stop()`'s trailing status
+   * write, and so that `stop()` afterwards is still a no-throw idempotent
+   * no-op: it re-enters here, finds the phase already terminal, and returns.
+   * The `#setStatus('idle')` that follows is a no-op too, because a start that
+   * failed at the ready gate never left `'idle'`.
+   */
+  async #teardown(): Promise<void> {
     if (this.#phase === 'stopped') return;
     this.#phase = 'stopped';
     try {
@@ -389,7 +470,6 @@ class PodRunnerImpl implements PodRunner {
     } catch {
       // Idempotent and never throws (contract).
     }
-    if (!this.#beached) this.#setStatus('idle');
   }
 
   /**
@@ -452,8 +532,11 @@ function safeStringify(value: unknown): string {
  * function, not a member of `PodRunner` or a field on `PodRunnerOptions` —
  * both are frozen.
  */
-export function createPodRunnerWith(bridge: SdkBridge): CreatePodRunner {
-  return (options: PodRunnerOptions) => new PodRunnerImpl(options, bridge);
+export function createPodRunnerWith(
+  bridge: SdkBridge,
+  logger: PodRunnerLogger = console,
+): CreatePodRunner {
+  return (options: PodRunnerOptions) => new PodRunnerImpl(options, bridge, logger);
 }
 
 /** The production factory. Exactly the frozen `CreatePodRunner` signature. */

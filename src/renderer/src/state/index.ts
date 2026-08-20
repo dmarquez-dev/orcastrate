@@ -13,6 +13,13 @@
  * replaceable behind it.
  */
 
+/**
+ * NOTE: `isPodOpen` is deliberately NOT re-exported here. This barrel exports
+ * exactly the runtime surface the frozen contract declares — a test pins that
+ * — and openness is not part of it: a view reads `PodTabVm.opened`, which IS
+ * that function applied once. The function itself stays on
+ * `./workspace-provider` for the tests that sweep every status through it.
+ */
 export {
   WorkspaceProvider,
   useWorkspace,

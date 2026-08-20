@@ -26,7 +26,24 @@ import type { EventType, LaneKind, LaneStatus, PermissionMode, PodStatus } from 
  * so an added enum member cannot silently skip its CHECK constraint.
  */
 
-export const POD_STATUSES = ['idle', 'running', 'waiting', 'beached'] as const satisfies readonly PodStatus[];
+/**
+ * The Pod statuses the CURRENT schema head admits. Widened to five by
+ * migration 3.
+ *
+ * This constant tracks the contract union and therefore CHANGES over time. It
+ * is NOT interpolated into any migration any more — see
+ * `MIGRATION_1_POD_STATUSES` and `MIGRATION_3_POD_STATUSES`, which are pinned
+ * per migration precisely so that widening this array cannot rewrite DDL that
+ * has already been applied to a user's database. Migration 1 used to
+ * interpolate it, which was the latent bug that widening the union exposed.
+ */
+export const POD_STATUSES = [
+  'closed',
+  'idle',
+  'running',
+  'waiting',
+  'beached',
+] as const satisfies readonly PodStatus[];
 export const LANE_STATUSES = ['running', 'done', 'orphaned'] as const satisfies readonly LaneStatus[];
 export const LANE_KINDS = ['matriarch', 'calf'] as const satisfies readonly LaneKind[];
 /**
@@ -60,8 +77,17 @@ export const EVENT_TYPES = [
   'malformed',
 ] as const satisfies readonly EventType[];
 
-// Each of these resolves to `never` while the arrays above are exhaustive; if a
-// union gains a member the corresponding line stops compiling.
+// Each of these resolves to `never` while the arrays above are exhaustive.
+//
+// CAUTION — THIS BLOCK IS WEAKER THAN IT LOOKS AND MUST NOT BE CITED AS
+// PROTECTION. `_exhaustive` is initialised with empty array literals, and an
+// empty array literal is assignable to ANY array type. So a union that gains a
+// member one of these arrays lacks does NOT break the build here. What this
+// block still catches is the other direction: a BOGUS member in one of the
+// arrays, rejected by the `satisfies` clauses above. The real tripwire for a
+// missing member is `_PodStatusCoveredAtSchemaHead` below, which asserts
+// `never` through a generic CONSTRAINT rather than through an empty array
+// literal, plus the tests in `tests/unit/store/`.
 type _UncoveredPodStatus = Exclude<PodStatus, (typeof POD_STATUSES)[number]>;
 type _UncoveredLaneStatus = Exclude<LaneStatus, (typeof LANE_STATUSES)[number]>;
 type _UncoveredLaneKind = Exclude<LaneKind, (typeof LANE_KINDS)[number]>;
@@ -102,6 +128,29 @@ export function sqlIn(values: readonly string[]): string {
 const MIGRATION_1_PERMISSION_MODES = ['default', 'plan', 'bypassPermissions'] as const;
 
 /**
+ * FROZEN. The exact pod-status list migration 1 shipped with, in the exact
+ * order it shipped in.
+ *
+ * Identical story to `MIGRATION_1_PERMISSION_MODES` above, one enum later.
+ * Migration 1 interpolated the live `POD_STATUSES`, which was harmless only
+ * for as long as nobody widened the union. Adding `'closed'` would have
+ * rewritten migration 1's TEXT for every future fresh database while leaving
+ * every already-migrated database on the old text — two structurally different
+ * v1 schemas both claiming `schema_version = 1`. Pinning the literal is the
+ * fix. NEVER edit this array — a change to the status set is a NEW migration
+ * (see `MIGRATION_3_POD_STATUSES`).
+ *
+ * It deliberately carries NO `satisfies readonly PodStatus[]` clause: the
+ * whole point is that it must NOT track the contract union.
+ * `MIGRATION_1_PERMISSION_MODES` is bare for the same reason.
+ *
+ * `tests/unit/store/migration-2.test.ts` asserts migration 1's rendered SQL is
+ * byte-identical to the text of the immutable blob that shipped it, which is
+ * what proves this pin is correct.
+ */
+const MIGRATION_1_POD_STATUSES = ['idle', 'running', 'waiting', 'beached'] as const;
+
+/**
  * FROZEN once shipped. The permission-mode list migration 2 widens the CHECK
  * constraint to. Same rule as above: a fifth mode is migration 3, not an edit
  * here.
@@ -118,6 +167,41 @@ const MIGRATION_2_PERMISSION_MODES = [
 ] as const satisfies readonly PermissionMode[];
 
 /**
+ * FROZEN once shipped. The permission-mode list migration 3 rebuilds the
+ * `pods` table with.
+ *
+ * It repeats migration 2's four modes VERBATIM and deliberately does NOT reuse
+ * `MIGRATION_2_PERMISSION_MODES`. Sharing that constant would recreate exactly
+ * the coupling the per-migration pinning exists to break: a fifth mode belongs
+ * in migration 4, and migration 2's list must keep rendering what migration 2
+ * shipped whatever migration 3 does.
+ */
+const MIGRATION_3_PERMISSION_MODES = [
+  'default',
+  'acceptEdits',
+  'plan',
+  'bypassPermissions',
+] as const satisfies readonly PermissionMode[];
+
+/**
+ * FROZEN once shipped. The pod-status list migration 3 rebuilds the `pods`
+ * table with — the four migrations 1 and 2 shipped, plus `'closed'`.
+ *
+ * Unlike `MIGRATION_1_POD_STATUSES` this one DOES carry
+ * `satisfies readonly PodStatus[]`, because it is the SCHEMA HEAD and must
+ * stay exhaustive over the contract union. `_PodStatusCoveredAtSchemaHead`
+ * below is what enforces that. A sixth status is migration 4, not an edit
+ * here.
+ */
+const MIGRATION_3_POD_STATUSES = [
+  'closed',
+  'idle',
+  'running',
+  'waiting',
+  'beached',
+] as const satisfies readonly PodStatus[];
+
+/**
  * Resolves to `never` while the newest migration's CHECK constraint still
  * covers every member of the contract union. If it stops doing so the build
  * breaks here — add a migration, do not edit `MIGRATION_2_PERMISSION_MODES`.
@@ -125,6 +209,28 @@ const MIGRATION_2_PERMISSION_MODES = [
 type _UncoveredAtSchemaHead = Exclude<PermissionMode, (typeof MIGRATION_2_PERMISSION_MODES)[number]>;
 const _schemaHeadExhaustive: _UncoveredAtSchemaHead[] = [];
 void _schemaHeadExhaustive;
+
+/**
+ * The same guard for pod status, against migration 3's pinned list, so that a
+ * SIXTH `PodStatus` breaks the BUILD here and demands migration 4 rather than
+ * failing as a `CHECK constraint failed` on a user's machine. SQLite's CHECK
+ * is the only runtime enforcement of the status set in the entire product
+ * (`rows.ts` casts `row.status as PodStatus` unchecked), so this is the last
+ * line of defence before shipping.
+ *
+ * IT IS SPELLED DIFFERENTLY FROM `_UncoveredAtSchemaHead` ABOVE, ON PURPOSE.
+ * That one assigns `[]` to an `Uncovered[]`, and an empty array literal is
+ * assignable to any array type — so it does not actually fail when the union
+ * gains an uncovered member. Routing the `Exclude` through a generic
+ * CONSTRAINT (`T extends never`) is what makes the failure real: a non-`never`
+ * argument is rejected at the type level with no value to be vacuously empty.
+ */
+type _AssertNever<T extends never> = T;
+type _PodStatusCoveredAtSchemaHead = _AssertNever<
+  Exclude<PodStatus, (typeof MIGRATION_3_POD_STATUSES)[number]>
+>;
+const _podStatusSchemaHead: _PodStatusCoveredAtSchemaHead[] = [];
+void _podStatusSchemaHead;
 
 // ---------------------------------------------------------------------------
 // Migrations
@@ -144,7 +250,7 @@ CREATE TABLE pods (
   permission_mode TEXT    NOT NULL CHECK (permission_mode IN ${sqlIn(MIGRATION_1_PERMISSION_MODES)}),
   env_overrides   TEXT    NOT NULL DEFAULT '{}',
   tab_order       INTEGER NOT NULL,
-  status          TEXT    NOT NULL CHECK (status IN ${sqlIn(POD_STATUSES)}),
+  status          TEXT    NOT NULL CHECK (status IN ${sqlIn(MIGRATION_1_POD_STATUSES)}),
   created_at      TEXT    NOT NULL,
   last_active_at  TEXT    NOT NULL
 ) STRICT;
@@ -257,12 +363,85 @@ ALTER TABLE pods_new RENAME TO pods;
 `;
 
 /**
+ * Migration 3 — widen `pods.status` from four states to five by adding
+ * `'closed'`.
+ *
+ * WHY THE STATUS SET GREW. `'idle'` meant two different things: main holds a
+ * live runner and it is between turns, AND main holds no runner at all. The
+ * second meaning is now `'closed'`, so `status` alone answers "is this Pod
+ * open". A Pod that has never been opened is born `'closed'`, `closePod`
+ * writes `'closed'`, and the boot sweep converges every non-`'beached'` Pod to
+ * `'closed'`.
+ *
+ * WHY A TABLE REBUILD, again. Identical to migration 2 and for the identical
+ * reason: SQLite has no `ALTER TABLE ... ALTER CONSTRAINT`, so a CHECK can
+ * only be changed by the 12-step rebuild the SQLite docs prescribe (create
+ * new, copy, drop old, rename). `pods` still carries no indexes and no
+ * triggers of its own — every index in the schema hangs off `lanes` or
+ * `events` — so steps 7 and 8 of that procedure reduce to nothing.
+ *
+ * THE FOREIGN-KEY TRAP APPLIES AGAIN AND IT IS THE ONE WAY TO LOSE DATA HERE.
+ * `lanes.pod_id` and `events.pod_id` are `REFERENCES pods(id) ON DELETE
+ * CASCADE`. With `PRAGMA foreign_keys = ON` — which `SqliteEventStore`'s
+ * constructor sets — `DROP TABLE pods` would cascade every lane and every
+ * event out of the database and this migration would report SUCCESS on an
+ * emptied store. `SqliteEventStore.migrate()` suspends FK enforcement for the
+ * migration transaction and runs `PRAGMA foreign_key_check` before committing,
+ * so migration 3 inherits migration 2's protection — but
+ * `tests/unit/store/migration-3.test.ts` PROVES it for migration 3 with lane
+ * and event counts rather than inheriting the assumption, because "the runner
+ * already handles it" is exactly the assumption that loses a user's
+ * transcripts.
+ *
+ * IT BACKFILLS NOTHING. This migration widens the constraint and changes no
+ * row's status; every existing row keeps the value it had. The
+ * `'idle'` -> `'closed'` correction is the BOOT SWEEP's job, which runs moments
+ * later in the same startup. That division is deliberate: the sweep also
+ * orphans the lanes and writes a durable `system` event naming what changed,
+ * and doing half the state change in silent SQL would leave rows that changed
+ * with no transcript record.
+ *
+ * NOT REVERSIBLE. Consistent with the file docblock, there is no `down` path;
+ * a downgrade discards the database file. A row already carrying `'closed'`
+ * could not satisfy migration 2's constraint anyway.
+ *
+ * Both constraint lists are PINNED per migration, not derived from the live
+ * `POD_STATUSES` / `PERMISSION_MODES`: the moment a sixth status or a fifth
+ * mode is exposed, this SQL must keep rendering what it shipped with.
+ */
+const MIGRATION_3 = `
+CREATE TABLE pods_new (
+  id              TEXT    PRIMARY KEY,
+  title           TEXT    NOT NULL,
+  cwd             TEXT    NOT NULL,
+  cc_session_id   TEXT,
+  permission_mode TEXT    NOT NULL CHECK (permission_mode IN ${sqlIn(MIGRATION_3_PERMISSION_MODES)}),
+  env_overrides   TEXT    NOT NULL DEFAULT '{}',
+  tab_order       INTEGER NOT NULL,
+  status          TEXT    NOT NULL CHECK (status IN ${sqlIn(MIGRATION_3_POD_STATUSES)}),
+  created_at      TEXT    NOT NULL,
+  last_active_at  TEXT    NOT NULL
+) STRICT;
+
+INSERT INTO pods_new (id, title, cwd, cc_session_id, permission_mode, env_overrides,
+                      tab_order, status, created_at, last_active_at)
+  SELECT id, title, cwd, cc_session_id, permission_mode, env_overrides,
+         tab_order, status, created_at, last_active_at
+  FROM pods;
+
+DROP TABLE pods;
+
+ALTER TABLE pods_new RENAME TO pods;
+`;
+
+/**
  * Ordered, forward-only. Append new entries; never edit a shipped one.
  * `CURRENT_SCHEMA_VERSION` is the highest version this build understands.
  */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, sql: MIGRATION_1 },
   { version: 2, sql: MIGRATION_2 },
+  { version: 3, sql: MIGRATION_3 },
 ];
 
 export const CURRENT_SCHEMA_VERSION: number = MIGRATIONS.reduce(

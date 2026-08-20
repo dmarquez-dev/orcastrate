@@ -24,7 +24,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { Lane, LaneId, PodId } from '@shared/contracts/events';
+import type { Lane, LaneId, PodId, PodStatus } from '@shared/contracts/events';
 import type { OrcastrateApi } from '@shared/contracts/ipc';
 
 import type {
@@ -148,6 +148,19 @@ function useElapsedClock(running: boolean): number {
 // Derivation
 // ---------------------------------------------------------------------------
 
+/**
+ * THE ONE DERIVATION OF OPENNESS, and the only place in the renderer that
+ * decides it.
+ *
+ * Openness is a fact about main's session registry, and `status` is the only
+ * field that reports it. Positive form on purpose: a status this build does
+ * not recognise reads as not-open, which shows a redundant run control rather
+ * than enabling a composer over a dead process. Offering to type into a Pod
+ * that may not be running is the worse error.
+ */
+export const isPodOpen = (status: PodStatus): boolean =>
+  status === 'idle' || status === 'running' || status === 'waiting';
+
 function derivePodList(state: WorkspaceState): PodListView {
   const value = orderPods(state.pods).map<PodTabVm>((pod) => {
     const runtime = state.runtimes[pod.id];
@@ -156,7 +169,10 @@ function derivePodList(state: WorkspaceState): PodListView {
     return {
       pod,
       active,
-      opened: runtime?.opened ?? false,
+      // Derived from the Pod row, never from `runtime`. The old
+      // `runtime?.opened ?? false` also manufactured "not open" for a merely
+      // MISSING runtime record — a different fact wearing the same answer.
+      opened: isPodOpen(pod.status),
       status: pod.status,
       // True for a BACKGROUNDED Pod too: that is the whole point of the badge.
       awaitingPermission: pending > 0,
@@ -184,7 +200,9 @@ function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | u
     transcripts: deriveTranscripts(runtime),
     backfill: runtime.backfill,
     pendingPermissions: runtime.pendingPermissions,
-    composer: deriveComposer(podId, runtime, pod?.status ?? 'idle'),
+    // A Pod the state layer cannot find is not open, so the fallback is
+    // `'closed'` rather than `'idle'`.
+    composer: deriveComposer(podId, runtime, pod?.status ?? 'closed'),
   };
 }
 
@@ -238,14 +256,14 @@ function deriveTranscripts(
 function deriveComposer(
   podId: PodId,
   runtime: PodRuntimeState,
-  status: string,
+  status: PodStatus,
 ): ComposerState {
   // Most specific reason first: a beached Pod is also not opened, and saying
   // "not opened" there would send the user to the wrong affordance.
   const disabledReason: ComposerState['disabledReason'] =
     status === 'beached'
       ? 'beached'
-      : !runtime.opened
+      : !isPodOpen(status)
         ? 'not-opened'
         : runtime.pendingPermissions.length > 0
           ? 'awaiting-permission'

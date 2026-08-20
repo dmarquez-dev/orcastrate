@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 import { createOrcastrateApi, type PreloadIpc, type PushListener } from './api';
 import {
@@ -251,6 +254,52 @@ describe('push subscriptions', () => {
     expect(args).toEqual([[{ podId: 'p', status: 'idle' }]]);
   });
 
+  /**
+   * `'closed'` is the fifth `PodStatus`, added by DIR session
+   * 2026-08-20-orcastrate-pod-lifecycle so that `status` alone is authoritative
+   * about whether main holds a live runner.
+   *
+   * THE BRIDGE MUST NOT LEARN WHAT ANY STATUS MEANS. This layer is a
+   * pass-through: it forwards the payload verbatim and derives nothing. The
+   * test sits beside the `'idle'` case above precisely so that a future
+   * "helpful" normalisation — mapping `'closed'` to `'idle'`, or attaching a
+   * derived `opened` flag on the way through — fails here, at the one layer
+   * that has no business making that call.
+   */
+  it('delivers a closed status across the bridge unchanged', () => {
+    const ipc = fakeIpc();
+    const api = createOrcastrateApi(ipc);
+    const seen: unknown[] = [];
+    api.on.podStatus((p) => seen.push(p));
+
+    ipc.emit(EVENT_CHANNELS.podStatus, { podId: 'p', status: 'closed' });
+
+    expect(seen).toEqual([{ podId: 'p', status: 'closed' }]);
+    expect(Object.keys(seen[0] as object)).toEqual(['podId', 'status']);
+  });
+
+  /**
+   * The whole five-value union, and the beached payload with its cause. The
+   * bridge adds no key, drops no key and rewrites no value for any of them.
+   */
+  it.each([
+    ['closed', { podId: 'p', status: 'closed' }],
+    ['idle', { podId: 'p', status: 'idle' }],
+    ['running', { podId: 'p', status: 'running' }],
+    ['waiting', { podId: 'p', status: 'waiting' }],
+    ['beached', { podId: 'p', status: 'beached', exitCode: 1, detail: 'spawn failed' }],
+  ])('forwards a %s podStatus push byte for byte', (_name, payload) => {
+    const ipc = fakeIpc();
+    const api = createOrcastrateApi(ipc);
+    const seen: unknown[] = [];
+    api.on.podStatus((p) => seen.push(p));
+
+    ipc.emit(EVENT_CHANNELS.podStatus, payload);
+
+    expect(seen).toEqual([payload]);
+    expect(seen[0]).toBe(payload);
+  });
+
   it('removes only its own listener when several are registered', () => {
     const ipc = fakeIpc();
     const api = createOrcastrateApi(ipc);
@@ -333,5 +382,60 @@ describe('push subscriptions', () => {
     expect([...ipc.listeners.keys()].sort()).toEqual(
       [...Object.values(EVENT_CHANNELS)].sort(),
     );
+  });
+});
+
+/**
+ * THE BRIDGE IS BUILT FROM THE FROZEN CONSTANTS, NEVER FROM A STRING LITERAL.
+ *
+ * This is a property of the SOURCE, not of the behaviour, so only a source scan
+ * can pin it. The behavioural tests above would all still pass if someone
+ * inlined `'pod:list'`: the wire name would be right on the day it was typed,
+ * and a later rename in `ipc.ts` would then desync the bridge silently — the
+ * renderer awaiting a promise that never settles, with nothing red to say why.
+ */
+describe('the preload bridge never spells a channel name itself', () => {
+  const SOURCE = readFileSync(fileURLToPath(new URL('./api.ts', import.meta.url)), 'utf8');
+
+  /** Comments legitimately name channels in prose; only CODE is under test. */
+  const CODE = SOURCE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+
+  it('has a source to scan, and it is the bridge', () => {
+    expect(CODE).toContain('export function createOrcastrateApi');
+    expect(CODE.length).toBeGreaterThan(1000);
+  });
+
+  it.each(Object.entries(INVOKE_CHANNELS))(
+    'reaches %s through the constant, not the literal %s',
+    (key, value) => {
+      expect(CODE, `api.ts never references INVOKE_CHANNELS.${key}`).toContain(
+        `INVOKE_CHANNELS.${key}`,
+      );
+      expect(CODE, `api.ts spells the wire name '${value}' as a literal`).not.toContain(
+        `'${value}'`,
+      );
+    },
+  );
+
+  it.each(Object.entries(EVENT_CHANNELS))(
+    'subscribes to %s through the constant, not the literal %s',
+    (key, value) => {
+      expect(CODE, `api.ts never references EVENT_CHANNELS.${key}`).toContain(
+        `EVENT_CHANNELS.${key}`,
+      );
+      expect(CODE, `api.ts spells the wire name '${value}' as a literal`).not.toContain(
+        `'${value}'`,
+      );
+    },
+  );
+
+  /**
+   * The catch-all, so a channel this session has never heard of cannot arrive
+   * as a literal either. Every wire name in the contract is `namespace:method`,
+   * and nothing else in this file has that shape.
+   */
+  it('contains no channel-shaped string literal at all', () => {
+    const literals = CODE.match(/['"][a-z][A-Za-z]*:[A-Za-z]+['"]/g) ?? [];
+    expect(literals).toEqual([]);
   });
 });

@@ -99,18 +99,18 @@ describe('schema shape (criteria 2, 3)', () => {
       .prepare<unknown[], { version: number }>('SELECT version FROM schema_version ORDER BY version')
       .all()
       .map((r) => r.version);
-    expect(applied).toEqual([1, 2]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(2);
+    expect(applied).toEqual([1, 2, 3]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(3);
   });
 
-  it('constrains pods.status to idle|running|waiting|beached at the database level', () => {
+  it('constrains pods.status to closed|idle|running|waiting|beached at the database level', () => {
     const path = tempDbPath();
     const store = fileStore(path);
     store.migrate();
     const pod = store.createPod(podInput());
 
     const db = rawDb(path);
-    for (const valid of ['idle', 'running', 'waiting', 'beached']) {
+    for (const valid of ['closed', 'idle', 'running', 'waiting', 'beached']) {
       expect(() => db.prepare('UPDATE pods SET status = ? WHERE id = ?').run(valid, pod.id)).not.toThrow();
     }
     expect(() => db.prepare('UPDATE pods SET status = ? WHERE id = ?').run('sunk', pod.id)).toThrowError(

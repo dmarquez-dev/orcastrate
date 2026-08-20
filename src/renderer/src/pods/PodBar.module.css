@@ -112,6 +112,16 @@
   border-radius: 0;
 }
 
+/* closed — a flat bar. Without a rule here a closed Pod's dot falls through to
+   the base rule and reads as a filled circle, i.e. as running. The bar is the
+   quietest shape in the set and shares nothing with `idle`'s hollow ring, so
+   the two stay apart in greyscale as well as in hue. */
+.statusDot[data-status='closed'] {
+  height: var(--oc-border-thick);
+  align-self: center;
+  border-radius: 0;
+}
+
 .permissionBadge {
   display: inline-flex;
   min-width: var(--oc-space-4);

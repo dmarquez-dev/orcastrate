@@ -184,7 +184,24 @@ export interface PodRunnerHandlers {
   onMessage(message: unknown): void;
   /** Status transitions (spec 4.4 enum). */
   onStatus(status: PodStatus): void;
-  /** Claude Code's session id, as soon as the stream reveals it. */
+  /**
+   * Claude Code's session id, from the messages that AUTHORITATIVELY name the
+   * session — `system` with `subtype: 'init'`, and `result`. A `session_id` on
+   * any other message type is IGNORED for capture.
+   *
+   * MAY BE CALLED MORE THAN ONCE IN A RUN, and the LATEST call wins: an
+   * authoritative id that differs from the one already captured replaces it,
+   * and the runner logs the change at warn with both ids and the Pod id. A
+   * repeat of the same id is not re-reported. A consumer must therefore treat
+   * this as last-write-wins rather than as a one-shot latch.
+   *
+   * WHY THE NARROWING. Nothing requires the first `session_id`-bearing message
+   * in the stream to name THIS query's session. A hook-emitted message
+   * carrying a foreign id and arriving before `system/init` would otherwise
+   * become the Pod's permanent resume id, and a later reconnect would resume
+   * someone else's conversation. Source: `pod-lifecycle.ts` section 8,
+   * escalation E2 resolved as option A at Gate 2.
+   */
   onSessionId(ccSessionId: string): void;
   /** A turn completed (SDK `result` message). Drives orphan detection. */
   onTurnEnd(): void;
@@ -244,12 +261,40 @@ export type PodRunnerErrorCode =
 
 export interface PodRunner {
   readonly podId: PodId;
+  /**
+   * The RUNNER's status. It NEVER takes `'closed'`.
+   *
+   * `PodStatus` has five values, but a runner exists only while the Pod is
+   * open, so `'closed'` is unreachable from inside one: it starts at `'idle'`
+   * and `stop()` ends at `'idle'`. `'closed'` is a fact about the MANAGER's
+   * session registry, and having the runner emit it was considered and
+   * rejected at Gate 2 because it would race `PodManager.#dispose`.
+   */
   readonly status: PodStatus;
 
   /**
    * Spawns the CLI and begins consuming the stream. Resolves once the process
    * is up, not once the first turn completes. Throws CWD_MISSING,
    * SPAWN_FAILED, RESUME_FAILED, ALREADY_STARTED.
+   *
+   * THE FAILURE PATH REAPS WHAT IT SPAWNED. A `start()` that rejects AFTER the
+   * query exists has left a Claude Code child streaming with no owner, so
+   * before it rethrows it MUST abort the controller it passed to the SDK and
+   * close the streaming-input generator. A failure raised before the query
+   * exists — CWD_MISSING, and a throw out of the query construction itself —
+   * has nothing to reap and does none of this.
+   *
+   * Three things the reap must NOT change, and each is pinned by a test:
+   *   - the rejection the caller sees is identical in type, code and message,
+   *     CWD_MISSING / SPAWN_FAILED / RESUME_FAILED classification included;
+   *   - `stop()` afterwards resolves, throws nothing, and two successive calls
+   *     are indistinguishable from one;
+   *   - `send`, `interrupt` and `setPermissionMode` afterwards still throw
+   *     NOT_RUNNING.
+   *
+   * Source: `pod-lifecycle.ts` section 7, half B. Half A — the manager calling
+   * `stop()` in its own catch — is a separate obligation on `PodManager`, and
+   * neither half may assume the other landed.
    */
   start(handlers: PodRunnerHandlers, onPermission: PermissionHandler): Promise<void>;
 

@@ -17,6 +17,7 @@ export {
 export {
   stubOrcastrateApi,
   makeStubPod,
+  makeStubPods,
   makeStubLane,
   makeStubBeachcomberEntries,
   makeStubBeachcomberScan,
