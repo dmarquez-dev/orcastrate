@@ -1,0 +1,311 @@
+{
+  "session": "2026-08-19-orcastrate-beachcomber-helm",
+  "createdAt": "2026-08-19T13:00:00-07:00",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/panel-host.ts",
+    "contracts/beachcomber.ts",
+    "contracts/helm.ts",
+    "contracts/renderer-panels.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Populate the reserved beachcomber and helm IPC namespaces: shared contracts, preload bridge, main handlers, and the renderer API stub that mirrors them",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/shared/contracts/ipc.ts",
+        "src/shared/contracts/panel-host.ts",
+        "src/shared/contracts/beachcomber.ts",
+        "src/shared/contracts/helm.ts",
+        "src/preload/**",
+        "src/main/ipc/**",
+        "tests/unit/ipc/**",
+        "src/renderer/src/test-utils/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "THE ESCALATED CONTRACT CHANGE. `src/shared/contracts/ipc.ts` no longer contains `beachcomber?: never` or `helm?: never` (lines 244-249). In their place `beachcomber: BeachcomberApi;` and `helm: HelmApi;` are non-optional members of `OrcastrateApi`, imported type-only from the two new shared contracts. The RESERVED docblock above them is rewritten to say the namespaces are now populated and to name this session as the one that did it - it must not still read as a reservation. If the orchestrator did NOT get this change approved at Gate 2, this task stops and reports rather than proceeding.",
+        "`src/shared/contracts/panel-host.ts`, `beachcomber.ts` and `helm.ts` land byte-faithful to the frozen files in the session `contracts/` directory. Divergence from a frozen contract is a contract-change escalation, not an edit.",
+        "`INVOKE_CHANNELS` gains exactly six keys with exactly these names and values: `beachcomberScan: 'beachcomber:scan'`, `beachcomberPreview: 'beachcomber:preview'`, `beachcomberTrash: 'beachcomber:trash'`, `helmScopes: 'helm:scopes'`, `helmLoad: 'helm:load'`, `helmSave: 'helm:save'`. A test asserts `Object.keys(INVOKE_CHANNELS).length === 21` and that every value is unique.",
+        "`EVENT_CHANNELS` gains exactly one key: `helmChanged: 'push:helmChanged'`, bringing it to six. A test asserts the count and uniqueness.",
+        "THE NO-PATHS RULE IS RESTATED, NOT ASSUMED. The HARD RULE docblock at `ipc.ts:12-14` gains a paragraph naming Beachcomber explicitly: rows carry `displayPath` as an opaque display string, every mutating call names a `BeachcomberEntryId` or a `HelmScopeId`, and those ids are main-minted tokens the renderer cannot forge. A test asserts that no method on either new namespace takes a bare path-shaped argument, by checking that `preview`/`trash` accept only `{scanId, ids}` and `load`/`save` accept only a scopeId-keyed payload.",
+        "`src/preload/api.ts` builds both namespaces from `INVOKE_CHANNELS`/`EVENT_CHANNELS` constants and never from a string literal. `src/preload/api.test.ts` covers each of the six new methods for channel name and argument pass-through, and covers `on.helmChanged` for delivery plus an unsubscribe that removes exactly its own listener and is a no-op when called twice.",
+        "`IpcHandlerDeps` gains `beachcomber: BeachcomberService` and `helm: HelmService` as INJECTED ports (backend discipline: dependencies declared at construction, never resolved from a global). `src/main/ipc/**` imports neither `electron` nor `node:fs` nor `src/main/beachcomber`/`src/main/helm` - asserted by a source scan over that directory, preserving the posture `handlers.ts` already states in its header.",
+        "`registerIpcHandlers` registers exactly the six new channels through the existing `register` wrapper, returns 21 channel names, and still throws on a duplicate registration. A test drives each new channel with a service that throws and asserts the result is `{ ok: false }` with a documented `IpcErrorCode` - no handler rejects, and no new handler has its own try/catch.",
+        "Validation in `src/main/ipc/validate.ts` for the new payloads, each with a test: a non-array `ids`, a non-string id inside it, more than 500 ids, a missing `scanId`, and a non-string `scopeId` all answer `INVALID_ARGUMENT`. No validator resolves, joins, or stats a path - validation is shape-only, and path resolution is the service's job.",
+        "An error crossing this boundary is translated to the boundary's vocabulary: a service failure that is not an `IpcFailure` becomes `INTERNAL` with a safe message and no stack text in `message`; a thrown `IpcFailure` keeps its code. Both directions are tested.",
+        "`dependencies` in `package.json` is unchanged (still exactly `@anthropic-ai/claude-agent-sdk` and `better-sqlite3`).",
+        "AMENDED by user decision at escalation E4 (2026-08-19), after T1 review round 1. The original criterion required 'npm run typecheck and npm test green', which T1 cannot satisfy: widening IpcHandlerDeps (criterion 7) breaks its one caller, src/main/index.ts, owned by T8, and the INVOKE_CHANNELS completeness sweeps in src/renderer/src/state/store.test.ts (T5) and src/renderer/src/__tests__/failure-paths.e2e.test.tsx (T10) fail on the six new keys. T1's obligation is now: every suite inside its own ownership is green - tests/unit/ipc/**, src/preload/api.test.ts, src/renderer/src/test-utils/**, and src/renderer/src/state/isolation.test.ts - typecheck:web is green, no pre-existing suite is weakened or deleted, and the report names every remaining failure with the task that owns it. The whole-repo green requirement moves to T8.",
+        "THIS TASK OWNS `src/renderer/src/test-utils/**` BECAUSE IT IS THE ONLY OTHER MIRROR OF THE FROZEN SURFACE. Widening `OrcastrateApi` breaks `stub-api.ts` in three independent places - `INVOKE_CHANNEL_METHODS` (`satisfies Record<InvokeChannelKey, ...>`, line 60), `EVENT_CHANNEL_METHODS` (`satisfies Record<EventChannelKey, keyof OrcastrateApi['on']>`, line 85), and the `StubOrcastrateApi` object literal at line 231 - and two of those fail from the channel-constant edit alone, before the namespace members are even considered. `src/preload/api.ts` and `stub-api.ts` are the ONLY two constructors of an `OrcastrateApi` in the tree (everything else uses it in a type position), both are models of the surface this task owns, and the task that breaks a type repairs every constructor of it. `npm run typecheck` is therefore green at this task's commit, with no red window on the session branch. AMENDED at E4: the concluding clause asserting typecheck is green at this task commit is struck; typecheck:web green is what this criterion requires of T1. The node half moves to T8.",
+        "THE BREADTH IS BOUNDED, AND THE BOUND IS CHECKED. Inside `test-utils/`, this task may change only `stub-api.ts`, `stub-api.test.ts`, and the re-exports in `index.ts`. `render.tsx`, `render.test.tsx` and `workspace-provider-seam.ts` are React render harnesses that use `OrcastrateApi` only as a generic constraint, still compile untouched, and MUST be left untouched - the diff is asserted to contain none of them.",
+        "`stub-api.ts` grows `beachcomber` and `helm` namespaces and an `emit.helmChanged`, with both `satisfies` records extended to all 21 invoke and 6 push channels. A test arms `failInvoke` for each of the six new channels and asserts the stub answered `{ ok: false }`, and `stub-api.test.ts`'s existing walk over the frozen constants still proves every channel reaches a real function - so the stub cannot silently lag the surface.",
+        "THE STUB'S DEFAULT ANSWERS ARE RICH ENOUGH THAT NOBODY DOWNSTREAM REINVENTS FIXTURES. The default scan carries at least one entry in each of the four roots, at least one blocked entry with a `blockedBy`, at least one orphan, and at least one `pathSource: 'decoded-name'` entry. The default scope list carries the user scope and both project scopes for one Pod; the default document carries at least two unmanaged keys and a non-empty `hooksJson`. Every default is contract-valid, asserted by shape-check as well as by typecheck. T6, T7 and T10 build on these rather than each inventing their own.",
+        "`src/renderer/src/state/isolation.test.ts` passes UNCHANGED. `test-utils/` is not exempt from that scan, so the stub may name `window.orcastrate` only in a type position or a comment - never as an expression - and it continues to import no `node:` builtin and no `electron`."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Beachcomber main-process scanner: true-cwd resolution, orphan detection, Pod blocking, and trash-only deletion",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/beachcomber/**",
+        "tests/unit/beachcomber/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "`src/main/beachcomber/**` exports a factory implementing `BeachcomberService` exactly as the frozen contract declares, constructed from `BeachcomberServiceDeps` and nothing else. A source scan asserts the directory imports neither `electron` nor anything under `src/main/pod-manager` - the two dangerous capabilities arrive only as `deps.trashItem` and `deps.pods`.",
+        "THERE IS NO DELETION PRIMITIVE IN THIS DIRECTORY. A test scans every source file under `src/main/beachcomber/**` and asserts it contains none of `rm(`, `rmSync`, `unlink`, `unlinkSync`, `rmdir`, `rmdirSync`, or `force: true`, and that the only removal call site is `deps.trashItem`. `shell.trashItem` is the whole deletion story (design section 6), and a code review is not a durable way to keep it that way.",
+        "TRUE CWD COMES FROM THE SESSION RECORD, NOT THE DIRECTORY NAME. For a `projects/<dir>` containing a `.jsonl` whose first cwd-bearing record is `{\"cwd\":\"C:\\\\Users\\\\x\\\\Repos\\\\dir-ect\"}`, the entry's `displayPath` equals that string exactly and `pathSource === 'session-record'`. A fixture whose LATER records carry a different cwd proves reading stops at the first one, and a multi-megabyte fixture proves the file is not read whole.",
+        "THE AMBIGUITY REGRESSION. Given a directory literally named `C--Users-x-Repos-dir-ect` whose session record says `C:\\Users\\x\\Repos\\dir\\ect`, the reported path is the recorded one. Decoding alone is lossy - `:`, `\\`, `/`, `.` and a literal `-` all collapse to `-` - and a test named for that fact asserts the decoded guess is NOT what ships.",
+        "FALSE ORPHANS ARE IMPOSSIBLE. A `projects/<dir>` with no cwd-bearing record yields `pathSource === 'decoded-name'` and `orphan === false`, even when the decoded path does not exist on disk. `orphan` is true only when `pathSource === 'session-record'` and the recorded directory is absent; both directions are tested against a synthetic tree.",
+        "IDS ARE OPAQUE AND SCAN-SCOPED. Two consecutive `scan()` calls mint disjoint id sets and different `scanId`s. `preview` or `trash` carrying an id or `scanId` from the earlier scan throws `IpcFailure` with `NOT_FOUND` - never a silent no-op, and never a rematch by path. A test asserts no minted id equals or contains its entry's `name` or `displayPath`, so an id cannot be reverse-engineered into a path.",
+        "POD DIRECTORIES ARE HARD-BLOCKED. An entry whose resolved cwd matches a `PodDirectory.cwd` has `blocked === 'pod-cwd'` and `blockedBy` naming that Pod's id and title. `preview` lists it under `refused` with a message naming the Pod and saying what to do; `trash` refuses it too, and a spy asserts `deps.trashItem` was called ZERO times for that path. This is the design's rule widened to every known Pod, per `panel-host.ts` - a test also covers a Pod whose status is `beached`, which is still blocked.",
+        "Path matching is normalized for Windows before comparison, so `C:\\X`, `c:\\x` and `C:\\X\\` all block the same entry. A test covers case difference, trailing separator, and separator direction.",
+        "ALL FOUR ROOTS (`projects`, `shell-snapshots`, `file-history`, `paste-cache`) are enumerated with `displayPath`, `entryCount` and `totalBytes`. A root that does not exist yields `present: false` with no throw - absence is normal, not an error. A root that raises `EACCES` yields the OS message VERBATIM in `BeachcomberRootSummary.error` while the other three still populate fully; one unreadable root does not cost the user the panel.",
+        "Per-entry `sizeBytes`, `fileCount` and `lastModified` are the recursive totals and the newest mtime beneath the entry; `sessionCount` is the number of `*.jsonl` files for `projects` entries and `null` for the other three roots. Each is asserted against a tree with known contents.",
+        "PREVIEW SHOWS EXACTLY WHAT WILL BE REMOVED (design section 6). `preview` totals equal the sum of its items, refusals are listed separately, and `sampleNames` are bare file names containing no `/` or `\\` - asserted, because a name that is secretly a path would re-open the hole `panel-host.ts` closes.",
+        "PARTIAL SUCCESS IS A VALUE. With an injected `trashItem` that rejects for exactly one path, the result lists the rest under `trashed`, that one under `failed` with the rejection's message verbatim, and carries a fresh scan whose entries no longer include the trashed ones. The call does NOT throw.",
+        "EVERY TEST RUNS AGAINST A SYNTHETIC TREE. Each builds its own `~/.claude` under `mkdtempSync(join(tmpdir(), 'orcastrate-beachcomber-'))` with tracked cleanup in `afterEach`, mirroring `tests/unit/store/helpers.ts`. A source scan over `tests/unit/beachcomber/**` asserts no reference to `homedir`, `USERPROFILE`, or any absolute developer path, and that no test supplies a real `shell.trashItem`. No test deletes a real file - which is the point of injecting the trash function at all.",
+        "Determinism: `now` and `newId` are injected, no test sleeps, no test reads the ambient clock or time zone, and the suite passes in any order. Tests are named for the condition and the expected outcome (`reports the recorded cwd when the directory name is ambiguous`), not for the function they call."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Helm main-process settings service: scoped load, validation, atomic backed-up writes, and conflict detection",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/helm/**",
+        "tests/unit/helm/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "`src/main/helm/**` implements `HelmService` exactly as the frozen contract declares, constructed from `HelmServiceDeps` and nothing else. A source scan asserts it imports neither `electron` nor anything under `src/main/pod-manager`.",
+        "SCOPES ARE NAMED, PATHS ARE NOT. `listScopes()` returns the user scope plus `project` and `projectLocal` for each Pod from `deps.pods()`, with ids exactly `user`, `project:<podId>` and `projectLocal:<podId>`, correct `displayPath` and `exists` from a stat. An unknown scopeId throws `NOT_FOUND`. A test passes `project:../../../etc` and asserts `NOT_FOUND` with no filesystem access - a scopeId is looked up in a table, never turned into a path by string manipulation.",
+        "AN ABSENT FILE IS A NORMAL STATE, NOT AN ERROR. `load` on a scope with no file returns `exists: false`, `revision: null`, empty/null managed fields, `hooksJson: ''`, `parseError: null`, and does not throw. This repo has no `.claude/` at all and the machine's `~/.claude/settings.json` has no `permissions` key, so both absences are exercised.",
+        "ROUND TRIP PRESERVES WHAT HELM DOES NOT MANAGE (design section 9). Load then save with an untouched draft leaves the file deep-equal under `JSON.parse` and preserves every unmanaged top-level key including nested objects and arrays, verbatim. A fixture carrying at least three unmanaged keys, one of them a nested object, proves it.",
+        "ATOMIC WRITE, SAME DIRECTORY. The temp file is created in the TARGET FILE'S OWN DIRECTORY and renamed over the target; a test asserts `dirname(tempPath) === dirname(targetPath)` and that no file is created anywhere else. A crash injected between the temp write and the rename leaves the original file byte-identical - proving the guarantee design section 8 states as `no partial write`.",
+        "BACKUP BEFORE EVERY WRITE. A timestamped backup (timestamp from `deps.now`) appears beside the file before the rename, its bytes equal the pre-write content, and `HelmSaveResult.backupDisplayPath` names it. Two successive saves produce two distinctly named backups.",
+        "A FAILED BACKUP ABORTS THE WRITE. With the backup path made unwritable, `save` fails and the target file is byte-identical to before. A write that proceeds without its backup is the failure this criterion exists to prevent.",
+        "CONFLICT DETECTION IS THE AUTHORITATIVE GUARD, AND IT IS PROVEN WITH THE WATCHER OFF. With `watchEnabled: false`: load, mutate the file out of band, then save - the call fails with `CONFLICT`, the message names the file and states that nothing was written, the file on disk is byte-identical to the out-of-band content, and NO backup was taken. A passing watcher must never be what makes this test green.",
+        "ABSENCE CAN BE RACED TOO. Load a non-existent file (`revision: null`), create it out of band, then save - `CONFLICT`, and the created file is untouched.",
+        "THE IN-APP WRITER IS COVERED, NOT JUST THE EXTERNAL EDITOR. A test named for `allow_always` simulates what `src/main/pod/options.ts:170-185` causes: while a Helm draft for `project:<podId>` is loaded, a `permissions.allow` rule is written into `<pod cwd>/.claude/settings.json` out of band, exactly as the CLI does when the user clicks Allow always in this same window. Saving the draft answers `CONFLICT` and loses nothing. Run with `watchEnabled: false`, so the guarantee rests on the re-read, not on a notification.",
+        "THE WATCHER IS ADVISORY AND CLEAN. With `watchEnabled: true`, an out-of-band write to the watched scope emits at least one and at most one coalesced `HelmChangedPush` naming that scopeId. `watch(null)` and `dispose()` release every handle and no push arrives afterwards; watching a second scope releases the first; deleting the watched file does not throw into the caller or leave a handle. Asserted by a test that would fail if a handle leaked, not by a comment.",
+        "OS ERRORS REACH THE USER VERBATIM (design section 7). A save into a read-only location fails with the Node `ErrnoException.message` UNMODIFIED as the error message - asserted by capturing the real thrown message and comparing for equality, never by matching a hand-written string that could drift from what the OS actually said.",
+        "HELM NEVER OVERWRITES A FILE IT COULD NOT READ. `load` on unparseable JSON returns `parseError` carrying the parser's message with empty managed fields, and `save` against such a document is refused with a validation error. The atomic write would otherwise silently destroy hand-written content.",
+        "VALIDATION SEPARATES BLOCKING FROM ADVISORY. `validate` returns `severity: 'error'` for a `hooksJson` that is not valid JSON, a non-string `env` value, and a `crossSessionInbound` outside `CROSS_SESSION_INBOUND_VALUES`; and `severity: 'warning'` - not error - for `hold`, with a message naming CLI 2.1.235 as where it was not confirmed. `save` proceeds on warnings and refuses on errors. `accept` and `refuse` produce no issue at all.",
+        "Hooks are a validated raw-JSON value and are never restructured: a `hooks` object round-trips through `hooksJson` deep-equal, and Helm adds no key to it.",
+        "EVERY TEST RUNS UNDER `mkdtempSync(join(tmpdir(), 'orcastrate-helm-'))` with tracked cleanup, mirroring `tests/unit/store/helpers.ts`. A source scan over `tests/unit/helm/**` asserts no reference to `homedir`, `USERPROFILE`, or a developer path: no test may write to a real `~/.claude/settings.json`. `now` is injected; no test sleeps or depends on the wall clock; the suite passes in any order."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Renderer panel contracts and the TOKENS additions the backlog predicted",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/**",
+        "src/renderer/src/styles/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "`src/renderer/src/contracts/renderer-panels.ts` lands byte-faithful to the frozen session contract, and typechecks against the three new shared contracts T1 landed.",
+        "THE LAYOUT-SLOT AMENDMENT. `WorkspaceLayoutProps` in `renderer-view.ts` gains `panelBar?: ReactNode` and `panel?: ReactNode | null`, carrying an AMENDMENT docblock in the style the file already uses: it states why both are optional (a required prop would leave `WorkspaceLayout.tsx` and `App.tsx` red from this task until T9), and that T9 and T10 are what make an `undefined` value a test failure rather than a valid state. No existing slot is renamed, removed, or made optional; `TEST_IDS` is untouched. If this contract change was NOT approved at Gate 2, this task stops and reports.",
+        "THE THEME AMENDMENT THE BACKLOG PREDICTED. `TOKENS` in `renderer-theme.ts` gains exactly the seven keys of `ADDED_TOKENS` and the two of `ADDED_LAYOUT_TOKENS`, with exactly those CSS variable names. The diff over `renderer-theme.ts` is additions only - nothing renamed, nothing removed - so no sub-session 2 component is touched. If this contract change was NOT approved at Gate 2, this task stops and reports.",
+        "`src/renderer/src/styles/tokens.css` defines every new variable on `:root` with a concrete value, and the existing assertion that `tokens.css` defines every name in `TOKENS` still passes with nine more names in it.",
+        "No `!important` anywhere, and no color, spacing, length, tracking or weight literal added to any stylesheet outside `tokens.css`.",
+        "No new runtime dependency: `dependencies` in `package.json` is unchanged. A test-only devDependency would need to be justified in the report, and this task needs none.",
+        "`npm run typecheck` and `npm test` are green with no file outside this task's ownership modified.",
+        "The API stub is NOT this task's: `src/renderer/src/test-utils/**` belongs to T1, which breaks and repairs it in the same commit. This task adds no fixture of its own and must not edit that directory."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Panel state layer: the Beachcomber and Helm hooks, still the renderer's only caller of window.orcastrate",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/state/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T4"
+      ],
+      "acceptance": [
+        "`useBeachcomber`, `useBeachcomberActions`, `useHelm` and `useHelmActions` are implemented exactly as `renderer-panels.ts` declares them and are exported from the `state/` barrel, which continues to export exactly the runtime surface the contracts declare and nothing else.",
+        "`isolation.test.ts` PASSES UNCHANGED, including its assertion that `window.orcastrate` is referenced exactly ONCE in the whole state layer. The new hooks reuse the api the provider already resolved. Having to weaken that count is a failure of this criterion, not a stale test.",
+        "The new state files import no `node:` builtin, call no `require`, and call none of `path`/`join`/`resolve`/`dirname`/`basename`/`normalize` - the existing scan covers them by construction and still passes. `displayPath` is rendered and never parsed.",
+        "EVERY ACTION RESOLVES AND NEVER REJECTS. A test with a null bridge (`window.orcastrate` absent) asserts each of the ten actions resolves `{ ok: false }` with a message, that none throws, and that both views report phase `'error'` rather than the provider throwing during init.",
+        "Every new view declares loading, error AND empty states: a test walks `idle -> loading -> ready` for each, asserts a non-null `error` string on an `{ ok: false }` answer, and asserts a scan with zero entries reaches `ready` with an empty group list rather than sitting in `loading`.",
+        "DERIVED VALUES ARE COMPUTED, NOT STORED. `selectedBytes`, `dirty`, `blocked`, and the `BeachcomberGroupVm` list are derived on read; a test changes the underlying scan or draft and asserts the derived value follows with no explicit setter call.",
+        "Selection survives a rescan only for ids the new scan still mints; ids that vanished are dropped and `selectedBytes` recomputes. Asserted with a second scan that drops one selected entry.",
+        "A BLOCKED ROW CAN NEVER BE SELECTED. `toggle` on a blocked id is a no-op, `toggleGroup` skips blocked rows, and after either call `selectedIds` excludes every blocked id.",
+        "ANY SELECTION CHANGE CLEARS THE PREVIEW, so a confirm can never act on a preview computed for a different set. Asserted by taking a preview, toggling a row, and finding `preview === null`.",
+        "`trashPreviewed` with `preview === null` resolves `{ ok: false }` and NEVER reaches the bridge - a call-count assertion on the stub proves the channel was not invoked.",
+        "Helm: `selectScope` loads the document and seeds the draft from it; `edit` sets `dirty`; `discard` restores the loaded values and clears `dirty`; `save` on a `CONFLICT` failure sets `conflict` and `stale`, KEEPS the draft intact, and leaves `dirty` true. Losing a form to a conflict would make the safe path the expensive one.",
+        "The `helmChanged` push sets `stale` only when its `scopeId` matches the selected scope, and is ignored otherwise. The provider subscribes to it exactly once on mount and calls its `Unsubscribe` on unmount - asserted by counting subscribe and unsubscribe calls, extending the existing subscription guarantee to six channels.",
+        "CLIENT INTERACTION STATE STAYS OUT OF THE STORE. `WorkspaceStore` gains no field for which panel is open - asserted by its absence. That fact has exactly one owner and it is T9, which holds it in `App.tsx` local state (frontend discipline: state lives at the lowest point that can serve every reader, and two components holding the same fact will disagree). This criterion and T9's are mutually enforcing: neither task may implement it twice, and neither may leave it unimplemented.",
+        "NOTHING IS FETCHED IN RESPONSE TO A RENDER. Re-rendering a mounted panel hook issues no additional invoke; the scan is issued once per panel open and again only on an explicit `rescan()`. Asserted by call counts across forced re-renders.",
+        "`npm run typecheck` and `npm test` are green, and every pre-existing state-layer suite still passes unweakened."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Beachcomber panel UI: grouped rows, hard-blocked selection, and a preview that must be confirmed before anything moves",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/beachcomber/**"
+      ],
+      "dependsOn": [
+        "T4",
+        "T5"
+      ],
+      "acceptance": [
+        "Every component in this directory renders from `BeachcomberPanelProps` and hooks alone. Nothing here names `window.orcastrate` (isolation scan still passes) and nothing here fetches - a component states what it needs and does not orchestrate the fetch.",
+        "Rows are grouped by root under `PANEL_TEST_IDS.beachcomberGroup`, each group showing its heading, its `~/.claude/...` display path, its entry count and its total size. A group whose `error` is non-null renders that OS message in `beachcomberGroupError` while every other group still renders its rows.",
+        "Multi-select: each selectable row carries a checkbox at `beachcomberRowSelect` with a programmatically associated label naming the entry, and the group toggle selects only selectable rows.",
+        "A BLOCKED ROW IS VISIBLY AND PROGRAMMATICALLY UNSELECTABLE: `aria-disabled=\"true\"`, a checkbox that does not respond to click or keyboard, and `beachcomberRowBlocked` carrying the sentence that names the Pod and says what to do about it. The blocked state is carried by text and ARIA, never by color alone.",
+        "An unverified row renders `UNVERIFIED_PATH_NOTICE` verbatim at `beachcomberRowUnverified` and renders NO orphan marker - because a path that is a guess cannot be shown to be missing. An orphan row renders `beachcomberRowOrphan` as text, not as a color.",
+        "THERE IS NO PATH FROM A ROW TO A DELETION. The only element that can invoke `trashPreviewed` is `beachcomberPreviewConfirm` inside the rendered preview dialog. A test renders with rows selected and no preview, clicks every enabled control in the panel, and asserts `trashPreviewed` was never called. Design section 6 requires a preview of exactly what will be removed before any action, and a one-click delete is that requirement's opposite.",
+        "The preview dialog lists one item per selected id with its display path, size, file count and sample names, lists every refusal with its reason, and shows the totals - so the user sees exactly what is about to move to the recycle bin.",
+        "`view.error` is rendered unconditionally whenever non-null, at `beachcomberError`. This is the criterion that keeps `beachcomber:scan`, `beachcomber:preview` and `beachcomber:trash` off the surfaceless allowlist; a cleanup panel that silently does nothing is this feature's worst failure mode.",
+        "`lastResult` renders BOTH halves: what was trashed, and each failure's verbatim OS message at `beachcomberResultFailure`. A partial success must not read as a success.",
+        "Loading, error and empty states are all rendered and mutually distinguishable; a scan with zero entries says so in words rather than rendering an empty page.",
+        "ACCESSIBILITY FLOOR. Every interactive element is reachable and operable by keyboard alone; the preview dialog has an accessible name, receives focus on open, keeps focus within itself, and returns focus to the control that opened it on close. Focus is visible throughout.",
+        "STYLING FROM TOKENS ONLY. `*.module.css` files live inside this directory and style nothing outside it; every color, spacing, length, border width, tracking and weight is a `var(--oc-...)`; no `!important`; no inline `style` except a genuinely dynamic value a CSS variable cannot carry.",
+        "COMPONENT BOUNDARIES. No file in this directory both arranges other components and renders content; presentation components take data and callbacks and know where neither came from; no component file has to be scrolled to be understood.",
+        "Co-located component tests drive the panel through `PANEL_TEST_IDS` and assert observable output, never internal state. Each was seen failing before it passed. `npm run typecheck` and `npm test` are green."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Helm panel UI: scoped settings form, raw-JSON hooks pane, and the conflict, stale and backup surfaces",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/**"
+      ],
+      "dependsOn": [
+        "T4",
+        "T5"
+      ],
+      "acceptance": [
+        "Every component here renders from `HelmPanelProps` and hooks alone, names `window.orcastrate` nowhere, and fetches nothing itself.",
+        "THE RENDERER STILL CANNOT NAME A FILE. The scope picker lists every scope by `label` with its `displayPath` shown read-only at `helmScopePath`, and selecting one passes a `HelmScopeId`. A source scan over this directory asserts there is no text input whose value feeds a path, and no string concatenation that builds one.",
+        "The form surfaces exactly the design's fields: model, `permissions.allow`, `permissions.deny`, `env`, and `crossSessionInbound`. Every control - including every row of the two list editors and every key/value pair of the env editor - has a programmatically associated label.",
+        "`crossSessionInbound` is a radio group offering all three values, with `CROSS_SESSION_HOLD_CAVEAT` rendered verbatim at `helmCrossSessionCaveat` next to `hold`. Helm never preselects `hold`; an absent key selects nothing.",
+        "HOOKS ARE A VALIDATED RAW-JSON PANE, NOT A BUILDER (design section 7). `helmHooksJson` is a textarea; invalid JSON renders the parser's message at `helmHooksError` and disables Save. A partial builder would misrepresent what hooks can express, so none is built.",
+        "A document carrying `parseError` renders the whole form READ-ONLY at `helmReadOnly` with the parser message and no enabled Save - Helm never offers to overwrite a file it could not read.",
+        "`view.error` renders verbatim at `helmError`. `view.conflict` renders at `helmConflict`, states that nothing was written, and names the file; after a conflict the draft is still on screen, still editable, and a Reload affordance is offered.",
+        "`view.stale` renders an advisory banner at `helmStale` with a Reload affordance. It never disables Save - the authoritative guard is the service's re-read, and a banner that blocked saving would imply otherwise.",
+        "After a successful save, `helmBackupPath` shows `backupDisplayPath` so the user can find the backup, and any non-blocking warnings render alongside it.",
+        "Save is disabled when `blocked`, when `saving`, and when not `dirty`, and each of the three is asserted independently.",
+        "Loading, error and empty states are all rendered, including the genuinely empty case of no Pods yet, where only the user scope exists and the panel says so.",
+        "ACCESSIBILITY FLOOR. The list and env editors are fully operable by keyboard alone, including adding and removing a row; focus moves predictably after an add or a remove (to the new row's first field, or to the nearest remaining control) and is always visible; no meaning is carried by color alone.",
+        "STYLING FROM TOKENS ONLY, scoped to `*.module.css` inside this directory: every color, spacing, length, border width, tracking and weight is a `var(--oc-...)`; no `!important`; no inline `style` except a genuinely dynamic value.",
+        "COMPONENT BOUNDARIES: no file both arranges and renders; no component file has to be scrolled to be understood; presentation components take data and callbacks only.",
+        "Co-located tests drive the form through `PANEL_TEST_IDS`, assert observable output, and were each seen failing first. `npm run typecheck` and `npm test` are green."
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "Wire the Beachcomber and Helm services into the main-process bootstrap",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/index.ts"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "acceptance": [
+        "AMENDED by user decision at escalation E4 (2026-08-19), after T1 review round 1. THIS IS T8'S FIRST ITEM AND IT CLOSES THE SESSION'S RED WINDOW. src/main/index.ts must construct both services and pass them on IpcHandlerDeps, resolving the TS2739 at src/main/index.ts:91 that has stood since T1. After this task, npm run typecheck is green whole-repo - both halves. If it is not, this task is not done.",
+        "`src/main/index.ts` constructs both services and passes them to `registerIpcHandlers`. The file stays WIRING ONLY, as its own header demands: no scanning, parsing, or file-writing logic is added here.",
+        "`claudeHome` is computed once at startup as `join(homedir(), '.claude')` into a typed value and handed to both services - configuration read once at startup, not resolved per request.",
+        "`trashItem` is Electron's `shell.trashItem`, supplied as a `TrashItem`. It is the ONLY deletion capability handed to anything in the application, and no other module receives it.",
+        "`pods` is a `PodDirectoryProvider` built from `manager.listPods()`, projecting exactly `{ podId, title, cwd }` and nothing more - the persistence-shaped `Pod` row does not leak into the panel boundary.",
+        "`emitChanged` reuses the existing `sendToRenderers` on `EVENT_CHANNELS.helmChanged`, so the existing destroyed-window guard still applies and a push cannot crash main.",
+        "`watchEnabled` is `true` in the running application, and that is the only place it is true.",
+        "The single-shot `before-quit` handler also disposes the Helm service so no `fs.watch` handle outlives the app. The existing shutdown ordering (stop runners, then close the store, then quit) is preserved, and a disposal failure is logged with the operation named rather than swallowed.",
+        "`npm run build` (typecheck plus `electron-vite build`) succeeds. The report states, with evidence, whether the app was launched and both namespaces observed on `window.orcastrate`; if the environment cannot launch Electron, that is stated plainly rather than implied.",
+        "`dependencies` in `package.json` is unchanged, and no module outside this file was modified.",
+        "AMENDED by user decision at escalation E4 (2026-08-19), after T1 review round 1. The report states explicitly which suites are still red and which task owns each. T8 does not own the INVOKE_CHANNELS completeness sweeps in T5 and T10 files and must not edit them; it is accountable for typecheck only. npm test whole-repo green remains T10's, as the last task in the graph."
+      ]
+    },
+    {
+      "id": "T9",
+      "title": "Shell integration: the panel strip, the panel region, and mounting Beachcomber and Helm from App",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/shell/**",
+        "src/renderer/src/App.tsx"
+      ],
+      "dependsOn": [
+        "T4",
+        "T5",
+        "T6",
+        "T7"
+      ],
+      "acceptance": [
+        "`WorkspaceLayout` renders `panelBar` as a strip directly beneath the Pod bar on every render, and renders `panel` inside `PANEL_TEST_IDS.panelRegion` INSTEAD of the body - lane rail, transcript pane(s) and composer - whenever it is non-null. The Pod bar and the strip stay visible, so the user can see which Pod they are coming back to.",
+        "`App.tsx` holds which panel is open in local state, passes both `panelBar` and `panel` on every render, and never passes `undefined` for either. The optionality in the contract is a compile-time concession; a test asserts both are always supplied.",
+        "Opening a panel hides the rail, transcript and composer; closing it restores exactly the previously selected AND pinned lanes with no state lost. Asserted by selecting a lane, pinning another, opening a panel, closing it, and finding both still in place.",
+        "`PanelBar` renders one button per `PanelKey` using `PANEL_LABELS` and `PANEL_DESCRIPTIONS` verbatim, plus a close affordance at `panelBarClose` when a panel is open. The open panel's button carries `aria-pressed=\"true\"` (or `aria-current`), so the open state is not carried by color alone.",
+        "PANELS DO NOT REQUIRE A POD. With zero Pods the workspace still shows `EmptyWorkspace`, yet both panels open and render normally - cleanup and settings are the two things a user with no Pods most plausibly wants.",
+        "KEYBOARD AND FOCUS. The strip is reachable by Tab; each button activates with both Enter and Space; focus moves into the panel region on open and returns to the triggering button on close. `Escape` while a panel is open closes the panel and does NOT interrupt any Pod's turn - a test asserts `pod:interrupt` was not invoked, because the composer's existing Escape binding must not fire through an open panel.",
+        "`App.tsx` STAYS AN ARRANGER. It reads hooks, hands each region to the component that owns it, renders nothing itself, and adds no data fetching.",
+        "`WorkspaceLayout.test.tsx` and `App.smoke.test.tsx` still pass, amended only where the new region genuinely changed the tree - not weakened to accommodate it.",
+        "Styling comes from tokens only, in `shell/*.module.css`; the strip's height is `--oc-panel-bar-height` and the panel's width constraint is `--oc-panel-max-width`; no `!important`, no raw literals.",
+        "`npm run typecheck` is green, and every suite OUTSIDE `src/renderer/src/__tests__/**` passes - including every co-located suite from sub-session 2. Production code is green at this commit; only whole-App test suites may move.",
+        "THE `__tests__/` CHURN IS EXPECTED, AND THIS TASK REPORTS IT RATHER THAN FIXING IT. `failure-paths.e2e.test.tsx`'s `clickEveryEnabledButton` sweeps every enabled button in the mounted App, so it WILL now click the two new strip buttons and open panels mid-sweep; `harness.tsx` and the four other e2e suites mount the full App and may see the new region. Those files are T10's. This task runs them, reports precisely which fail and why, and edits NOTHING under `src/renderer/src/__tests__/**`. A test-only red window one task wide, owned and closed by the very next task, is ordinary sequencing; a tree that does not typecheck is not, which is why the criterion above is split the way it is.",
+        "THE WORKSPACE TREE IS UNCHANGED WHEN NO PANEL IS OPEN. With `panel === null` the rail, transcript pane(s) and composer render exactly the DOM they rendered before this task, with every existing `data-testid` and every existing string intact - the strip is a new sibling, not a rewrap. This is what keeps the churn above to the sweep interaction rather than a broad rewrite, and it is asserted rather than assumed."
+      ]
+    },
+    {
+      "id": "T10",
+      "title": "Integration and failure-path coverage for the six new channels, and the widened style-hygiene rule",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/**"
+      ],
+      "dependsOn": [
+        "T5",
+        "T6",
+        "T7",
+        "T9"
+      ],
+      "acceptance": [
+        "`failure-paths.e2e.test.tsx` is updated for 21 invoke channels: the vacuity guard becomes `>= 21`, and the file's header arithmetic is rewritten to state the new counts. A stale header on this file is a defect, because its comments are what a later reader treats as the classification.",
+        "ALL SIX NEW CHANNELS GET A REAL ERROR SURFACE, AND NONE JOINS THE ALLOWLIST. `SURFACELESS_CHANNELS` still holds exactly the nine names it held before - the diff shows no additions. If a new channel genuinely cannot surface its failure, adding it requires the argued paragraph the file's convention demands AND is reported as an escalation, never a silent edit; the allowlist exists precisely so it cannot grow quietly.",
+        "The surfaced-channel assertion is updated to exactly twelve names - the six from sub-session 2 plus `beachcomberScan`, `beachcomberPreview`, `beachcomberTrash`, `helmScopes`, `helmLoad`, `helmSave` - and the ratio assertion is updated with it, so a channel that gains or loses a surface still fails loudly in both directions.",
+        "`driveEveryAffordance` opens both panels and drives every panel affordance, so each new channel is genuinely INVOKED. The existing call-count assertion proves it, and none of the six appears on `UNREACHABLE_CHANNELS` - a channel classified as silent without ever being called proves nothing.",
+        "One focused test per new channel pins down WHICH element carries the message and what survives around it: the Beachcomber panel stays rendered with its selection intact after a failed scan, preview or trash; the Helm draft survives a failed load or save with every typed value still present.",
+        "A conflict end-to-end: `helm:save` answering `{ ok: false, CONFLICT }` renders `helmConflict`, keeps the draft, offers Reload, and a subsequent successful save after a reload goes through.",
+        "A blocked Beachcomber row cannot reach the wire: with only blocked rows selected, `beachcomber:trash` is never invoked - asserted by call count, not by inspecting a disabled attribute.",
+        "`beachcomber:trash` is only ever invoked after a `beachcomber:preview` for the same id set: a test asserts the invocation order and the id equality, so the design's preview-before-action rule is enforced at the boundary rather than only in the markup.",
+        "A partial-failure render test: a trash result carrying one failure and several successes shows both halves, with the failure's message verbatim.",
+        "THE STYLE-HYGIENE RULE IS WIDENED, WHICH IS WHAT MAKES THE THEME ESCALATION WORTH ITS COST. The sub-session 2 hygiene assertion now also forbids raw border widths, letter-spacing values and font weights in `src/renderer/src/beachcomber/**`, `src/renderer/src/helm/**` and `src/renderer/src/shell/**` `*.module.css` - the six directories that reached for `1px`, `0.04em` and `font-weight: 700` did so because no token existed, and now one does.",
+        "Every test asserts observable behavior through `TEST_IDS` and `PANEL_TEST_IDS` and never internal state; no test sleeps; no test depends on the wall clock or on another test's leftovers; the suite passes in any order.",
+        "Each new test was SEEN FAILING before it was made to pass, and the report names, per test, which assertion was red and why.",
+        "The full `npm test` and `npm run typecheck` are green, and the counts only grow from the 55 files / 881 tests baseline - no pre-existing test was deleted or weakened to make room.",
+        "THIS TASK REPAIRS WHAT T9 REPORTED. Every suite under `src/renderer/src/__tests__/**` that T9 found failing is fixed here, and the report accounts for each one individually: what moved, why, and that the fix preserves what the test was checking. A suite weakened or deleted to make it pass is a blocking defect - `harness.tsx`'s `mountWorkspace` and the four e2e suites exist to catch exactly the kind of regression a new layout region can cause.",
+        "THE SWEEP'S NEW REACH IS DELIBERATE, NOT INCIDENTAL. `clickEveryEnabledButton` now opens both panels during classification. The suite accounts for that explicitly - a channel must not be classified as surfaced merely because a panel the sweep happened to open rendered someone else's error - and the per-channel sentinel message, which is already unique per channel, is what proves attribution."
+      ]
+    }
+  ]
+}

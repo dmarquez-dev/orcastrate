@@ -1,0 +1,52 @@
+# Session log — 2026-08-19-orcastrate-beachcomber-helm
+
+- 2026-08-19T13:45Z — Gate 1 presented (track: Standard; goal: Beachcomber + Helm, MVP items 6 and 7). Handoff claims verified at their file references; baseline unverifiable as handed over (node_modules absent), green after `npm ci`: 55 files / 881 tests, typecheck clean.
+- 2026-08-19T13:50Z — Gate 1 approved.
+- 2026-08-19T13:52Z — dir-git `init-session`: branch `dir/2026-08-19-orcastrate-beachcomber-helm` from `main` @ 42e1bb8.
+- 2026-08-19T13:58Z — dir-git relocate: worktree moved out of scratch to `.claude-worktrees/dir-2026-08-19-orcastrate-beachcomber-helm` (repo's own gitignored convention; scratch is disposable and the deep temp path risked Windows path-length failures under node_modules).
+- 2026-08-19T14:02Z — unknowns resolved to `resolved-unknowns.md`; four disciplines composed (backend 43, database 36, frontend 35, test 38 lines; cap 500).
+- 2026-08-19T14:10Z — dir-architect dispatched for decomposition (strong model). Phase: spec.
+- 2026-08-19T14:35Z — orchestrator review of drafts: manifest schema-clean and globs disjoint, but T1's typecheck criterion was unsatisfiable (making OrcastrateApi members non-optional breaks test-utils/stub-api.ts, owned by T4). Sent back to dir-architect.
+- 2026-08-19T14:43Z — architect revised: test-utils/** moved to T1 (three break sites, not one), T9/T10 e2e-churn boundary priced, panel-open ownership sharpened. 10 tasks, 135 criteria, re-validated.
+- 2026-08-19T14:45Z — Gate 2 presented; escalations E1 (four contract changes), E2 (Pod-blocking breadth), E3 (crossSessionInbound 'hold') raised in one interaction. Phase: awaiting-signoff.
+- 2026-08-19T14:48Z — Gate 2 approved. E1/E2/E3 all resolved as drafted. manifest.json and contracts/ frozen.
+- 2026-08-19T14:50Z — T1 dispatched (dir-backend-engineer, strong). startRef 42e1bb8. Phase: implement.
+- 2026-08-19T15:10Z — T1 reported done (17 files, all in-ownership; 936/945 tests pass, 9 failures in T5/T10 files, typecheck:node red in T8 file — all verified independently by the orchestrator). dir-reviewer dispatched.
+- 2026-08-19T15:20Z — T1 review round 1: 16/17 met, 1 blocking (criterion 12, not repairable in-ownership), 4 advisory. reviews/T1.md written. E4 raised; T1 status escalated.
+- 2026-08-19T15:25Z — E4 resolved: manifest amended (T1 crit 12 rescoped, crit 13 clause struck, whole-repo typecheck green moved to T8 as its first item). T1 accepted at 16/17.
+- 2026-08-19T15:32Z — T1 committed cb61bec (17 files, 2487 insertions; ownership verified, nothing left dirty). T1 done.
+- 2026-08-19T15:35Z — T2, T3, T4 dispatched concurrently from startRef cb61bec. Widest wave of the session.
+- 2026-08-19T15:50Z — T4 reported: 7/8 criteria pass, criterion 1 unsatisfiable — frozen renderer-panels.ts does not typecheck (BeachcomberView/HelmView error field collides with Loadable.error). Verified independently. E5 raised; T4 escalated. Blocks T5/T6/T7.
+- 2026-08-19T16:00Z — T2 done (48 tests), T3 done (54 tests), neither escalated. Both independently reported the renderer-panels.ts typecheck defect as not-theirs, which corroborates T4.
+- 2026-08-19T16:05Z — E5 resolved: contract amended, error -> actionError on both panel views, reasoning recorded at both sites. T4 re-dispatched (revision round 1). T2 and T3 dispatched to review.
+- 2026-08-19T16:20Z — T4 revision round 1 landed: renderer-panels.ts byte-identical to the amended contract, typecheck:web clean (both verified independently). T4 dispatched to review (first review).
+- 2026-08-19T16:30Z — T2 review: PASS, 14/14, 0 blocking, 5 advisory. reviews/T2.md written.
+- 2026-08-19T16:33Z — T4 review: PASS, 8/8, 0 blocking, 3 advisory. reviews/T4.md written.
+- 2026-08-19T16:36Z — T3 review: PASS, 16/16, 0 blocking, 7 advisory. reviews/T3.md written.
+- 2026-08-19T16:40Z — T2 committed 89e7712 (12 files). T3 commit dispatched.
+- 2026-08-19T16:50Z — T3 committed c88d2dd (18 files). T4 commit dispatched.
+- 2026-08-19T16:55Z — T4 committed 1f9df3f (4 files). T5 and T8 dispatched from startRef 1f9df3f.
+- 2026-08-19T17:10Z — T8 reported done; npm run typecheck verified green whole-repo (exit 0) by the orchestrator — the red window carried since T1 is closed. T8 dispatched to review.
+- 2026-08-19T17:20Z — T8 review: PASS, 11/11, 0 blocking, 3 advisory. Criterion 11 marked unverifiable by the reviewer (a report is not a file); orchestrator attested it met from T8's own report. reviews/T8.md written.
+- 2026-08-19T17:25Z — T8 committed 6f0890b (1 file, 87+/4-). Whole-repo typecheck green.
+- 2026-08-19T17:40Z — T5 reported done (9 files, all in state/**). Verified: 1142 tests / 8 failures (down from 9 — its own store.test.ts sweep fixed), typecheck green, isolation.test.ts unmodified. Dispatched to review.
+- 2026-08-19T17:55Z — T5 review: PASS, 15/15, 0 blocking, 5 advisory. reviews/T5.md written. Commit dispatched.
+- 2026-08-19T18:00Z — T5 committed 46ad07b (9 files). T6 and T7 dispatched from startRef 46ad07b — last parallel wave.
+- 2026-08-19T18:35Z — T6 reported done (26 files, 66 tests). Verified: beachcomber suite 66/66, typecheck green, work confined to its glob. Dispatched to review. T7 still in flight.
+- 2026-08-19T18:55Z — T6 review: PASS, 14/14, 0 blocking, 6 advisory. reviews/T6.md written. Committed 4bf6fbc (26 files).
+- 2026-08-19T19:05Z — T7 reported done (24 files, 81 tests), self-declaring criterion 15 only partly met: tests were not written red-first. Verified: helm suite 81/81, typecheck green, repo 1289 tests / 8 failures (all T10's). Dispatched to review.
+- 2026-08-19T19:20Z — T7 review: 14/15, 1 blocking (criterion 15 "seen failing first" — purpose met, letter failed), 6 advisory. reviews/T7.md written. Revision round 1 dispatched on the reviewer option 2 (make mutation evidence durable and re-runnable); option 3 rejected as theatre. Residual letter-failure carried to Gate 3 as a decision.
+- 2026-08-19T19:45Z — T7 revision round 1 landed: 81 -> 133 tests, discrimination.test.tsx (58) plus rules.ts/probes.ts. All four advisories fixed. Verified 133/133, repo 1341/8, typecheck green. Re-review dispatched (reviewRounds=1).
+- 2026-08-19T20:00Z — T7 re-review: PASS, 0 new blocking, 4 advisory. Reviewer verified the control arm, both structural guards, bidirectionality, and reconstructed the repeatability arithmetic statically. Criterion 15 letter recorded in T7 note for Gate 3.
+- 2026-08-19T20:15Z — T7 committed 46e9818 (33 files). T9 dispatched from startRef 46e9818.
+- 2026-08-19T20:20Z — USER DIRECTIVE: pause when T9 returns, to respect Claude Code usage limits. On T9's report: record state, do NOT dispatch the reviewer, do NOT dispatch T10, do NOT commit. Wait for explicit user go-ahead. Remaining after T9: T9 review + commit, then T10 (last task: repairs the __tests__ suites T9 disturbs and widens the style-hygiene rule), then Gate 3.
+- 2026-08-19T20:40Z — T9 reported done (12 files: 7 new, 5 modified; 37 shell tests). Verified independently: typecheck green (exit 0), repo 1371 tests / 6 failures, all in the single file src/renderer/src/__tests__/failure-paths.e2e.test.tsx (T10's), nothing under __tests__ edited. T9 measured its own baseline by temporarily setting panelBar={null}: that suite failed 8 before its change and 6 after, so T9 strictly REDUCED the failures and introduced none. Status: implemented.
+- PAUSED HERE per user directive. Next actions when resumed, in order: (1) dispatch dir-reviewer for T9, (2) on pass, commit-task T9, (3) dispatch T10 (last task), (4) Gate 3.
+- 2026-08-20T09:00Z — resumed on user go-ahead. T9 dispatched to review.
+- 2026-08-20T09:25Z — T9 review: PASS, 12/12, 0 blocking, 6 advisory. reviews/T9.md written. Committed 1305d6e (12 files). T10 dispatched — last task.
+- 2026-08-20T10:15Z — T10 reported done (2 files). VERIFIED: 91 files / 1392 tests / 0 failures, typecheck green. Whole-repo green achieved. T10 raised an escalation on criterion 5 (Helm draft survival across a failed load). Dispatched to review.
+- 2026-08-20T10:50Z — T10 review: 14/15, 1 blocking routing to Gate 3 (criterion 5 failed-load half), 4 advisory. reviews/T10.md written. Committed a8b7990 (2 files). All ten tasks done.
+- 2026-08-20T10:55Z — Gate 3 presented. Change surface 42e1bb8..a8b7990, 10 commits, 134 files, +18643/-54. Verified 91 files / 1392 tests / 0 failures, typecheck green.
+- 2026-08-20T10:58Z — Gate 3 APPROVED. Decisions: D1 accept T7 criterion 15 purpose-met, letter-failure recorded as a session decision, no code change. D2 amend T10 criterion 5 to match shipped behaviour AND backlog the reload-failure path. All four advisory groups carried to backlog (27 items appended).
+- 2026-08-20T11:00Z — backlog.md appended 101 -> 224 lines. merge-session dispatched.
+- 2026-08-20T11:08Z — merged to main as 8edcd57 (--no-ff, matching the previous session). Verified on main: 91 files / 1392 tests / 0 failures. Phase: merged.
