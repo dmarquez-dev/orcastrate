@@ -33,3 +33,20 @@ garbage-collected session id to trigger. If it fires, a `resume_fallback` notice
 appears in the transcript — and the `RESUME_FAILED` regex breadth recorded in the
 backlog is the first thing to suspect if it fires on a Pod that should have
 resumed cleanly.
+
+## 2026-08-21 — second hand-run (no session)
+
+The transcript-readability session was driven by hand immediately after merging.
+Seven findings recorded to `.dir-sdlc/backlog.md` under "second hand-run findings"
+for a fresh session to pick up; no implementation work started.
+
+Two mechanisms were traced before writing, so the next session does not re-derive
+them:
+
+- **"Running" persisting on a stopped Pod** is `closePod` writing the Pod's status
+  without ending the Matriarch lane, so `elapsedMsOf` falls back to `nowMs` on a
+  null `endedAt`. The deeper half is that `LaneStatus` has no member meaning
+  "stopped deliberately" — a schema change, not a renderer fix.
+- **No in-progress indicator** is partly caused by this project's own transcript
+  filter: `thinking` is in `PLUMBING_EVENT_TYPES` and therefore hidden by default
+  since 2026-08-21. Recorded as such rather than as a pre-existing gap.

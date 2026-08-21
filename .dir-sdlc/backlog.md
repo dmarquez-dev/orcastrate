@@ -672,3 +672,101 @@ that session's `reviews/T1.md`–`T4.md`.
   doubling: every `user` text block in all six fixtures carries a non-null
   `parent_tool_use_id` and is a **Calf opening prompt**, two of them with identical
   text to each other.
+
+## 2026-08-21 — second hand-run findings (no session; observed directly)
+
+The transcript-readability session was driven by hand on 2026-08-21, immediately
+after it merged. The user's verdict on the shipped work: *"Chat behavior and
+general UX looks much better. A very polished experience so far."* Everything
+below is a nit or a defect found in that run, recorded for a fresh session.
+
+Two of these have mechanisms already traced — do not re-derive them.
+
+### Defects
+
+- **A stopped Pod still reads "Running" with a ticking duration. There is no idle
+  status to replace it with.** *Mechanism confirmed by inspection, 2026-08-21.*
+  `PodManager.closePod` (`src/main/pod-manager/pod-manager.ts:478-488`) writes
+  `status: 'closed'` to the **Pod** and pushes `podStatus`, but **never ends the
+  Matriarch lane**. So `lane.endedAt` stays `null`, and `elapsedMsOf`
+  (`src/renderer/src/state/workspace-provider.tsx:252-258`) falls back to `nowMs`
+  for any lane with a null `endedAt` — the duration keeps counting up and the row
+  keeps reading `running`.
+  **The deeper half:** `LaneStatus` is `'running' | 'done' | 'orphaned'`
+  (`src/shared/contracts/events.ts:101`). There is **no member meaning "the Pod
+  that owns me was stopped deliberately"**, which is exactly the gap the user
+  described as "no idle status replacement". `'done'` means the lane finished its
+  own work and `'orphaned'` means it was found open at startup with no runner —
+  neither is true here. **Adding a member to `LaneStatus` is a schema change with a
+  CHECK constraint behind it**, so this is not a renderer-only fix; see the
+  `_UncoveredAtSchemaHead` item below, which governs the guard on that enum.
+  **Same shape as the relaunch-stranding defect** fixed in
+  `2026-08-20-orcastrate-pod-lifecycle`: lane state not reconciled against Pod
+  state. That one was found by hand too.
+  **Cross-reference:** the `closePod` coverage gap promoted at that session's Gate
+  3 — `PodManager.closePod` against an already-closed Pod is exercised nowhere in
+  the repository — sits on this same verb. Whoever takes this item should close
+  both together.
+
+- **No visual indication that Claude Code is thinking or working.** The user:
+  *"the only way that I can tell the session isn't stalled is if something visual
+  like a new subagent spawning occurs."*
+  **This is partly self-inflicted by `2026-08-21-orcastrate-transcript-readability`,
+  and that must be stated plainly.** `thinking` is a member of
+  `PLUMBING_EVENT_TYPES` (`src/renderer/src/transcript/transcript-filter.ts`), so
+  it is **hidden by default** since that session. The conversation-by-default
+  filter was the right call for the 53-of-109-events noise problem it was built
+  for, but `thinking` was the one plumbing type that carried *liveness*, and
+  hiding it removed the only in-transcript signal that work is happening.
+  **Do not fix this by moving `thinking` back to `CONVERSATION`** — that
+  reintroduces the noise the filter exists to remove, and thinking blocks are long.
+  The wanted thing is a **status affordance**, not a transcript row: emulate Claude
+  Code's own in-progress indicators. Note the lane rail already receives everything
+  needed to drive one — `LaneRow` has `status`, `elapsedMs` and `unreadEventCount`,
+  and deliberately holds **no timer and no clock** (`LaneRow.tsx:30`), with
+  `elapsedMs` arriving pre-computed on the view model. Any animated indicator must
+  respect that property or it will re-render every finished row forever.
+
+### UX refinements — Pod tab chrome
+
+These four are one surface and should be one task; they are all
+`src/renderer/src/pods/PodTab.tsx` and `PodBar.module.css`.
+
+- **Colour the run and stop controls.** Play/open green, pause/stop yellow. The
+  delete control is already red. **Constraint, and it is a real one:** colour must
+  remain a redundant carrier, never the only one. `T4`'s criterion 3 in the
+  transcript-readability session asserts each control by **accessible name**, never
+  by class or computed style, and that assertion must keep passing — it is what
+  makes these affordances work for someone who cannot see the colour. Use existing
+  `--oc-*` tokens; `renderer-theme.ts` has no green or yellow today, so this likely
+  needs new tokens, which is a contract change.
+- **Icon sizes disagree.** The play/pause glyph and the delete `x` render at
+  different sizes. They are text glyphs, not SVG — see `PodTab.tsx`.
+- **The delete `x` has no padding** between itself, the tab edge, and the
+  play/pause control.
+- **A running Pod has no trailing padding** to the right of the stop/pause icon.
+
+### UX refinements — highlight extents
+
+- **Lane rail row highlight does not cover the row.** Selecting a lane highlights
+  with horizontal padding inset from the row edges, and the `Steer` button on a
+  Calf row sits in its own unhighlighted island. Wanted: the **whole** swimlane
+  highlights — lighter for Calves, darker for the Matriarch — with `Steer` staying
+  darker than the highlight and the highlight extending around it rather than
+  stopping at it.
+  **Cross-reference, same rows:** an advisory from
+  `2026-08-20-orcastrate-workspace-refinement` recorded that `aria-current` is set
+  for a row in the primary **or** a follower pane and so does not distinguish them,
+  and that `focusedFollower` reaches assistive technology through the row's
+  accessible name only. Whoever restyles these rows should read that advisory
+  first — the visual and the announced state should agree.
+
+- **Pod tab hover highlights only the name, not the tab.** Wanted: the entire tab
+  highlights on hover, for easier target visibility.
+
+### Not a finding
+
+The user confirmed the four items from the first hand-run all read correctly in
+use: the user's own prompt now appears, right-aligned; tool calls are compact with
+collapsed results; permissions are out of the transcript; the lane-rail pin control
+is gone.
