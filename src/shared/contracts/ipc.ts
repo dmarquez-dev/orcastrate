@@ -149,6 +149,92 @@ export interface UpdatePodRequest {
   envOverrides?: Record<string, string>;
 }
 
+// ---------------------------------------------------------------------------
+// Pod deletion — AMENDED at Gate 2 of 2026-08-20-orcastrate-workspace-refinement
+//
+// `pods.delete` used to take a bare `PodId` and resolve `void`. It now takes a
+// REQUEST and resolves a REPORT, because deletion can now also move the Pod's
+// Claude Code session file to the OS recycle bin — and a caller has to say so
+// explicitly, and has to be told what happened to the file.
+//
+// `INVOKE_CHANNELS.podDelete` keeps its name, `'pod:delete'`. Only the payload
+// and the resolved value moved.
+// ---------------------------------------------------------------------------
+
+/**
+ * A request object rather than a second positional boolean, because
+ * `delete(podId, true)` at a call site says nothing about what `true` destroys.
+ */
+export interface DeletePodRequest {
+  podId: PodId;
+  /**
+   * Also move this Pod's Claude Code session file to the OS recycle bin.
+   *
+   * REQUIRED, not optional and not defaulted. A caller that has not decided
+   * must not be able to omit the field and get either behaviour by accident;
+   * the renderer's confirmation dialog is what decides it, and that dialog
+   * defaults the checkbox to FALSE.
+   */
+  deleteSession: boolean;
+}
+
+/**
+ * What happened to the session file. Modelled as a VALUE for the same reason
+ * `BeachcomberTrashResult` is: the Pod row really was deleted, and a failure to
+ * also bin a file must not report as a failed deletion and leave the user
+ * believing the Pod is still there.
+ *
+ *   'not-requested'  `deleteSession` was false. Nothing was attempted.
+ *   'no-session'     `ccSessionId` was null — the Pod never reached its first
+ *                    turn, so there is nothing on disk. NOT an error.
+ *   'not-found'      The file was not where it was expected. Already binned by
+ *                    hand, or the CLI wrote it elsewhere. NOT an error.
+ *   'trashed'        The trash port resolved. The file is in the recycle bin.
+ *   'failed'         The trash port rejected. `sessionError` carries the
+ *                    platform message VERBATIM.
+ */
+export type PodSessionRemovalOutcome =
+  | 'not-requested'
+  | 'no-session'
+  | 'not-found'
+  | 'trashed'
+  | 'failed';
+
+export interface PodDeletionResult {
+  podId: PodId;
+  /**
+   * ALWAYS TRUE on a resolved result. The Pod row and its history are gone.
+   * The field exists so the shape reads as a report rather than a bare enum,
+   * and so a future soft-delete has somewhere to land without another
+   * amendment.
+   */
+  podDeleted: true;
+  session: PodSessionRemovalOutcome;
+  /** Non-null if and only if `session === 'failed'`. The OS message verbatim. */
+  sessionError: string | null;
+}
+
+/**
+ * The main-process port that does the disk work, declared HERE rather than in
+ * `src/main/pod-session/**` so `src/main/ipc/**` can name it without importing
+ * an implementation module. Implemented in `src/main/pod-session/**`,
+ * constructed in `src/main/index.ts` — the only place `CLAUDE_HOME` and the
+ * application's single `TrashItem` are available — and injected onto
+ * `IpcHandlerDeps` as `deletePodSession`.
+ *
+ * It takes the whole `Pod` rather than a `PodId` because it is called AFTER the
+ * row has been read and deleted; a port that had to look the Pod up would need
+ * the store.
+ *
+ * RESOLVES ALWAYS. It never rejects: a `TrashItem` rejection becomes
+ * `{ outcome: 'failed', error }`. The rejection is caught THERE rather than in
+ * the handler, so the handler has no branch that could turn a binned-file
+ * failure into a failed deletion.
+ */
+export type PodSessionRemover = (
+  pod: Pod,
+) => Promise<{ outcome: PodSessionRemovalOutcome; error: string | null }>;
+
 export interface ReadEventsRequest {
   podId: PodId;
   laneId?: LaneId;
@@ -270,8 +356,15 @@ export interface OrcastrateApi {
     list(): Promise<IpcResult<Pod[]>>;
     create(req: CreatePodRequest): Promise<IpcResult<Pod>>;
     update(req: UpdatePodRequest): Promise<IpcResult<Pod>>;
-    /** Deletes the Pod row and its history. Does not touch anything on disk. */
-    delete(podId: PodId): Promise<IpcResult<void>>;
+    /**
+     * Deletes the Pod row and its history, permanently, and — only when
+     * `deleteSession` is true — moves this Pod's Claude Code session file to
+     * the OS recycle bin. Answers `NOT_FOUND` for an unknown Pod and
+     * `INVALID_ARGUMENT` for a payload that is not a `DeletePodRequest`. A
+     * trash failure is NOT an error: it is `session: 'failed'` on an `ok`
+     * result, because the Pod row really was deleted.
+     */
+    delete(req: DeletePodRequest): Promise<IpcResult<PodDeletionResult>>;
     /** Starts (or resumes) the CLI process for a Pod. */
     open(podId: PodId): Promise<IpcResult<Pod>>;
     /** Stops the process; the Pod row and transcript survive. */

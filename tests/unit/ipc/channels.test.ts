@@ -15,7 +15,11 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { EVENT_CHANNELS, INVOKE_CHANNELS } from '../../../src/shared/contracts/ipc';
-import type { IpcResult, OrcastrateApi } from '../../../src/shared/contracts/ipc';
+import type {
+  IpcResult,
+  OrcastrateApi,
+  PodDeletionResult,
+} from '../../../src/shared/contracts/ipc';
 import type { Pod } from '../../../src/shared/contracts/events';
 import { ROUTING_MODE } from '../../../src/main/pod-manager';
 
@@ -300,7 +304,10 @@ describe('openness is derived from status, never carried beside it', () => {
     update: Exact<ValueOf<'update'>, Pod>;
     open: Exact<ValueOf<'open'>, Pod>;
     reconnect: Exact<ValueOf<'reconnect'>, Pod>;
-    delete: Exact<ValueOf<'delete'>, void>;
+    // AMENDED: `delete` now reports what happened rather than resolving
+    // `void`. The exactness check is what stops the report growing a field the
+    // contract has not admitted.
+    delete: Exact<ValueOf<'delete'>, PodDeletionResult>;
     close: Exact<ValueOf<'close'>, void>;
     send: Exact<ValueOf<'send'>, void>;
     interrupt: Exact<ValueOf<'interrupt'>, void>;

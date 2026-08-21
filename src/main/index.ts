@@ -17,6 +17,7 @@ import { createBeachcomberService } from './beachcomber';
 import { createHelmService } from './helm';
 import { registerIpcHandlers } from './ipc';
 import { createPodRunner } from './pod';
+import { createPodSessionRemover, fileExists } from './pod-session';
 import { createPushes, PodManager, ROUTING_MODE } from './pod-manager';
 import { openEventStore } from './store';
 import { createMainWindow } from './window';
@@ -47,9 +48,10 @@ const CLAUDE_HOME: string = join(homedir(), '.claude');
 
 /**
  * The application's single deletion capability. Electron's `shell.trashItem`
- * moves a path to the OS recycle bin, which is recoverable; it is handed to
- * Beachcomber and to nothing else. It rejects on platform failure, and that
- * rejection is deliberately NOT translated here — Beachcomber reports the
+ * moves a path to the OS recycle bin, which is recoverable. It is constructed
+ * ONCE and handed to exactly two consumers — Beachcomber and the Pod-session
+ * remover — and to nothing else. It rejects on platform failure, and that
+ * rejection is deliberately NOT translated here: both consumers report the
  * platform's own message verbatim (see `contracts/panel-host.ts`).
  */
 const trashItem: TrashItem = (absolutePath: string): Promise<void> =>
@@ -174,7 +176,26 @@ app.whenReady().then(
       watchEnabled: true,
     });
 
-    registerIpcHandlers({ ipcMain, manager, pickDirectory, beachcomber, helm });
+    /**
+     * The Pod-session port, built HERE and only here — this is the one module
+     * that holds both `CLAUDE_HOME` and `trashItem`. Note which `trashItem`:
+     * THE SAME CONSTANT Beachcomber is given a few lines above. No second
+     * deletion capability is created, and none exists to create.
+     */
+    const deletePodSession = createPodSessionRemover({
+      claudeHome: CLAUDE_HOME,
+      trashItem,
+      fileExists,
+    });
+
+    registerIpcHandlers({
+      ipcMain,
+      manager,
+      pickDirectory,
+      beachcomber,
+      helm,
+      deletePodSession,
+    });
 
     createMainWindow();
 

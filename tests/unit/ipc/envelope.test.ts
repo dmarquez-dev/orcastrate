@@ -16,6 +16,7 @@ import type { PermissionMode, PodId } from '../../../src/shared/contracts/events
 import {
   INVOKE_CHANNELS,
   type CreatePodRequest,
+  type DeletePodRequest,
   type IpcErrorCode,
   type IpcResult,
   type PermissionRespondRequest,
@@ -47,7 +48,7 @@ const VALID_ARGS: Record<string, unknown[]> = {
     { title: 'a', cwd: 'C:\\work', permissionMode: 'default' } satisfies CreatePodRequest,
   ],
   [INVOKE_CHANNELS.podUpdate]: [{ podId: 'p1', title: 'b' } satisfies UpdatePodRequest],
-  [INVOKE_CHANNELS.podDelete]: ['p1'],
+  [INVOKE_CHANNELS.podDelete]: [{ podId: 'p1', deleteSession: false } satisfies DeletePodRequest],
   [INVOKE_CHANNELS.podOpen]: ['p1'],
   [INVOKE_CHANNELS.podClose]: ['p1'],
   [INVOKE_CHANNELS.podSend]: ['p1', 'hello'],
@@ -74,6 +75,8 @@ const BAD_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podCreate]: [{ title: '', cwd: 42, permissionMode: 'nope' }],
   [INVOKE_CHANNELS.podUpdate]: [{ podId: '' }],
   [INVOKE_CHANNELS.podDelete]: [null],
+  // `deleteSession` missing entirely — the field that decides whether a file
+  // leaves the disk is never defaulted.
   [INVOKE_CHANNELS.podOpen]: [{ podId: 'p1' }],
   [INVOKE_CHANNELS.podClose]: [123],
   [INVOKE_CHANNELS.podSend]: ['p1', ''],
@@ -122,7 +125,17 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
   };
 
   const boom = ((): never | Promise<never> => {
-    if (mode === 'reject') return Promise.reject(err()) as never;
+    if (mode === 'reject') {
+      const rejected = Promise.reject(err());
+      // `listPods` is SYNCHRONOUS on the real interface, so a caller that
+      // treats its result as an array — `pod:delete` reads the row before it
+      // deletes it — throws on the returned promise instead of awaiting it,
+      // and the rejection would surface as an unhandled one and turn the run
+      // red for the wrong reason. Marked handled here; what this rig asserts
+      // is the envelope the handler produces, which is unchanged.
+      rejected.catch(() => undefined);
+      return rejected as never;
+    }
     throw err();
   }) as () => never;
   const manager: PodManagerApi = {
@@ -158,6 +171,9 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
     pickDirectory: async () => boom(),
     beachcomber,
     helm,
+    // The session port fails the same way everything else in this rig does, so
+    // `pod:delete` is not the one channel that quietly succeeds.
+    deletePodSession: boom,
   });
 
   return {

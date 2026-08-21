@@ -73,7 +73,11 @@ describe('invoke channels', () => {
       INVOKE_CHANNELS.podCreate,
     ],
     ['pods.update', (a) => a.pods.update({ podId: 'p' }), INVOKE_CHANNELS.podUpdate],
-    ['pods.delete', (a) => a.pods.delete('p'), INVOKE_CHANNELS.podDelete],
+    [
+      'pods.delete',
+      (a) => a.pods.delete({ podId: 'p', deleteSession: false }),
+      INVOKE_CHANNELS.podDelete,
+    ],
     ['pods.open', (a) => a.pods.open('p'), INVOKE_CHANNELS.podOpen],
     ['pods.close', (a) => a.pods.close('p'), INVOKE_CHANNELS.podClose],
     ['pods.reconnect', (a) => a.pods.reconnect('p'), INVOKE_CHANNELS.podReconnect],
@@ -143,6 +147,26 @@ describe('invoke channels', () => {
       expect(ipc.calls.map((c) => c.channel)).toEqual([channel]);
     });
   }
+
+  /**
+   * `pods.delete` takes a REQUEST, and the bridge must forward THE OBJECT IT
+   * WAS GIVEN — not a positional id, and not a rebuilt copy that could drop
+   * `deleteSession` and change what leaves the user's disk.
+   */
+  it('forwards the delete REQUEST OBJECT, not a positional id', async () => {
+    const ipc = fakeIpc();
+    const api = createOrcastrateApi(ipc);
+
+    const req = { podId: 'pod-9', deleteSession: true };
+    await api.pods.delete(req);
+
+    expect(ipc.calls[0]?.channel).toBe(INVOKE_CHANNELS.podDelete);
+    expect(ipc.calls[0]?.args).toHaveLength(1);
+    // Identity, not just deep equality: the payload forwarded IS the object
+    // received, so nothing was unpacked and reassembled on the way through.
+    expect(ipc.calls[0]?.args[0]).toBe(req);
+    expect(ipc.calls[0]?.args[0]).toEqual({ podId: 'pod-9', deleteSession: true });
+  });
 
   it('forwards arguments positionally', async () => {
     const ipc = fakeIpc();

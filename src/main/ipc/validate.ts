@@ -26,6 +26,7 @@ import type {
 import { CROSS_SESSION_INBOUND_VALUES } from '../../shared/contracts/helm';
 import type {
   CreatePodRequest,
+  DeletePodRequest,
   PermissionRespondRequest,
   ReadEventsRequest,
   UpdatePodRequest,
@@ -146,6 +147,26 @@ export function requireUpdatePodRequest(value: unknown): UpdatePodRequest {
     throw invalidArgument('cwd is immutable after creation and cannot be updated');
   }
   return req;
+}
+
+/**
+ * `deleteSession` is REQUIRED and must be a real boolean.
+ *
+ * Not defaulted, and the string `'true'` is refused rather than coerced. This
+ * one field decides whether a file leaves the user's disk, so "the caller
+ * probably meant yes" is not an inference this boundary is allowed to make —
+ * an absent or mistyped field is a renderer bug, and answering
+ * INVALID_ARGUMENT surfaces it instead of quietly binning something.
+ */
+export function requireDeletePodRequest(value: unknown): DeletePodRequest {
+  const raw = requireObject(value, 'DeletePodRequest');
+  const deleteSession = raw['deleteSession'];
+  if (typeof deleteSession !== 'boolean') {
+    throw invalidArgument(
+      `deleteSession must be a boolean (received ${JSON.stringify(deleteSession)})`,
+    );
+  }
+  return { podId: requirePodId(raw['podId']), deleteSession };
 }
 
 export function requireReadEventsRequest(value: unknown): ReadEventsRequest {
