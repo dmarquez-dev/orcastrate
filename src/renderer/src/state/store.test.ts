@@ -28,7 +28,7 @@ import {
 } from '../test-utils/stub-api';
 
 import { PanelStateStore } from './panel-store';
-import { newRuntime, WorkspaceStateStore } from './store';
+import { newRuntime, WorkspaceStateStore, type PodRuntimeState } from './store';
 import { steerPrefill } from './steer';
 
 const POD = 'pod-1';
@@ -94,6 +94,22 @@ function runtimeOf(store: WorkspaceStateStore) {
   return runtime;
 }
 
+/**
+ * Writes a runtime record BEHIND the store's own write path, so a state no
+ * action can produce can be handed to `repairSelection`. Going through
+ * `patchRuntime` would trip `assertPanePolicy` first, which is the point of
+ * that assertion and the reason this bypass exists.
+ */
+function forceRuntime(
+  store: WorkspaceStateStore,
+  fn: (runtime: PodRuntimeState) => PodRuntimeState,
+): void {
+  const state = store.getState();
+  const runtime = state.runtimes[POD];
+  if (runtime === undefined) throw new Error('expected a runtime for pod-1');
+  state.runtimes[POD] = fn(runtime);
+}
+
 // ---------------------------------------------------------------------------
 // Criterion 3 — no action ever rejects or throws
 // ---------------------------------------------------------------------------
@@ -137,7 +153,7 @@ const ACTION_CASES: ChannelCase[] = [
   },
   {
     channel: 'podDelete',
-    run: (store) => store.actions.deletePod(POD),
+    run: (store) => store.actions.deletePod({ podId: POD, deleteSession: false }),
     reject: (api) => {
       api.pods.delete = boom;
     },
@@ -698,20 +714,75 @@ describe('laneChanged snapshot semantics (criterion 8)', () => {
     store.stop();
   });
 
-  it('defaults the selection to the Matriarch and repairs a dangling pin', () => {
+  it('puts the Matriarch in the primary pane and drops a follower the snapshot removed', () => {
     const api = stubOrcastrateApi();
     const store = makeStore(api);
     store.start();
 
     withLanes(store, api, [CALF_A, MATRIARCH, CALF_B]);
-    expect(runtimeOf(store).selectedLaneId).toBe('lane-matriarch');
+    expect(runtimeOf(store).primaryLaneId).toBe('lane-matriarch');
 
-    store.actions.pinLane(POD, 'lane-a');
-    expect(runtimeOf(store).pinnedLaneId).toBe('lane-a');
+    store.actions.showLane(POD, 'lane-a');
+    expect(runtimeOf(store).followerLaneIds).toEqual(['lane-a']);
+    expect(runtimeOf(store).focusedFollowerIndex).toBe(0);
 
-    // A snapshot that drops the pinned lane must not leave the pin dangling.
+    // A snapshot that drops the follower lane must not leave it dangling.
     withLanes(store, api, [MATRIARCH, CALF_B]);
-    expect(runtimeOf(store).pinnedLaneId).toBeNull();
+    expect(runtimeOf(store).followerLaneIds).toEqual([]);
+    expect(runtimeOf(store).focusedFollowerIndex).toBeNull();
+    expect(runtimeOf(store).primaryLaneId).toBe('lane-matriarch');
+    store.stop();
+  });
+
+  it('returns primaryLaneId to the Matriarch after a snapshot that drops every lane', () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    store.start();
+
+    withLanes(store, api, [MATRIARCH, CALF_A]);
+    store.actions.showLane(POD, 'lane-a');
+    expect(runtimeOf(store).primaryLaneId).toBe('lane-matriarch');
+    expect(runtimeOf(store).followerLaneIds).toEqual(['lane-a']);
+
+    // EVERY lane gone. `primaryLaneId` is null ONLY while the list is empty.
+    withLanes(store, api, []);
+    expect(runtimeOf(store).primaryLaneId).toBeNull();
+    expect(runtimeOf(store).followerLaneIds).toEqual([]);
+    expect(runtimeOf(store).focusedFollowerIndex).toBeNull();
+
+    // And it comes back to the Matriarch the moment the lanes do — nothing
+    // latched the null, and nothing had to re-select.
+    withLanes(store, api, [CALF_B, MATRIARCH]);
+    expect(runtimeOf(store).primaryLaneId).toBe('lane-matriarch');
+    store.stop();
+  });
+
+  it('restores all three uniqueness rules from a state that broke every one of them', () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    store.start();
+    withLanes(store, api, [MATRIARCH, CALF_A, CALF_B]);
+
+    // Forge the three violations the invariant names — a follower that is also
+    // the primary, a duplicate, and a lane no snapshot ever carried — directly
+    // on the runtime record, because no ACTION can produce them and a repair
+    // that is only ever handed clean input proves nothing.
+    forceRuntime(store, (runtime) => ({
+      ...runtime,
+      followerLaneIds: ['lane-matriarch', 'lane-a', 'lane-a', 'lane-ghost'],
+      focusedFollowerIndex: 3,
+    }));
+    expect(runtimeOf(store).followerLaneIds).toHaveLength(4);
+
+    // Replaying the SAME lane list is enough: repair runs on every snapshot.
+    withLanes(store, api, [MATRIARCH, CALF_A, CALF_B]);
+
+    const runtime = runtimeOf(store);
+    expect(runtime.primaryLaneId).toBe('lane-matriarch');
+    expect(runtime.followerLaneIds).toEqual(['lane-a']);
+    expect(runtime.followerLaneIds).not.toContain(runtime.primaryLaneId);
+    expect(new Set(runtime.followerLaneIds).size).toBe(runtime.followerLaneIds.length);
+    expect(runtime.focusedFollowerIndex).toBe(0);
     store.stop();
   });
 });
@@ -841,10 +912,15 @@ describe('permission cards (criterion 9)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Criterion 10 — selection and pin invariants
+// Criterion 10 — THE PANE MODEL (`contracts/renderer-panes.ts` sections 1-2)
+//
+// Every assertion below reads the FULL TRIPLE. A test that checked only
+// `followerLaneIds` would pass against an implementation that left
+// `focusedFollowerIndex` stale, and a test that checked only the index would
+// pass against one that pushed a duplicate.
 // ---------------------------------------------------------------------------
 
-describe('selection and pin invariants (criterion 10)', () => {
+describe('the pane model (criterion 10)', () => {
   function seeded(): { api: StubOrcastrateApi; store: WorkspaceStateStore } {
     const api = stubOrcastrateApi();
     const store = makeStore(api);
@@ -853,68 +929,244 @@ describe('selection and pin invariants (criterion 10)', () => {
     return { api, store };
   }
 
-  it('pinning the selected lane is a no-op', () => {
+  /** `(primaryLaneId, followerLaneIds, focusedFollowerIndex)`, as one value. */
+  function triple(store: WorkspaceStateStore): {
+    primaryLaneId: string | null;
+    followerLaneIds: string[];
+    focusedFollowerIndex: number | null;
+  } {
+    const runtime = runtimeOf(store);
+    return {
+      primaryLaneId: runtime.primaryLaneId,
+      followerLaneIds: [...runtime.followerLaneIds],
+      focusedFollowerIndex: runtime.focusedFollowerIndex,
+    };
+  }
+
+  // --- showLane's four branches, each asserting the whole triple -----------
+
+  it('branch 1: an unknown lane leaves all three fields untouched', () => {
     const { store } = seeded();
-    expect(runtimeOf(store).selectedLaneId).toBe('lane-matriarch');
+    const before = triple(store);
 
-    store.actions.pinLane(POD, 'lane-matriarch');
+    store.actions.showLane(POD, 'lane-that-never-existed');
 
-    expect(runtimeOf(store).pinnedLaneId).toBeNull();
+    expect(triple(store)).toEqual(before);
+    // Not vacuous: the "before" it matched is a real, populated state.
+    expect(before.primaryLaneId).toBe('lane-matriarch');
   });
 
-  it('selecting the pinned lane swaps the panes instead of closing the split', () => {
-    const { store } = seeded();
-    store.actions.pinLane(POD, 'lane-a');
+  it('branch 2: showing the PRIMARY lane clears its unread and opens no follower', () => {
+    const { api, store } = seeded();
+    store.actions.setActivePod(POD);
+    // Unread only accrues for a lane that is NOT on screen, so the Matriarch's
+    // count has to be built while a different lane holds the primary — which
+    // cannot happen. Force it instead, so the clear has something to clear.
+    forceRuntime(store, (runtime) => ({
+      ...runtime,
+      laneUnread: { ...runtime.laneUnread, 'lane-matriarch': 3 },
+    }));
+    void api;
 
-    store.actions.selectLane(POD, 'lane-a');
+    store.actions.showLane(POD, 'lane-matriarch');
 
-    expect(runtimeOf(store).selectedLaneId).toBe('lane-a');
-    expect(runtimeOf(store).pinnedLaneId).toBe('lane-matriarch');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: [],
+      focusedFollowerIndex: null,
+    });
+    expect(runtimeOf(store).laneUnread['lane-matriarch']).toBe(0);
   });
 
-  it('pins at most one lane; a second pin replaces the first', () => {
+  it('branch 3: a lane ALREADY a follower is focused, not duplicated', () => {
     const { store } = seeded();
-    store.actions.pinLane(POD, 'lane-a');
-    store.actions.pinLane(POD, 'lane-b');
-    expect(runtimeOf(store).pinnedLaneId).toBe('lane-b');
+    store.actions.showLane(POD, 'lane-a');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: ['lane-a'],
+      focusedFollowerIndex: 0,
+    });
+
+    // Force the focus off the pane holding `lane-a`, so "the index moved to
+    // this lane" is an observable change rather than a value that was already
+    // correct — the way a push-based implementation would still look right.
+    forceRuntime(store, (runtime) => ({ ...runtime, focusedFollowerIndex: null }));
+
+    store.actions.showLane(POD, 'lane-a');
+
+    const after = triple(store);
+    expect(after.followerLaneIds).toEqual(['lane-a']);
+    // THE ASSERTION A PUSH-BASED IMPLEMENTATION FAILS: length unchanged.
+    expect(after.followerLaneIds).toHaveLength(1);
+    expect(after.focusedFollowerIndex).toBe(0);
+    expect(after.primaryLaneId).toBe('lane-matriarch');
   });
 
-  it('unpin closes the split and is a no-op when nothing is pinned', () => {
+  it('branch 4: any other lane REPLACES the focused follower in place', () => {
     const { store } = seeded();
-    store.actions.unpinLane(POD);
-    expect(runtimeOf(store).pinnedLaneId).toBeNull();
-    store.actions.pinLane(POD, 'lane-a');
-    store.actions.unpinLane(POD);
-    expect(runtimeOf(store).pinnedLaneId).toBeNull();
+
+    // From empty: one pane is opened and the index becomes 0.
+    store.actions.showLane(POD, 'lane-a');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: ['lane-a'],
+      focusedFollowerIndex: 0,
+    });
+
+    // With a follower present: REPLACED, not appended.
+    store.actions.showLane(POD, 'lane-b');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: ['lane-b'],
+      focusedFollowerIndex: 0,
+    });
   });
 
-  it('keeps pinnedLaneId !== selectedLaneId across every transition', () => {
+  // --- swap-on-pin is gone -------------------------------------------------
+
+  it('SWAP-ON-PIN IS GONE: showing a lane that is already a follower leaves the Matriarch primary', () => {
     const { store } = seeded();
-    const transitions: (() => void)[] = [
-      () => store.actions.pinLane(POD, 'lane-a'),
-      () => store.actions.selectLane(POD, 'lane-a'),
-      () => store.actions.selectLane(POD, 'lane-b'),
-      () => store.actions.pinLane(POD, 'lane-b'),
-      () => store.actions.pinLane(POD, 'lane-matriarch'),
-      () => store.actions.selectLane(POD, 'lane-matriarch'),
-      () => store.actions.unpinLane(POD),
-    ];
-    for (const step of transitions) {
-      step();
-      const runtime = runtimeOf(store);
-      if (runtime.pinnedLaneId !== null) {
-        expect(runtime.pinnedLaneId).not.toBe(runtime.selectedLaneId);
-      }
-    }
+    // The old model's exact sequence: "pin" lane B, then "select" lane B. It
+    // used to exchange the panes and put lane-b in the primary.
+    store.actions.showLane(POD, 'lane-b');
+    store.actions.showLane(POD, 'lane-b');
+
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: ['lane-b'],
+      focusedFollowerIndex: 0,
+    });
   });
 
-  it('jumpToLane is a no-op for a lane the Pod does not know', () => {
+  // --- hideLane ------------------------------------------------------------
+
+  it('hideLane closes the named pane and nulls the index when none is left', () => {
+    const { store } = seeded();
+    store.actions.showLane(POD, 'lane-a');
+
+    store.actions.hideLane(POD, 'lane-a');
+
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: [],
+      focusedFollowerIndex: null,
+    });
+  });
+
+  it('hideLane is a no-op for a lane that is not a follower, and for a second call', () => {
+    const { store } = seeded();
+    store.actions.showLane(POD, 'lane-a');
+
+    // A different lane must not close somebody else's pane.
+    store.actions.hideLane(POD, 'lane-b');
+    expect(triple(store).followerLaneIds).toEqual(['lane-a']);
+    // Nor may the Matriarch's row close the primary.
+    store.actions.hideLane(POD, 'lane-matriarch');
+    expect(triple(store).primaryLaneId).toBe('lane-matriarch');
+
+    store.actions.hideLane(POD, 'lane-a');
+    store.actions.hideLane(POD, 'lane-a');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: [],
+      focusedFollowerIndex: null,
+    });
+  });
+
+  // --- jumpToLane ----------------------------------------------------------
+
+  it('jumpToLane delegates to showLane: it steers the FOLLOWER, never the primary', () => {
     const { store } = seeded();
     store.actions.jumpToLane(POD, 'lane-that-never-existed');
-    expect(runtimeOf(store).selectedLaneId).toBe('lane-matriarch');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: [],
+      focusedFollowerIndex: null,
+    });
 
     store.actions.jumpToLane(POD, 'lane-b');
-    expect(runtimeOf(store).selectedLaneId).toBe('lane-b');
+    expect(triple(store)).toEqual({
+      primaryLaneId: 'lane-matriarch',
+      followerLaneIds: ['lane-b'],
+      focusedFollowerIndex: 0,
+    });
+  });
+
+  // --- today's policy, over the WHOLE action surface -----------------------
+
+  /**
+   * ENUMERATED FROM THE OBJECT, not from a hand-written list, so an action
+   * added later is covered without anyone remembering to add it here — and
+   * asserted NON-EMPTY, because a test that enumerates nothing and finds
+   * nothing wrong reads exactly like one that enumerated everything.
+   */
+  it('NO ACTION MOVES primaryLaneId OFF THE MATRIARCH — every method, enumerated', async () => {
+    // A TWO-LANE POD, answered by `lanes.list` as well as by the push, so the
+    // asynchronous re-read `setActivePod` starts after `deletePod` wiped the
+    // runtime restores the same two lanes rather than an empty rail.
+    const twoLanes = [MATRIARCH, CALF_A];
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }) },
+      lanes: { list: async () => ({ ok: true, value: twoLanes }) },
+    });
+    const store = makeStore(api);
+    store.start();
+    withLanes(store, api, twoLanes);
+    store.actions.setActivePod(POD);
+    await flush();
+    expect(runtimeOf(store).lanes).toHaveLength(2);
+
+    const args: Record<string, unknown[]> = {
+      refreshPods: [],
+      createPod: [{ title: 'T', cwd: '/stub/workspace', permissionMode: 'default' }],
+      updatePod: [{ podId: POD, title: 'renamed' }],
+      reorderPods: [[POD]],
+      deletePod: [{ podId: POD, deleteSession: false }],
+      openPod: [POD],
+      closePod: [POD],
+      reconnectPod: [POD],
+      setActivePod: [POD],
+      setComposerText: [POD, 'hello'],
+      sendComposer: [POD],
+      interruptPod: [POD],
+      setPermissionMode: [POD, 'plan'],
+      steerFromLane: [POD, 'lane-a'],
+      showLane: [POD, 'lane-a'],
+      hideLane: [POD, 'lane-a'],
+      jumpToLane: [POD, 'lane-a'],
+      loadMoreEvents: [POD],
+      respondToPermission: [{ podId: POD, requestId: 'r1', decision: 'allow' }],
+      pickDirectory: [],
+    };
+
+    const names = Object.keys(store.actions) as (keyof typeof store.actions)[];
+    // NOT VACUOUS, twice over: the enumeration is non-empty, and every member
+    // of it has arguments below — a method added without a case here fails
+    // rather than being silently skipped.
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.filter((name) => args[name] === undefined)).toEqual([]);
+
+    let called = 0;
+    for (const name of names) {
+      const method = store.actions[name] as (...a: unknown[]) => unknown;
+      await method.apply(store.actions, args[name] ?? []);
+      called += 1;
+      // `deletePod` removes the runtime; replay the snapshot so every method
+      // after it in the enumeration is still exercised against two lanes.
+      if (store.getState().runtimes[POD] === undefined) {
+        withLanes(store, api, twoLanes);
+        store.actions.setActivePod(POD);
+        await flush();
+      }
+      const runtime = store.getState().runtimes[POD];
+      // Not vacuous: every iteration really is asserting against two lanes.
+      expect(runtime?.lanes.length ?? 0).toBe(2);
+      if (runtime === undefined) continue;
+      expect(runtime.primaryLaneId).toBe('lane-matriarch');
+      expect(runtime.followerLaneIds.length).toBeLessThanOrEqual(1);
+    }
+    expect(called).toBe(names.length);
+    store.stop();
   });
 });
 
@@ -1005,7 +1257,7 @@ describe('routing mode and unread counts (criterion 12)', () => {
     store.stop();
   });
 
-  it('counts lane events only for lanes other than the selected one', () => {
+  it('counts lane events only for lanes that are not on screen in either pane', () => {
     const api = stubOrcastrateApi();
     const store = makeStore(api);
     store.start();
@@ -1017,8 +1269,11 @@ describe('routing mode and unread counts (criterion 12)', () => {
     expect(runtimeOf(store).laneUnread['lane-a']).toBe(1);
     expect(runtimeOf(store).laneUnread['lane-matriarch'] ?? 0).toBe(0);
 
-    store.actions.selectLane(POD, 'lane-a');
+    // Opening lane-a in the FOLLOWER pane clears it — being on screen is what
+    // "read" means now, and the primary pane never moved off the Matriarch.
+    store.actions.showLane(POD, 'lane-a');
     expect(runtimeOf(store).laneUnread['lane-a']).toBe(0);
+    expect(runtimeOf(store).primaryLaneId).toBe('lane-matriarch');
     store.stop();
   });
 
@@ -1203,6 +1458,134 @@ describe('pod actions', () => {
     api.clearInvokeFailure('podSetPermissionMode');
     expect((await store.actions.setPermissionMode(POD, 'plan')).ok).toBe(true);
     expect(store.getState().pods[0]?.permissionMode).toBe('plan');
+    store.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pod lifecycle amendments (`contracts/pod-deletion.ts` section 4)
+// ---------------------------------------------------------------------------
+
+describe('createPod creates the ROW and stops there', () => {
+  it('records exactly one invocation, pods.create, and zero pods.open', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+
+    const result = await store.actions.createPod({
+      title: 'New',
+      cwd: '/stub/workspace',
+      permissionMode: 'default',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(api.calls.podCreate).toHaveLength(1);
+    // THE WHOLE POINT: no open. Against the pre-change store this line failed
+    // with `[['pod-1']]`, because `createPod` invoked both.
+    expect(api.calls.podOpen).toEqual([]);
+    // And `pods.create` is the ONLY Pod channel touched — the two reads that
+    // follow (`lanes.list`, `events.read`) belong to activating the new Pod,
+    // which `setActivePod` has always done and which touches no Pod channel.
+    const podChannels = (Object.keys(api.calls) as InvokeChannelKey[]).filter(
+      (key) => key.startsWith('pod') && api.calls[key].length > 0,
+    );
+    expect(podChannels).toEqual(['podCreate']);
+  });
+
+  it('leaves the row in place with the status main returned', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+
+    await store.actions.createPod({
+      title: 'New',
+      cwd: '/stub/workspace',
+      permissionMode: 'default',
+    });
+
+    // `makeStubPod` defaults to 'closed'; the row carries what main said and
+    // nothing optimistic.
+    expect(store.getState().pods.map((pod) => pod.status)).toEqual(['closed']);
+    expect(store.getState().activePodId).toBe(POD);
+  });
+});
+
+describe('deletePod takes a request and reports a result', () => {
+  function podStore(): { api: StubOrcastrateApi; store: WorkspaceStateStore } {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }) },
+    });
+    const store = makeStore(api);
+    store.start();
+    return { api, store };
+  }
+
+  it('sends the whole DeletePodRequest, deleteSession included', async () => {
+    const { api, store } = podStore();
+    await flush();
+
+    await store.actions.deletePod({ podId: POD, deleteSession: true });
+
+    expect(api.calls.podDelete).toEqual([[{ podId: POD, deleteSession: true }]]);
+  });
+
+  it('resolves the PodDeletionResult rather than void', async () => {
+    const { store } = podStore();
+    await flush();
+
+    const result = await store.actions.deletePod({ podId: POD, deleteSession: true });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.value).toEqual({
+      podId: POD,
+      podDeleted: true,
+      session: 'trashed',
+      sessionError: null,
+    });
+  });
+
+  it("clears the row, the runtime and activePodId even when session is 'failed'", async () => {
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }),
+        delete: async (req) => ({
+          ok: true,
+          value: {
+            podId: req.podId,
+            podDeleted: true as const,
+            session: 'failed' as const,
+            sessionError: 'EPERM: operation not permitted',
+          },
+        }),
+      },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().activePodId).toBe(POD);
+    expect(store.getState().pods.map((pod) => pod.id)).toEqual([POD]);
+
+    const result = await store.actions.deletePod({ podId: POD, deleteSession: true });
+
+    // The session file survived and the Pod did not. A row left on screen
+    // because a FILE could not be binned would tell the user the opposite of
+    // what happened.
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.value.session).toBe('failed');
+    expect(store.getState().pods).toEqual([]);
+    expect(store.getState().runtimes[POD]).toBeUndefined();
+    expect(store.getState().activePodId).toBeNull();
+    store.stop();
+  });
+
+  it('leaves everything in place when the delete itself failed', async () => {
+    const { api, store } = podStore();
+    await flush();
+    api.failInvoke('podDelete', ipcError('NOT_FOUND', 'no such Pod'));
+
+    const result = await store.actions.deletePod({ podId: POD, deleteSession: false });
+
+    expect(result.ok).toBe(false);
+    expect(store.getState().pods.map((pod) => pod.id)).toEqual([POD]);
     store.stop();
   });
 });

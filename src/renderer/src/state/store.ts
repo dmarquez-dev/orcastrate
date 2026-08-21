@@ -33,6 +33,7 @@ import type {
 } from '@shared/contracts/events';
 import type {
   CreatePodRequest,
+  DeletePodRequest,
   IpcError,
   IpcResult,
   LaneChangedPush,
@@ -40,6 +41,7 @@ import type {
   PermissionRequestedPush,
   PermissionResolvedPush,
   PermissionRespondRequest,
+  PodDeletionResult,
   PodEventPush,
   PodStatusPush,
   Unsubscribe,
@@ -52,8 +54,10 @@ import type {
   BackfillState,
   LoadPhase,
   PermissionCardVm,
+  PodDeletionActionResult,
   WorkspaceActions,
 } from '../contracts/renderer-state';
+import { MAX_FOLLOWER_PANES } from '../contracts/renderer-state';
 
 import { mergeEvents } from './merge';
 import { matriarchOf, orderPods } from './ordering';
@@ -90,8 +94,17 @@ export interface PodRuntimeState {
   lanesPhase: LoadPhase;
   lanes: Lane[];
   lanesError: IpcError | null;
-  selectedLaneId: LaneId | null;
-  pinnedLaneId: LaneId | null;
+  // THE PANE MODEL (`contracts/renderer-panes.ts` section 1). These three
+  // REPLACE `selectedLaneId` and `pinnedLaneId`; neither survives, not even as
+  // an alias, because a compile error at every remaining call site is how the
+  // call sites get found.
+  //
+  // `primaryLaneId` is written by `repairSelection` and by NOTHING ELSE. That
+  // is what makes "the Matriarch is never displaced" a property of the action
+  // surface rather than a rule someone has to remember.
+  primaryLaneId: LaneId | null;
+  followerLaneIds: LaneId[];
+  focusedFollowerIndex: number | null;
   transcripts: Record<LaneId, LaneTranscriptState | undefined>;
   backfill: BackfillState;
   pendingPermissions: PermissionCardVm[];
@@ -148,8 +161,9 @@ export function newRuntime(
     lanesPhase: phase,
     lanes: [],
     lanesError: error,
-    selectedLaneId: null,
-    pinnedLaneId: null,
+    primaryLaneId: null,
+    followerLaneIds: [],
+    focusedFollowerIndex: null,
     transcripts: {},
     backfill: {
       phase,
@@ -240,6 +254,10 @@ export class WorkspaceStateStore {
         existing ??
         newRuntime(this.api === null ? 'error' : 'idle', this.bridgeError(), this.pageSize);
       const next = fn(base);
+      // EVERY write to a runtime record passes through here — every action and
+      // every push — so this is the one place today's pane policy has to be
+      // checked to be checked everywhere.
+      assertPanePolicy(next);
       if (next === existing) return state;
       return { ...state, runtimes: { ...state.runtimes, [podId]: next } };
     });
@@ -329,7 +347,11 @@ export class WorkspaceStateStore {
         const after = mergeEvents(before, laneEvents);
         transcripts[laneId] = { events: after, phase: 'ready', error: null };
         const grew = after.length - before.length;
-        if (live && grew > 0 && laneId !== runtime.selectedLaneId) {
+        // A lane that is ON SCREEN — in the primary pane or in a follower —
+        // accrues no unread count. Under the old shape only the single
+        // selected lane qualified; the pane model makes that a membership
+        // test over both panes.
+        if (live && grew > 0 && !isOnScreen(runtime, laneId)) {
           laneUnread[laneId] = (laneUnread[laneId] ?? 0) + grew;
         }
         added += grew;
@@ -367,8 +389,9 @@ export class WorkspaceStateStore {
 
   /**
    * `laneChanged` is a SNAPSHOT, not a delta: the list is replaced wholesale,
-   * so a lane the push omits disappears from the rail. Selection and pin are
-   * repaired against the new list rather than left dangling.
+   * so a lane the push omits disappears from the rail. The pane model is
+   * repaired against the new list rather than left dangling — see
+   * `repairSelection`, which restores all three uniqueness rules.
    */
   private onLaneChanged(push: LaneChangedPush): void {
     this.patchRuntime(push.podId, (runtime) =>
@@ -470,14 +493,12 @@ export class WorkspaceStateStore {
           podsPhase: state.podsPhase === 'idle' ? 'ready' : state.podsPhase,
         }));
         store.actions.setActivePod(pod.id);
-        // "Creates the Pod row AND opens its process." A failed open leaves
-        // the row in place, unopened, and reports the error verbatim.
-        // `applyPod` writes the returned status, and that status IS the
-        // openness — no optimistic patch is issued or needed.
-        const opened = await safeInvoke(() => api.pods.open(pod.id));
-        if (!opened.ok) return opened;
-        store.applyPod(opened.value);
-        return { ok: true, value: opened.value };
+        // CREATES THE ROW, AND STOPS. There is deliberately no `pods.open`
+        // here: opening is `openPod`'s job and the Pod bar's affordance, and
+        // folding it in reported a spawn failure as a failed CREATE for a Pod
+        // that had in fact been created. `applyPod` wrote the returned status,
+        // and that status IS the openness — nothing else to patch.
+        return { ok: true, value: pod };
       },
 
       async updatePod(req: UpdatePodRequest): Promise<ActionResult<Pod>> {
@@ -512,11 +533,20 @@ export class WorkspaceStateStore {
         return { ok: true, value: undefined };
       },
 
-      async deletePod(podId: PodId): Promise<ActionResult<void>> {
+      /**
+       * The Pod row, its runtime and its `activePodId` claim are cleared
+       * whenever `podDeleted` is true — INDEPENDENTLY of `session`. A Pod
+       * whose session file could not be binned is still a deleted Pod, and
+       * leaving its tab on screen because a FILE survived would tell the user
+       * the opposite of what happened. `session: 'failed'` is the dialog's to
+       * report, not this layer's to act on.
+       */
+      async deletePod(req: DeletePodRequest): Promise<PodDeletionActionResult> {
         const api = store.api;
-        if (api === null) return store.failClosed<void>();
-        const result = await safeInvoke(() => api.pods.delete(podId));
+        if (api === null) return store.failClosed<PodDeletionResult>();
+        const result = await safeInvoke(() => api.pods.delete(req));
         if (!result.ok) return result;
+        const podId = req.podId;
         store.update((state) => {
           const runtimes = { ...state.runtimes };
           delete runtimes[podId];
@@ -527,7 +557,7 @@ export class WorkspaceStateStore {
             activePodId: state.activePodId === podId ? null : state.activePodId,
           };
         });
-        return { ok: true, value: undefined };
+        return { ok: true, value: result.value };
       },
 
       async openPod(podId: PodId): Promise<ActionResult<Pod>> {
@@ -666,44 +696,81 @@ export class WorkspaceStateStore {
 
       // --- Lanes ----------------------------------------------------------
 
-      selectLane(podId: PodId, laneId: LaneId): void {
+      /**
+       * THE SINGLE LANE-SELECTION VERB, and the four branches of its
+       * resolution order in the order the contract states them. NOTE WHAT IS
+       * ABSENT: no branch writes `primaryLaneId`.
+       */
+      showLane(podId: PodId, laneId: LaneId): void {
         store.patchRuntime(podId, (runtime) => {
+          // 1. Unknown lane: no-op, all three fields untouched.
           if (!isKnownLane(runtime, laneId)) return runtime;
-          if (runtime.selectedLaneId === laneId) return clearLaneUnread(runtime, laneId);
-          // Selecting the PINNED lane swaps the panes rather than closing the
-          // split or rendering the same lane twice.
-          const pinned =
-            runtime.pinnedLaneId === laneId ? runtime.selectedLaneId : runtime.pinnedLaneId;
+
+          // 2. Already the primary. Clear its unread and NOTHING else — in
+          //    particular, never open a follower showing the primary's lane.
+          if (runtime.primaryLaneId === laneId) return clearLaneUnread(runtime, laneId);
+
+          // 3. Already a follower: FOCUS it, do not duplicate it. The array is
+          //    returned unchanged — length included. Pushing a second copy
+          //    here is the mistake the uniqueness invariant exists to catch.
+          const existing = runtime.followerLaneIds.indexOf(laneId);
+          if (existing !== -1) {
+            const focused =
+              runtime.focusedFollowerIndex === existing
+                ? runtime
+                : { ...runtime, focusedFollowerIndex: existing };
+            return clearLaneUnread(focused, laneId);
+          }
+
+          // 4. Otherwise REPLACE the focused follower. The array grows only
+          //    while it is under `MAX_FOLLOWER_PANES` — at the cap the lane at
+          //    `focusedFollowerIndex` is overwritten IN PLACE and the length
+          //    does not change. At today's cap of one that reads as "clicking
+          //    a Calf updates the Calf pane, always".
+          const followers = [...runtime.followerLaneIds];
+          let index: number;
+          if (followers.length < MAX_FOLLOWER_PANES) {
+            followers.push(laneId);
+            index = followers.length - 1;
+          } else {
+            index = clampIndexInto(runtime.focusedFollowerIndex, followers.length);
+            followers[index] = laneId;
+          }
           return clearLaneUnread(
-            { ...runtime, selectedLaneId: laneId, pinnedLaneId: pinned },
+            { ...runtime, followerLaneIds: followers, focusedFollowerIndex: index },
             laneId,
           );
         });
       },
 
-      pinLane(podId: PodId, laneId: LaneId): void {
+      /**
+       * Closes ONE follower pane. A lane that is not a follower is a no-op,
+       * not an error — a double-click on an unpin control must not throw and
+       * must not close a different pane.
+       */
+      hideLane(podId: PodId, laneId: LaneId): void {
         store.patchRuntime(podId, (runtime) => {
-          if (!isKnownLane(runtime, laneId)) return runtime;
-          // Pinning the selected lane would render it twice: no-op.
-          if (runtime.selectedLaneId === laneId) return runtime;
-          if (runtime.pinnedLaneId === laneId) return runtime;
-          // At most one lane is pinned: this replaces any previous pin.
-          return { ...runtime, pinnedLaneId: laneId };
+          const at = runtime.followerLaneIds.indexOf(laneId);
+          if (at === -1) return runtime;
+          const followers = runtime.followerLaneIds.filter((_, index) => index !== at);
+          return {
+            ...runtime,
+            followerLaneIds: followers,
+            focusedFollowerIndex: clampFollowerIndex(runtime.focusedFollowerIndex, at, followers),
+          };
         });
       },
 
-      unpinLane(podId: PodId): void {
-        store.patchRuntime(podId, (runtime) =>
-          runtime.pinnedLaneId === null ? runtime : { ...runtime, pinnedLaneId: null },
-        );
-      },
-
-      /** No-op for an unknown lane — legitimate in 'inline' routing mode. */
+      /**
+       * DELEGATES TO `showLane`, so a jump opens or steers the follower pane
+       * rather than replacing the Matriarch's transcript. Still a no-op for an
+       * unknown lane — legitimate in 'inline' routing mode.
+       */
       jumpToLane(podId: PodId, laneId: LaneId): void {
         const runtime = store.state.runtimes[podId];
         if (runtime === undefined) return;
         if (!runtime.lanes.some((lane) => lane.id === laneId)) return;
-        store.actions.selectLane(podId, laneId);
+        store.actions.showLane(podId, laneId);
       },
 
       // --- Events ---------------------------------------------------------
@@ -903,23 +970,117 @@ function clearLaneUnread(runtime: PodRuntimeState, laneId: LaneId): PodRuntimeSt
   return { ...runtime, laneUnread: { ...runtime.laneUnread, [laneId]: 0 } };
 }
 
+/** In the primary pane or in any follower pane — i.e. the user can see it. */
+function isOnScreen(runtime: PodRuntimeState, laneId: LaneId): boolean {
+  return runtime.primaryLaneId === laneId || runtime.followerLaneIds.includes(laneId);
+}
+
+/** A valid index into an array of `length`, given a possibly stale one. */
+function clampIndexInto(index: number | null, length: number): number {
+  if (length === 0) return 0;
+  if (index === null || index < 0) return 0;
+  return index >= length ? length - 1 : index;
+}
+
 /**
- * Restores the selection invariants after the lane list is replaced:
- * a selection defaults to the Matriarch, a pin or selection naming a lane the
- * snapshot dropped is cleared, and `pinnedLaneId !== selectedLaneId` holds.
+ * The focused index after the pane at `removedAt` was closed. Null once no
+ * follower is left; otherwise it follows the pane it was on when that pane
+ * moved left, and clamps into range when it was the one removed.
+ */
+function clampFollowerIndex(
+  focused: number | null,
+  removedAt: number,
+  remaining: readonly LaneId[],
+): number | null {
+  if (remaining.length === 0) return null;
+  if (focused === null) return 0;
+  return clampIndexInto(focused > removedAt ? focused - 1 : focused, remaining.length);
+}
+
+/**
+ * Restores the pane model after the lane list is replaced wholesale.
+ *
+ * THIS IS THE ONLY WRITER OF `primaryLaneId`, and it always writes the same
+ * thing: the Matriarch. No action can move another lane into the primary pane
+ * (`contracts/renderer-panes.ts` section 1), so a snapshot is the only event
+ * that can change which lane is there — it changes it by changing which lane
+ * is the Matriarch, or by emptying the list.
+ *
+ * It restores all three UNIQUENESS rules for the followers:
+ *   - `primaryLaneId` is never a member of `followerLaneIds`;
+ *   - `followerLaneIds` contains no duplicates;
+ *   - every member names a lane in the snapshot.
+ * plus today's `MAX_FOLLOWER_PANES` cap, so a state that arrived over it — a
+ * future cap reduction, a replayed push — is trimmed rather than asserted at.
  */
 function repairSelection(runtime: PodRuntimeState): PodRuntimeState {
   const known = new Set(runtime.lanes.map((lane) => lane.id));
-  let selected = runtime.selectedLaneId;
-  let pinned = runtime.pinnedLaneId;
+  // `matriarchOf` is the rail's index 0, which is the Matriarch when there is
+  // one and the earliest Calf when the snapshot has no Matriarch at all — so
+  // this is null only when the list is empty, exactly as the contract says.
+  const primary = matriarchOf(runtime.lanes)?.id ?? null;
 
-  if (selected !== null && !known.has(selected)) selected = null;
-  if (pinned !== null && !known.has(pinned)) pinned = null;
-  if (selected === null) selected = matriarchOf(runtime.lanes)?.id ?? null;
-  if (pinned !== null && pinned === selected) pinned = null;
+  const followers: LaneId[] = [];
+  for (const laneId of runtime.followerLaneIds) {
+    if (!known.has(laneId)) continue;
+    if (laneId === primary) continue;
+    if (followers.includes(laneId)) continue;
+    if (followers.length >= MAX_FOLLOWER_PANES) break;
+    followers.push(laneId);
+  }
 
-  if (selected === runtime.selectedLaneId && pinned === runtime.pinnedLaneId) return runtime;
-  return { ...runtime, selectedLaneId: selected, pinnedLaneId: pinned };
+  const focused = followers.length === 0 ? null : clampIndexInto(runtime.focusedFollowerIndex, followers.length);
+
+  if (
+    primary === runtime.primaryLaneId &&
+    focused === runtime.focusedFollowerIndex &&
+    sameLaneIds(followers, runtime.followerLaneIds)
+  ) {
+    return runtime;
+  }
+  return {
+    ...runtime,
+    primaryLaneId: primary,
+    followerLaneIds: followers,
+    focusedFollowerIndex: focused,
+  };
+}
+
+function sameLaneIds(a: readonly LaneId[], b: readonly LaneId[]): boolean {
+  if (a.length !== b.length) return false;
+  return a.every((laneId, index) => laneId === b[index]);
+}
+
+/**
+ * TODAY'S POLICY, ASSERTED RATHER THAN ENCODED — the two statements
+ * `contracts/renderer-panes.ts` section 1 makes about a shape that could
+ * express more than today's behaviour, checked on every runtime write.
+ *
+ * They are assertions and not types because the SHAPE is deliberately general:
+ * a list and an index can carry two Calves the day the cap moves, and the cost
+ * of that generality is that "one follower, Matriarch always primary" has to
+ * be stated somewhere. Here.
+ *
+ * A violation is a logic error in this file, not bad input, so it throws
+ * rather than repairing: silently correcting it is how the previous session
+ * shipped guards that proved nothing.
+ */
+export function assertPanePolicy(runtime: PodRuntimeState): void {
+  if (runtime.lanes.length > 0) {
+    const expected = matriarchOf(runtime.lanes)?.id ?? null;
+    if (runtime.primaryLaneId !== expected) {
+      throw new Error(
+        `Pane policy violated: primaryLaneId is ${String(runtime.primaryLaneId)} but the ` +
+          `Matriarch is ${String(expected)}. No action may write primaryLaneId.`,
+      );
+    }
+  }
+  if (runtime.followerLaneIds.length > MAX_FOLLOWER_PANES) {
+    throw new Error(
+      `Pane policy violated: ${runtime.followerLaneIds.length} follower panes, ` +
+        `cap is ${MAX_FOLLOWER_PANES}.`,
+    );
+  }
 }
 
 /**

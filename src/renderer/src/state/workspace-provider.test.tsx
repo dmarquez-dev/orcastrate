@@ -113,9 +113,10 @@ const ACTION_NAMES = [
   'interruptPod',
   'setPermissionMode',
   'steerFromLane',
-  'selectLane',
-  'pinLane',
-  'unpinLane',
+  // The pane model: `selectLane`, `pinLane` and `unpinLane` are DELETED and
+  // these two replace them (`contracts/renderer-panes.ts` section 2).
+  'showLane',
+  'hideLane',
   'jumpToLane',
   'loadMoreEvents',
   'respondToPermission',
@@ -336,8 +337,8 @@ describe('derived views', () => {
                 row.agentType,
                 row.description ?? 'null',
                 String(row.isMatriarch),
-                String(row.selected),
-                String(row.pinned),
+                String(row.inPrimaryPane),
+                String(row.inFollowerPane),
                 String(row.elapsedMs),
               ].join('|')}
             </li>
@@ -361,6 +362,87 @@ describe('derived views', () => {
     expect(Number(rows[0]?.split('|').at(-1))).toBeGreaterThan(0);
     // A finished lane's elapsed time is frozen at endedAt - startedAt.
     expect(rows[1]).toBe('lane-a|explorer|look around|false|false|false|5000');
+  });
+
+  // -------------------------------------------------------------------------
+  // The pane model's four `LaneRowVm` fields (renderer-panes.ts section 3)
+  //
+  // `canPin` is ASSERTED here rather than assumed by the rail, because the
+  // rail's only alternative is re-deriving it from `isMatriarch` — which gets
+  // the 'inline' half wrong every time.
+  // -------------------------------------------------------------------------
+
+  /** Every row as `laneId/inPrimaryPane/inFollowerPane/focusedFollower/canPin`. */
+  function PaneRowsProbe(): ReactNode {
+    const rail = useLaneRail();
+    return (
+      <div data-testid="panes">
+        {rail.value
+          .map((row) =>
+            [
+              row.lane.id,
+              String(row.inPrimaryPane),
+              String(row.inFollowerPane),
+              String(row.focusedFollower),
+              String(row.canPin),
+            ].join('/'),
+          )
+          .join(',')}
+      </div>
+    );
+  }
+
+  function panesText(): string {
+    return screen.getByTestId('panes').textContent ?? '';
+  }
+
+  it('marks the primary, the follower and the focused follower, and offers canPin only to Calves', async () => {
+    const api = podsApi([makeStubPod({ id: POD })]);
+    let actions: Contract.WorkspaceActions | null = null;
+    function Probe(): ReactNode {
+      actions = useWorkspaceActions();
+      return <PaneRowsProbe />;
+    }
+    await act(async () => {
+      renderWithWorkspace(<Probe />, { api });
+    });
+    act(() => {
+      api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, CALF] });
+    });
+
+    // Unsplit: the Matriarch holds the primary, nothing is a follower, and the
+    // Matriarch has NO pin control while the Calf does.
+    expect(panesText()).toBe('lane-matriarch/true/false/false/false,lane-a/false/false/false/true');
+
+    await act(async () => {
+      actions?.showLane(POD, 'lane-a');
+    });
+
+    // The Calf is now the follower AND the focused one — the pane a further
+    // rail click would overwrite. The Matriarch never moved and still cannot
+    // be pinned.
+    expect(panesText()).toBe('lane-matriarch/true/false/false/false,lane-a/false/true/true/true');
+  });
+
+  it('offers canPin to NO row in inline routing mode, Calves included', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }) },
+      app: { routingMode: async () => ({ ok: true, value: 'inline' as const }) },
+    });
+    await act(async () => {
+      renderWithWorkspace(<PaneRowsProbe />, { api });
+    });
+    act(() => {
+      api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, CALF] });
+    });
+
+    // Not a vacuous pass: BOTH rows are present, and the Calf — the row that
+    // is pinnable in 'lanes' mode, asserted true directly above — is false
+    // here. Only the mode differs between the two tests.
+    const rows = panesText().split(',');
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toBe('lane-matriarch/true/false/false/false');
+    expect(rows[1]).toBe('lane-a/false/false/false/false');
   });
 
   it('gives an empty idle transcript for a lane with no events, and merges pushes into it', async () => {

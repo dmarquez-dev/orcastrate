@@ -47,7 +47,13 @@ export interface WorkspaceLayoutProps {
   podBar: ReactNode;
   laneRail: ReactNode;
   primary: ReactNode;
-  /** The pinned lane's pane (spec 5.2). null when unsplit. */
+  /**
+   * The follower lane's pane. null when unsplit.
+   *
+   * UNCHANGED BY THE PANE-MODEL AMENDMENT — the slot is not renamed, removed,
+   * or made optional. What changed is which lane feeds it: `App.tsx` passes
+   * `followerLaneIds[0] ?? null` where it used to pass the pinned lane.
+   */
   split: ReactNode | null;
   composer: ReactNode;
   /**
@@ -198,9 +204,28 @@ export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
 
 export interface LaneRailProps {
   rows: LaneRowVm[];
+  /** Wired to `showLane`. See `contracts/renderer-panes.ts` section 2. */
   onSelect(laneId: LaneId): void;
-  onPin(laneId: LaneId): void;
-  onUnpin(laneId: LaneId): void;
+  /**
+   * AMENDMENT (`contracts/renderer-panes.ts` section 4). `onPin` and `onUnpin`
+   * are DELETED and replaced by the two below.
+   *
+   * Opens `laneId` in the follower pane, or focuses it if it is already there.
+   * Wired to `showLane`. Offered ONLY on rows where `LaneRowVm.canPin` is true
+   * — which is never the Matriarch, and never any row in 'inline' mode.
+   *
+   * BOTH ARE OPTIONAL, AND THAT IS A COMPILE-TIME CONCESSION, NOT A DESIGN —
+   * the identical concession `panelBar` and `panel` made below, for the
+   * identical reason. T1 lands `App.tsx` and T2 lands `LaneRail.tsx`
+   * CONCURRENTLY; a required prop would leave whichever landed first red until
+   * the other landed, which makes a task unreviewable. What makes an absent
+   * value a TEST FAILURE rather than a valid state is T2's acceptance
+   * criteria, which require the rail to render both affordances, and T5's
+   * suite, which drives them end to end.
+   */
+  onShowInFollower?: (laneId: LaneId) => void;
+  /** Closes `laneId`'s follower pane. Wired to `hideLane`. */
+  onHideFollower?: (laneId: LaneId) => void;
   /**
    * Offered only when `steerPrefill(row.lane)` returns non-null — i.e. the
    * lane has an `agentId`. Prefills the POD composer; it does not send
@@ -246,8 +271,23 @@ export interface TranscriptPaneProps {
    */
   lanes: Lane[];
   routingMode: RoutingMode;
-  /** True for the pinned split pane; it renders without the composer. */
+  /** True for a FOLLOWER pane; it renders without the composer. */
   isSplit: boolean;
+  /**
+   * AMENDMENT (`contracts/renderer-panes.ts` section 5). Closes THIS pane.
+   * Wired to `hideLane(podId, lane.id)`.
+   *
+   * MUST BE RENDERED WHEN, AND ONLY WHEN, `isSplit` is true and this is
+   * non-null, on `PANE_TEST_IDS.transcriptUnpin`. The primary pane never
+   * carries it: the Matriarch cannot be closed, and a control that closes
+   * nothing is worse than no control.
+   *
+   * OPTIONAL FOR THE SAME COMPILE-TIME CONCESSION AS `LaneRailProps`' two new
+   * callbacks: T3 owns `transcript/**`, T1 owns `App.tsx`, and they land
+   * concurrently. T3's acceptance criteria are what make an absent control a
+   * failure.
+   */
+  onHide?: () => void;
   /** Backfill affordance. Hidden when `hasMore` is false. */
   hasMore: boolean;
   onLoadMore(): void;
@@ -354,6 +394,14 @@ export const TEST_IDS = {
   /** `lane-row:<laneId>`. */
   laneRow: 'lane-row',
   laneRowUnread: 'lane-row-unread',
+  /**
+   * KEPT, AND REDEFINED (`contracts/renderer-panes.ts` section 7). It is now
+   * the pin/unpin ICON on a Calf row, whose `aria-pressed` reflects
+   * `LaneRowVm.inFollowerPane` and whose accessible name says which action it
+   * will perform. It is ABSENT on the Matriarch row, where `canPin` is false —
+   * and "absent", not "disabled", because there is no state in which the
+   * Matriarch becomes pinnable.
+   */
   laneRowPin: 'lane-row-pin',
   laneRowSteer: 'lane-row-steer',
   transcriptPrimary: 'transcript-primary',
@@ -372,6 +420,35 @@ export const TEST_IDS = {
   permissionAllowAlways: 'permission-allow-always',
   permissionDeny: 'permission-deny',
   permissionDenyReason: 'permission-deny-reason',
+} as const;
+
+/**
+ * AMENDMENT (`contracts/renderer-panes.ts` section 7). ADDED by T1 in ONE
+ * edit, so T2, T3, T4 and T5 never race for the same object. No other task
+ * edits this file.
+ */
+export const PANE_TEST_IDS = {
+  /** The follower pane's own unpin control. Rendered only when `isSplit`. */
+  transcriptUnpin: 'transcript-unpin',
+  /** The finished-lane disclosure in the rail. Carries the count. */
+  laneRailFinishedToggle: 'lane-rail-finished-toggle',
+  /** The container holding the collapsed rows. Absent while collapsed. */
+  laneRailFinishedGroup: 'lane-rail-finished-group',
+} as const;
+
+/**
+ * AMENDMENT (`contracts/transcript-filter.ts`). ADDED by T1 in the same edit,
+ * for the same reason.
+ */
+export const TRANSCRIPT_FILTER_TEST_IDS = {
+  /**
+   * The toggle button. Suffix with the pane: `transcript-filter:primary` and
+   * `transcript-filter:split`, using `testId`, because both panes render one
+   * and a bare id would be ambiguous.
+   */
+  transcriptFilter: 'transcript-filter',
+  /** The element carrying the hidden count. Absent when the count is 0. */
+  transcriptFilterCount: 'transcript-filter-count',
 } as const;
 
 /** `testId(TEST_IDS.podTab, podId)` -> `"pod-tab:<podId>"`. */

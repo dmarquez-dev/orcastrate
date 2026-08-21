@@ -1,7 +1,48 @@
 // @vitest-environment jsdom
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+
+import type {
+  LaneRailProps,
+  TranscriptPaneProps,
+  WorkspaceLayoutProps,
+} from '../contracts/renderer-view';
+
+/**
+ * Smoke test for the ASSEMBLY, not for the panes inside it. Each pane has its
+ * own suite in its own task's directory, and T5 drives the whole workspace end
+ * to end — what is asserted here is only that `App` composes the real provider
+ * with the real slot components and produces the frame of spec 5.1.
+ *
+ * WHY `WorkspaceLayout` IS WRAPPED RATHER THAN REPLACED. Two of this file's
+ * facts are about props that are OPTIONAL in the frozen contract — the rail's
+ * `onShowInFollower` / `onHideFollower` and the follower pane's `onHide` — and
+ * an absent optional callback is invisible in the DOM, exactly as
+ * `App.panelSlots.test.tsx` says of `panelBar`. So the layout is wrapped in a
+ * recorder that then renders the REAL layout: every existing rendered
+ * assertion still runs against the real tree, and the callbacks are read from
+ * the props `App` actually passed instead of being inferred from what a
+ * component happened to draw.
+ *
+ * That also decouples this suite from T2 and T3, which rewrite the rail and
+ * the transcript pane CONCURRENTLY with the task that owns this file: the
+ * follower pane is opened here by calling the prop, not by clicking a control
+ * whose markup does not exist yet.
+ */
+const recorded = vi.hoisted(() => [] as WorkspaceLayoutProps[]);
+
+vi.mock('./WorkspaceLayout', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./WorkspaceLayout')>();
+  const Actual = actual.WorkspaceLayout;
+  return {
+    WorkspaceLayout: (props: WorkspaceLayoutProps) => {
+      recorded.push(props);
+      return <Actual {...props} />;
+    },
+  };
+});
 
 import { App } from '../App';
 import { PANEL_LABELS, PANEL_TEST_IDS } from '../contracts/renderer-panels';
@@ -16,15 +57,28 @@ import {
 } from '../test-utils';
 import { testId } from './contract-runtime';
 
-/**
- * Smoke test for T4's ASSEMBLY, not for the panes inside it. Each pane has its
- * own suite in its own task's directory, and T8 drives the whole workspace end
- * to end — what is asserted here is only that `App` composes the real provider
- * with the real slot components and produces the frame of spec 5.1.
- */
 beforeAll(() => {
   registerWorkspaceProvider(WorkspaceProvider);
 });
+
+beforeEach(() => {
+  recorded.length = 0;
+});
+
+/** The props of the most recent render. */
+function lastProps(): WorkspaceLayoutProps {
+  const props = recorded.at(-1);
+  if (props === undefined) throw new Error('WorkspaceLayout has not rendered yet');
+  return props;
+}
+
+function railPropsOf(props: WorkspaceLayoutProps): LaneRailProps {
+  return (props.laneRail as ReactElement<LaneRailProps>).props;
+}
+
+function splitPropsOf(props: WorkspaceLayoutProps): TranscriptPaneProps {
+  return (props.split as ReactElement<TranscriptPaneProps>).props;
+}
 
 describe('App', () => {
   it('renders the first-run empty state when there is no Pod', async () => {
@@ -60,13 +114,13 @@ describe('App', () => {
     });
     expect(screen.getByTestId(TEST_IDS.transcriptPrimary)).toBeDefined();
     expect(screen.getByTestId(TEST_IDS.composer)).toBeDefined();
-    // Unsplit until a lane is pinned.
+    // Unsplit until a lane is opened in the follower pane.
     expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
   });
 });
 
 // ---------------------------------------------------------------------------
-// The panel region (sub-session 3)
+// The pane model reaches the slots (contracts/renderer-panes.ts sections 1, 4, 5)
 // ---------------------------------------------------------------------------
 
 const LANES = [
@@ -89,6 +143,117 @@ function apiWithOnePod(): ReturnType<typeof stubOrcastrateApi> {
     lanes: { list: async () => ({ ok: true, value: LANES }) },
   });
 }
+
+/** Opens `laneId` in the follower pane through the prop `App` passed. */
+async function showInFollower(laneId: string): Promise<void> {
+  const onShowInFollower = railPropsOf(lastProps()).onShowInFollower;
+  if (onShowInFollower === undefined) throw new Error('App did not pass onShowInFollower');
+  await act(async () => {
+    onShowInFollower(laneId);
+  });
+}
+
+describe('App pane wiring', () => {
+  it('passes both rail follower callbacks on EVERY render that has a rail', async () => {
+    renderWithWorkspace(<App />, { api: apiWithOnePod() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
+    });
+
+    const withRail = recorded.filter((props) => props.laneRail !== null);
+    // Not vacuous: there is at least one render carrying a rail.
+    expect(withRail.length).toBeGreaterThan(0);
+    for (const props of withRail) {
+      const rail = railPropsOf(props);
+      // `in` and not just truthiness: the contract's concession is that these
+      // are optional, and `undefined` is the value that must never appear.
+      expect('onShowInFollower' in rail).toBe(true);
+      expect('onHideFollower' in rail).toBe(true);
+      expect(typeof rail.onShowInFollower).toBe('function');
+      expect(typeof rail.onHideFollower).toBe('function');
+    }
+  });
+
+  it('feeds primary from primaryLaneId and split from followerLaneIds[0], with the pane onHide', async () => {
+    renderWithWorkspace(<App />, { api: apiWithOnePod() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
+    });
+    // Unsplit to begin with: no follower, so no second pane.
+    expect(lastProps().split).toBeNull();
+
+    await showInFollower('lane-calf');
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
+    });
+
+    // The Matriarch keeps the primary pane; the Calf feeds the split slot.
+    const primary = (lastProps().primary as ReactElement<TranscriptPaneProps>).props;
+    expect(primary.lane?.id).toBe('lane-matriarch');
+    expect(primary.isSplit).toBe(false);
+    // The PRIMARY never carries a dismiss control: the Matriarch cannot close.
+    expect(primary.onHide).toBeUndefined();
+
+    const split = splitPropsOf(lastProps());
+    expect(split.lane?.id).toBe('lane-calf');
+    expect(split.isSplit).toBe(true);
+    expect(typeof split.onHide).toBe('function');
+  });
+
+  it('closes the follower pane through the pane onHide it was given', async () => {
+    renderWithWorkspace(<App />, { api: apiWithOnePod() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
+    });
+    await showInFollower('lane-calf');
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
+    });
+
+    const onHide = splitPropsOf(lastProps()).onHide;
+    if (onHide === undefined) throw new Error('App did not pass the follower pane onHide');
+    await act(async () => {
+      onHide();
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
+    });
+    expect(lastProps().split).toBeNull();
+    // The primary is untouched — closing a follower is not closing the Pod.
+    expect(screen.getByTestId(TEST_IDS.transcriptPrimary)).toBeDefined();
+  });
+
+  it('closes the follower pane through the rail onHideFollower it was given', async () => {
+    renderWithWorkspace(<App />, { api: apiWithOnePod() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
+    });
+    await showInFollower('lane-calf');
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
+    });
+
+    const onHideFollower = railPropsOf(lastProps()).onHideFollower;
+    if (onHideFollower === undefined) throw new Error('App did not pass onHideFollower');
+    await act(async () => {
+      onHideFollower('lane-calf');
+    });
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The panel region (sub-session 3)
+// ---------------------------------------------------------------------------
 
 describe('App panel region', () => {
   it('renders the strip on every render, Pod or no Pod', async () => {
@@ -139,26 +304,18 @@ describe('App panel region', () => {
     }
   });
 
-  it('hides the body while open and restores the selected AND pinned lanes on close', async () => {
+  it('hides the body while open and restores BOTH panes on close', async () => {
     const user = userEvent.setup();
     renderWithWorkspace(<App />, { api: apiWithOnePod() });
 
     await waitFor(() => {
       expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
     });
-
-    const calfRow = screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-calf'));
-    await user.click(within(calfRow).getAllByRole('button')[0] as HTMLElement);
-    const matriarchRow = screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-matriarch'));
-    await user.click(within(matriarchRow).getByTestId(TEST_IDS.laneRowPin));
+    await showInFollower('lane-calf');
 
     await waitFor(() => {
       expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
     });
-    const selectedBefore = within(
-      screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-calf')),
-    ).getAllByRole('button')[0];
-    expect(selectedBefore?.getAttribute('aria-current')).toBe('true');
 
     await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
 
@@ -175,18 +332,13 @@ describe('App panel region', () => {
     await waitFor(() => {
       expect(screen.getByTestId(TEST_IDS.laneRail)).toBeDefined();
     });
-    // Both facts survived: the selection AND the pin.
-    expect(
-      within(screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-calf')))
-        .getAllByRole('button')[0]
-        ?.getAttribute('aria-current'),
-    ).toBe('true');
-    expect(
-      within(screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-matriarch')))
-        .getByTestId(TEST_IDS.laneRowPin)
-        .getAttribute('aria-pressed'),
-    ).toBe('true');
+    // The pane model survived: the Matriarch is still primary and the Calf is
+    // still the follower. The panel hid the body; it did not reset it.
     expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
+    expect(splitPropsOf(lastProps()).lane?.id).toBe('lane-calf');
+    expect(
+      (lastProps().primary as ReactElement<TranscriptPaneProps>).props.lane?.id,
+    ).toBe('lane-matriarch');
     expect(screen.getByTestId(TEST_IDS.composer)).toBeDefined();
   });
 

@@ -26,6 +26,7 @@ import {
 
 import type { Lane, LaneId, PodId, PodStatus } from '@shared/contracts/events';
 import type { OrcastrateApi } from '@shared/contracts/ipc';
+import type { RoutingMode } from '@shared/contracts/lane-router';
 
 import type {
   ComposerState,
@@ -110,7 +111,7 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
     () => ({
       pods: derivePodList(state),
       activePodId: state.activePodId,
-      session: deriveSession(state, nowMs),
+      session: deriveSession(state, nowMs, state.routingMode),
       routingMode: state.routingMode,
       actions: store.actions,
     }),
@@ -185,7 +186,11 @@ function derivePodList(state: WorkspaceState): PodListView {
   return { phase: state.podsPhase, value, error: state.podsError };
 }
 
-function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | undefined {
+function deriveSession(
+  state: WorkspaceState,
+  nowMs: number,
+  routingMode: RoutingMode | null,
+): PodSessionView | undefined {
   const podId = state.activePodId;
   if (podId === null) return undefined;
   const runtime = state.runtimes[podId];
@@ -194,9 +199,10 @@ function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | u
 
   return {
     podId,
-    lanes: deriveLaneRail(runtime, nowMs),
-    selectedLaneId: runtime.selectedLaneId,
-    pinnedLaneId: runtime.pinnedLaneId,
+    lanes: deriveLaneRail(runtime, nowMs, routingMode),
+    primaryLaneId: runtime.primaryLaneId,
+    followerLaneIds: runtime.followerLaneIds,
+    focusedFollowerIndex: runtime.focusedFollowerIndex,
     transcripts: deriveTranscripts(runtime),
     backfill: runtime.backfill,
     pendingPermissions: runtime.pendingPermissions,
@@ -206,21 +212,65 @@ function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | u
   };
 }
 
-function deriveLaneRail(runtime: PodRuntimeState, nowMs: number): Loadable<LaneRowVm[]> {
+/**
+ * `canPin` IS DERIVED HERE, NOT IN THE RAIL, and it is the reason this
+ * function needs `routingMode`.
+ *
+ * Two rules, and neither is the rail's to re-derive:
+ *   - the Matriarch is structurally undisplaceable and can never be a
+ *     follower, so it has no pin control at all — absent, not disabled,
+ *     because there is no state in which it becomes pinnable;
+ *   - in 'inline' routing mode every event carries the Matriarch's laneId, so
+ *     a follower pane would show the same events the primary already shows.
+ *     Offering a pin there promises a filter that is not happening.
+ *
+ * `routingMode` is `null` until `app.routingMode()` answers. That is NOT the
+ * lane-routed mode: the frozen contract forbids assuming either branch, so an
+ * unresolved mode yields `canPin: false` — the shell does not render the rail
+ * before the mode resolves anyway, and a false here cannot promise a pane.
+ *
+ * The answer is a TABLE rather than a comparison, for the reason `OPENNESS` in
+ * `workspace-provider.test.tsx` is one and for the reason `isolation.test.ts`
+ * scans for the comparison: a mode added by a later session fails to compile
+ * HERE, loudly, instead of quietly falling into whichever half the `else` was.
+ */
+const CAN_PIN_BY_ROUTING_MODE: Readonly<Record<RoutingMode, boolean>> = {
+  // Selecting a Calf really does change what a pane shows.
+  lanes: true,
+  // Spec 4.3 fallback: every event carries the Matriarch's laneId, so a
+  // follower pane would show the events the primary already shows.
+  inline: false,
+};
+
+function deriveLaneRail(
+  runtime: PodRuntimeState,
+  nowMs: number,
+  routingMode: RoutingMode | null,
+): Loadable<LaneRowVm[]> {
+  const followers = runtime.followerLaneIds;
+  const focusedIndex = runtime.focusedFollowerIndex;
+  const focusedLaneId =
+    focusedIndex === null ? null : (followers[focusedIndex] ?? null);
+
   const value = orderLanes(runtime.lanes).map<LaneRowVm>((lane) => {
     const isMatriarch = lane.kind === 'matriarch';
-    const selected = lane.id === runtime.selectedLaneId;
+    const inPrimaryPane = lane.id === runtime.primaryLaneId;
+    const inFollowerPane = followers.includes(lane.id);
     return {
       lane,
       isMatriarch,
-      selected,
-      pinned: lane.id === runtime.pinnedLaneId,
+      inPrimaryPane,
+      inFollowerPane,
+      focusedFollower: focusedLaneId !== null && lane.id === focusedLaneId,
+      canPin:
+        !isMatriarch && routingMode !== null && CAN_PIN_BY_ROUTING_MODE[routingMode],
       agentType: lane.subagentType ?? 'matriarch',
       description: isMatriarch ? null : lane.description,
       status: lane.status,
       elapsedMs: elapsedMsOf(lane, nowMs),
-      // Zero for the selected lane at all times.
-      unreadEventCount: selected ? 0 : (runtime.laneUnread[lane.id] ?? 0),
+      // Zero for any lane that is ON SCREEN, in either pane, at all times.
+      unreadEventCount:
+        inPrimaryPane || inFollowerPane ? 0 : (runtime.laneUnread[lane.id] ?? 0),
       awaitingPermission: runtime.pendingPermissions.some((card) => card.laneId === lane.id),
     };
   });
