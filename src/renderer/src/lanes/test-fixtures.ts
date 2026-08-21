@@ -44,14 +44,13 @@ export function makeRow(lane: Lane, overrides: Partial<LaneRowVm> = {}): LaneRow
   return {
     lane,
     isMatriarch: lane.kind === 'matriarch',
-    // AMENDMENT (`contracts/renderer-panes.ts` section 3). `selected` and
-    // `pinned` are DELETED; these four replace them. The defaults describe the
-    // ordinary rail: the Matriarch occupies the primary pane and can never be
-    // pinned, every Calf is unpinned and pinnable.
+    // The three surviving pane fields (`contracts/lane-pin-removal.ts` section
+    // 3); the pin-gating fourth went with the pin control it gated. The
+    // defaults describe the ordinary rail: the Matriarch occupies the primary
+    // pane, no follower is open.
     inPrimaryPane: lane.kind === 'matriarch',
     inFollowerPane: false,
     focusedFollower: false,
-    canPin: lane.kind !== 'matriarch',
     agentType: lane.subagentType ?? 'matriarch',
     description: lane.description,
     status: lane.status,

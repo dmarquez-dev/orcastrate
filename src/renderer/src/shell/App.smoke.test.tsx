@@ -17,9 +17,9 @@ import type {
  * with the real slot components and produces the frame of spec 5.1.
  *
  * WHY `WorkspaceLayout` IS WRAPPED RATHER THAN REPLACED. Two of this file's
- * facts are about props that are OPTIONAL in the frozen contract — the rail's
- * `onShowInFollower` / `onHideFollower` and the follower pane's `onHide` — and
- * an absent optional callback is invisible in the DOM, exactly as
+ * facts are about props that are OPTIONAL in the frozen contract — the
+ * follower pane's `onHide`, and the rail's DELETED follower callbacks, whose
+ * ABSENCE is equally invisible in the DOM — exactly as
  * `App.panelSlots.test.tsx` says of `panelBar`. So the layout is wrapped in a
  * recorder that then renders the REAL layout: every existing rendered
  * assertion still runs against the real tree, and the callbacks are read from
@@ -144,17 +144,21 @@ function apiWithOnePod(): ReturnType<typeof stubOrcastrateApi> {
   });
 }
 
-/** Opens `laneId` in the follower pane through the prop `App` passed. */
+/**
+ * Opens `laneId` in the follower pane the way a user now does: through the
+ * rail's `onSelect`, which `App` wires to `showLane`. The dedicated
+ * `onShowInFollower` prop is DELETED (`contracts/lane-pin-removal.ts` section
+ * 1, item 4) — selecting the row IS the gesture.
+ */
 async function showInFollower(laneId: string): Promise<void> {
-  const onShowInFollower = railPropsOf(lastProps()).onShowInFollower;
-  if (onShowInFollower === undefined) throw new Error('App did not pass onShowInFollower');
+  const onSelect = railPropsOf(lastProps()).onSelect;
   await act(async () => {
-    onShowInFollower(laneId);
+    onSelect(laneId);
   });
 }
 
 describe('App pane wiring', () => {
-  it('passes both rail follower callbacks on EVERY render that has a rail', async () => {
+  it('passes NEITHER follower callback to the rail, and still passes onSelect and onSteer', async () => {
     renderWithWorkspace(<App />, { api: apiWithOnePod() });
 
     await waitFor(() => {
@@ -165,13 +169,20 @@ describe('App pane wiring', () => {
     // Not vacuous: there is at least one render carrying a rail.
     expect(withRail.length).toBeGreaterThan(0);
     for (const props of withRail) {
-      const rail = railPropsOf(props);
-      // `in` and not just truthiness: the contract's concession is that these
-      // are optional, and `undefined` is the value that must never appear.
-      expect('onShowInFollower' in rail).toBe(true);
-      expect('onHideFollower' in rail).toBe(true);
-      expect(typeof rail.onShowInFollower).toBe('function');
-      expect(typeof rail.onHideFollower).toBe('function');
+      const rail = railPropsOf(props) as unknown as Record<string, unknown>;
+
+      // THE DELETION (`contracts/lane-pin-removal.ts` section 1, item 4).
+      // `in` and not truthiness: the key itself must be gone, not present
+      // holding `undefined`.
+      expect('onShowInFollower' in rail).toBe(false);
+      expect('onHideFollower' in rail).toBe(false);
+
+      // VACUITY GUARD, in the same test: a recorder that captured an empty
+      // props object would satisfy both negatives above.
+      expect(typeof rail.onSelect).toBe('function');
+      expect(typeof rail.onSteer).toBe('function');
+      expect(rail.routingMode).toBe('lanes');
+      expect(Array.isArray(rail.rows)).toBe(true);
     }
   });
 
@@ -228,7 +239,10 @@ describe('App pane wiring', () => {
     expect(screen.getByTestId(TEST_IDS.transcriptPrimary)).toBeDefined();
   });
 
-  it('closes the follower pane through the rail onHideFollower it was given', async () => {
+  it('leaves the follower pane OPEN when the rail re-selects the lane already in it', async () => {
+    // The rail lost its close control, so re-selecting a shown lane must FOCUS
+    // it (`showLane` branch 3) rather than toggling it shut — otherwise the
+    // deleted pin's second job would have quietly migrated onto `onSelect`.
     renderWithWorkspace(<App />, { api: apiWithOnePod() });
 
     await waitFor(() => {
@@ -239,12 +253,16 @@ describe('App pane wiring', () => {
       expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
     });
 
-    const onHideFollower = railPropsOf(lastProps()).onHideFollower;
-    if (onHideFollower === undefined) throw new Error('App did not pass onHideFollower');
-    await act(async () => {
-      onHideFollower('lane-calf');
-    });
+    await showInFollower('lane-calf');
 
+    expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeDefined();
+    expect(splitPropsOf(lastProps()).lane?.id).toBe('lane-calf');
+    // And the pane's OWN unpin is still the way it closes.
+    const onHide = splitPropsOf(lastProps()).onHide;
+    if (onHide === undefined) throw new Error('App did not pass the follower pane onHide');
+    await act(async () => {
+      onHide();
+    });
     await waitFor(() => {
       expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
     });

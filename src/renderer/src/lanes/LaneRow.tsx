@@ -20,38 +20,7 @@ export const LANE_ROW_SELECT_TEST_ID = 'lane-row-select';
 export interface LaneRowProps {
   row: LaneRowVm;
   onSelect(laneId: LaneId): void;
-  /**
-   * AMENDMENT (`contracts/renderer-panes.ts` section 4). `onPin` and `onUnpin`
-   * are DELETED and replaced by these two. Optional for the compile-time
-   * concession the contract states, and the rail's own suite is what makes an
-   * absent one a failure rather than a valid state.
-   */
-  onShowInFollower?: (laneId: LaneId) => void;
-  onHideFollower?: (laneId: LaneId) => void;
   onSteer(laneId: LaneId): void;
-}
-
-/**
- * The pin glyph. Decorative: the button's whole accessible name comes from the
- * sr-only text beside it, because "Pin"/"Unpin" says which state the control is
- * in and not which action it performs.
- */
-function PinGlyph() {
-  return (
-    <svg
-      className={styles.pinGlyph}
-      viewBox="0 0 16 16"
-      width="12"
-      height="12"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <path
-        d="M9.5 1.5 14.5 6.5 12.6 8.4 12 8.2 8.9 11.3 9.2 13.2 7.8 14.6 5.2 12 1.8 15.4 0.6 14.2 4 10.8 1.4 8.2 2.8 6.8 4.7 7.1 7.8 4 7.6 3.4 9.5 1.5Z"
-        fill="currentColor"
-      />
-    </svg>
-  );
 }
 
 /**
@@ -68,16 +37,23 @@ function PinGlyph() {
  * operable, so the click target for selection is a real button rather than a
  * `<li onClick>`.
  *
+ * NO PIN CONTROL (`contracts/lane-pin-removal.ts`). The select button below IS
+ * the show-in-follower gesture: `onSelect` is wired to `showLane`, which opens
+ * or focuses the follower pane. Closing is the follower pane's own
+ * `transcript-unpin`. What the row still owes a screen-reader user is WHICH
+ * pane its lane is in — `aria-pressed` went with the button, so that marking
+ * lives in the select button's accessible name.
+ *
  * TEST IDS. `TEST_IDS.laneRow` is documented `lane-row:<laneId>` and is carried
- * by the `<li>`, the element that ENCLOSES the whole row. The three action ids
- * — `laneRowUnread`, `laneRowPin`, `laneRowSteer` — are documented WITHOUT a
+ * by the `<li>`, the element that ENCLOSES the whole row. The two action ids
+ * — `laneRowUnread`, `laneRowSteer` — are documented WITHOUT a
  * suffix and are rendered literally, exactly as `TEST_IDS` spells them; the
  * enclosing row disambiguates them, so a suite reaches them with
  * `within(getByTestId('lane-row:<id>'))`. That is the same pattern T7's
  * permission cards use. The inner select button therefore takes an internal id
  * that `TEST_IDS` does not list, which the contract explicitly permits.
  */
-function LaneRowImpl({ row, onSelect, onShowInFollower, onHideFollower, onSteer }: LaneRowProps) {
+function LaneRowImpl({ row, onSelect, onSteer }: LaneRowProps) {
   const { lane } = row;
   const laneId = lane.id;
 
@@ -106,6 +82,11 @@ function LaneRowImpl({ row, onSelect, onShowInFollower, onHideFollower, onSteer 
         <span className={styles.agentType}>
           {row.agentType}
           {row.isMatriarch ? <span className={styles.srOnly}> (Matriarch, pinned to top)</span> : null}
+          {row.inFollowerPane ? (
+            <span className={styles.srOnly}>
+              {row.focusedFollower ? ' (shown in the second pane, focused)' : ' (shown in the second pane)'}
+            </span>
+          ) : null}
         </span>
 
         {row.unreadEventCount > 0 ? (
@@ -144,25 +125,6 @@ function LaneRowImpl({ row, onSelect, onShowInFollower, onHideFollower, onSteer 
           ) : null}
         </span>
       </button>
-
-      {row.canPin ? (
-        <button
-          type="button"
-          className={styles.pinAction}
-          data-testid={TEST_IDS.laneRowPin}
-          aria-pressed={row.inFollowerPane}
-          onClick={() =>
-            row.inFollowerPane ? onHideFollower?.(laneId) : onShowInFollower?.(laneId)
-          }
-        >
-          <PinGlyph />
-          <span className={styles.srOnly}>
-            {row.inFollowerPane
-              ? 'Close the second pane'
-              : `Show ${row.agentType} in the second pane`}
-          </span>
-        </button>
-      ) : null}
 
       {canSteer ? (
         <button

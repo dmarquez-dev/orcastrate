@@ -111,7 +111,7 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
     () => ({
       pods: derivePodList(state),
       activePodId: state.activePodId,
-      session: deriveSession(state, nowMs, state.routingMode),
+      session: deriveSession(state, nowMs),
       routingMode: state.routingMode,
       actions: store.actions,
     }),
@@ -186,11 +186,7 @@ function derivePodList(state: WorkspaceState): PodListView {
   return { phase: state.podsPhase, value, error: state.podsError };
 }
 
-function deriveSession(
-  state: WorkspaceState,
-  nowMs: number,
-  routingMode: RoutingMode | null,
-): PodSessionView | undefined {
+function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | undefined {
   const podId = state.activePodId;
   if (podId === null) return undefined;
   const runtime = state.runtimes[podId];
@@ -199,7 +195,7 @@ function deriveSession(
 
   return {
     podId,
-    lanes: deriveLaneRail(runtime, nowMs, routingMode),
+    lanes: deriveLaneRail(runtime, nowMs),
     primaryLaneId: runtime.primaryLaneId,
     followerLaneIds: runtime.followerLaneIds,
     focusedFollowerIndex: runtime.focusedFollowerIndex,
@@ -213,40 +209,17 @@ function deriveSession(
 }
 
 /**
- * `canPin` IS DERIVED HERE, NOT IN THE RAIL, and it is the reason this
- * function needs `routingMode`.
- *
- * Two rules, and neither is the rail's to re-derive:
- *   - the Matriarch is structurally undisplaceable and can never be a
- *     follower, so it has no pin control at all — absent, not disabled,
- *     because there is no state in which it becomes pinnable;
- *   - in 'inline' routing mode every event carries the Matriarch's laneId, so
- *     a follower pane would show the same events the primary already shows.
- *     Offering a pin there promises a filter that is not happening.
- *
- * `routingMode` is `null` until `app.routingMode()` answers. That is NOT the
- * lane-routed mode: the frozen contract forbids assuming either branch, so an
- * unresolved mode yields `canPin: false` — the shell does not render the rail
- * before the mode resolves anyway, and a false here cannot promise a pane.
- *
- * The answer is a TABLE rather than a comparison, for the reason `OPENNESS` in
- * `workspace-provider.test.tsx` is one and for the reason `isolation.test.ts`
- * scans for the comparison: a mode added by a later session fails to compile
- * HERE, loudly, instead of quietly falling into whichever half the `else` was.
+ * THE RAIL ROW NO LONGER CARRIES THE PIN-GATING FIELD, and this function no
+ * longer needs `routingMode` (`contracts/lane-pin-removal.ts` sections 1 and
+ * 2). The pin control is deleted, and the two rules that field encoded now
+ * live where they cannot be forgotten by a consumer:
+ *   - the Matriarch is structurally undisplaceable — already `showLane`
+ *     branch 2, which clears unread and opens no follower;
+ *   - 'inline' routing mode opens no follower at all — now `showLane` step 0.
+ * Both are properties of the ACTION surface, so `jumpToLane` inherits them by
+ * delegating, which a view-model field could never have given it.
  */
-const CAN_PIN_BY_ROUTING_MODE: Readonly<Record<RoutingMode, boolean>> = {
-  // Selecting a Calf really does change what a pane shows.
-  lanes: true,
-  // Spec 4.3 fallback: every event carries the Matriarch's laneId, so a
-  // follower pane would show the events the primary already shows.
-  inline: false,
-};
-
-function deriveLaneRail(
-  runtime: PodRuntimeState,
-  nowMs: number,
-  routingMode: RoutingMode | null,
-): Loadable<LaneRowVm[]> {
+function deriveLaneRail(runtime: PodRuntimeState, nowMs: number): Loadable<LaneRowVm[]> {
   const followers = runtime.followerLaneIds;
   const focusedIndex = runtime.focusedFollowerIndex;
   const focusedLaneId =
@@ -262,8 +235,6 @@ function deriveLaneRail(
       inPrimaryPane,
       inFollowerPane,
       focusedFollower: focusedLaneId !== null && lane.id === focusedLaneId,
-      canPin:
-        !isMatriarch && routingMode !== null && CAN_PIN_BY_ROUTING_MODE[routingMode],
       agentType: lane.subagentType ?? 'matriarch',
       description: isMatriarch ? null : lane.description,
       status: lane.status,

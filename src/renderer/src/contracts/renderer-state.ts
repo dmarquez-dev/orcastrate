@@ -277,6 +277,18 @@ export interface PodSessionView {
  * delivered it elsewhere. Calves follow, sorted by `lane.startedAt` ascending,
  * ties broken by `lane.id`. Stable across snapshots: a lane that changes only
  * its status does not move.
+ *
+ * A FIELD WAS DELETED FROM THIS INTERFACE — the boolean that gated the lane
+ * rail's pin control (`contracts/lane-pin-removal.ts` sections 1 and 2). The
+ * rail no longer renders that control, so the field had no reader left. The
+ * contract is the one place its name still appears, deliberately: reproducing
+ * a dead symbol here is how a later reader mistakes a tombstone for a field.
+ *
+ * NEITHER RULE IT CARRIED WAS DROPPED. The Matriarch's undisplaceability was
+ * already a property of `showLane` (branch 2 opens no follower for the
+ * primary), and the 'inline'-mode suppression MOVED INTO `showLane` as step 0
+ * — into the action, so `jumpToLane` inherits it by delegating, rather than
+ * onto a view model every consumer must remember to consult.
  */
 export interface LaneRowVm {
   lane: Lane;
@@ -299,17 +311,6 @@ export interface LaneRowVm {
    * still correct at today's cap of one.
    */
   focusedFollower: boolean;
-  /**
-   * THE MATRIARCH HAS NO PIN CONTROL AT ALL, and this is the field that says
-   * so rather than the rail re-deriving it from `isMatriarch`. False for the
-   * Matriarch, because it is structurally undisplaceable and can never be a
-   * follower; true for every Calf.
-   *
-   * In 'inline' routing mode this is FALSE for every row: selecting a Calf does
-   * not filter the transcript there (`LaneRailProps.routingMode`), so offering
-   * a pin would promise a pane that shows the same events.
-   */
-  canPin: boolean;
   /** `lane.subagentType ?? 'matriarch'` — the rail's "agent type" column. */
   agentType: string;
   /** `lane.description`, or null for the Matriarch. */
