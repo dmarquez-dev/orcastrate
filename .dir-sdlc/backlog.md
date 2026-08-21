@@ -612,3 +612,63 @@ the other 28 stay in that session's `reviews/T0.md`–`T5.md`.
   `failure-paths.e2e.test.tsx` drives each from a rendered control and asserts it.
   The standing claim of four unreachable channels is down to two:
   `podUpdate` and `podSetPermissionMode`.
+
+## 2026-08-21 — 2026-08-21-orcastrate-transcript-readability
+
+Raised by the user's hand-run of sub-session B on 2026-08-21 — the first time B's
+code met a real window and a real CLI. All four findings shipped. Four advisory
+findings promoted here by explicit user decision at Gate 3; the other 26 stay in
+that session's `reviews/T1.md`–`T4.md`.
+
+### Correctness risks
+
+- **A vacuous assertion shipped in `tests/unit/ipc/user-prompt.test.ts`.**
+  `expect(withSend).toEqual([typed, ...baseline])` is **vacuously satisfiable for
+  any fixture whose replay ingests nothing** — both sides collapse to `[typed]`.
+  Only `01-parallel-dispatch` carries a hard positive row-count guard. This is the
+  one open vacuity in this session's own code, and it guards the criterion that
+  proves a Calf's opening prompt is never deleted by the echo filter — the exact
+  regression the five-condition rule exists to prevent. **The fix is one line:**
+  `expect(baseline.length).toBeGreaterThan(0)` for the fixtures known to carry Calf
+  prompts. It cannot be blanket — `04-orphaned-calf` legitimately replays zero.
+
+- **The new control-byte hygiene rule scans `src/` only.** `tests/` and `probe/` at
+  the repository root are source and carry the same exposure. The rule's own
+  docblock argues against scoping to where the last incident happened, which is
+  precisely what `src/` does one level up. `tests/router/hygiene.test.ts` is the
+  natural second home. Context: this rule exists because a scripted edit in that
+  session wrote a **literal `0x08` byte** into a source file where the regex still
+  behaved correctly, every test stayed green, and **nothing in the suite could have
+  flagged it** — only `od -c` revealed it. It is the one failure mode this project
+  has found that no test-level detector could catch, which is why the scan's reach
+  matters.
+
+- **The retired-id rule's exemption self-check proves presence, not purpose.** It
+  requires `src/renderer/src/lanes/LaneRail.test.tsx` to still carry the
+  `lane-row-pin` literal in code, so the exemption cannot silently outlive the file.
+  But it would be satisfied by `const dead = 'lane-row-pin'` after someone deleted
+  the actual `expect(screen.queryAllByTestId('lane-row-pin')).toHaveLength(0)` proof.
+  Asserting the surrounding call shape would close it. Low likelihood, cheap fix —
+  and it is the guard on the E1 ratification, which is the one place in the tree
+  that deliberately keeps a deleted identifier.
+
+### Cosmetics
+
+- **`src/renderer/src/contracts/renderer-state.ts:296-302` contradicts its own
+  neighbour on one screen.** The `inPrimaryPane` docblock still opens "**The four
+  fields below** REPLACE the deleted `selected` and `pinned`" — **three** remain
+  since `canPin` was deleted — and it now sits immediately beneath the relocated
+  interface note reading "A FIELD WAS DELETED FROM THIS INTERFACE". One word:
+  "four" → "three". **Fourth instance in this project of prose that is no longer
+  true of the code**, after the beached-Pod comment, the `hygiene.test.ts` import
+  rule, and the `transcript-filter.ts` §1 annotation.
+
+### Struck by this session
+
+- **"The user's typed prompt never appears in the transcript."** Fixed. `send()`
+  now appends a `user_message` to the Matriarch lane before the runner can reply,
+  with a five-condition echo filter whose every bound fails toward over-showing —
+  because the recorded corpus proved the hazard is **over-suppression**, not
+  doubling: every `user` text block in all six fixtures carries a non-null
+  `parent_tool_use_id` and is a **Calf opening prompt**, two of them with identical
+  text to each other.

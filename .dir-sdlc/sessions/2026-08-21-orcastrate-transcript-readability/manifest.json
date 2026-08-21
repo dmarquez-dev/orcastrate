@@ -1,0 +1,113 @@
+{
+  "session": "2026-08-21-orcastrate-transcript-readability",
+  "createdAt": "2026-08-21T10:40:00-07:00",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/user-prompt-persistence.ts",
+    "contracts/transcript-turns.ts",
+    "contracts/transcript-filter-amendment.ts",
+    "contracts/lane-pin-removal.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "The user's typed prompt becomes a durable event on send, and an SDK echo of it cannot double the turn",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/**",
+        "tests/unit/pod-manager/**",
+        "tests/unit/ipc/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "AFTER `PodManager.send(podId, 'hello world')` RESOLVES, THE STORE HOLDS A `user_message` EVENT ON THAT POD'S MATRIARCH LANE WHOSE `payload.text` IS EXACTLY `'hello world'`. Asserted by reading it back out of a REAL `:memory:` `EventStore` \u2014 `store.readEvents({ podId })` \u2014 not from a spy, not from a recorded push argument, and not from a runner double. Today `send` is two lines that append nothing (`pod-manager.ts:700-701`), so this assertion returns zero `user_message` rows and fails. THIS IS THE CRITERION THAT REQUIRES A WATCHED FAILURE: run it against `b2c3caf` before writing the append and quote the exact vitest output in the task report.",
+        "THE APPEND HAPPENS BEFORE `runner.send` IS AWAITED, and the event's `seq` is lower than that of every event the resulting turn produces. Asserted over the real pipeline: send, then drive the fake SDK to emit an `assistant` text message, then assert the full ordered `(seq, payload.type)` list from the store reads `user_message` then `assistant_text`. A test that only asserts both rows exist would pass on either order and does not satisfy this.",
+        "THE APPEND GOES THROUGH THE EXISTING SINGLE APPEND PATH AND IS PUSHED TO RENDERERS. `push.podEvent` is observed carrying the stored event with a store-assigned `seq`, in the same batch shape every other event uses. `git diff` shows no second `appendMany` call site added to `pod-manager.ts` beyond the ones present at `b2c3caf`.",
+        "A POD WITH NO MATRIARCH LANE STILL SENDS. `runner.send` is called, the append is skipped, `logger.warn` is called exactly once, and nothing throws. Asserted with the counting store spy in `tests/unit/pod-manager/helpers.ts`: zero rows written, one warn, one runner send.",
+        "AN ECHOED PROMPT DOES NOT DOUBLE THE TURN. Send `'hello world'`, then have the fake SDK emit a `user` message with `parent_tool_use_id: null` carrying a single text block `'hello world'`, then read the store: EXACTLY ONE `user_message` row with that text exists. The same test must also assert, in the same `it`, that a subsequent `assistant_text` row DID land \u2014 a suppression bug that dropped the whole batch would otherwise pass the count assertion against an empty store.",
+        "THE SUPPRESSION IS ONE-SHOT AND EXACT. Four negatives, each in a named test, each deviating from the positive above in exactly one respect so that removing the rule flips it: (a) an echo arriving with NO prior send is stored; (b) a SECOND identical echo after ONE send is stored, so one send suppresses at most one event; (c) an echo whose text differs by one character is stored; (d) an echo arriving after `PENDING_ECHO_TTL_MS` of injected clock is stored. Each of the four asserts the resulting row count AND that the stored `payload.text` is the expected string.",
+        "A CALF'S PROMPT ECHO IS NEVER SUPPRESSED, PROVED AGAINST THE REAL RECORDED CORPUS. Replay all six `tests/fixtures/protocol/*.ndjson` through the real `LaneRouter` + real store assembly in `tests/unit/ipc/`, with a `send()` of the Matriarch's own prompt text issued first, and assert the count of stored `user_message` events is IDENTICAL to the count that replay produces at `b2c3caf` plus exactly one (the appended prompt). The corpus contains seven `user` text blocks, every one of them a Calf prompt under a non-null `parent_tool_use_id`, and `01-parallel-dispatch.ndjson` lines 5 and 8 carry the SAME text as each other \u2014 a rule that matched on text alone would delete them. The `b2c3caf` baseline count must be obtained by running the replay, not asserted from memory.",
+        "`src/main/lane/**`, `src/main/store/**`, `src/shared/contracts/**`, `src/preload/**` and `src/renderer/**` ARE BYTE-UNCHANGED BY THIS TASK, and `git diff` over those paths is empty. `tests/router/**` and `src/main/lane/purity.test.ts` pass with zero modifications.",
+        "`npx vitest run` is green across the whole repo and `npm run typecheck:node` reports zero errors. The report states the before and after test counts."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "The transcript: user turns visually distinguished, tool calls compact with expandable results, permissions moved to the plumbing set, and the counted label's plural fixed",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/transcript/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "EVERY EVENT'S `<li>` CARRIES `data-turn-role`, AND IT IS CORRECT FOR ALL TWELVE `EventType` MEMBERS. One test renders a fixture holding one event of each of the twelve types in 'everything' mode and asserts the full ordered list of `(data-event-type, data-turn-role)` pairs: `user_message` -> 'user'; `assistant_text`, `thinking`, `tool_use`, `tool_result` -> 'assistant'; the remaining seven -> 'system'. Asserting the full list, not a length, is what stops a component that rendered nothing from passing. `turnRoleOf` is exhaustive over `EventPayload` by a `never` assignment in its default branch.",
+        "THE USER'S TURN IS DISTINGUISHED WITHOUT COLOUR AND WITHOUT ALIGNMENT ALONE. The visible role labels 'You' and 'Claude' still render as real text, are NOT inside any `aria-hidden` subtree, and are reachable by `getByText`. In `Transcript.module.css` the `[data-turn-role='user']` rule sets an inset, a max-width, a background and a border, every value drawn from an `--oc-*` token; `src/renderer/src/__tests__/hygiene.test.ts` stays green, which is what proves no hex colour, `rgb(`/`hsl(` literal or px font-size was introduced. `contracts/renderer-theme.ts` is NOT edited by this task and `git diff` over `src/renderer/src/contracts/**` is empty.",
+        "A `tool_use` ROW RENDERS A ONE-LINE SUMMARY INSTEAD OF A JSON DUMP. For a `WebFetch` call with input `{ url: 'https://api.weather.gov/...' }` the row's text contains `WebFetch(\"https://api.weather.gov/...\")` and the raw pretty-printed JSON is NOT in the DOM until the input disclosure is expanded. Today `TranscriptEventItem.tsx:61-64` renders `<pre>{preview(payload.input)}</pre>` unconditionally, so an assertion that the two-space-indented JSON is absent fails against current code. THIS IS THE SECOND CRITERION REQUIRING A WATCHED FAILURE.",
+        "`summarizeToolCall` IS TOTAL, AND TOTALITY IS PROVED OVER GENERATED INPUT AND OVER REAL RECORDED INPUT. (a) A table-driven test drives at least: `undefined`, `null`, `0`, `''`, `[]`, `{}`, a circular object, an object whose only key's getter throws, a `Symbol`-keyed object, a `BigInt`, a 100 KB string, a multi-line string, and an emoji string that would split a surrogate pair at the elision boundary \u2014 each against a tool name that is `''`, a normal name, and a 200-character name; for every pair it asserts the call does not throw, returns a non-empty string, contains no newline, and is at most `TOOL_SUMMARY_MAX_CHARS` past the name. (b) A second test parses every `tool_use` block out of all six `tests/fixtures/protocol/*.ndjson`, asserts the extracted block count is greater than zero BEFORE the loop, and asserts each summary is non-empty and starts with that block's tool name. Both branches of the stated fallback are covered by name: an object with two unrecognised keys yields `Name(2 args)` and an empty object yields `Name(no args)`, singular at one.",
+        "A `tool_result` ROW IS COLLAPSED, SIZED, AND EXPANDABLE, AND NOTHING IS LOST. Collapsed, the row shows `312 chars` for a 312-character result and the result body is ABSENT FROM THE DOM (`queryBy` returns null). `getByRole('button', { name: 'Show tool result (312 chars)' })` finds the disclosure, `aria-expanded` is `'false'`, and its `aria-controls` names an element that does not exist while collapsed. After a `userEvent.click`, `aria-expanded` is `'true'`, the named element exists, and its text is byte-identical to what `preview(payload.content)` produces. A second click restores the collapsed state and the body is absent again. The singular case `1 char` is asserted in the same suite.",
+        "A FAILED TOOL RESULT DEFAULTS TO EXPANDED AND SAYS SO IN WORDS. With `isError: true` the body is present on first render, `aria-expanded` is `'true'`, and the row's TEXT contains the word `error` \u2014 asserted by text content, not by a class name or a colour, so a purely chromatic error treatment fails this.",
+        "THE THREE FILTER SETS BECOME 4 / 2 / 6 WITH PERMISSIONS IN PLUMBING, AND THE GUARDS STILL FIRE. `transcript-filter.test.ts` asserts each set's exact ordered membership. In 'conversation' mode a fixture containing a `permission_request` at seq 2 renders `['1','3']` and reveals `['1','2','3']` when toggled, at the original interleaved position. The `as const satisfies` spelling, the module-private tuples, `_AssertNever<T extends never>`, `_EventTypesArePartitioned` and `_EventTypeSetsAreDisjoint` are all present and structurally unchanged; `git diff` over that region shows only the two literals moving between tuples. THE GUARD IS RE-PROVED, NOT ASSUMED: a throwaway probe in the implementer's scratch directory copies the guard region over a local `EventType | 'thirteenth_event_type'`, is run through `tsc --noEmit --strict`, and the exact `TS2344` diagnostic is quoted in the task report. A second probe placing `tool_use` in two sets must fire the DISJOINTNESS guard while the cover guard stays silent.",
+        "THE PERMISSION CARD IS UNAFFECTED. A test renders a pane in the default 'conversation' mode with a pending permission and asserts BOTH that the `permission-card:<requestId>` element is present and operable AND that the `permission_request` transcript row is absent. Asserting only the absence would pass against a pane that rendered nothing at all.",
+        "THE COUNTED LABEL IS SINGULAR AT ONE, IN BOTH PLACES. `filterToggleLabel` returns exactly the six strings in section 3 of `contracts/transcript-filter-amendment.ts`, asserted as a table including `Show 1 hidden system event` and `Hide 1 system event`. `TranscriptPane.tsx`'s filtered-empty copy is fixed identically and asserted through the rendered DOM at hiddenCount 1 and 2. Today both render 'events' at one, so the n === 1 rows fail against current code.",
+        "EVERY GUARANTEE THE 2026-08-20 CONTRACT MADE STILL HOLDS, RE-ASSERTED RATHER THAN INHERITED: `filterTranscriptEvents` still returns a new array, still never mutates `view.events` (`toBe` identity asserted after two toggles), still yields a subsequence in ascending `seq` with no duplicates; the `startup_reconciliation` exemption and its both-carriers rule still hold and their near-miss negatives still pass; the toggle is still always present, never `disabled`, present in both panes, with per-pane mode; a hidden event still counts as unread and `highWaterSeq` is unchanged across toggles.",
+        "ONE EVENT STILL PRODUCES EXACTLY ONE `<li>` AND ONE `transcript-event:<seq>`. A fixture with a `tool_use` at seq 1 and its `tool_result` at seq 3, separated by an unrelated event at seq 2, renders three list items whose ordered test ids are `['transcript-event:1','transcript-event:2','transcript-event:3']`. A merged call-and-result row cannot produce that list.",
+        "`src/renderer/src/transcript/test-ids.test.tsx` NO LONGER REFERENCES `TEST_IDS.laneRowPin`, and a grep for `laneRowPin` under `src/renderer/src/transcript/**` returns nothing.",
+        "`npm run typecheck:web` reports zero errors and every suite under `src/renderer/src/transcript/**` is green. The report states the before and after test counts, and names which existing assertions were REWRITTEN because they encoded the superseded permission-set decision rather than because they regressed."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "The lane rail pin control is removed, and the inline-mode rule it carried moves into showLane",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/lanes/**",
+        "src/renderer/src/state/**",
+        "src/renderer/src/shell/**",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/contracts/renderer-view.ts",
+        "src/renderer/src/contracts/renderer-state.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "NO RAIL ROW RENDERS A PIN CONTROL, IN ANY STATE. A test renders a rail of a Matriarch and three Calves across every combination of `inPrimaryPane` / `inFollowerPane` / `focusedFollower` and asserts (a) the FULL ordered list of rendered `lane-row:<laneId>` ids, so an empty rail cannot pass, and (b) that `queryAllByTestId('lane-row-pin')` is empty in each. Against `b2c3caf` the Calf rows render the button unconditionally under `row.canPin`, so (b) fails. THIS IS THE CRITERION REQUIRING A WATCHED FAILURE for this task.",
+        "RATIFIED AS-MET AT REVIEW BY USER DECISION, 2026-08-21 (escalation E1). This criterion's grep clause and criterion 1's mandated negative assertion `queryAllByTestId('lane-row-pin')` are JOINTLY UNSATISFIABLE \u2014 criterion 1 names the literal verbatim and this one forbids it. The user ratified keeping the single surviving occurrence at `lanes/LaneRail.test.tsx:175`, because deleting it would delete the proof that the control is gone. The criterion's substance is met in full: the key and its docblock are deleted from `contracts/renderer-view.ts`, no renderer emits the id, and no consumer reads it. ORIGINAL TEXT: `TEST_IDS.laneRowPin` IS DELETED FROM `contracts/renderer-view.ts`, together with its docblock. A repo-wide grep for `laneRowPin` and for the literal `'lane-row-pin'` returns matches only inside `.dir-sdlc/` contract prose \u2014 nothing under `src/`. `TEST_IDS.laneRowSteer`, `TEST_IDS.laneRowUnread` and every member of `PANE_TEST_IDS` and `TRANSCRIPT_FILTER_TEST_IDS` survive character for character.",
+        "`LaneRowVm.canPin` IS DELETED from `contracts/renderer-state.ts` and its derivation removed from `state/workspace-provider.tsx`. `git diff` shows the field REMOVED, not defaulted to `false` and not left computed-but-unused; a grep for `canPin` under `src/` returns nothing. The three surviving pane fields \u2014 `inPrimaryPane`, `inFollowerPane`, `focusedFollower` \u2014 are still derived and still asserted by `workspace-provider.test.tsx`, which continues to assert the full per-row tuple rather than dropping the assertion along with the field.",
+        "IN 'inline' ROUTING MODE, CLICKING A CALF ROW OPENS NO FOLLOWER PANE. Driven through the real store: with `routingMode: 'inline'`, dispatch `showLane(podId, calfLaneId)` and assert `followerLaneIds` is `[]`, `focusedFollowerIndex` is `null`, `primaryLaneId` is unchanged, AND that the Calf's `unreadEventCount` went from a non-zero value to `0` in the same assertion. The unread half is what stops a `showLane` that silently no-ops entirely from passing. Against `b2c3caf` this test FAILS, because branch 4 opens the follower there \u2014 the old suppression lived in `canPin`, which the rail consulted, not in the action.",
+        "IN 'lanes' MODE EVERY EXISTING `showLane` BRANCH IS UNCHANGED. All four branches of `renderer-panes.ts` section 2 are re-asserted: an unknown lane is a no-op; the primary lane clears unread and opens nothing; a lane already in `followerLaneIds` FOCUSES rather than duplicating (asserted by the array's exact contents and length, which is the branch a naive implementation gets wrong); any other lane REPLACES the focused follower in place without changing the array's length. The UNIQUENESS INVARIANT holds after each.",
+        "`jumpToLane` INHERITS THE INLINE RULE, because it delegates. A dispatch card's jump in 'inline' mode opens no follower pane; in 'lanes' mode it still does. Both asserted.",
+        "`LaneRailProps.onShowInFollower` AND `onHideFollower` ARE DELETED, and `App.tsx` no longer passes them. `shell/App.smoke.test.tsx` is rewritten to assert `'onShowInFollower' in railProps` is `false` and `'onHideFollower' in railProps` is `false`, and \u2014 in the same test \u2014 that `onSelect` and `onSteer` ARE still passed and are functions, so a smoke test reading an empty props object cannot pass.",
+        "A LANE IN THE FOLLOWER PANE IS STILL MARKED ON ITS RAIL ROW, THROUGH A CHANNEL ASSISTIVE TECHNOLOGY REACHES. With the pin's `aria-pressed` gone, the row must still announce that its lane is on screen \u2014 asserted through the accessible name or an ARIA state on the row itself, by `getByRole`, not by a `data-` attribute. A `data-`-only marking does not satisfy this criterion.",
+        "CLOSING A FOLLOWER PANE STILL WORKS AND IS STILL REACHABLE. The follower pane's own `transcript-unpin` control is present, is the only remaining way to close a pane, and closing through it empties `followerLaneIds` and sets `focusedFollowerIndex` to `null`. `hideLane`'s no-op-for-a-non-follower tolerance is re-asserted.",
+        "THE FINISHED-LANE COLLAPSE IS UNTOUCHED. `partitionFinishedLanes`, `FINISHED_LANE_STATUSES`, the counted disclosure and its two test ids all behave exactly as at `b2c3caf`, including the interleaved restore order asserted by full id list. `git diff` over `src/renderer/src/lanes/finished-lanes.ts` is empty.",
+        "`npm run typecheck:web` reports zero errors and every suite under the owned paths is green. Because `TEST_IDS.laneRowPin` is deleted while T2 and T4 still reference it in files this task does not own, the report states which files outside this task's ownership set will be red until those tasks land, and names them."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "The renderer end-to-end suite, rewritten for the removed pin control, the moved permission set, the fixed plural, and the new turn and tool rendering",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/**"
+      ],
+      "dependsOn": [
+        "T2",
+        "T3"
+      ],
+      "acceptance": [
+        "NO SUITE UNDER `src/renderer/src/__tests__/**` REFERENCES `TEST_IDS.laneRowPin` OR THE LITERAL `'lane-row-pin'`. `panes.e2e.test.tsx` (five call sites) and `permissions.e2e.test.tsx` (one) are REWRITTEN to reach the follower pane the way a user now does \u2014 by clicking the lane row itself \u2014 and each rewritten flow still asserts, end to end, that the follower pane appears showing that Calf's lane title and that the pane's own unpin control closes it. A rewrite that merely deletes the pin steps without restoring the end-to-end assertion does not satisfy this.",
+        "THE COUNTED FILTER LABEL IS PINNED AT ONE, TWO AND ZERO. `wording.e2e.test.tsx` keeps `FILTER_SHOW_TWO` / `FILTER_HIDE_TWO` / `FILTER_SHOW_NONE` and GAINS `Show 1 hidden system event` and `Hide 1 system event`, each asserted through `getByRole('button', { name })` against a real one-hidden-event stream. The n === 1 constants fail against `b2c3caf`, which renders 'events' there. THIS IS THE CRITERION REQUIRING A WATCHED FAILURE for this task: run the two new constants against `b2c3caf` and quote the output.",
+        "A PERMISSION IS HIDDEN FROM THE DEFAULT TRANSCRIPT BUT ITS PROMPT IS NOT. `permissions.e2e.test.tsx` drives a real pending permission and asserts, in one test: the `permission_request` transcript row is absent in the default view; the permission CARD is present and its allow button answers the prompt; the lane's unread badge and `awaitingPermission` marking still reflect the arrival; and toggling the filter reveals the row at its original `seq` position, asserted by exact rendered-seq list rather than by presence.",
+        "IN 'inline' ROUTING MODE, CLICKING A CALF ROW OPENS NO SECOND PANE, DRIVEN THROUGH THE FULL APP. `panes.e2e.test.tsx` mounts with `routingMode: 'inline'`, clicks a Calf row, and asserts `queryByTestId('transcript-split')` is null while `transcript-primary` is present and still shows the Matriarch's events \u2014 the positive half being what stops a workspace that failed to mount from passing. The same flow in 'lanes' mode still opens the split pane.",
+        "THE USER'S OWN PROMPT AND THE MODEL'S REPLY ARE DISTINGUISHABLE IN THE ASSEMBLED APP. A flow that pushes a `user_message` and an `assistant_text` into a lane asserts the two rendered list items carry `data-turn-role` `'user'` and `'assistant'` respectively AND that the visible labels 'You' and 'Claude' are both present as text. Both halves in the same test.",
+        "A TOOL CALL AND ITS RESULT READ COMPACTLY AND EXPAND IN THE ASSEMBLED APP. A flow pushes a `tool_use` and a `tool_result` with a known payload and asserts: the call's one-line summary text is present; the raw result body is absent; `getByRole('button', { name: /Show tool result/ })` expands it; the expanded body carries the full content. Then it toggles the noise filter and asserts the expansion state of the still-visible rows is preserved.",
+        "EVERY EXISTING E2E GUARANTEE STILL HOLDS. `failure-paths`, `pod-open`, `pod-controls`, `relaunch`, `workspace` and `hygiene` pass with the minimum modification the four changes require, and the report lists every file changed with a one-line reason. `hygiene.test.ts` passes unmodified \u2014 if it required modification, that is a finding to report rather than an edit to make.",
+        "`npx vitest run` is green across the whole repo, `npm run typecheck` reports zero errors on both projects, and the report states the total test count before and after. Any test whose failure was caused by T1, T2 or T3 rather than by this suite is reported as a finding to the orchestrator, not worked around here."
+      ]
+    }
+  ]
+}

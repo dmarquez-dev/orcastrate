@@ -1,0 +1,115 @@
+{
+  "session": "2026-08-21-orcastrate-transcript-readability",
+  "updatedAt": "2026-08-21T12:55:00-07:00",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-21-orcastrate-transcript-readability",
+  "branch": "dir/2026-08-21-orcastrate-transcript-readability",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "b2c3caf",
+      "commit": "b3cf3a7"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "b2c3caf",
+      "commit": "39c4364"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "b2c3caf",
+      "commit": "95fc7d8"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "39c4364",
+      "commit": "de5f74a"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T3",
+      "reason": "ambiguous",
+      "resolved": true,
+      "question": "T3's criteria 1 and 2 are jointly unsatisfiable: criterion 1 mandates queryAllByTestId('lane-row-pin') as its negative assertion, criterion 2 forbids that literal anywhere under src/.",
+      "answer": "Ratify T3's resolution; no code change. The single surviving literal at lanes/LaneRail.test.tsx:175 IS the assertion criterion 1 names, and deleting it would delete the proof. Criterion 2 amended in place in manifest.json recording the ratification and preserving its original text.",
+      "options": [
+        {
+          "summary": "Ratify T3's resolution; no code change.",
+          "rationale": "Criterion 1 names the call verbatim and its negative assertion is the proof the pin is gone; criterion 2's purpose - no surviving test id, no renderer emitting one, no consumer reading one - is fully met. Deleting the literal deletes the evidence.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Narrow criterion 2's grep clause to a referrer rule, recorded as a criteria amendment.",
+          "rationale": "Keeps a checkable clause and removes the contradiction for any future session that re-runs the grep.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "contracts/lane-pin-removal.ts section 1 item 2 phrases the intent as a referrer list, not a string ban"
+            ]
+          }
+        },
+        {
+          "summary": "Move the assertion to a queryAllByRole-based negative.",
+          "rationale": "Not recommended - role-based negatives are weaker here because the pin, select and steer controls are all buttons, so this trades real proof for a grep result.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T3",
+      "reason": "ambiguous",
+      "resolved": true,
+      "question": "Nine surviving canPin mentions under src/ are all prose comments explaining why showLane grew a step 0; criterion 3's grep clause says a grep must return nothing.",
+      "answer": "Reword the T3-owned mentions to describe the field without naming it, keeping every rationale intact. Satisfies the clause literally at no cost to the explanatory trail, and leaves the frozen contract as the one greppable place the identifier survives. T3 reopened for a revision round to do it.",
+      "options": [
+        {
+          "summary": "Reword the mentions to describe the field without naming it.",
+          "rationale": "Satisfies the clause literally at zero cost to the explanatory trail this codebase deliberately maintains.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "renderer-view.ts:206-213 already documents a deletion by pointing at the contract rather than reproducing the dead symbol"
+            ]
+          }
+        },
+        {
+          "summary": "Ratify the substance-only reading; no code change.",
+          "rationale": "The clause's own sentence states its purpose - the field REMOVED, not defaulted and not left computed-but-unused - and that is satisfied.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Delete the tombstone comments outright.",
+          "rationale": "Cheapest, but loses why showLane grew a step 0, which is the hardest thing about this diff for a later reader.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "contracts/lane-pin-removal.ts warns a rule deleted without its rationale is the hardest kind to notice"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 6,
+    "escalationsRaised": 2,
+    "reviewRounds": 3
+  }
+}
