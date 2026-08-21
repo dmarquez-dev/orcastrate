@@ -19,6 +19,17 @@ afterEach(cleanup);
 
 const noop = () => undefined;
 
+/**
+ * The pane now DEFAULTS to the conversation (`transcript-filter.ts`), so the
+ * suites below that are about "every EventType renders" have to say which mode
+ * they mean. Expanding the filter is what "everything renders" means now, and
+ * `TranscriptPane.filter.test.tsx` is what proves the default hides the
+ * plumbing in the first place.
+ */
+function showEverything(pane: 'primary' | 'split' = 'primary'): void {
+  fireEvent.click(screen.getByTestId(`transcript-filter:${pane}`));
+}
+
 const matriarch = makeLane();
 const calf1 = makeCalf('lane-calf-1');
 
@@ -49,6 +60,7 @@ describe('TranscriptPane — event stream (AC4)', () => {
       makeEvent(3, { type: 'thinking', text: 'third' }),
     ];
     render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    showEverything();
 
     const rendered = screen.getAllByTestId(/^transcript-event:/);
     expect(rendered.map((el) => el.getAttribute('data-testid'))).toEqual([
@@ -85,6 +97,9 @@ describe('TranscriptPane — event stream (AC4)', () => {
 
     const events = Object.values(payloads).map((payload, i) => makeEvent(i + 1, payload));
     render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    // Spec 5.2 requires every member to remain RENDERABLE; the toggle is what
+    // makes that true, so this suite asserts it in 'everything' mode.
+    showEverything();
 
     // Every event produced exactly one element, and none of them is empty.
     const rendered = screen.getAllByTestId(/^transcript-event:/);

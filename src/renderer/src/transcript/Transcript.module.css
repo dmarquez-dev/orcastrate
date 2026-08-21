@@ -22,6 +22,63 @@
   background: var(--oc-bg-panel);
 }
 
+/*
+ * Title on the left, the filter toggle and the follower pane's unpin control
+ * on the right. The row wraps rather than truncating the title in a narrow
+ * split pane.
+ */
+.paneHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oc-space-2);
+  flex-wrap: wrap;
+}
+
+.paneHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-2);
+  flex: 0 0 auto;
+}
+
+.filterToggle,
+.unpin {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oc-space-1);
+  padding: var(--oc-space-1) var(--oc-space-2);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  font-size: var(--oc-text-xs);
+  cursor: pointer;
+}
+
+.filterToggle:hover,
+.unpin:hover {
+  background: var(--oc-bg-hover);
+}
+
+/*
+ * The pressed state is carried by the border AND by the button's own word
+ * ("Show" vs "Hide"), never by the hue alone.
+ */
+.filterToggle[aria-pressed='true'] {
+  border-color: var(--oc-fg-primary);
+  background: var(--oc-bg-hover);
+}
+
+.filterCount {
+  padding: 0 var(--oc-space-1);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-xs);
+}
+
 .paneTitle {
   margin: 0;
   font-size: var(--oc-text-lg);

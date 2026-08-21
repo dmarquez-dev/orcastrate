@@ -2,7 +2,7 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { TEST_IDS } from '../contracts/renderer-view';
+import { PANE_TEST_IDS, TEST_IDS, TRANSCRIPT_FILTER_TEST_IDS } from '../contracts/renderer-view';
 import { LaneRail } from '../lanes/LaneRail';
 import { makeCalf as makeRailCalf, makeLane as makeRailLane, makeRow } from '../lanes/test-fixtures';
 import { testId } from '../shell/contract-runtime';
@@ -25,12 +25,17 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
     render(
       <LaneRail
         rows={[
-          makeRow(makeRailLane()),
-          makeRow(makeRailCalf({ agentId: 'agent_1' }), { unreadEventCount: 2, pinned: true }),
+          makeRow(makeRailLane(), { inPrimaryPane: true }),
+          makeRow(makeRailCalf({ agentId: 'agent_1' }), {
+            unreadEventCount: 2,
+            canPin: true,
+            inFollowerPane: true,
+            focusedFollower: true,
+          }),
         ]}
         onSelect={noop}
-        onPin={noop}
-        onUnpin={noop}
+        onShowInFollower={noop}
+        onHideFollower={noop}
         onSteer={noop}
         routingMode="lanes"
       />,
@@ -45,14 +50,20 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
     const calfRow = screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-calf-1'));
 
     expect(within(calfRow).getByTestId(TEST_IDS.laneRowUnread)).toBeTruthy();
-    expect(within(matriarchRow).getByTestId(TEST_IDS.laneRowPin)).toBeTruthy();
     expect(within(calfRow).getByTestId(TEST_IDS.laneRowSteer)).toBeTruthy();
+
+    // `laneRowPin` MOVED (`renderer-panes.ts` section 7): it is the pin/unpin
+    // icon on a CALF row now, and is ABSENT on the Matriarch, whose `canPin` is
+    // false. Absent, not disabled — there is no state in which the Matriarch
+    // becomes pinnable.
+    expect(within(calfRow).getByTestId(TEST_IDS.laneRowPin)).toBeTruthy();
+    expect(within(matriarchRow).queryByTestId(TEST_IDS.laneRowPin)).toBeNull();
 
     // And the bare ids are literally the contract's strings, not suffixed
     // variants of them — the regression that sent T8's lookups to zero hits.
     for (const el of [
       within(calfRow).getByTestId(TEST_IDS.laneRowUnread),
-      within(matriarchRow).getByTestId(TEST_IDS.laneRowPin),
+      within(calfRow).getByTestId(TEST_IDS.laneRowPin),
       within(calfRow).getByTestId(TEST_IDS.laneRowSteer),
     ]) {
       expect(el.getAttribute('data-testid')).not.toContain(':');
@@ -87,6 +98,39 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
     expect(screen.getByTestId(TEST_IDS.transcriptLoadMore)).toBeTruthy();
     expect(screen.getByTestId(TEST_IDS.dispatchCard)).toBeTruthy();
     expect(screen.getByTestId(TEST_IDS.dispatchCardAgent)).toBeTruthy();
+
+    // The filter toggle is SUFFIXED with the pane, because both panes render
+    // one and a bare id would be ambiguous.
+    expect(
+      screen.getByTestId(testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'primary')),
+    ).toBeTruthy();
+    // Nothing is hidden in this stream, so the count element is absent — and
+    // the toggle is still here, which is the whole point of it.
+    expect(screen.queryByTestId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilterCount)).toBeNull();
+    // The unpin control belongs to the follower pane alone.
+    expect(screen.queryByTestId(PANE_TEST_IDS.transcriptUnpin)).toBeNull();
+  });
+
+  it('the count id renders on a stream that has something to hide', () => {
+    render(
+      <TranscriptPane
+        lane={makeLane()}
+        view={makeView([
+          makeEvent(1, { type: 'assistant_text', text: 'hello' }),
+          makeEvent(2, { type: 'system', subtype: 'hook_started', data: null }),
+        ])}
+        lanes={[makeLane()]}
+        routingMode="lanes"
+        isSplit={false}
+        hasMore={false}
+        onLoadMore={noop}
+        onJumpToLane={noop}
+        permissionSlot={null}
+      />,
+    );
+    expect(
+      screen.getByTestId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilterCount).textContent,
+    ).toBe('1');
   });
 
   it('the split transcript renders the split id', () => {
@@ -97,6 +141,7 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
         lanes={[makeLane(), makeCalf('lane-calf-1')]}
         routingMode="lanes"
         isSplit
+        onHide={noop}
         hasMore={false}
         onLoadMore={noop}
         onJumpToLane={noop}
@@ -104,6 +149,10 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
       />,
     );
     expect(screen.getByTestId(TEST_IDS.transcriptSplit)).toBeTruthy();
+    expect(
+      screen.getByTestId(testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'split')),
+    ).toBeTruthy();
+    expect(screen.getByTestId(PANE_TEST_IDS.transcriptUnpin)).toBeTruthy();
   });
 });
 

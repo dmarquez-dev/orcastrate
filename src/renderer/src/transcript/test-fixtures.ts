@@ -60,6 +60,67 @@ export function makeDispatchEvent(
   );
 }
 
+/**
+ * THE 2026-08-20 FIRST RUN, IN PROPORTION. This is the stream the noise filter
+ * is sized against, and the reason a three-event fixture proves nothing about
+ * it: that Pod stored 109 events, 53 of them `system`, against 11
+ * `assistant_text`. A first-run Pod fills its Matriarch lane with hook plumbing
+ * before the model says anything.
+ *
+ * The measured subtype histogram is `hook_started` 10, `hook_progress` 8,
+ * `task_progress` 8, `hook_response` 6, `thinking_tokens` 5, `init` 4,
+ * `result` 4, `rate_limit_event` 2 — which accounts for 47 of the 53. The
+ * remaining 6 are emitted as an UNNAMED subtype on purpose: the filter is
+ * keyed on the event TYPE and never on the subtype, so an unfamiliar subtype
+ * must be hidden exactly like a familiar one.
+ *
+ * Seqs interleave rather than arriving in type blocks, so a filter that
+ * appended restored events at the end would be visible against it.
+ */
+export const FIRST_RUN_SYSTEM_SUBTYPES: readonly [string, number][] = [
+  ['hook_started', 10],
+  ['hook_progress', 8],
+  ['task_progress', 8],
+  ['hook_response', 6],
+  ['thinking_tokens', 5],
+  ['init', 4],
+  ['result', 4],
+  ['rate_limit_event', 2],
+  ['some_subtype_this_build_has_never_seen', 6],
+];
+
+export function makeFirstRunEvents(): NormalizedEvent[] {
+  const systemPayloads: EventPayload[] = [];
+  for (const [subtype, count] of FIRST_RUN_SYSTEM_SUBTYPES) {
+    for (let i = 0; i < count; i += 1) {
+      systemPayloads.push({ type: 'system', subtype, data: { i } });
+    }
+  }
+
+  const others: EventPayload[] = [
+    { type: 'thinking', text: 'pondering' },
+    { type: 'lane_opened', lane: makeCalf('lane-calf-1') },
+    { type: 'lane_closed', laneId: 'lane-calf-1', status: 'done' },
+    { type: 'error', message: 'the process died', exitCode: 137 },
+    { type: 'malformed', rawLine: '{not json', parseError: 'Unexpected token' },
+  ];
+  for (let i = 0; i < 11; i += 1) {
+    others.push({ type: 'assistant_text', text: `assistant turn ${i + 1}` });
+  }
+
+  // Interleave: roughly five system rows for every one of everything else,
+  // which is about the ratio the run actually produced.
+  const payloads: EventPayload[] = [];
+  let s = 0;
+  let o = 0;
+  while (s < systemPayloads.length || o < others.length) {
+    for (let k = 0; k < 5 && s < systemPayloads.length; k += 1) payloads.push(systemPayloads[s++]!);
+    if (o < others.length) payloads.push(others[o++]!);
+  }
+
+  return payloads.map((payload, i) => makeEvent(i + 1, payload));
+}
+
 export function makeView(events: NormalizedEvent[], overrides: Partial<TranscriptView> = {}): TranscriptView {
   const last = events.at(-1);
   return {
