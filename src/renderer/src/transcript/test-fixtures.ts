@@ -121,6 +121,43 @@ export function makeFirstRunEvents(): NormalizedEvent[] {
   return payloads.map((payload, i) => makeEvent(i + 1, payload));
 }
 
+/**
+ * The startup-reconciliation notice, in the EXACT shape
+ * `pod-manager.ts` `#appendReconciliationEvents` writes it: `type: 'system'`,
+ * `subtype: STARTUP_RECONCILIATION_SUBTYPE`, and a `data` carrying the same
+ * string again as `subtypeMarker` (`startup-reconciliation.ts`,
+ * `StartupReconciliationData`).
+ *
+ * A fixture that stamped only one of the two carriers would let the filter's
+ * exemption pass while the real notice stayed hidden, so both are here.
+ */
+export const STARTUP_RECONCILIATION_REASON =
+  'Orcastrate restarted while this Pod was still open. No Claude Code process ' +
+  'survives an application restart, so lanes left running were marked ' +
+  'Orphaned. Press Open to start this Pod again.';
+
+export function makeReconciliationEvent(
+  seq: Seq,
+  overrides: Partial<NormalizedEvent> = {},
+): NormalizedEvent {
+  return makeEvent(
+    seq,
+    {
+      type: 'system',
+      subtype: 'startup_reconciliation',
+      data: {
+        subtypeMarker: 'startup_reconciliation',
+        reason: STARTUP_RECONCILIATION_REASON,
+        statusBefore: 'running',
+        statusAfter: 'closed',
+        orphanedLaneIds: ['lane-matriarch', 'lane-calf-1'],
+        at: '2026-01-02T00:00:00.000Z',
+      },
+    },
+    overrides,
+  );
+}
+
 export function makeView(events: NormalizedEvent[], overrides: Partial<TranscriptView> = {}): TranscriptView {
   const last = events.at(-1);
   return {

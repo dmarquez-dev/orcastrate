@@ -136,7 +136,9 @@ export type _EventTypeSetsAreDisjoint = _AssertNever<
 /**
  * Which events a pane is currently rendering.
  *
- *   'conversation' — the default. Renders the conversation and the diagnostics.
+ *   'conversation' — the default. Renders the conversation, the diagnostics,
+ *                    and the startup-reconciliation notice (see
+ *                    `isStartupReconciliationNotice`).
  *   'everything'   — renders all twelve types. Identical to today's behaviour.
  */
 export type TranscriptFilterMode = 'conversation' | 'everything';
@@ -144,12 +146,78 @@ export type TranscriptFilterMode = 'conversation' | 'everything';
 export const DEFAULT_TRANSCRIPT_FILTER: TranscriptFilterMode = 'conversation';
 
 /**
- * The hidden set, as a Set for O(1) membership. Keyed on the event TYPE only —
- * never on `payload` contents, so no `system` subtype is special-cased.
- * Subtypes are the CLI's vocabulary and it changes them; a filter keyed on
- * them would rot silently.
+ * The hidden set, as a Set for O(1) membership. Keyed on the event TYPE.
+ * Subtypes are the CLI's vocabulary and it changes them; a filter keyed on one
+ * of those would rot silently. The blanket rule stands for every subtype the
+ * CLI owns — the ONE exemption below is not one of them.
  */
 const HIDDEN_IN_CONVERSATION: ReadonlySet<EventType> = new Set<EventType>(PLUMBING);
+
+/**
+ * `SystemPayload.subtype` and `StartupReconciliationData.subtypeMarker` for the
+ * startup-reconciliation notice.
+ *
+ * DUPLICATED FROM `src/main/pod-manager/startup-reconciliation.ts` ON PURPOSE.
+ * `tsconfig.web.json` includes only `src/renderer/src/**` and `src/shared/**`,
+ * so importing the producer's const would pull main-process code into the
+ * renderer program to buy one string. `transcript/startup-reconciliation.test.tsx`
+ * already carries the same literal for the same reason; the tests below pin
+ * this copy against the producer's exact payload shape.
+ */
+export const STARTUP_RECONCILIATION_SUBTYPE = 'startup_reconciliation';
+
+/**
+ * THE ONE PLACE FILTERING LOOKS AT `payload` CONTENTS.
+ *
+ * AMENDED 2026-08-20 BY USER DECISION (escalation E5). A `system` event bearing
+ * the `startup_reconciliation` marker is treated as DIAGNOSTIC and is visible
+ * in BOTH modes, exactly as `error` and `malformed` are.
+ *
+ * WHY THIS ONE AND NO OTHER. The no-subtype-special-casing rule exists because
+ * subtypes are the CLI's vocabulary and the CLI changes them under us. That
+ * rationale does not reach this marker: it is written by ORCASTRATE'S OWN
+ * startup sweep (`pod-manager.ts` `#appendReconciliationEvents`), so it cannot
+ * change without this repository changing it.
+ *
+ * WHY IT IS WORTH AN EXCEPTION. The notice is the only explanation a user ever
+ * gets for why their lanes read Orphaned after a relaunch, and the previous
+ * session deliberately made it a durable transcript row rather than a
+ * dismissible banner for exactly that reason. Hidden by default it sits behind
+ * a toggle at the one moment it matters most: the first render after a
+ * relaunch.
+ *
+ * BOTH CARRIERS ARE ACCEPTED, and that is the SAFE DIRECTION, not laxity. The
+ * producer stamps the marker twice — once as `payload.subtype` and once as
+ * `data.subtypeMarker` — so requiring both would let a one-sided producer
+ * change silently HIDE the notice, which is the failure this exemption exists
+ * to prevent. Accepting either can only over-show.
+ */
+export function isStartupReconciliationNotice(payload: NormalizedEvent['payload']): boolean {
+  if (payload.type !== 'system') return false;
+  if (payload.subtype === STARTUP_RECONCILIATION_SUBTYPE) return true;
+  const data: unknown = payload.data;
+  return (
+    typeof data === 'object' &&
+    data !== null &&
+    (data as { subtypeMarker?: unknown }).subtypeMarker === STARTUP_RECONCILIATION_SUBTYPE
+  );
+}
+
+/**
+ * Whether 'conversation' mode hides this event.
+ *
+ * NOTE WHAT DID *NOT* CHANGE. `system` is still wholly a member of
+ * `PLUMBING_EVENT_TYPES`; the three sets still partition `EventType` and both
+ * `_AssertNever` guards above are untouched and still hold. The partition is
+ * over the TYPE. What the exemption changes is this PREDICATE — "hidden" is
+ * now "the type is plumbing AND the event is not the reconciliation notice"
+ * rather than "the type is plumbing". No guard was loosened to make room for
+ * it, because none of them was ever about payload contents.
+ */
+function isHiddenInConversation(event: NormalizedEvent): boolean {
+  if (!HIDDEN_IN_CONVERSATION.has(event.payload.type)) return false;
+  return !isStartupReconciliationNotice(event.payload);
+}
 
 /**
  * PURE, TOTAL, ORDER-PRESERVING. Returns a NEW array; never mutates `events`.
@@ -167,7 +235,7 @@ export function filterTranscriptEvents(
   mode: TranscriptFilterMode,
 ): NormalizedEvent[] {
   if (mode === 'everything') return events.slice();
-  return events.filter((event) => !HIDDEN_IN_CONVERSATION.has(event.payload.type));
+  return events.filter((event) => !isHiddenInConversation(event));
 }
 
 /** How many of `events` `mode` would hide. `events.length - filtered.length`. */

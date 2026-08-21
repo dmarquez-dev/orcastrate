@@ -12,7 +12,9 @@ import {
   makeEvent,
   makeFirstRunEvents,
   makeLane,
+  makeReconciliationEvent,
   makeView,
+  STARTUP_RECONCILIATION_REASON,
 } from './test-fixtures';
 
 afterEach(cleanup);
@@ -115,6 +117,85 @@ describe('diagnostics are never filtered (AC3)', () => {
     expect(screen.getByTestId('transcript-event:1')).toBeTruthy();
     expect(screen.getByTestId('transcript-event:2')).toBeTruthy();
     expect(screen.getByTestId('transcript-event:3')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The startup-reconciliation notice (contract amendment, escalation E5)
+// ---------------------------------------------------------------------------
+
+describe('the startup-reconciliation notice is visible in BOTH modes', () => {
+  /** Plumbing on either side of the notice, so position is testable too. */
+  const events = [
+    makeEvent(1, { type: 'system', subtype: 'hook_started', data: null }),
+    makeReconciliationEvent(2),
+    makeEvent(3, { type: 'system', subtype: 'hook_response', data: null }),
+    makeEvent(4, { type: 'assistant_text', text: 'after' }),
+  ];
+
+  it('renders in the DEFAULT mode, verbatim, while the plumbing around it does not', () => {
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    const pane = screen.getByTestId('transcript-primary');
+
+    // THE DISCRIMINATOR. Against the pre-amendment code this row is filtered
+    // out with every other `system` event and the sentence is nowhere.
+    const notice = screen.getByTestId('transcript-event:2');
+    expect(notice.getAttribute('data-event-type')).toBe('system');
+    expect(notice.textContent).toContain(STARTUP_RECONCILIATION_REASON);
+    expect(notice.textContent).toContain('lane-matriarch');
+
+    // NOT VACUOUS, AND NOT `system` UN-HIDDEN WHOLESALE: the two unmarked
+    // `system` rows either side of it are still gone, and the conversation
+    // still renders.
+    expect(screen.queryByTestId('transcript-event:1')).toBeNull();
+    expect(screen.queryByTestId('transcript-event:3')).toBeNull();
+    expect(typeCount(pane, 'system')).toBe(1);
+    expect(renderedSeqs(pane)).toEqual(['2', '4']);
+  });
+
+  it('still renders it in everything mode, back among its plumbing, in seq order', () => {
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
+
+    const pane = screen.getByTestId('transcript-primary');
+    expect(renderedSeqs(pane)).toEqual(['1', '2', '3', '4']);
+    expect(screen.getByTestId('transcript-event:2').textContent).toContain(
+      STARTUP_RECONCILIATION_REASON,
+    );
+  });
+
+  it('is not counted as hidden, so the toggle does not over-claim', () => {
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    // Two hidden `system` rows — the notice is not one of them.
+    expect(screen.getByTestId(PRIMARY_FILTER).getAttribute('aria-label')).toBe(
+      'Show 2 hidden system events',
+    );
+    expect(screen.getByTestId('transcript-filter-count').textContent).toBe('2');
+  });
+
+  it('does not make the lane look empty when the notice is all there is', () => {
+    render(<TranscriptPane {...props({ view: makeView([makeReconciliationEvent(1)]) })} />);
+    expect(screen.queryByText('No events in this lane yet.')).toBeNull();
+    expect(screen.getByTestId('transcript-event:1').textContent).toContain(
+      STARTUP_RECONCILIATION_REASON,
+    );
+    // Nothing is hidden at all, so the toggle names no count.
+    expect(screen.getByTestId(PRIMARY_FILTER).getAttribute('aria-label')).toBe(
+      'Show system events',
+    );
+    expect(screen.queryByTestId('transcript-filter-count')).toBeNull();
+  });
+
+  it('reaches the follower pane on its own default too', () => {
+    render(
+      <TranscriptPane
+        {...props({ isSplit: true, lane: makeCalf('lane-calf-1'), view: makeView(events) })}
+      />,
+    );
+    expect(screen.getByTestId('transcript-event:2').textContent).toContain(
+      STARTUP_RECONCILIATION_REASON,
+    );
+    expect(screen.getByTestId(SPLIT_FILTER).getAttribute('aria-pressed')).toBe('false');
   });
 });
 

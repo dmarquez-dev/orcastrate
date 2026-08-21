@@ -8,8 +8,10 @@ export {
   DEFAULT_TRANSCRIPT_FILTER,
   DIAGNOSTIC_EVENT_TYPES,
   PLUMBING_EVENT_TYPES,
+  STARTUP_RECONCILIATION_SUBTYPE,
   filterTranscriptEvents,
   hiddenEventCount,
+  isStartupReconciliationNotice,
   type TranscriptFilterMode,
 } from './transcript-filter';
 export { TranscriptFilterToggle, filterToggleLabel } from './TranscriptFilterToggle';

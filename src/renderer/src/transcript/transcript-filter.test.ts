@@ -7,10 +7,12 @@ import {
   DEFAULT_TRANSCRIPT_FILTER,
   DIAGNOSTIC_EVENT_TYPES,
   PLUMBING_EVENT_TYPES,
+  STARTUP_RECONCILIATION_SUBTYPE,
   filterTranscriptEvents,
   hiddenEventCount,
+  isStartupReconciliationNotice,
 } from './transcript-filter';
-import { makeEvent, makeFirstRunEvents } from './test-fixtures';
+import { makeEvent, makeFirstRunEvents, makeReconciliationEvent } from './test-fixtures';
 
 /**
  * Every member of the frozen union, written out. This object is a SECOND,
@@ -129,20 +131,117 @@ describe('filterTranscriptEvents (AC6)', () => {
     for (const type of PLUMBING_EVENT_TYPES) expect(kept).not.toContain(type);
   });
 
-  it('ignores payload contents — no `system` subtype is special-cased', () => {
+  it('ignores payload contents for every subtype the CLI owns', () => {
+    // The blanket rule, undisturbed by the one exemption below: these are the
+    // CLI's own vocabulary and it changes them, so none of them is looked at.
     const systems = [
       makeEvent(1, { type: 'system', subtype: 'init', data: null }),
-      makeEvent(2, { type: 'system', subtype: 'startup_reconciliation', data: { a: 1 } }),
+      makeEvent(2, { type: 'system', subtype: 'hook_started', data: { a: 1 } }),
       makeEvent(3, { type: 'system', subtype: 'a_subtype_invented_next_week', data: null }),
+      makeEvent(4, { type: 'system', subtype: 'result', data: { ok: true } }),
     ];
     expect(filterTranscriptEvents(systems, 'conversation')).toEqual([]);
-    expect(filterTranscriptEvents(systems, 'everything')).toHaveLength(3);
+    expect(filterTranscriptEvents(systems, 'everything')).toHaveLength(4);
   });
 
   it('is total on an empty stream', () => {
     expect(filterTranscriptEvents([], 'conversation')).toEqual([]);
     expect(hiddenEventCount([], 'conversation')).toBe(0);
     expect(hiddenEventCount([], 'everything')).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The ONE payload-content exemption (contract amendment, escalation E5)
+// ---------------------------------------------------------------------------
+
+describe('the startup-reconciliation notice is diagnostic, not plumbing', () => {
+  it('pins the marker string the producer writes', () => {
+    expect(STARTUP_RECONCILIATION_SUBTYPE).toBe('startup_reconciliation');
+    // And the fixture really is shaped like the producer's payload — both
+    // carriers, not one. A one-sided fixture would let the exemption pass here
+    // while the real notice stayed hidden in the app.
+    const payload = makeReconciliationEvent(1).payload;
+    expect(payload.type).toBe('system');
+    if (payload.type !== 'system') throw new Error('unreachable');
+    expect(payload.subtype).toBe(STARTUP_RECONCILIATION_SUBTYPE);
+    expect((payload.data as { subtypeMarker: string }).subtypeMarker).toBe(
+      STARTUP_RECONCILIATION_SUBTYPE,
+    );
+  });
+
+  it('survives the default filter, in place, among plumbing that does not', () => {
+    const events = [
+      makeEvent(1, { type: 'system', subtype: 'hook_started', data: null }),
+      makeReconciliationEvent(2),
+      makeEvent(3, { type: 'system', subtype: 'hook_response', data: null }),
+      makeEvent(4, { type: 'assistant_text', text: 'after' }),
+    ];
+    expect(filterTranscriptEvents(events, 'conversation').map((e) => e.seq)).toEqual([2, 4]);
+    expect(filterTranscriptEvents(events, 'everything').map((e) => e.seq)).toEqual([1, 2, 3, 4]);
+  });
+
+  it('is recognised by EITHER carrier, because over-showing is the safe way to be wrong', () => {
+    const subtypeOnly = makeEvent(1, {
+      type: 'system',
+      subtype: 'startup_reconciliation',
+      data: null,
+    });
+    const dataOnly = makeEvent(2, {
+      type: 'system',
+      subtype: 'something_else',
+      data: { subtypeMarker: 'startup_reconciliation' },
+    });
+    expect(isStartupReconciliationNotice(subtypeOnly.payload)).toBe(true);
+    expect(isStartupReconciliationNotice(dataOnly.payload)).toBe(true);
+    expect(filterTranscriptEvents([subtypeOnly, dataOnly], 'conversation')).toHaveLength(2);
+  });
+
+  it('DOES NOT un-hide `system` wholesale — an unmarked system event is still hidden', () => {
+    // The negative that makes the exemption an exemption rather than a
+    // capitulation. Every one of these is a `system` event and every one of
+    // them stays behind the toggle.
+    const unmarked = [
+      makeEvent(1, { type: 'system', subtype: 'init', data: null }),
+      makeEvent(2, { type: 'system', subtype: 'hook_started', data: { reason: 'x' } }),
+      // Near misses, on both carriers.
+      makeEvent(3, { type: 'system', subtype: 'startup_reconciliation_v2', data: null }),
+      makeEvent(4, { type: 'system', subtype: 'x', data: { subtypeMarker: 'resume_fallback' } }),
+      makeEvent(5, { type: 'system', subtype: 'x', data: { subtypeMarker: null } }),
+      makeEvent(6, { type: 'system', subtype: 'x', data: 'startup_reconciliation' }),
+    ];
+    for (const event of unmarked) {
+      expect(isStartupReconciliationNotice(event.payload), `seq ${event.seq}`).toBe(false);
+    }
+    expect(filterTranscriptEvents(unmarked, 'conversation')).toEqual([]);
+    expect(hiddenEventCount(unmarked, 'conversation')).toBe(6);
+  });
+
+  it('exempts nothing but `system` — the marker on another plumbing type is inert', () => {
+    // `thinking` carries no subtype at all, but a future payload might; the
+    // predicate is anchored on the TYPE first, so it cannot leak.
+    const thinking = makeEvent(1, { type: 'thinking', text: 'startup_reconciliation' });
+    expect(isStartupReconciliationNotice(thinking.payload)).toBe(false);
+    expect(filterTranscriptEvents([thinking], 'conversation')).toEqual([]);
+  });
+
+  it('leaves the subsequence and no-mutation guarantees intact', () => {
+    const events = [
+      makeEvent(1, { type: 'system', subtype: 'init', data: null }),
+      makeReconciliationEvent(2),
+      makeEvent(3, { type: 'assistant_text', text: 'a' }),
+    ];
+    const before = structuredClone(events) as NormalizedEvent[];
+    const filtered = filterTranscriptEvents(events, 'conversation');
+
+    expect(filtered).not.toBe(events);
+    expect(events).toEqual(before);
+    let cursor = 0;
+    for (const kept of filtered) {
+      const found = events.indexOf(kept, cursor);
+      expect(found).toBeGreaterThanOrEqual(cursor);
+      cursor = found + 1;
+    }
   });
 });
 
