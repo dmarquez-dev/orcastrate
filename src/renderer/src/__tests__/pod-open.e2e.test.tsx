@@ -27,13 +27,14 @@
  * wrong action.
  */
 
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { Pod } from '@shared/contracts/events';
 import { TEST_IDS } from '../contracts/renderer-view';
-import { POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
+import { POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from '../pods/PodTab';
+import { BEACHED_CAUSE } from '../pods/run-control';
 import { testId } from '../shell/contract-runtime';
 import { ipcError, makeStubPod, stubOrcastrateApi, type StubOrcastrateApi } from '../test-utils';
 
@@ -101,7 +102,12 @@ describe('starting a listed Pod that has no process', () => {
     // carries none of this.
     expect(control.tagName).toBe('BUTTON');
     expect(control.getAttribute('aria-label')).toBe(`Open ${POD_ALPHA.title}`);
-    expect(control.textContent).toBe('Open');
+    // THE VERB MOVED OFF THE FACE OF THE CONTROL. Both run verbs now draw the
+    // same PLAY glyph — the icon says "this will run" — so which verb it is,
+    // and why, is carried by the accessible name and by `data-verb`. Asserting
+    // the glyph here instead would pin the decoration and drop the meaning.
+    expect(control.getAttribute('data-verb')).toBe('open');
+    expect(within(control).getByText('▶').getAttribute('data-icon')).toBe('play');
 
     // Operated by keyboard alone, not by pointer.
     control.focus();
@@ -124,17 +130,28 @@ describe('starting a listed Pod that has no process', () => {
     // the other simply is not running.
     const beachedControl = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, BEACHED.id));
     const closedControl = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, CLOSED.id));
-    expect(beachedControl.textContent).toBe('Reconnect');
-    expect(closedControl.textContent).toBe('Open');
-    expect(beachedControl.getAttribute('aria-label')).toBe(`Reconnect ${BEACHED.title}`);
+    expect(beachedControl.getAttribute('data-verb')).toBe('reconnect');
+    expect(closedControl.getAttribute('data-verb')).toBe('open');
+    // The beached control's name carries the CAUSE, which is the one place a
+    // keyboard user hears it — the tab's status line is read separately.
+    // Joined from the exported clause rather than retyped, so the assertion
+    // compares the app against its producer and not against itself.
+    expect(beachedControl.getAttribute('aria-label')).toBe(
+      `Reconnect ${BEACHED.title}${BEACHED_CAUSE}`,
+    );
     expect(closedControl.getAttribute('aria-label')).toBe(`Open ${CLOSED.title}`);
+    // Same glyph on both, which is exactly why the names have to differ.
+    expect(within(beachedControl).getByText('▶')).toBeDefined();
+    expect(within(closedControl).getByText('▶')).toBeDefined();
 
     await user.click(beachedControl);
     await waitFor(() => {
       expect(api.calls.podReconnect).toEqual([[BEACHED.id]]);
     });
-    // The whole point of the branch: `pods.open` answers a beached Pod with an
-    // error, so calling it here would be the wrong verb.
+    // `reconnectPod` disposes before starting; `openPod` returns an already
+    // live Pod untouched. Routing beached to the verb that disposes first is
+    // the reason the split survives, so calling `pods.open` here would be the
+    // wrong verb even though main would have accepted it.
     expect(api.calls.podOpen).toEqual([]);
 
     // ...and the closed Pod takes the other branch, in the same mount, so the
@@ -166,7 +183,7 @@ describe('starting a listed Pod that has no process', () => {
     expect(screen.getByTestId('composer-disabled-note').textContent).not.toBe(beachedNote);
   });
 
-  it('offers no run control at all once the Pod is open', async () => {
+  it('replaces the run control with the stop control once the Pod is open, and drops the delete control', async () => {
     const user = userEvent.setup();
     const api = afterRestart();
     mountWorkspace(api);
@@ -178,6 +195,20 @@ describe('starting a listed Pod that has no process', () => {
     });
     // Not merely hidden: there is no second call to reach.
     expect(api.calls.podOpen).toEqual([[ALPHA_ID]]);
+    // ONE ELEMENT, TWO MODES. The run control did not vanish — it became the
+    // stop control, which is what keeps a keyboard user's focus in place when
+    // the Pod starts under them.
+    const stop = screen.getByTestId(testId(POD_TAB_STOP_TEST_ID, ALPHA_ID));
+    expect(stop.getAttribute('data-verb')).toBe('stop');
+    expect(within(stop).getByText('❚❚').getAttribute('data-icon')).toBe('pause');
+    // The NAME is asserted only as far as this fixture can carry it: the
+    // default stub's `pods.open` answers with a freshly defaulted row, so the
+    // title on screen after opening is the stub's and not Alpha's. The
+    // verbatim accessible names are pinned in `wording.e2e.test.tsx`, against
+    // a reply that keeps the Pod it was given.
+    expect(stop.getAttribute('aria-label')?.startsWith('Stop ')).toBe(true);
+    // ...and an opened Pod is never one click from deletion.
+    expect(screen.queryByTestId(testId('pod-tab-delete', ALPHA_ID))).toBeNull();
     // The Pod is still listed, and its tab still selects it.
     expect(screen.getByTestId(testId(TEST_IDS.podTab, ALPHA_ID))).toBeDefined();
   });

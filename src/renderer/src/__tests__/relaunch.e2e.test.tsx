@@ -67,7 +67,7 @@ import { createPushes, PodManager, ROUTING_MODE } from '../../../../src/main/pod
 import { openEventStore } from '../../../../src/main/store';
 
 import { TEST_IDS } from '../contracts/renderer-view';
-import { POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
+import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from '../pods/PodTab';
 import { testId } from '../shell/contract-runtime';
 import { stubOrcastrateApi, type StubOrcastrateApi } from '../test-utils';
 
@@ -409,9 +409,27 @@ function podTab(podId: PodId): HTMLElement {
   return screen.getByTestId(testId(TEST_IDS.podTab, podId));
 }
 
-/** The run control for one Pod, or null when the app offers none. */
+/** The RUN mode of the run/stop control, or null when the Pod has a process. */
 function runControl(podId: PodId): HTMLElement | null {
   return screen.queryByTestId(testId(POD_TAB_OPEN_TEST_ID, podId));
+}
+
+/**
+ * Which verb the run control currently offers, or null when it offers none.
+ *
+ * READ FROM `data-verb`, NOT FROM THE CONTROL'S TEXT. Both run verbs draw the
+ * same PLAY glyph — the icon says "this will run" and nothing more — so the
+ * verb lives in the attribute and in the accessible name. A `textContent`
+ * assertion here would pin the decoration and drop the distinction the whole
+ * fixture exists to make.
+ */
+function runVerb(podId: PodId): string | null {
+  return runControl(podId)?.getAttribute('data-verb') ?? null;
+}
+
+/** The STOP mode of the same control. Present only while the Pod has a process. */
+function stopControl(podId: PodId): HTMLElement | null {
+  return screen.queryByTestId(testId(POD_TAB_STOP_TEST_ID, podId));
 }
 
 function laneRow(laneId: LaneId): HTMLElement {
@@ -461,7 +479,7 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('relaunching over a Pod the previous process left open', () => {
-  it('reads Orphaned, disables the composer with the pinned sentence, offers Open, and closes with an ok result that leaves the Pod closed', async () => {
+  it('reads Orphaned, disables the composer with the pinned sentence, offers Open, and offers delete rather than a close that would refuse', async () => {
     const user = userEvent.setup();
     const { world, relaunchedLaneId } = await relaunchScenario();
     mountWorkspace(world.api);
@@ -489,22 +507,39 @@ describe('relaunching over a Pod the previous process left open', () => {
     expect(screen.getByTestId(TEST_IDS.composerSend).hasAttribute('disabled')).toBe(true);
     const control = runControl(RELAUNCHED_ID);
     expect(control).not.toBeNull();
-    expect(control?.textContent).toBe('Open');
+    expect(control?.getAttribute('data-verb')).toBe('open');
+    expect(control?.getAttribute('aria-label')).toBe('Open Relaunched');
 
-    // SYMPTOM 3 — the tab's x refused with a not-running error. It answers ok,
-    // and this is the REAL `PodManager.closePod`, not a stub that always says
-    // yes: the assertion below reads the persisted row back out of the store.
-    await user.click(screen.getByRole('button', { name: 'Close Relaunched' }));
-    await waitFor(() => {
-      expect(world.calls.podClose).toEqual([RELAUNCHED_ID]);
-    });
+    /*
+     * SYMPTOM 3 — the tab's `x` refused with a not-running error, which was
+     * the dead end the first run hit.
+     *
+     * IT IS GONE BY REMOVAL OF THE AFFORDANCE, NOT BY THE CALL ANSWERING OK.
+     * The run/stop control has two mutually exclusive modes and a Pod with no
+     * process is never in the stop one, so there is no control here that could
+     * ask main to close a Pod that is already closed — `pods.close` is never
+     * invoked at all. What stands beside the run control instead is the DELETE
+     * control, whose confirmation is the only route to `deletePod`.
+     *
+     * The close path itself is still driven against the REAL
+     * `PodManager.closePod` — from the Pod that genuinely has a session, in
+     * "drops the live session and reveals the Open control" below. It is not
+     * reachable from this Pod, and asserting it here would mean reaching past
+     * the UI to a verb the UI no longer offers.
+     */
+    expect(stopControl(RELAUNCHED_ID)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Close Relaunched' })).toBeNull();
+    const red = screen.getByTestId(testId(POD_TAB_DELETE_TEST_ID, RELAUNCHED_ID));
+    expect(red.getAttribute('aria-label')).toBe('Delete Relaunched');
+    expect(world.calls.podClose).toEqual([]);
     expect(screen.queryByRole('alert')).toBeNull();
 
-    // ...and under Option 3 the seeded `'idle'` was itself part of the lie.
+    // ...and under Option 3 the seeded `'idle'` was itself part of the lie:
+    // the sweep, not a close from the UI, is what wrote `'closed'`.
     expect(persisted(world, RELAUNCHED_ID).status).toBe('closed');
     // The Pod is still listed and still shows its way back in.
     expect(podTab(RELAUNCHED_ID)).toBeDefined();
-    expect(runControl(RELAUNCHED_ID)?.textContent).toBe('Open');
+    expect(runVerb(RELAUNCHED_ID)).toBe('open');
   });
 
   it('keeps the reconciled duration frozen while the Pod that kept its session goes on counting', async () => {
@@ -560,7 +595,7 @@ describe('relaunching over a Pod the previous process left open', () => {
 
     // The other Pod in the same fixture answers the other way at the same
     // moment, so neither result can come from a constant.
-    expect(runControl(RELAUNCHED_ID)?.textContent).toBe('Open');
+    expect(runVerb(RELAUNCHED_ID)).toBe('open');
 
     // Nothing the renderer did opened this Pod. It was open when it arrived.
     expect(world.calls.podOpen).toEqual([]);
@@ -578,13 +613,13 @@ describe('relaunching over a Pod the previous process left open', () => {
     await selectPod(user, KEPT_ID, keptLaneId);
     expect(runControl(KEPT_ID)).toBeNull();
 
-    await user.click(screen.getByRole('button', { name: 'Close Kept' }));
+    await user.click(screen.getByRole('button', { name: 'Stop Kept' }));
 
     // A real close of a real session: the status push carries `'closed'`, the
     // composer disables and the run control appears — with no `pods.list`
     // between, so the push alone did it.
     await waitFor(() => {
-      expect(runControl(KEPT_ID)?.textContent).toBe('Open');
+      expect(runVerb(KEPT_ID)).toBe('open');
     });
     expect(screen.getByTestId('composer-disabled-note').textContent).toContain(NOT_OPENED_NOTE);
     expect(persisted(world, KEPT_ID).status).toBe('closed');
@@ -657,7 +692,7 @@ describe('a startup sweep that finds nothing to reconcile', () => {
     // No reconciliation notice anywhere on screen: a notice that fired on every
     // relaunch would carry no information.
     expect(screen.queryByText(RECONCILIATION_REASON)).toBeNull();
-    expect(runControl(RELAUNCHED_ID)?.textContent).toBe('Open');
+    expect(runVerb(RELAUNCHED_ID)).toBe('open');
     expect(screen.getByTestId('composer-disabled-note').textContent).toContain(NOT_OPENED_NOTE);
   });
 
@@ -688,7 +723,7 @@ describe('a startup sweep that finds nothing to reconcile', () => {
     });
     expect(laneRow(laneId).textContent).toContain(FROZEN_DURATION);
     expect(persisted(world, RELAUNCHED_ID).status).toBe('closed');
-    expect(runControl(RELAUNCHED_ID)?.textContent).toBe('Open');
+    expect(runVerb(RELAUNCHED_ID)).toBe('open');
   });
 
   it('leaves a Pod that was beached when the sweep ran beached, and offers Reconnect rather than Open', async () => {
@@ -715,7 +750,7 @@ describe('a startup sweep that finds nothing to reconcile', () => {
     // `'beached'` is a truthful not-open state WITH a recorded cause. Rewriting
     // it to `'closed'` would erase the cause and send the user to `Open`.
     expect(persisted(world, RELAUNCHED_ID).status).toBe('beached');
-    expect(runControl(RELAUNCHED_ID)?.textContent).toBe('Reconnect');
+    expect(runVerb(RELAUNCHED_ID)).toBe('reconnect');
     expect(screen.getByTestId('composer-disabled-note').textContent).not.toContain(
       NOT_OPENED_NOTE,
     );

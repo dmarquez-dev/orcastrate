@@ -17,10 +17,17 @@
  * matters, so "no row" is a requirement and is asserted as one.
  *
  * The reason sentence is written out here as a literal on purpose. It lives in
- * `src/main/pod-manager/startup-reconciliation.ts`, which the renderer may not
- * import (`hygiene.test.ts` holds that line); pinning the words locally is what
- * makes this a wording assertion rather than a tautology against whatever the
- * producer currently says.
+ * `src/main/pod-manager/startup-reconciliation.ts`, which no renderer file may
+ * import EXCEPT the one named in `hygiene.test.ts`'s `MAIN_REACHING_FILES` —
+ * `__tests__/relaunch.e2e.test.tsx`, which runs a real `PodManager` because the
+ * defect it reproduces is a disagreement between main and the renderer and a
+ * stub cannot hold both sides of one. That rule is now ENFORCED as well as
+ * stated: this sentence used to claim a blanket ban that `hygiene.test.ts` did
+ * not check, because its import rule exempts every relative specifier.
+ *
+ * Pinning the words locally is what makes this a wording assertion rather than
+ * a tautology against whatever the producer currently says — and it is what
+ * this file does INSTEAD of taking the exception.
  */
 
 import { render, screen } from '@testing-library/react';
