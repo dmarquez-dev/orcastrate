@@ -1,0 +1,161 @@
+{
+  "session": "2026-08-20-orcastrate-workspace-refinement",
+  "createdAt": "2026-08-20T17:45:00-07:00",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/renderer-panes.ts",
+    "contracts/pod-deletion.ts",
+    "contracts/pod-verbs.ts",
+    "contracts/transcript-filter.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T0",
+      "title": "Pod deletion reaches disk: widen pod:delete to a request, add the src/main/pod-session port, and prove the application still has exactly one deletion primitive",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/shared/contracts/ipc.ts",
+        "src/main/pod-session/**",
+        "src/main/ipc/**",
+        "src/main/index.ts",
+        "src/preload/**",
+        "tests/unit/ipc/**",
+        "tests/unit/pod-session/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`OrcastrateApi.pods.delete` TAKES A REQUEST AND RETURNS A REPORT, exactly as section 1 and section 3 of the frozen `contracts/pod-deletion.ts` specify: `delete(req: DeletePodRequest): Promise<IpcResult<PodDeletionResult>>`. `deleteSession` is a REQUIRED boolean — not optional, not defaulted. `INVOKE_CHANNELS.podDelete` still spells `'pod:delete'`, character for character; the channel name does not change and `tests/unit/ipc/channels.test.ts` still passes unmodified on that assertion.",
+        "`src/main/ipc/validate.ts` gains `requireDeletePodRequest`, and the handler for `podDelete` calls it. A payload with `deleteSession` absent, or `deleteSession: 'true'`, or a non-string `podId`, answers `{ ok: false, code: 'INVALID_ARGUMENT' }`. A test drives each of those three payloads through the registered handler and reads the code off the envelope. Today the handler accepts a bare `PodId` and no such validator exists, so a test asserting the string `'true'` is rejected fails against current code.",
+        "`src/main/pod-session/**` implements `PodSessionRemover` against `PodSessionRemoverDeps` and NOTHING ELSE. It imports neither `electron` nor `../pod-manager` nor `../store`. It resolves the session file as `<claudeHome>/projects/<encoded cwd>/<pod.ccSessionId>.jsonl`, ENCODING the cwd forward — replacing every non-alphanumeric run with `-`. It never calls `decodeDirectoryName` and never compares a decoded name, because decoding is ambiguous by construction (`src/main/beachcomber/paths.ts`).",
+        "THE FIVE OUTCOMES ARE EACH EXERCISED, against a synthetic tree under `mkdtempSync(join(tmpdir(), …))` and a fake `TrashItem` that records the absolute path it was handed: `'not-requested'` when `deleteSession` is false and the fake records ZERO calls; `'no-session'` when `pod.ccSessionId` is null and the fake records zero calls; `'not-found'` when the file is absent; `'trashed'` when it is present, with the fake asserted to have received the path of that file AND NOT the path of its parent directory; `'failed'` with `sessionError` carrying the rejection's message verbatim when the fake rejects.",
+        "THE PORT NEVER REJECTS. A `TrashItem` that rejects produces `{ outcome: 'failed', error }`, and a test asserts the returned promise resolves rather than rejecting. This is asserted at the port, not at the handler, so the handler has no branch that could turn a failed bin into a failed deletion.",
+        "PARTIAL SUCCESS IS A VALUE. With a rejecting `TrashItem`, `pods.delete({ podId, deleteSession: true })` resolves `{ ok: true, value: { podDeleted: true, session: 'failed', sessionError: <message> } }` — `ok: true`, because the Pod row really was deleted. A test reads all four fields off that one envelope.",
+        "ORDER IS OBSERVABLE AND ASSERTED: the Pod row is read, the path resolved, `manager.deletePod` called, and `TrashItem` called LAST. A fake `TrashItem` that queries the store when invoked observes the Pod already gone; a fake `PodManagerApi` whose `deletePod` throws leaves `TrashItem` uncalled. Both are asserted, because the reverse order would leave a Pod row pointing at a file already in the bin.",
+        "`IpcHandlerDeps` gains `deletePodSession: PodSessionRemover` as an INJECTED port, and `src/main/index.ts` is the only place it is constructed — from the `CLAUDE_HOME` and the single `trashItem` it already holds. `registerIpcHandlers` is called with it. No second `TrashItem` is created anywhere.",
+        "THE SINGLE-DELETION-PRIMITIVE INVARIANT IS RE-PROVED OVER THE WIDER SURFACE. `tests/unit/beachcomber/no-destructive-api.test.ts` is widened to scan `src/main/pod-session/**` alongside `src/main/beachcomber/**` for `rm`, `rmdir`, `unlink`, `rmSync` and `rf`. The scan is verified to FAIL when a `writeFileSync`-free `unlinkSync` import is temporarily added to the new directory — watched failing, then reverted — and that verification is stated in the task report. A scan that has never been seen to fail proves nothing; this session inherits three such guards from the last one.",
+        "The renderer bridge is updated in lockstep: `src/preload/api.ts` forwards the request object, and `src/preload/api.test.ts` asserts the payload it forwards is the object it received rather than a positional id.",
+        "NO OTHER MAIN BEHAVIOUR CHANGES. `openPod`, `reconnectPod`, `closePod` and `pods.create` keep their signatures and their bodies; `src/main/pod-manager/**` is not in this task's ownership set and is not edited. No guard refusing `pods.open` on a beached Pod is added — see Part A of `contracts/pod-verbs.ts` for why that was considered and rejected.",
+        "`npx vitest run` is green across the whole suite, and `typecheck:node` and `typecheck:web` both pass. Any renderer file that fails to compile because of the widened `delete` signature is reported to the orchestrator rather than edited: `src/renderer/**` belongs to T1 and T4."
+      ]
+    },
+    {
+      "id": "T1",
+      "title": "The pane model in state: primaryLaneId plus followerLaneIds, focus-based replacement, the amended contracts, and the shell wiring that feeds them",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-state.ts",
+        "src/renderer/src/contracts/renderer-view.ts",
+        "src/renderer/src/state/**",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/shell/**",
+        "src/renderer/src/test-utils/**"
+      ],
+      "dependsOn": ["T0"],
+      "acceptance": [
+        "`PodSessionView.selectedLaneId` AND `PodSessionView.pinnedLaneId` ARE DELETED and replaced by `primaryLaneId`, `followerLaneIds` and `focusedFollowerIndex`, exactly as section 1 of the frozen `contracts/renderer-panes.ts` spells them. `PodRuntimeState` in `store.ts` carries the same three fields in place of the two it has now. No compatibility alias, no deprecated getter: a consumer still reading `pinnedLaneId` must fail to compile, because that is how every call site gets found.",
+        "`selectLane`, `pinLane` and `unpinLane` ARE DELETED from `WorkspaceActions` and replaced by `showLane(podId, laneId)` and `hideLane(podId, laneId)`. `jumpToLane` keeps its signature and delegates to `showLane`.",
+        "ALL FOUR BRANCHES OF `showLane`'S RESOLUTION ORDER ARE EXERCISED AGAINST THE STORE DIRECTLY, each asserting the full triple `(primaryLaneId, followerLaneIds, focusedFollowerIndex)`: an unknown lane leaves all three untouched; the primary lane clears its unread and opens no follower; a lane ALREADY in `followerLaneIds` moves `focusedFollowerIndex` and leaves the array length unchanged (the branch a push-based implementation gets wrong); any other lane REPLACES the focused follower in place, and when the array was empty opens one and sets the index to 0.",
+        "SWAP-ON-PIN IS GONE, AND THE TEST FOR IT IS SEEN TO FAIL FIRST. Against the current code, selecting the pinned lane exchanges the two panes (`store.ts` `selectLane`). A test that pins lane B, selects lane B, and asserts the Matriarch is STILL `primaryLaneId` must be run against the pre-change store and observed to fail before the change lands; that observation is stated in the task report. `src/renderer/src/state/store.test.ts`'s existing swap assertions are REWRITTEN, not extended.",
+        "THE UNIQUENESS INVARIANT HOLDS AFTER A SNAPSHOT. `repairSelection` is rewritten to restore all three rules of section 1: `primaryLaneId` is never a member of `followerLaneIds`, `followerLaneIds` has no duplicates, and every id names a lane in the snapshot. A test replays a `laneChanged` push that drops the follower lane and asserts `followerLaneIds` is empty and `focusedFollowerIndex` is null; another replays a push that drops every lane and asserts `primaryLaneId` returns to the Matriarch.",
+        "TODAY'S POLICY IS ASSERTED, NOT ENCODED. Two runtime assertions hold after every action and every push: `primaryLaneId` equals `matriarchOf(lanes).id` whenever lanes are non-empty, and `followerLaneIds.length <= 1`. There is no action that writes `primaryLaneId`; a test enumerates every method on `WorkspaceActions`, calls each one against a two-lane Pod, and asserts `primaryLaneId` never moved off the Matriarch.",
+        "`LaneRowVm.selected` and `LaneRowVm.pinned` are DELETED and replaced by `inPrimaryPane`, `inFollowerPane`, `focusedFollower` and `canPin`, derived in `workspace-provider.tsx`. `canPin` is FALSE for the Matriarch row and FALSE for every row when `routingMode === 'inline'`, and both are asserted with a provider test rather than assumed.",
+        "`WorkspaceActions.deletePod` takes a `DeletePodRequest` and resolves an `ActionResult<PodDeletionResult>`, per section 4 of `contracts/pod-deletion.ts`. The docblock sentence 'Does not touch anything on disk' is DELETED. On a resolved result with `podDeleted: true` the Pod's row, its runtime, and its `activePodId` claim are cleared REGARDLESS of `session` — a test asserts the row is gone when `session` is `'failed'`.",
+        "`createPod` NO LONGER CALLS `pods.open`. Driven against the stub API, `createPod` records exactly one invocation, `pods.create`, and zero `pods.open`. The comment at `store.ts` documenting 'Creates the Pod row AND opens its process' is deleted along with the call. Against the current code this test fails, because `store.ts` invokes both.",
+        "`App.tsx` FEEDS THE SLOTS FROM THE NEW SHAPE: `primary` from `primaryLaneId`, `split` from `followerLaneIds[0] ?? null`. `WorkspaceLayoutProps` is UNCHANGED — no slot renamed, removed, or made optional — and `WorkspaceLayout.tsx` is not edited except where the shell tests require it. `App.tsx` passes `onShowInFollower`, `onHideFollower` and the follower pane's `onHide` on every render, and `src/renderer/src/shell/App.smoke.test.tsx` asserts each is passed rather than inferring it from a render.",
+        "`renderer-view.ts` gains, in ONE edit, every id and prop the other tasks need: `PANE_TEST_IDS`' three entries, `TRANSCRIPT_FILTER_TEST_IDS`' two, `LaneRailPaneProps`' two optional callbacks in place of the deleted `onPin`/`onUnpin`, and `TranscriptPaneUnpinProps.onHide`. `TEST_IDS.laneRowPin` is KEPT with its redefined meaning. No other task edits this file.",
+        "`src/renderer/src/test-utils/stub-api.ts` reflects T0's widened `pods.delete` and records its request object, so T4 and T5 can assert what `deleteSession` was sent. The docblock at line 154 that falsely claims the default scan carries 'an empty root' is corrected while the file is open.",
+        "AMENDED AT REVIEW BY USER DECISION, 2026-08-20 (escalation E4; the original text required whole-suite green, which T1 cannot produce without editing T2's, T3's and T5's files): `npx vitest run` is green ACROSS THE FILES T1 OWNS, `typecheck:web` reports ZERO ERRORS IN FILES T1 OWNS, and `src/renderer/src/state/isolation.test.ts` still passes — no `node:` import, no `join`/`resolve`/`dirname`/`basename` anywhere under `src/renderer/**`. Failures outside T1's ownership set caused by criteria 1, 2 and 9 doing what they were written to do are NOT charged against T1; they are the DAG's, and the whole-suite assertion is carried by T5's final criterion, which is the first point in the DAG at which it can be true."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "The lane rail: a pin icon that reflects state, no pin control on the Matriarch, and finished lanes collapsed rather than removed",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/lanes/**"],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "THE MATRIARCH ROW HAS NO PIN CONTROL. `within(getByTestId('lane-row:<matriarchId>')).queryByTestId('lane-row-pin')` returns null. ABSENT, not disabled — there is no state in which the Matriarch becomes pinnable. Against the current code this query returns a button, so the test is seen to fail first; that observation is stated in the task report.",
+        "THE PIN CONTROL IS AN ICON THAT REFLECTS CURRENT STATE. On a Calf row it carries `aria-pressed` equal to `row.inFollowerPane` and an accessible name naming the action it will perform — 'Show <agent type> in the second pane' when not shown, 'Close the second pane' when shown. A test toggles it and asserts `aria-pressed` flips; a test asserts the accessible name differs between the two states rather than being a constant.",
+        "IN 'inline' ROUTING MODE NO ROW HAS A PIN CONTROL, because `canPin` is false for all of them there. Asserted with the rail rendered at `routingMode='inline'`, alongside the existing inline note, which is unchanged.",
+        "FINISHED LANES COLLAPSE, AND NOTHING IS REMOVED FROM THE DATA. `partitionFinishedLanes` is implemented per section 6 of `contracts/renderer-panes.ts` as a pure, total, order-preserving function and is unit-tested against all four of its stated rules: the Matriarch never collapses whatever its status; a lane in the primary or a follower pane never collapses; a lane with `awaitingPermission` or non-zero `unreadEventCount` never collapses; everything else with status in `FINISHED_LANE_STATUSES` does.",
+        "THE DISCLOSURE NAMES ITS COUNT AND IS ALWAYS PRESENT WHEN IT HAS ANYTHING TO HIDE. `lane-rail-finished-toggle` renders whenever `finished` is non-empty and its accessible name states the number in words ('Show 2 finished lanes'). While collapsed, `lane-rail-finished-group` is absent from the DOM and the collapsed rows are unreachable by `lane-row:<id>`; expanding restores every one of them.",
+        "EXPANDING RESTORES RAIL ORDER, NOT APPEND ORDER. A test with lanes ordered Matriarch, A (running), B (done), C (running) expands the disclosure and asserts the rendered `lane-row:` ids read Matriarch, A, B, C — B back in position — so a lane does not move when it finishes and move again when it is revealed.",
+        "THE RAIL STILL FETCHES NOTHING, HOLDS NO SERVER DATA, AND RUNS NO TIMER. The collapse state is component-local `useState` in `LaneRail`; `src/renderer/src/state/**` is not edited and is not in this task's ownership set. `LaneRow` keeps its `memo` and its no-clock property — a finished lane's row still stops re-rendering.",
+        "`LaneRail.test.tsx` and `orphaned-lane.test.tsx` are updated where they assert the deleted `selected`/`pinned` view-model fields or the deleted `onPin`/`onUnpin` props. Assertions about swap behaviour are REWRITTEN rather than extended, because the behaviour they describe no longer exists.",
+        "`npx vitest run` is green and `typecheck:web` passes."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "The transcript: a conversation-by-default noise filter with a reversible, counted toggle, and an unpin control on the follower pane",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/transcript/**"],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "THE THREE EVENT-TYPE SETS PARTITION `EventType`, PROVED AT COMPILE TIME BY A GUARD THAT IS SEEN TO FIRE. `CONVERSATION_EVENT_TYPES`, `DIAGNOSTIC_EVENT_TYPES` and `PLUMBING_EVENT_TYPES` land verbatim from `contracts/transcript-filter.ts`. Exhaustiveness uses the generic-constraint spelling `_AssertNever<T extends never>` — the form `src/main/store/schema.ts` proved by experiment does fire — and NOT the empty-array-literal form, which is assignable to any array type and therefore never fires. The guard is verified by temporarily adding a thirteenth member to a local copy of the union and watching `typecheck:web` break; that observation is stated in the task report.",
+        "THE DEFAULT IS THE CONVERSATION, AND IT IS MEASURED ON A REALISTIC STREAM. Rendered against a fixture holding the first run's proportions — 53 `system`, 11 `assistant_text`, and at least one each of `thinking`, `lane_opened`, `lane_closed`, `error` and `malformed` — the pane renders zero `system` items, zero `thinking`, zero `lane_opened`, zero `lane_closed`, and renders the `error` and the `malformed` item. Against the current code every one of the 53 renders, so the first assertion fails first.",
+        "`error` AND `malformed` ARE VISIBLE IN BOTH MODES. Asserted in both, by test id, because a diagnostic the user must know to go looking for is a silent drop in every way that matters to them. Spec 5.2's requirement that every `EventType` stay renderable is satisfied by the toggle, and this criterion is what keeps the two that matter most from depending on it.",
+        "THE TOGGLE IS ALWAYS PRESENT, IN BOTH PANES, AND NAMES ITS COUNT. `transcript-filter:primary` and `transcript-filter:split` both render — including in a lane where nothing is hidden and including in an empty lane — and are never `disabled`. When the count is non-zero, `transcript-filter-count` renders it and the button's accessible name states it in words ('Show 42 hidden system events'); when it is zero, `transcript-filter-count` is absent and the name carries no number.",
+        "HIDING IS REVERSIBLE AND RESTORES POSITION, NOT ORDER-OF-ARRIVAL. A test builds events with interleaved seqs — conversation at 1, 3, 5 and plumbing at 2, 4 — toggles to `'everything'`, and asserts the rendered `transcript-event:<seq>` ids read 1, 2, 3, 4, 5. A block of restored events appended at the end fails this.",
+        "`view.events` IS NEVER MUTATED. `filterTranscriptEvents` is unit-tested to return a new array, to return a SUBSEQUENCE of its input, and to leave the input array identical by deep comparison. `mode === 'everything'` returns every event in input order — so the toggle's 'on' state is provably today's behaviour.",
+        "FILTERING NEVER CHANGES A COUNT. Toggling the filter does not alter `unreadEventCount`, `highWaterSeq`, or anything the state layer holds — `src/renderer/src/state/**` is not edited and is not in this task's ownership set. A test toggles the filter and asserts the lane's unread badge is unchanged, because a badge a user can clear by filtering reports the wrong thing.",
+        "EACH PANE HOLDS ITS OWN MODE. A test renders both panes, toggles the primary, and asserts the split pane's rendered event count is unchanged.",
+        "THE FOLLOWER PANE CARRIES ITS OWN UNPIN CONTROL. `transcript-unpin` renders when and only when `isSplit` is true and `onHide` is non-null; it is ABSENT from the primary pane in every state, asserted directly. Clicking it calls `onHide` exactly once. Against the current code there is no such control anywhere in the transcript, so the test fails first.",
+        "`TranscriptPane.test.tsx`, `test-ids.test.tsx` and `DispatchCard.test.tsx` are updated where they name deleted fields or assume every event renders. The inline dispatch card still renders on its `tool_use` event in both filter modes, because `tool_use` is in the conversation set — asserted, not assumed.",
+        "`npx vitest run` is green and `typecheck:web` passes."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Pod chrome: a delete confirmation behind the stopped tab's x, a run control whose name carries the beach cause, and a Create that does not start a process",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/pods/**"],
+      "dependsOn": ["T0", "T1"],
+      "acceptance": [
+        "THE TAB CARRIES TWO DISTINCT CONTROLS, NOT ONE CONTROL WITH TWO MEANINGS. User decision at Gate 2, 2026-08-20, superseding the single-`x` design: (a) a RUN/STOP control, rendered as a PLAY icon when `opened === false` and a PAUSE icon when `opened === true`; (b) a DELETE control, rendered as a red `x` icon and present ONLY when `opened === false`. A test asserts that a Pod with `opened === true` has NO delete control in the DOM — queried and asserted null, not disabled — because a running Pod must not be one click from deletion. Against the current code there is one control whose name is a constant, so both halves fail first.",
+        "THE PAUSE ICON IS HONEST ABOUT WHAT IT DOES. The stop control calls `closePod` and its accessible name reads 'Stop <title>'. Pause rather than a square is the correct affordance now that reopening resumes the conversation (`2026-08-20-orcastrate-open-resumes`), and the name says 'Stop' rather than 'Close' because the Pod row survives. Asserted by name and by which action was invoked.",
+        "NEITHER CONTROL IS DISTINGUISHED BY COLOUR ALONE. The delete control carries its own icon shape and the accessible name 'Delete <title>'; a test asserts the name rather than any class or style, so the affordance survives for a user who cannot see that it is red.",
+        "`deletePod` GETS ITS FIRST COMPONENT CALLER. Confirming the dialog calls `actions.deletePod` with a `DeletePodRequest` whose `deleteSession` is the checkbox's value. A test confirms with the box unchecked and asserts the recorded request is `{ podId, deleteSession: false }`, then with it checked and asserts `true`. Today no component anywhere calls `deletePod`; a grep for its only call site is part of the evidence.",
+        "THE CONFIRMATION STATES WHAT IT DESTROYS. It renders the Pod's title, and a sentence saying the Pod's transcript history is removed permanently. Asserted by text, because `pods.delete` has always deleted history and no dialog has ever said so.",
+        "THE SESSION CHECKBOX DEFAULTS OFF AND IS ABSENT WHEN THERE IS NOTHING TO DELETE. Rendered for a Pod with a non-null `ccSessionId` it is present and unchecked. Rendered for a Pod with `ccSessionId === null` it is ABSENT from the DOM — queried and asserted null, not asserted disabled — because an unchecked box implying a file exists is a lie about state.",
+        "A FAILED SESSION REMOVAL IS SURFACED, NOT SWALLOWED. Given a resolved `{ ok: true, value: { podDeleted: true, session: 'failed', sessionError: 'EBUSY: …' } }`, the dialog STAYS OPEN, renders `'EBUSY: …'` verbatim, and says the Pod itself was deleted. A test asserts the Pod's tab is gone from the bar at the same moment the message is on screen. The delete path is NOT added to `SURFACELESS_CHANNELS`.",
+        "THE RUN CONTROL'S ACCESSIBLE NAME CARRIES THE CAUSE FOR A BEACHED POD. `runControlFor` is implemented per Part A of `contracts/pod-verbs.ts`: a beached Pod's control is named 'Reconnect <title>, stopped with an error' and calls `reconnectPod`; a closed Pod's is named 'Open <title>' and calls `openPod`. Both are asserted, including which action was invoked, against a recording stub. Today the name is `'<label> <title>'` with no cause, so the beached assertion fails first. BOTH RENDER AS THE PLAY ICON — the icon says 'this will run'; the name says which verb and why. The cause-carrying distinction design §8 requires lives in the name, so it survives the shared icon.",
+        "THE FALSE COMMENT IS GONE. `PodsChrome.tsx`'s assertion that a beached Pod 'answers `pods.open` with an error' is deleted and replaced by what is true: no guard in `src/main/ipc/**` refuses it, `onBeached` has already removed the session so the two calls would be identical, and the routing exists because `reconnectPod` disposes a stale session where `openPod` would return it untouched. A wording test asserts the string 'answers `pods.open` with an error' appears nowhere under `src/renderer/**`.",
+        "CREATE NO LONGER STARTS A PROCESS, END TO END THROUGH THE COMPONENT. Submitting the New Pod dialog against a recording stub produces exactly one invocation, `pods.create`, and zero `pods.open`. The dialog closes, the new Pod is active, and its tab renders with status `'closed'` and a visible run control named 'Open <title>'. Against the current code the stub records two invocations, so this fails first.",
+        "THE NEWLY CREATED POD EXPLAINS ITSELF WITHOUT A CLICK. Immediately after a successful create, the composer is disabled with `disabledReason: 'not-opened'` and its existing sentence — 'This Pod is not running. Open it before sending a message.' — is on screen. Asserted by rendering the workspace after the create, not by unit-testing the composer in isolation.",
+        "THE DIALOG'S ERROR PATH NARROWS TO CREATE-FAILURE. A failing `pods.create` keeps the dialog open with the user's input and main's message verbatim. There is no branch reporting an open failure, and no 'Create and open' checkbox is added.",
+        "`PodTab.test.tsx`, `PodBar.test.tsx`, `PodBarPanel.test.tsx`, `NewPodDialog.test.tsx` and `pod-lifecycle.test.tsx` are updated where they assert the old single meaning of `x` or the create-then-open sequence. Rewritten, not extended, where the behaviour they describe no longer exists.",
+        "`npx vitest run` is green and `typecheck:web` passes."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "End-to-end suites for the seven changes, each driven through the real store against a stub bridge",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": ["src/renderer/src/__tests__/**"],
+      "dependsOn": ["T0", "T1", "T2", "T3", "T4"],
+      "acceptance": [
+        "EVERY ASSERTION IN THIS SUITE IS WATCHED FAILING BEFORE IT IS TRUSTED. The previous session shipped three guards that proved nothing — a schema-head guard whose empty-array-literal form can never fire, its inert `PermissionMode` twin, and a frozen-duration assertion neutered by a string-substring accident — and each was caught only because someone watched the test fail. For every new test here, the task report states what was changed to make it fail and that it was observed doing so. A test that could not be made to fail is reported as such rather than counted.",
+        "THE PANE MODEL, DRIVEN THROUGH THE RAIL. Clicking a Calf opens the second pane; clicking a SECOND Calf REPLACES what is in it rather than opening a third; the Matriarch's transcript never leaves the primary pane through any sequence of rail clicks. Asserted by test id on `transcript-primary` and `transcript-split`, through the real `WorkspaceStateStore` against the stub bridge.",
+        "SWAP IS UNREACHABLE. A sequence that swapped the panes under the old model — select the Matriarch, pin a Calf, select that Calf — leaves the Matriarch in `transcript-primary`. The identical sequence is run against the pre-session code and observed to swap; that observation is the evidence this assertion is not tautological.",
+        "UNPIN WORKS FROM THE PANE. Opening a Calf pane and clicking `transcript-unpin` closes it: `transcript-split` leaves the DOM and `WorkspaceLayout`'s `data-split` reads `'false'`. Driven by the id, not by the callback.",
+        "FINISHED LANES ARE OUT OF THE WAY AND STILL REACHABLE. With a Pod whose two Calves are `done`, the rail renders them behind `lane-rail-finished-toggle`; expanding it and clicking one opens that lane's transcript in the follower pane and its events render. Nothing was omitted from `PodSessionView.lanes` — asserted by reading the registry length, because the whole point of the decision is that the snapshot is untouched.",
+        "THE FILTER SURVIVES A LIVE PUSH. With the filter in its default mode, a `podEvent` push carrying a `system` event does not appear, a push carrying an `assistant_text` does, and the lane's unread count rises for BOTH. Toggling then reveals the `system` event at its seq position.",
+        "DELETING A STOPPED POD REMOVES IT, END TO END. Clicking the red delete control on a closed Pod's tab opens the confirmation — and the same test asserts that control is ABSENT on an opened Pod's tab, so the two-control split is proved end to end rather than only in T4's unit tests; confirming with the session box checked sends `{ deleteSession: true }` over the stub bridge and removes the tab from the bar. A second Pod's tab is asserted still present, because a delete that takes the wrong tab is the failure this dialog exists to prevent.",
+        "THE FOUR INVOKE CHANNELS WITH NO AFFORDANCE ARE NOW TWO. A test enumerates the affordances that reach `pods.delete` and `pods.reconnect` and asserts each is reachable from rendered UI. The backlog's standing claim that `podDelete` and `podReconnect` have no caller is falsified by this suite, and the task report says so.",
+        "CREATE-THEN-OPEN IS A TWO-STEP FLOW. Creating a Pod records `pods.create` and no `pods.open`; the tab then renders `Open`, and clicking it records `pods.open` for that Pod. Both halves in one test, so the flow is proved to end somewhere usable rather than merely proved to stop.",
+        "`failure-paths.e2e.test.tsx` COVERS THE NEW SURFACES. `pods.delete` failing, and `pods.delete` succeeding with `session: 'failed'`, each render a message. Neither is added to `SURFACELESS_CHANNELS`.",
+        "`hygiene.test.ts` IS CORRECTED WHERE IT NOW LIES. The header of `startup-reconciliation.test.tsx` states a renderer-may-not-import-main rule that `relaunch.e2e.test.tsx:66-67` deliberately breaks and that `hygiene.test.ts` does not actually enforce (relative specifiers are exempt at `:387`). The rule as enforced and the rule as stated are made to agree, with the exception named. This is the recommended option of the three T6 raised at the last session's Gate 3.",
+        "`wording.e2e.test.tsx` covers the new user-visible copy: the delete confirmation's history sentence, the beached run control's accessible name, and the filter toggle's counted name. Asserted verbatim, so a reworded string is a test failure rather than a silent drift.",
+        "`npx vitest run` is green across the whole suite, `typecheck:node` and `typecheck:web` both pass, and the final report states the total test count against the 1562 baseline recorded at cd2696b."
+      ]
+    }
+  ]
+}

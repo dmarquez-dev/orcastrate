@@ -1,0 +1,247 @@
+{
+  "session": "2026-08-20-orcastrate-workspace-refinement",
+  "updatedAt": "2026-08-20T23:02:00-07:00",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-20-orcastrate-workspace-refinement",
+  "branch": "dir/2026-08-20-orcastrate-workspace-refinement",
+  "tasks": [
+    {
+      "id": "T0",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "cd2696b",
+      "commit": "8008866"
+    },
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "8008866",
+      "commit": "dfe5930"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "dfe5930",
+      "commit": "0b9e5c2"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "dfe5930",
+      "commit": "018c3f8"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "dfe5930",
+      "commit": "2c3f6f9"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "018c3f8",
+      "commit": "5be7f9c"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T0",
+      "question": "Does deleting a Pod's Claude Code session mean trashing the single <ccSessionId>.jsonl file, or the whole ~/.claude/projects/<encoded cwd>/ directory the backlog's wording names?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Trash the single <ccSessionId>.jsonl file.",
+          "rationale": "The project directory is keyed by working directory, not by Pod: it holds one .jsonl per session ever run in that cwd, including other Pods' sessions and the user's own CLI sessions. Trashing it to delete one Pod destroys all of them.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/beachcomber/paths.ts",
+              ".dir-sdlc/backlog.md lines 303-314"
+            ]
+          }
+        },
+        {
+          "summary": "Drop the optional session deletion entirely; the confirmation deletes the Pod row and its transcript history only.",
+          "rationale": "Keeps the feature strictly inside Orcastrate's own store and removes the on-disk question from this session. Costs the user the affordance the backlog asked for.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/backlog.md lines 303-314"
+            ]
+          }
+        }
+      ],
+      "answer": "Trash the single <ccSessionId>.jsonl file, never the parent project directory. The user chose this over dropping the affordance."
+    },
+    {
+      "id": "E2",
+      "taskId": "T4",
+      "question": "Do Open and Reconnect still earn separate existence, given they make the identical call for any Pod with no live session?",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Keep both verbs; fix the false comment and give the beached control a cause-carrying accessible name.",
+          "rationale": "PodManager.onBeached deletes the session from #sessions before marking beached, so a beached Pod has no live session and openPod falls through to the same #start(pod, true) - the comment is false twice over. The split still earns its place because reconnectPod disposes a stale session where openPod returns it untouched, which matters on the failed-stop() path, and design section 8 requires a beached Pod to keep a cause-carrying affordance that one verb with one label cannot give. podReconnect also gains its first caller.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod-manager.ts",
+              "src/renderer/src/pods/PodsChrome.tsx",
+              "docs/superpowers/specs/2026-08-18-orcastrate-design.md section 8"
+            ]
+          }
+        },
+        {
+          "summary": "Collapse to openPod for every non-live Pod; keep two labels on one action.",
+          "rationale": "Honest about the identical call, but leaves podReconnect with zero affordances - worsening a gap the backlog already tracks - and loses the disposal safety margin against a stale session.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod-manager.ts",
+              ".dir-sdlc/backlog.md lines 450-475"
+            ]
+          }
+        },
+        {
+          "summary": "Add the missing main-side guard so pods.open really does refuse a beached Pod.",
+          "rationale": "Makes the comment true, but promotes the renderer's routing from tidy convention to load-bearing rule: a renderer bug becomes an error dialog instead of a working Reconnect. Refusing an operation that would have succeeded is not a safety improvement.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/ipc/"
+            ]
+          }
+        }
+      ],
+      "answer": "Keep both verbs. Fix the false comment in PodsChrome.tsx and give the beached run control a cause-carrying accessible name. reconnectPod gains its first affordance."
+    },
+    {
+      "id": "E3",
+      "taskId": "T4",
+      "question": "Should creating a Pod still start its Claude Code process, or create the row only?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Create the row only; the user presses Open when ready. No checkbox.",
+          "rationale": "A Pod is born 'closed', the tab renders a working Open control, and reopening resumes - so create-without-starting is a state the UI already displays and recovers from. The backlog's stated cost, what the dialog says when the row exists but the process does not, evaporates rather than being paid: that state stops being an error and becomes the normal outcome, so the dialog's error path narrows to create-failure alone. A checkbox would reintroduce the folded error path the split removes.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/store/sqlite-event-store.ts:175",
+              "src/renderer/src/state/store.ts:461-481",
+              "src/renderer/src/pods/PodTab.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "Keep create-then-open as it is today.",
+          "rationale": "One click to a working Pod, and no change to a flow that works. Costs the user the ability to set up several Pods and start them deliberately, which is the complaint that raised the item.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/state/store.ts:473-476"
+            ]
+          }
+        },
+        {
+          "summary": "Create the row only, but offer a 'Create and open' checkbox defaulting on.",
+          "rationale": "Preserves both flows and keeps yesterday's default. Keeps the folded create-failure/open-failure error path the split was meant to remove, and needs the dialog to say something coherent when the row is created but the process is not.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Create the Pod row only; no pods.open, no 'Create and open' checkbox. The user additionally directed a new iconography for the Pod tab, folded into T4 at this gate: a play icon for the run control (Open and Reconnect alike), a pause icon for stop, and a separate red delete control present only when the Pod is stopped, with the optional CC-session deletion behind its confirmation."
+    },
+    {
+      "id": "E4",
+      "taskId": "T1",
+      "question": "T1's criterion 13 requires a green suite and a passing typecheck:web, but all 19 remaining failures live in T2's, T3's and T5's files and are caused by criteria 1, 2 and 9 doing exactly what they were written to do. The only way to make criterion 13 literally true inside T1 is to edit three concurrent tasks' files. manifest.json is frozen, so re-scoping the criterion needs your sign-off.",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Re-scope criterion 13 to T1's own files; re-assert the whole-suite version as a DAG-exit gate after T2/T3/T5 land.",
+          "rationale": "This is the criterion the diff actually satisfies - 8/8 owned suites, 241/241, zero type errors in owned files - and it preserves the check that matters without asking T1 to cross an ownership line. The full-suite assertion does not disappear; it moves to the only point in the DAG where it can be true.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "contracts/renderer-panes.ts (names T2/T3/T5 as consumers of these symbols)",
+              "contracts/renderer-panes.ts optional-prop concession: 'a required prop would leave whichever landed first red until the other landed, which makes a task unreviewable'"
+            ]
+          }
+        },
+        {
+          "summary": "Keep criterion 13 as written; record the 19 failures as an itemized carry-forward against T2/T3/T5, each mapped to the criterion that caused it.",
+          "rationale": "Same practical outcome, more auditable - the list becomes a checklist the consumer tasks are measured against rather than a footnote. Costs more bookkeeping and leaves T1 formally short of a criterion.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "reviews/ directory already exists per-task"
+            ]
+          }
+        },
+        {
+          "summary": "Send T1 back to fix the 19 call sites itself.",
+          "rationale": "The only option that makes criterion 13 literally true inside T1. The reviewer explicitly does not recommend it: it requires editing lanes/**, transcript/** and __tests__/** while T2, T3 and T5 run against those same files - the corrupting-a-concurrent-peer case - and it would pre-empt the acceptance criteria those tasks are judged on.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Re-scope criterion 13 to the files T1 owns, and carry the whole-suite assertion on T5's final criterion, which already required it and is the first point in the DAG where it can be true. manifest.json amended in place at T1's criterion 13 with the amendment and its reason recorded inline. T1's blocking finding B1 is thereby resolved, not deferred; no revision round was run and revisionRounds stays 0."
+    },
+    {
+      "id": "E5",
+      "taskId": "T3",
+      "question": "The startup-reconciliation notice is a `system` event, so the new conversation-by-default transcript filter hides it - at exactly the moment it matters most, the first render after a relaunch. It is the only explanation a user gets for why their lanes read Orphaned. Leave it filtered, or special-case it?",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Leave the filter as frozen; T5 expands the filter in the one e2e test that asserts the notice.",
+          "rationale": "Cheapest, and keeps the contract's 'no subtype is special-cased' rule intact - subtypes are the CLI's vocabulary and it changes them, so a filter keyed on one rots silently. Cost: a real user does not see the sentence until they press the toggle.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "contracts/transcript-filter.ts:149-151",
+              "src/renderer/src/transcript/startup-reconciliation.test.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "Add `startup_reconciliation` to the diagnostic set as a subtype exception, putting the sentence back on screen by default.",
+          "rationale": "Restores the notice at the moment it matters. Cost: it is precisely the subtype-keyed special case the contract forbids - though `startup_reconciliation` is Orcastrate's own marker, not the CLI's, so the rot argument is weaker than the contract's blanket phrasing implies. This is a contract change.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/store/schema.ts subtypeMarker field - the marker is written by Orcastrate's own sweep, not the CLI"
+            ]
+          }
+        },
+        {
+          "summary": "Do nothing this session; log it as a known gap for the follow-up.",
+          "rationale": "Defensible only if the relaunch path is judged rare enough to accept the gap.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Special-case it: a `system` event bearing the `startup_reconciliation` subtype marker is treated as DIAGNOSTIC and stays visible in both modes, beside `error` and `malformed`. `contracts/transcript-filter.ts` amended in place with the amendment, its reason, and the limit of the exception recorded inline - the blanket no-subtype rule still stands for every subtype the CLI owns; this marker is exempt because Orcastrate's own startup sweep writes it, so it cannot rot under us. T3 reopened for a revision round to implement it."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 5,
+    "escalationsRaised": 5,
+    "reviewRounds": 1
+  }
+}

@@ -286,7 +286,10 @@ when it changes.
   SDK sessions, so this may not be Orcastrate's doing — but which id is
   authoritative needs deciding before Reconnect is trusted.
 
-### UX refinements
+### UX refinements — CONSUMED 2026-08-20 (session 2026-08-20-orcastrate-workspace-refinement)
+
+All four shipped, together with the pane-model decision below. Kept for provenance;
+not pending work.
 
 - **The transcript shows everything the CLI emits, and it is mostly noise.**
   Of 109 stored events, **53 are `system`** — `hook_started` 10, `hook_progress`
@@ -441,7 +444,9 @@ files rather than promoted.
   the crossing rather than removing it; or accept a renderer-only suite driven by
   a hand-written fake, which reintroduces the tautology the suite exists to avoid.
 
-## Decided for sub-session B — inputs to its decomposition, not deferred work
+## Decided for sub-session B — CONSUMED 2026-08-20 (session 2026-08-20-orcastrate-workspace-refinement)
+
+All shipped. Kept for provenance; not pending work.
 
 Settled 2026-08-20 by explicit user decision. These are requirements the
 workspace-refinement session must account for, in the sense sub-session 1's
@@ -532,3 +537,78 @@ advisories were left in the session thread.
   is correct and carries the exception; the §4.4 sentence needs a cross-reference
   so the two stop disagreeing. This is the same class of defect this session and
   the last one each hit once — prose that is no longer true of shipped code.
+
+## 2026-08-20 — 2026-08-20-orcastrate-workspace-refinement
+
+All seven items of "Decided for sub-session B" and the first-run UX refinements
+shipped. Four advisory findings promoted here by explicit user decision at Gate 3;
+the other 28 stay in that session's `reviews/T0.md`–`T5.md`.
+
+### Correctness risks
+
+- **The `startup_reconciliation` marker is duplicated into the renderer and pinned
+  to nothing.** `src/renderer/src/transcript/transcript-filter.ts` copies the
+  literal from `src/main/pod-manager/startup-reconciliation.ts:28`. Not importing
+  it is justified — `tsconfig.web.json` includes only `src/renderer/src/**` and
+  `src/shared/**`, so importing the producer would pull main-process code into the
+  renderer program — but the test that claims to pin the copy **compares it to a
+  hard-coded literal and to a fixture whose payload is also hard-coded**. Nothing
+  in the chain reads the producer. A rename at the producer leaves all 1731 tests
+  green while the reconciliation notice silently returns to being hidden by the
+  transcript filter, which is the exact regression the E5 exemption was added to
+  prevent. Two cheap closures, neither inside any task's ownership set that
+  session: a plain `.ts` test under `tests/` importing both consts and asserting
+  equality (`vitest.config.ts` already includes `tests/**`, `tsconfig.node.json`
+  already includes `tests/**`, and `transcript-filter.ts` imports only types from
+  `@shared` so it needs no DOM lib), or move the literal into `src/shared/`, which
+  both programs already include.
+  **Same class, one level milder:** `STARTUP_RECONCILIATION_REASON` now exists in
+  three places — `startup-reconciliation.ts:32`,
+  `transcript/startup-reconciliation.test.tsx:39`, `transcript/test-fixtures.ts:131`.
+
+- **`PodManager.closePod` against an already-closed Pod is exercised nowhere in the
+  repository.** `relaunch.e2e.test.tsx` test 1 was the only site; T5 reshaped it
+  correctly, because the affordance it drove no longer exists — a stopped Pod has
+  no stop control, and its `x` is now the delete control. The user-reachable path
+  is fully covered (T5 verified `closePod` is still driven through the real
+  `PodManager` from the Pod that genuinely has a session), but the already-closed
+  call itself is not, and no `src/main` test names `closePod`. A main-side gap,
+  outside any renderer task's ownership.
+
+### Contract gaps
+
+- **`contracts/transcript-filter.ts` §1's type annotation makes its own
+  exhaustiveness guard vacuous.** Annotating each event-type set
+  `readonly EventType[]` widens `(typeof X)[number]` to `EventType`, so `Exclude`
+  collapses to `never` and the guard can never fire. **Proved by compiler probe,
+  not argued:** the contract's spelling with a thirteenth uncovered union member
+  exits 0 with no error; the shipped `as const satisfies` spelling errors TS2344 on
+  the identical input. The contract's §1 and its own PLUMBING docblock — "A
+  thirteenth `EventType` must break `typecheck:web` here" — contradict each other.
+  T3 worked around it correctly and the shipped guard does fire, but the frozen
+  contract still says the wrong thing. This is the third time this project has hit
+  prose that is no longer true of shipped code.
+  **Two corrections to this backlog's own earlier citation, from the same probe:**
+  the inert empty-array guard form is at `src/main/store/schema.ts:209-210`, not
+  `210-212`; and `schema.ts:221` records a second guard there as "SPELLED
+  DIFFERENTLY … ON PURPOSE", so that file's guards are **not uniformly inert** —
+  the `_UncoveredAtSchemaHead` item must name which one it means.
+
+### UX refinements
+
+- **Move `use-dialog-focus.ts` from `beachcomber/` to `shell/`, and use it in all
+  three dialogs.** It already implements focus-on-open, focus-trapping and
+  conditional focus-return. `DeletePodDialog` wants all three and `NewPodDialog`
+  has none of them; T4 correctly neither imported across the feature boundary nor
+  duplicated the hook, matching `NewPodDialog`'s existing level instead. `shell/`
+  is where `a11y.module.css` and `contract-runtime.ts` already live. Needs an owner
+  for `shell/**` and `beachcomber/**`, which sub-session B's manifest had not.
+
+### Struck by this session
+
+- **"`podDelete` and `podReconnect` are invoke channels with no affordance calling
+  them."** Falsified. Both now have exactly one caller each —
+  `PodsChrome.handleConfirmDelete` and the beached Pod's run control — and
+  `failure-paths.e2e.test.tsx` drives each from a rendered control and asserts it.
+  The standing claim of four unreachable channels is down to two:
+  `podUpdate` and `podSetPermissionMode`.
