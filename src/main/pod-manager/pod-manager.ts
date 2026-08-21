@@ -72,6 +72,11 @@ import { cwdMissing, IpcFailure, notFound } from '../ipc/errors';
 import { createLaneRouter } from '../lane';
 import { PodRunnerError, UNROUTED_LANE_ID } from '../pod';
 
+import {
+  armPendingEcho,
+  suppressEchoedUserPrompts,
+  type PendingEcho,
+} from './pending-echo';
 import type { Pushes } from './pushes';
 import {
   RESUME_FALLBACK_REASON,
@@ -158,6 +163,12 @@ interface PodSession {
    * outlive the session that raised it.
    */
   pending: Map<string, PendingPermission>;
+  /**
+   * Prompts this manager appended and has not yet seen echoed back. Lives on
+   * the session so two Pods sending the same sentence cannot consume each
+   * other's record, and so a record cannot outlive the session that armed it.
+   */
+  pendingEchoes: PendingEcho[];
   disposed: boolean;
 }
 
@@ -518,6 +529,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
       ),
       knownLanes: new Set(lanes.map((lane) => lane.id)),
       pending: new Map(),
+      pendingEchoes: [],
       disposed: false,
       runner: this.#createRunner({
         podId: pod.id,
@@ -697,8 +709,70 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   // Control surface
   // -------------------------------------------------------------------------
 
+  /**
+   * THE APPEND HAPPENS FIRST, THEN THE SEND. Not the other way round.
+   *
+   *   - `#requireSession` still runs before either, so no append happens for a
+   *     Pod that cannot be sent to.
+   *   - The prompt must never appear AFTER the model's reply to it.
+   *     `PodRunner.send` pushes into the input queue and resolves on a
+   *     microtask; the SDK drains that queue asynchronously, so awaiting it
+   *     first opens a real window in which an ingested event takes a lower
+   *     `seq` than the prompt that caused it. `seq` is the transcript's only
+   *     ordering, so that window is a user-visible reordering.
+   *   - The cost is a phantom row if `runner.send` then throws. That is the
+   *     safe direction: the user sees what they typed plus the error the IPC
+   *     envelope already surfaces, rather than a send that vanished.
+   */
   async send(podId: PodId, text: string): Promise<void> {
-    await this.#requireSession(podId).runner.send(text);
+    const session = this.#requireSession(podId);
+    this.#appendUserPrompt(session, text);
+    await session.runner.send(text);
+  }
+
+  /**
+   * The user's typed prompt as a durable event, stored VERBATIM — not trimmed,
+   * not normalised, not truncated, not escaped. What the user typed is what the
+   * transcript shows.
+   *
+   * IT GOES THROUGH `#persist`, the single append path, so it gets the lane row
+   * handling, the one `appendMany`, the `assertAscendingSeq` and the
+   * `push.podEvent` in the established order. A second, parallel append path is
+   * how the two halves of this feature drift.
+   *
+   * NO MATRIARCH LANE MEANS NO APPEND, LOUDLY, AND THE SEND STILL RUNS — the
+   * same trade `#appendResumeFallbackNotice` makes for the same reason. Losing
+   * the durable record silently is worse than losing it loudly; refusing to
+   * send the user's message because bookkeeping failed is worse than both.
+   */
+  #appendUserPrompt(session: PodSession, text: string): void {
+    const matriarchLaneId = this.#store.getMatriarchLane(session.podId)?.id;
+    if (matriarchLaneId === undefined) {
+      this.#log.warn(
+        `[orcastrate] pod ${session.podId} has no Matriarch lane; the typed prompt was not recorded`,
+      );
+      return;
+    }
+
+    const at = this.#now();
+    const before = this.#store.latestSeq(session.podId);
+    this.#persist(session, [
+      {
+        podId: session.podId,
+        laneId: matriarchLaneId,
+        type: 'user_message',
+        payload: { type: 'user_message', text },
+        createdAt: at,
+      },
+    ]);
+    const appendedSeq = this.#store.latestSeq(session.podId);
+
+    // ARM THE ECHO RECORD ONLY IF THE ROW ACTUALLY LANDED. `#persist` returns
+    // without writing for a disposed session, and a record armed against an
+    // append that never happened could only ever suppress something else.
+    if (appendedSeq > before) {
+      armPendingEcho(session.pendingEchoes, { text, appendedSeq, at });
+    }
   }
 
   async interrupt(podId: PodId): Promise<void> {
@@ -986,7 +1060,12 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     return {
       onMessage: (message) => {
         guard('ingest', () => {
-          this.#persist(session, session.router.ingest(message));
+          // THE ECHO GUARD WRAPS THE ROUTER'S OUTPUT, NOT `#persist`. `#persist`
+          // is also the path `#appendUserPrompt` takes, and a filter attached
+          // there would suppress the manager's own appended prompt. The lane is
+          // therefore read as the ROUTER produced it, before `#routeLane`'s
+          // unknown-lane restamping moves a Calf's events onto the Matriarch.
+          this.#persist(session, this.#suppressEchoes(session, session.router.ingest(message)));
         });
       },
       onTurnEnd: () => {
@@ -1030,6 +1109,24 @@ export class PodManager implements PodManagerApi, StartupReconciler {
         );
       },
     };
+  }
+
+  /**
+   * Drops an SDK echo of a prompt this manager just appended. See
+   * `pending-echo.ts` for why the rule is five conditions and why every bound
+   * fails toward rendering the event.
+   *
+   * The clock is only read when a record is outstanding, which is the only time
+   * anything can be suppressed — so a Pod nobody has typed into pays nothing.
+   */
+  #suppressEchoes(session: PodSession, batch: NewEvent[]): NewEvent[] {
+    if (session.pendingEchoes.length === 0) return batch;
+    return suppressEchoedUserPrompts(
+      batch,
+      this.#store.getMatriarchLane(session.podId)?.id,
+      session.pendingEchoes,
+      Date.parse(this.#now()),
+    );
   }
 
   /**

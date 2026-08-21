@@ -14,5 +14,19 @@ export {
   isStartupReconciliationNotice,
   type TranscriptFilterMode,
 } from './transcript-filter';
-export { TranscriptFilterToggle, filterToggleLabel } from './TranscriptFilterToggle';
+export {
+  TranscriptFilterToggle,
+  filterToggleLabel,
+  systemEventNoun,
+} from './TranscriptFilterToggle';
+export { ToolDisclosure, type ToolDisclosureProps } from './ToolDisclosure';
+export { turnRoleOf, type TurnRole } from './turn-role';
+export {
+  PRIMARY_ARG_KEYS,
+  TOOL_SUMMARY_MAX_CHARS,
+  UNKNOWN_TOOL_NAME,
+  summarizeToolCall,
+  toolResultCharCount,
+  toolResultSizeLabel,
+} from './tool-summary';
 export { testId } from '../shell/contract-runtime';

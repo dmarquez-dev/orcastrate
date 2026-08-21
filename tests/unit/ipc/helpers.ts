@@ -115,6 +115,16 @@ export interface HarnessOptions {
    * over a temp tree supplies it here.
    */
   deletePodSession?: PodSessionRemover;
+  /**
+   * The clock handed to `PodManager`. Default: a counter that advances ONE
+   * SECOND per call, so a replay is byte-identical run to run.
+   *
+   * Injectable because `PENDING_ECHO_TTL_MS` is a minute of wall clock and the
+   * default counter would need sixty calls to cross it. A test that wants to
+   * step the clock supplies its own and drives it directly; nothing here
+   * depends on real time.
+   */
+  now?: () => string;
 }
 
 export function makeHarness(options: HarnessOptions = {}): Harness {
@@ -144,7 +154,8 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
     }),
     routingMode: ROUTING_MODE,
     newId: () => `id-${(ids += 1)}`,
-    now: () => new Date(Date.UTC(2026, 7, 18, 0, 0, (clock += 1))).toISOString(),
+    now:
+      options.now ?? ((): string => new Date(Date.UTC(2026, 7, 18, 0, 0, (clock += 1))).toISOString()),
     isDirectory: options.isDirectory ?? ((): boolean => true),
     // Captured rather than printed: a test asserts on what was logged, and the
     // suite stays quiet.

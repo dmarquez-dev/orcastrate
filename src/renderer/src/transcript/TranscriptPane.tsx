@@ -7,7 +7,11 @@ import { dispatchedLaneIdOf } from './DispatchCard';
 import { buildLaneIndex, collectDispatchedLanes } from './lane-index';
 import styles from './Transcript.module.css';
 import { TranscriptEventItem } from './TranscriptEventItem';
-import { TranscriptFilterToggle } from './TranscriptFilterToggle';
+import {
+  TranscriptFilterToggle,
+  systemEventNoun,
+  systemEventPronoun,
+} from './TranscriptFilterToggle';
 import {
   DEFAULT_TRANSCRIPT_FILTER,
   filterTranscriptEvents,
@@ -235,7 +239,12 @@ export function TranscriptPane({
                 ? 'No events in this lane yet.'
                 : // The lane is NOT empty — the filter is hiding all of it. Saying
                   // "no events" here would be a lie the toggle's count contradicts.
-                  `Nothing but system events in this lane yet. Show ${hiddenCount} hidden system events to read them.`}
+                  //
+                  // THE SECOND HOME OF THE COUNTED PHRASE, and the reason the
+                  // plural lives in `systemEventNoun`: this copy and the
+                  // toggle's own name have to agree at n === 1, and they drifted
+                  // apart once already.
+                  `Nothing but system events in this lane yet. Show ${hiddenCount} hidden ${systemEventNoun(hiddenCount)} to read ${systemEventPronoun(hiddenCount)}.`}
           </p>
         ) : (
           <ol className={styles.events}>

@@ -6,7 +6,10 @@ import { TEST_IDS } from '../contracts/renderer-view';
 import { LANE_STATUS_LABEL } from '../lanes/lane-status';
 import { testId } from '../shell/contract-runtime';
 import { DispatchCard, dispatchedLaneIdOf } from './DispatchCard';
+import { ToolDisclosure } from './ToolDisclosure';
 import styles from './Transcript.module.css';
+import { summarizeToolCall, toolResultCharCount, toolResultSizeLabel } from './tool-summary';
+import { turnRoleOf } from './turn-role';
 
 /** Verbatim, display-only rendering of an opaque SDK value. Never interpreted. */
 function preview(value: unknown): string {
@@ -57,21 +60,45 @@ function EventBody({ payload }: { payload: EventPayload }) {
         </Labelled>
       );
 
+    // COMPACT, NOT GONE. The one-line summary replaces the JSON dump on the
+    // page; the disclosure brings back EXACTLY what the `<pre>` showed before,
+    // through the same `preview()` path, verbatim and display-only.
     case 'tool_use':
       return (
-        <Labelled label={`Tool: ${payload.name}`}>
-          <pre className={styles.eventCode}>{preview(payload.input)}</pre>
+        <Labelled label="Tool">
+          <ToolDisclosure
+            showLabel="Show tool input"
+            hideLabel="Hide tool input"
+            summary={summarizeToolCall(payload.name, payload.input)}
+            renderBody={() => preview(payload.input)}
+          />
         </Labelled>
       );
 
-    case 'tool_result':
+    // The `└` and the indent belong to THIS row, not to a merged call-and-result
+    // row: `tool_use` and `tool_result` are two events with two `seq` values and
+    // they are frequently not adjacent. The glyph makes the result READ as
+    // attached to the call above it without the two rows becoming one, and when
+    // the call is not on screen the result still renders, still legible.
+    case 'tool_result': {
+      const size = toolResultSizeLabel(toolResultCharCount(payload.content));
+      // The NAME is the same in both cases on purpose: it states the action and
+      // the size, and the failure is carried by the row's LABEL ("Tool result
+      // (error)") in words, where a reader who cannot see colour still meets it.
       return (
         <Labelled label={payload.isError ? 'Tool result (error)' : 'Tool result'}>
-          <pre className={payload.isError ? `${styles.eventCode} ${styles.failed}` : styles.eventCode}>
-            {preview(payload.content)}
-          </pre>
+          <ToolDisclosure
+            attached
+            expandedInitially={payload.isError}
+            showLabel={`Show tool result (${size})`}
+            hideLabel={`Hide tool result (${size})`}
+            summary={size}
+            bodyClassName={payload.isError ? styles.failed : undefined}
+            renderBody={() => preview(payload.content)}
+          />
         </Labelled>
       );
+    }
 
     case 'lane_opened':
       return (
@@ -176,6 +203,14 @@ function TranscriptEventItemImpl({ event, dispatchLanes, onJumpToLane }: Transcr
       className={styles.event}
       data-testid={testId(TEST_IDS.transcriptEvent, String(event.seq))}
       data-event-type={event.payload.type}
+      /*
+       * HOW THE ROLE REACHES THE PAGE, channel 1 of 4. This is what CSS keys on
+       * and what a test may select by. IT IS NOT AN ACCESSIBILITY CHANNEL and
+       * does not count as one: the visible role label ("You", "Claude", …) is
+       * the primary carrier for a screen reader and for anyone who cannot
+       * distinguish the colours, and it stays real text outside `aria-hidden`.
+       */
+      data-turn-role={turnRoleOf(event.payload)}
     >
       {isDispatch ? (
         <DispatchCard event={event} lanes={dispatchLanes ?? []} onJumpToLane={onJumpToLane} />

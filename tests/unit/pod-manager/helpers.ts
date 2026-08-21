@@ -58,12 +58,29 @@ export interface FakeRunnerScript {
   failStopWith?: unknown;
   /** Statuses `stop()` emits through `onStatus` before it settles. */
   emitOnStop?: PodStatus[];
+  /**
+   * Runs inside `send()`, before it resolves.
+   *
+   * The seam for asserting STATEMENT ORDER inside `PodManager.send`: a hook
+   * here can read the store at the moment the runner is handed the text, which
+   * is the only place "the append happened first" is observable. Driving the
+   * same claim through the assembled pipeline does not work — `PodRunner.send`
+   * resolves on one microtask and nothing is ingested inside it — so a
+   * pipeline test stays green against the swapped order.
+   */
+  onSend?: (text: string) => void;
 }
 
 export interface FakeRunner extends PodRunner {
   readonly options: PodRunnerOptions;
   startCalls: number;
   stopCalls: number;
+  /**
+   * Every text `send()` was handed, in order. A LIST, not a counter: a runner
+   * that was never sent to and one that was sent the wrong text must not read
+   * the same.
+   */
+  sent: string[];
   /** The handlers `start()` was given, so a test can drive a late callback. */
   handlers: PodRunnerHandlers | null;
 }
@@ -81,6 +98,7 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
     status: 'idle',
     startCalls: 0,
     stopCalls: 0,
+    sent: [],
     handlers: null,
     async start(handlers: PodRunnerHandlers, _onPermission: PermissionHandler): Promise<void> {
       runner.startCalls += 1;
@@ -91,7 +109,10 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
       startFailuresUsed.set(script, used + 1);
       throw script.failStartWith;
     },
-    async send(): Promise<void> {},
+    async send(text: string): Promise<void> {
+      runner.sent.push(text);
+      script.onSend?.(text);
+    },
     async interrupt(): Promise<void> {},
     async setPermissionMode(): Promise<void> {},
     async stop(): Promise<void> {
@@ -129,10 +150,23 @@ export interface StoreSpy {
   writes: { method: StoreWrite; args: unknown[] }[];
   /** Writes recorded since the last `reset()`. */
   reset(): void;
+  /**
+   * Makes `getMatriarchLane` answer `null` for every Pod, from here on.
+   *
+   * There is no `deleteLane` on `EventStore` and `#ensureMatriarchLane` creates
+   * the row during `openPod`, so a Pod with a LIVE SESSION and NO Matriarch
+   * lane is otherwise unreachable from a test — which is exactly the state
+   * `#appendUserPrompt`'s guard exists for, and the one branch a corrupted or
+   * concurrently-modified store would land in. Only the READ is blinded; the
+   * write spy underneath is untouched, so "zero rows written" is still a claim
+   * about the real store.
+   */
+  blindMatriarchLane(): void;
 }
 
 function spyOnWrites(store: EventStore): { store: EventStore; spy: StoreSpy } {
   const writes: { method: StoreWrite; args: unknown[] }[] = [];
+  let matriarchLaneBlinded = false;
   const methods: StoreWrite[] = [
     'createPod',
     'updatePod',
@@ -148,6 +182,9 @@ function spyOnWrites(store: EventStore): { store: EventStore; spy: StoreSpy } {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver) as unknown;
       if (typeof value !== 'function') return value;
+      if (property === 'getMatriarchLane' && matriarchLaneBlinded) {
+        return (): Lane | null => null;
+      }
       const name = property as StoreWrite;
       if (!methods.includes(name)) return (value as (...a: unknown[]) => unknown).bind(target);
       return (...args: unknown[]): unknown => {
@@ -163,6 +200,9 @@ function spyOnWrites(store: EventStore): { store: EventStore; spy: StoreSpy } {
       writes,
       reset() {
         writes.length = 0;
+      },
+      blindMatriarchLane() {
+        matriarchLaneBlinded = true;
       },
     },
   };

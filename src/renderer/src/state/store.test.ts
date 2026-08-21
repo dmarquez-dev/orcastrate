@@ -1171,6 +1171,114 @@ describe('the pane model (criterion 10)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// `showLane` step 0 — 'inline' routing mode opens no follower
+// (`contracts/lane-pin-removal.ts` section 2)
+// ---------------------------------------------------------------------------
+
+/**
+ * THE RULE THE DELETED PIN-GATING VIEW-MODEL FIELD SILENTLY CARRIED. In
+ * 'inline' routing mode every event arrives on the Matriarch's laneId, so a
+ * follower pane opened on a Calf would show BYTE-IDENTICAL contents to the
+ * primary. That field used to suppress the rail's pin button; the button is
+ * gone, so the rule lives in the action, where `jumpToLane` inherits it by
+ * delegating.
+ *
+ * EVERY TEST HERE IS A PAIR. The 'inline' half and the 'lanes' half differ in
+ * the routing mode and in nothing else, and both halves assert. A `showLane`
+ * that silently no-opped everywhere would satisfy the inline half alone.
+ */
+describe("showLane in 'inline' routing mode (step 0)", () => {
+  async function seededWith(
+    mode: 'inline' | 'lanes',
+  ): Promise<{ api: StubOrcastrateApi; store: WorkspaceStateStore }> {
+    const api = stubOrcastrateApi({
+      app: { routingMode: async () => ({ ok: true, value: mode }) },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    // Not an assumption: the mode the whole suite turns on is read back.
+    expect(store.getState().routingMode).toBe(mode);
+    store.actions.setActivePod('pod-other');
+    api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, CALF_A, CALF_B] });
+    // A real unread count on the Calf, accrued the ordinary way: the Pod is
+    // backgrounded and the lane is in no pane, so the push counts.
+    api.emit.podEvent({ podId: POD, events: [ev(1, 'lane-a'), ev(2, 'lane-a'), ev(3, 'lane-a')] });
+    expect(runtimeOf(store).laneUnread['lane-a']).toBe(3);
+    return { api, store };
+  }
+
+  it("opens NO follower on a Calf, and still clears that lane's unread count", async () => {
+    const { store } = await seededWith('inline');
+
+    store.actions.showLane(POD, 'lane-a');
+
+    const runtime = runtimeOf(store);
+    expect(runtime.followerLaneIds).toEqual([]);
+    expect(runtime.focusedFollowerIndex).toBeNull();
+    expect(runtime.primaryLaneId).toBe('lane-matriarch');
+    // THE HALF THAT STOPS A TOTAL NO-OP FROM PASSING: 3 -> 0, in the same
+    // assertion as the three fields that did not move.
+    expect(runtime.laneUnread['lane-a']).toBe(0);
+    store.stop();
+  });
+
+  it("DOES open the follower on the same call in 'lanes' mode — the mode is the only difference", async () => {
+    const { store } = await seededWith('lanes');
+
+    store.actions.showLane(POD, 'lane-a');
+
+    const runtime = runtimeOf(store);
+    expect(runtime.followerLaneIds).toEqual(['lane-a']);
+    expect(runtime.focusedFollowerIndex).toBe(0);
+    expect(runtime.primaryLaneId).toBe('lane-matriarch');
+    expect(runtime.laneUnread['lane-a']).toBe(0);
+    store.stop();
+  });
+
+  it('repeated inline selections across different Calves never accumulate a follower', async () => {
+    const { store } = await seededWith('inline');
+
+    store.actions.showLane(POD, 'lane-a');
+    store.actions.showLane(POD, 'lane-b');
+    store.actions.showLane(POD, 'lane-a');
+    store.actions.showLane(POD, 'lane-matriarch');
+
+    const runtime = runtimeOf(store);
+    expect(runtime.followerLaneIds).toEqual([]);
+    expect(runtime.focusedFollowerIndex).toBeNull();
+    expect(runtime.primaryLaneId).toBe('lane-matriarch');
+    store.stop();
+  });
+
+  it('jumpToLane INHERITS the rule, because it delegates', async () => {
+    const inline = await seededWith('inline');
+    inline.store.actions.jumpToLane(POD, 'lane-a');
+    expect(runtimeOf(inline.store).followerLaneIds).toEqual([]);
+    expect(runtimeOf(inline.store).focusedFollowerIndex).toBeNull();
+    // The unread clear reaches the dispatch-card path too.
+    expect(runtimeOf(inline.store).laneUnread['lane-a']).toBe(0);
+    inline.store.stop();
+
+    const lanes = await seededWith('lanes');
+    lanes.store.actions.jumpToLane(POD, 'lane-a');
+    expect(runtimeOf(lanes.store).followerLaneIds).toEqual(['lane-a']);
+    expect(runtimeOf(lanes.store).focusedFollowerIndex).toBe(0);
+    lanes.store.stop();
+  });
+
+  it('hideLane is still a tolerant no-op in inline mode, where there is nothing to hide', async () => {
+    const { store } = await seededWith('inline');
+    store.actions.showLane(POD, 'lane-a');
+    store.actions.hideLane(POD, 'lane-a');
+    const runtime = runtimeOf(store);
+    expect(runtime.followerLaneIds).toEqual([]);
+    expect(runtime.focusedFollowerIndex).toBeNull();
+    store.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criterion 11 — Steer
 // ---------------------------------------------------------------------------
 

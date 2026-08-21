@@ -202,30 +202,23 @@ export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
 // Lane rail (T6)
 // ---------------------------------------------------------------------------
 
+/**
+ * DELETED: `onShowInFollower` and `onHideFollower`
+ * (`contracts/lane-pin-removal.ts` section 1, item 4). The rail's pin button
+ * was their only caller, and under the pane model `onSelect` -> `showLane`
+ * ALREADY shows the lane in the follower pane — two controls one gesture apart
+ * doing the same thing. Closing is offered by the follower pane's own
+ * `PANE_TEST_IDS.transcriptUnpin`, which is where a user looks to dismiss what
+ * is in front of them. The rail therefore takes TWO callbacks, not four.
+ */
 export interface LaneRailProps {
   rows: LaneRowVm[];
-  /** Wired to `showLane`. See `contracts/renderer-panes.ts` section 2. */
-  onSelect(laneId: LaneId): void;
   /**
-   * AMENDMENT (`contracts/renderer-panes.ts` section 4). `onPin` and `onUnpin`
-   * are DELETED and replaced by the two below.
-   *
-   * Opens `laneId` in the follower pane, or focuses it if it is already there.
-   * Wired to `showLane`. Offered ONLY on rows where `LaneRowVm.canPin` is true
-   * — which is never the Matriarch, and never any row in 'inline' mode.
-   *
-   * BOTH ARE OPTIONAL, AND THAT IS A COMPILE-TIME CONCESSION, NOT A DESIGN —
-   * the identical concession `panelBar` and `panel` made below, for the
-   * identical reason. T1 lands `App.tsx` and T2 lands `LaneRail.tsx`
-   * CONCURRENTLY; a required prop would leave whichever landed first red until
-   * the other landed, which makes a task unreviewable. What makes an absent
-   * value a TEST FAILURE rather than a valid state is T2's acceptance
-   * criteria, which require the rail to render both affordances, and T5's
-   * suite, which drives them end to end.
+   * Wired to `showLane`. See `contracts/renderer-panes.ts` section 2, as
+   * amended by `lane-pin-removal.ts` section 2: in 'inline' routing mode
+   * `showLane` clears the lane's unread count and opens NO follower.
    */
-  onShowInFollower?: (laneId: LaneId) => void;
-  /** Closes `laneId`'s follower pane. Wired to `hideLane`. */
-  onHideFollower?: (laneId: LaneId) => void;
+  onSelect(laneId: LaneId): void;
   /**
    * Offered only when `steerPrefill(row.lane)` returns non-null — i.e. the
    * lane has an `agentId`. Prefills the POD composer; it does not send
@@ -394,15 +387,6 @@ export const TEST_IDS = {
   /** `lane-row:<laneId>`. */
   laneRow: 'lane-row',
   laneRowUnread: 'lane-row-unread',
-  /**
-   * KEPT, AND REDEFINED (`contracts/renderer-panes.ts` section 7). It is now
-   * the pin/unpin ICON on a Calf row, whose `aria-pressed` reflects
-   * `LaneRowVm.inFollowerPane` and whose accessible name says which action it
-   * will perform. It is ABSENT on the Matriarch row, where `canPin` is false —
-   * and "absent", not "disabled", because there is no state in which the
-   * Matriarch becomes pinnable.
-   */
-  laneRowPin: 'lane-row-pin',
   laneRowSteer: 'lane-row-steer',
   transcriptPrimary: 'transcript-primary',
   transcriptSplit: 'transcript-split',

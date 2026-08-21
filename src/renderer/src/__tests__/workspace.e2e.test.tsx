@@ -50,8 +50,8 @@ function twoPodApi(): StubOrcastrateApi {
 
 /** The lane ids the rail is currently showing, in DOM order. */
 function railOrder(): string[] {
-  // Anchored on the colon: `lane-row-pin` / `-unread` / `-steer` share the
-  // prefix and are NOT rows.
+  // Anchored on the colon: `lane-row-unread`, `lane-row-steer` and the row's
+  // inner `lane-row-select:<id>` all share the prefix and are NOT rows.
   return screen
     .getAllByTestId(/^lane-row:/)
     .map((row) => row.getAttribute('data-testid')?.slice('lane-row:'.length) ?? '');

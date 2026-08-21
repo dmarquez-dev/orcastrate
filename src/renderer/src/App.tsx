@@ -125,19 +125,14 @@ export function App(): JSX.Element {
       actions.jumpToLane(podId, laneId);
     };
 
-    // BOTH FOLLOWER CALLBACKS ARE PASSED ON EVERY RENDER. They are optional in
-    // the frozen contract only so T1 and T2 can land concurrently; an absent
-    // one here is a defect, not a valid state, and `App.smoke.test.tsx` reads
-    // the props rather than inferring them from what the rail happened to draw.
+    // THE RAIL GETS TWO CALLBACKS, NOT FOUR (`contracts/lane-pin-removal.ts`
+    // section 1, item 4). `onShowInFollower` and `onHideFollower` are deleted:
+    // `onSelect` -> `showLane` IS the show-in-follower gesture, and closing is
+    // the follower pane's own `onHide` below. `App.smoke.test.tsx` reads the
+    // props rather than inferring them from what the rail happened to draw.
     laneRail = (
       <LaneRail
-        onHideFollower={(laneId) => {
-          actions.hideLane(podId, laneId);
-        }}
         onSelect={(laneId) => {
-          actions.showLane(podId, laneId);
-        }}
-        onShowInFollower={(laneId) => {
           actions.showLane(podId, laneId);
         }}
         onSteer={(laneId) => {

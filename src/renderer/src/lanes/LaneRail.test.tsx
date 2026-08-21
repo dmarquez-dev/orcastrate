@@ -20,8 +20,6 @@ function renderRail(overrides: Partial<Parameters<typeof LaneRail>[0]> = {}) {
   const props = {
     rows: [],
     onSelect: noop,
-    onShowInFollower: noop,
-    onHideFollower: noop,
     onSteer: noop,
     routingMode: 'lanes' as const,
     ...overrides,
@@ -96,8 +94,6 @@ describe('LaneRail — elapsed time is display-only (AC2)', () => {
             // the frozen-elapsed claim is made about a row that is rendered.
             rows={[makeRow(done, { status: 'done', elapsedMs: 300_000, inFollowerPane: true })]}
             onSelect={noop}
-            onShowInFollower={noop}
-            onHideFollower={noop}
             onSteer={noop}
             routingMode="lanes"
           />
@@ -126,102 +122,93 @@ describe('LaneRail — elapsed time is display-only (AC2)', () => {
 });
 
 /**
- * REWRITTEN, not extended. The old suite here asserted pin/unpin against
- * `LaneRowVm.pinned` and the deleted `onPin`/`onUnpin` props, and it asserted a
- * pin control on the MATRIARCH row. Both behaviours are gone
- * (`contracts/renderer-panes.ts` sections 3, 4 and 7): the pin is now a stateful
- * icon offered only where `canPin` is true, and the Matriarch never has one.
+ * REWRITTEN AGAIN, and this time the control is GONE rather than redefined
+ * (`contracts/lane-pin-removal.ts` section 1). Under the pane model a rail
+ * click already shows the lane in the follower pane, so a second control one
+ * gesture away did the same thing; closing is offered by the pane's own
+ * `transcript-unpin`. The rule the pin's view-model gate silently carried —
+ * no follower in 'inline' mode — moved into `showLane`, and is asserted in
+ * `state/store.test.ts`, not here.
  */
-describe('LaneRail — the pin icon reflects pane state (AC3)', () => {
-  it('gives the Matriarch NO pin control at all — absent, not disabled', () => {
-    renderRail({
-      rows: [makeRow(makeLane()), makeRow(makeCalf({ id: 'lane-calf-1' }))],
-    });
+describe('LaneRail — row controls after the pin removal (AC1)', () => {
+  const MATRIARCH_AND_THREE_CALVES = [
+    'lane-matriarch',
+    'lane-calf-a',
+    'lane-calf-b',
+    'lane-calf-c',
+  ];
 
-    // VACUITY GUARD. "No pin on the Matriarch" is satisfied by a rail that
-    // rendered nothing, so assert both rows ARE present and that the Calf DOES
-    // carry the control the Matriarch lacks.
-    expect(renderedLaneIds()).toEqual(['lane-matriarch', 'lane-calf-1']);
-    const matriarchRow = screen.getByTestId('lane-row:lane-matriarch');
-    const calfRow = screen.getByTestId('lane-row:lane-calf-1');
+  // Every combination of the three surviving pane fields, on every Calf, in
+  // both routing modes. ALL SIXTEEN ITERATIONS FAILED AGAINST `b2c3caf`,
+  // inline ones included: the pin rendered under the row's pin-gating field,
+  // and `makeRow`'s default for it there was `kind !== 'matriarch'`, which
+  // never consulted `routingMode`. The inline suppression was the PROVIDER's
+  // to derive, so the rail rendered three pins in inline mode too whenever a
+  // fixture said it could. Both halves are kept because the rail must now be
+  // pinless whoever computes the rows.
+  const BOOLS = [false, true] as const;
+  for (const routingMode of ['lanes', 'inline'] as const) {
+    for (const inPrimaryPane of BOOLS) {
+      for (const inFollowerPane of BOOLS) {
+        for (const focusedFollower of BOOLS) {
+          const label =
+            `${routingMode}/primary=${String(inPrimaryPane)}` +
+            `/follower=${String(inFollowerPane)}/focused=${String(focusedFollower)}`;
 
-    expect(within(matriarchRow).queryByTestId('lane-row-pin')).toBeNull();
-    expect(within(calfRow).getByTestId('lane-row-pin')).toBeTruthy();
-  });
+          it(`renders every row and no pin control — ${label}`, () => {
+            const paneState = { inPrimaryPane, inFollowerPane, focusedFollower };
+            renderRail({
+              routingMode,
+              rows: [
+                makeRow(makeLane(), paneState),
+                makeRow(makeCalf({ id: 'lane-calf-a' }), paneState),
+                makeRow(makeCalf({ id: 'lane-calf-b' }), paneState),
+                makeRow(makeCalf({ id: 'lane-calf-c' }), paneState),
+              ],
+            });
 
-  it('carries aria-pressed equal to inFollowerPane, and flips it when the row does', () => {
-    const calf = makeCalf({ id: 'lane-calf-1' });
-    const { rerender } = render(
-      <LaneRail
-        rows={[makeRow(makeLane()), makeRow(calf, { inFollowerPane: false })]}
-        onSelect={noop}
-        onShowInFollower={noop}
-        onHideFollower={noop}
-        onSteer={noop}
-        routingMode="lanes"
-      />,
-    );
+            // (a) VACUITY GUARD. "No pin anywhere" passes perfectly against a
+            //     rail that drew nothing, so the rows are named in full and in
+            //     order first. Steer is asserted too: it proves the row's
+            //     ACTION region still renders, so the pin's absence is the
+            //     pin's absence and not a dropped subtree.
+            expect(renderedLaneIds()).toEqual(MATRIARCH_AND_THREE_CALVES);
+            expect(screen.getAllByTestId('lane-row-steer')).toHaveLength(3);
 
-    const pin = () =>
-      within(screen.getByTestId('lane-row:lane-calf-1')).getByTestId('lane-row-pin');
-    expect(pin().getAttribute('aria-pressed')).toBe('false');
+            // (b) The control itself.
+            expect(screen.queryAllByTestId('lane-row-pin')).toHaveLength(0);
+          });
+        }
+      }
+    }
+  }
 
-    rerender(
-      <LaneRail
-        rows={[makeRow(makeLane()), makeRow(calf, { inFollowerPane: true })]}
-        onSelect={noop}
-        onShowInFollower={noop}
-        onHideFollower={noop}
-        onSteer={noop}
-        routingMode="lanes"
-      />,
-    );
-    expect(pin().getAttribute('aria-pressed')).toBe('true');
-  });
-
-  it('names the action it will perform, and the name DIFFERS between the two states', () => {
-    const calf = makeCalf({ id: 'lane-calf-1', subagentType: 'reviewer' });
-
-    const { unmount } = renderRail({ rows: [makeRow(calf, { inFollowerPane: false })] });
-    const unshownName =
-      within(screen.getByTestId('lane-row:lane-calf-1')).getByTestId('lane-row-pin').textContent ??
-      '';
-    unmount();
-
-    renderRail({ rows: [makeRow(calf, { inFollowerPane: true })] });
-    const shownName =
-      within(screen.getByTestId('lane-row:lane-calf-1')).getByTestId('lane-row-pin').textContent ??
-      '';
-
-    expect(unshownName).toContain('Show reviewer in the second pane');
-    expect(shownName).toContain('Close the second pane');
-    // The point of the assertion: not a constant label with a changing colour.
-    expect(shownName).not.toBe(unshownName);
-  });
-
-  it('routes the click to onShowInFollower or onHideFollower by current state', () => {
-    const onShowInFollower = vi.fn();
-    const onHideFollower = vi.fn();
-
+  it('marks a follower lane on the row itself, through a channel a screen reader reaches', () => {
     renderRail({
       rows: [
         makeRow(makeLane()),
-        makeRow(makeCalf({ id: 'lane-unshown' }), { inFollowerPane: false }),
-        makeRow(makeCalf({ id: 'lane-shown' }), { inFollowerPane: true }),
+        makeRow(makeCalf({ id: 'lane-calf-a', subagentType: 'reviewer' }), {
+          inFollowerPane: true,
+          focusedFollower: true,
+        }),
+        makeRow(makeCalf({ id: 'lane-calf-b', subagentType: 'tester' }), {
+          inFollowerPane: false,
+        }),
       ],
-      onShowInFollower,
-      onHideFollower,
     });
 
-    fireEvent.click(
-      within(screen.getByTestId('lane-row:lane-unshown')).getByTestId('lane-row-pin'),
-    );
-    expect(onShowInFollower).toHaveBeenCalledWith('lane-unshown');
-    expect(onHideFollower).not.toHaveBeenCalled();
+    // `aria-pressed` went with the button, so the ROW's own accessible name is
+    // the remaining channel — and it must be a name, not a `data-` attribute
+    // (advisory A4 of the 2026-08-20 T2 review).
+    const shown = screen.getByRole('button', { name: /reviewer.*second pane/i });
+    expect(shown.getAttribute('data-testid')).toBe('lane-row-select:lane-calf-a');
+    expect(shown.getAttribute('aria-current')).toBe('true');
 
-    fireEvent.click(within(screen.getByTestId('lane-row:lane-shown')).getByTestId('lane-row-pin'));
-    expect(onHideFollower).toHaveBeenCalledWith('lane-shown');
-    expect(onShowInFollower).toHaveBeenCalledTimes(1);
+    // The negative half, in the same test: a Calf that is in NO pane says
+    // nothing of the kind, so the marking distinguishes rather than decorates.
+    const notShown = screen.getByTestId('lane-row-select:lane-calf-b');
+    expect(notShown.textContent).not.toMatch(/second pane/i);
+    expect(notShown.getAttribute('aria-current')).toBeNull();
   });
 
   it('does NOT offer Steer for a lane with agentId: null', () => {
@@ -275,23 +262,28 @@ describe('LaneRail — routing mode is a prop, never hardcoded (AC9)', () => {
     expect(screen.getAllByTestId(/^lane-row:/)).toHaveLength(2);
   });
 
-  it("offers NO pin control on ANY row in 'inline' mode, because canPin is false there", () => {
-    // `canPin` is FALSE for every row in inline mode (frozen `LaneRowVm`), so
-    // the fixtures say so explicitly rather than letting the rail re-derive it.
+  it("still lists and still SELECTS every row in 'inline' mode", () => {
+    // The inline suppression is no longer a rail concern — it moved into
+    // `showLane` (`contracts/lane-pin-removal.ts` section 2), asserted in
+    // `state/store.test.ts`. What the rail owes inline mode is unchanged: list
+    // the lanes, say outright that selection does not filter, and keep the row
+    // selectable so its unread count can still be cleared.
+    const onSelect = vi.fn();
     renderRail({
       routingMode: 'inline',
+      onSelect,
       rows: [
-        makeRow(makeLane(), { canPin: false }),
-        makeRow(makeCalf({ id: 'lane-calf-a' }), { canPin: false }),
-        makeRow(makeCalf({ id: 'lane-calf-b' }), { canPin: false }),
+        makeRow(makeLane()),
+        makeRow(makeCalf({ id: 'lane-calf-a' })),
+        makeRow(makeCalf({ id: 'lane-calf-b' })),
       ],
     });
 
-    // VACUITY GUARD: the rows are all there; it is the control that is not.
     expect(renderedLaneIds()).toEqual(['lane-matriarch', 'lane-calf-a', 'lane-calf-b']);
-    expect(screen.queryAllByTestId('lane-row-pin')).toHaveLength(0);
-    // The inline note is unchanged and still present.
     expect(screen.getByText(/does not filter the transcript/i)).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId(testId(LANE_ROW_SELECT_TEST_ID, 'lane-calf-a')));
+    expect(onSelect).toHaveBeenCalledWith('lane-calf-a');
   });
 });
 
@@ -439,8 +431,6 @@ describe('LaneRail — accessibility floor', () => {
         <LaneRail
           rows={[makeRow(makeLane())]}
           onSelect={noop}
-          onShowInFollower={noop}
-          onHideFollower={noop}
           onSteer={noop}
           routingMode="lanes"
         />

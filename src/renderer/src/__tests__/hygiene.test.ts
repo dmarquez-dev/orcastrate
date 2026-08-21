@@ -66,6 +66,7 @@ async function fs(): Promise<FsLike> {
 }
 
 const ROOT = process.cwd().replace(/\\/g, '/');
+const SRC_ROOT = `${ROOT}/src`;
 const RENDERER_ROOT = `${ROOT}/src/renderer`;
 const STATE_ROOT = `${RENDERER_ROOT}/src/state`;
 const STYLES_ROOT = `${RENDERER_ROOT}/src/styles`;
@@ -698,6 +699,160 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
           (offender) => `${relative(file)}: ${offender}`,
         ),
       );
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Two rules added this session, for two failure modes that had NO detector
+// ---------------------------------------------------------------------------
+
+/**
+ * RULE 1 — NO STRAY CONTROL BYTE IN A SOURCE FILE.
+ *
+ * WHY THIS EXISTS, WRITTEN DOWN BECAUSE THE INCIDENT IS THE ARGUMENT. During
+ * this session a scripted edit wrote a LITERAL 0x08 backspace byte into a
+ * source file where the two characters backslash-`b` were meant. Inside a
+ * regular-expression literal the two forms are nearly interchangeable, so the
+ * regex still behaved correctly, EVERY TEST STAYED GREEN, and nothing in this
+ * repository would ever have flagged it. It took an `od -c` to see it, and it
+ * was found by luck rather than by anything that would find it again.
+ *
+ * That is the whole case for this rule: the failure mode is silent, it is
+ * introduced by tooling rather than by typing, and the check is a few lines in
+ * a walk that already exists.
+ *
+ * WHAT COUNTS AS A CONTROL BYTE. Everything below U+0020 except the three that
+ * legitimately appear in text files — newline, tab and carriage return — plus
+ * U+007F. Deliberately NOT a ban on non-ASCII: this tree contains '└', '▸',
+ * '▾', '…' and '—' on purpose, and a rule that flagged them would be turned
+ * off within a day.
+ *
+ * SCOPE IS ALL OF `src/`, not just the renderer. The byte landed in the
+ * renderer this time; nothing about the mechanism is renderer-specific, and a
+ * rule scoped to where the last incident happened only ever catches the last
+ * incident.
+ */
+const CONTROL_BYTE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+
+/** Names the offender precisely enough to fix without a hex editor. */
+function controlByteReport(text: string): string | null {
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (!CONTROL_BYTE.test(text[i] ?? '')) continue;
+    const line = text.slice(0, i).split('\n').length;
+    const hex = code.toString(16).padStart(2, '0');
+    return `line ${String(line)}: 0x${hex}`;
+  }
+  return null;
+}
+
+/**
+ * RULE 2 — A DELETED TEST ID STAYS DELETED, INCLUDING ITS RAW LITERAL.
+ *
+ * The lane rail's pin id — the one named by the constant immediately below,
+ * and spelled nowhere else in this file — was deleted from
+ * `contracts/renderer-view.ts` this session. `tsc` catches every attempt to
+ * reference it THROUGH the `TEST_IDS` object, because the key is gone. What
+ * `tsc` cannot catch is the RAW STRING: a `getByTestId` call typed out by hand
+ * compiles perfectly and asserts about a control that no longer exists, and
+ * the `queryByTestId(...)` form returning null passes forever against a page
+ * that renders nothing at all.
+ *
+ * T2's reviewer flagged that the only thing stopping that reintroduction was a
+ * PROSE COMMENT asking the next reader not to do it. This is that comment,
+ * enforced.
+ *
+ * THE ONE ALLOWED OCCURRENCE, ratified by the user at review (escalation E1):
+ * `lanes/LaneRail.test.tsx` asserts that querying every element with that id
+ * yields none, which is the PROOF the control is gone. Deleting that line to
+ * satisfy a grep would delete the proof, so the file is named below instead —
+ * the same shape as `MAIN_REACHING_FILES` above, and for the same reason: an
+ * exception that is recorded is an exception a later reader can weigh.
+ *
+ * EVERY MENTION HERE IS DELIBERATELY INDIRECT, needle-assembly discipline
+ * applied to prose as well as to code: T4's acceptance criterion 1 requires a
+ * grep for the id under `src/renderer/src/__tests__/**` to come back empty,
+ * and a rule that had to name its own subject would be the only thing left
+ * standing in the way of that.
+ */
+const RETIRED_TEST_ID_LITERALS: readonly string[] = ['lane-row' + '-pin'];
+
+const RETIRED_LITERAL_EXEMPT_FILES: readonly string[] = [
+  'src/renderer/src/lanes/LaneRail.test.tsx',
+];
+
+describe('the two rules added for previously undetectable failure modes', () => {
+  it('catch a synthetic violation of each, and clear the legitimate near-misses', () => {
+    // The exact byte that shipped, and the two characters that were meant.
+    expect(CONTROL_BYTE.test(String.fromCharCode(0x5c) + 'b')).toBe(false);
+    expect(CONTROL_BYTE.test(String.fromCharCode(0x08))).toBe(true);
+    expect(controlByteReport(`ok\nok\n${String.fromCharCode(0x08)}`)).toBe('line 3: 0x08');
+    expect(controlByteReport('a\tb\r\nc\n')).toBeNull();
+    // The glyphs this tree uses on purpose are NOT control bytes.
+    expect(CONTROL_BYTE.test('└ ▸ ▾ … — 🐋')).toBe(false);
+
+    /*
+     * And the retired literal is matched as the literal, not as a prefix of
+     * some longer id that merely starts the same way. The needle is assembled
+     * from fragments, exactly as every other needle in this file is, so this
+     * file is not its own violation — which is also why the rule below has to
+     * be watched failing against a PLANTED occurrence rather than trusted to
+     * be firing because it is written down.
+     */
+    const retired = RETIRED_TEST_ID_LITERALS[0] as string;
+    expect(retired).toBe('lane-row' + '-pin');
+    expect(`getByTestId('${retired}')`).toContain(retired);
+    expect('lane-row-select:lane-1').not.toContain(retired);
+    expect('lane-row-unread').not.toContain(retired);
+  });
+
+  it('finds no stray control byte anywhere under src/', async () => {
+    const files = await filesUnder(SRC_ROOT, /\.(ts|tsx|css|html)$/);
+    // The walk found a tree. Without this the rule below reports "clean" for a
+    // path that does not exist, which is the vacuity this whole file is about.
+    expect(files.length).toBeGreaterThan(100);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      const found = controlByteReport(await read(file));
+      if (found !== null) offenders.push(`${relative(file)}: ${found}`);
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it('finds no reference to a retired test id outside the one ratified proof', async () => {
+    const files = await filesUnder(SRC_ROOT, /\.(ts|tsx|css|html)$/);
+    expect(files.length).toBeGreaterThan(100);
+
+    // The exemption names a file that EXISTS and that really does carry the
+    // literal. A stale exemption is how a deny-list quietly stops covering
+    // anything, so it is checked rather than trusted.
+    for (const exempt of RETIRED_LITERAL_EXEMPT_FILES) {
+      const match = files.find((file) => relative(file) === exempt);
+      expect(match, `${exempt} is exempted but not present`).toBeDefined();
+      const text = stripComments(await read(match as string));
+      expect(
+        RETIRED_TEST_ID_LITERALS.some((literal) => text.includes(literal)),
+        `${exempt} is exempted but carries no retired literal in CODE`,
+      ).toBe(true);
+    }
+
+    /*
+     * CODE ONLY, comments stripped — the same distinction every other rule in
+     * this file draws, and for the same reason. A docblock explaining that the
+     * pin was deleted has to be able to NAME it; only a live reference to it
+     * is the defect. That is not a loophole worth closing: a test id can only
+     * do harm from a selector, and a selector is code.
+     */
+    const offenders: string[] = [];
+    for (const file of files) {
+      if (RETIRED_LITERAL_EXEMPT_FILES.includes(relative(file))) continue;
+      const text = stripComments(await read(file));
+      for (const literal of RETIRED_TEST_ID_LITERALS) {
+        if (text.includes(literal)) offenders.push(`${relative(file)}: ${literal}`);
+      }
     }
     expect(offenders).toEqual([]);
   });

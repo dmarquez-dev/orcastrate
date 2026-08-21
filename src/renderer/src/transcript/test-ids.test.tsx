@@ -28,14 +28,11 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
           makeRow(makeRailLane(), { inPrimaryPane: true }),
           makeRow(makeRailCalf({ agentId: 'agent_1' }), {
             unreadEventCount: 2,
-            canPin: true,
             inFollowerPane: true,
             focusedFollower: true,
           }),
         ]}
         onSelect={noop}
-        onShowInFollower={noop}
-        onHideFollower={noop}
         onSteer={noop}
         routingMode="lanes"
       />,
@@ -44,30 +41,78 @@ describe('TEST_IDS coverage for T6 (AC12)', () => {
     expect(screen.getByTestId(TEST_IDS.laneRail)).toBeTruthy();
 
     // `laneRow` is the only rail id `TEST_IDS` documents with a suffix, and it
-    // is on the ROW CONTAINER. The three action ids are documented bare and are
+    // is on the ROW CONTAINER. The action ids are documented bare and are
     // rendered bare — a suite scopes them with `within(row)`, exactly as below.
     const matriarchRow = screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-matriarch'));
     const calfRow = screen.getByTestId(testId(TEST_IDS.laneRow, 'lane-calf-1'));
+    expect(matriarchRow).toBeTruthy();
 
     expect(within(calfRow).getByTestId(TEST_IDS.laneRowUnread)).toBeTruthy();
     expect(within(calfRow).getByTestId(TEST_IDS.laneRowSteer)).toBeTruthy();
 
-    // `laneRowPin` MOVED (`renderer-panes.ts` section 7): it is the pin/unpin
-    // icon on a CALF row now, and is ABSENT on the Matriarch, whose `canPin` is
-    // false. Absent, not disabled — there is no state in which the Matriarch
-    // becomes pinnable.
-    expect(within(calfRow).getByTestId(TEST_IDS.laneRowPin)).toBeTruthy();
-    expect(within(matriarchRow).queryByTestId(TEST_IDS.laneRowPin)).toBeNull();
-
-    // And the bare ids are literally the contract's strings, not suffixed
-    // variants of them — the regression that sent T8's lookups to zero hits.
+    /*
+     * REWRITTEN 2026-08-21, NOT EXTENDED. This block asserted the deleted pin id
+     * on a Calf row and its absence on the Matriarch.
+     * `contracts/lane-pin-removal.ts` DELETED the pin control, its entry in
+     * `TEST_IDS`, `LaneRowVm.canPin` and the two follower callbacks, so the
+     * assertion has no subject left: an "is it present here / absent there" pair
+     * about a control that exists in NO state is not a weaker check, it is a
+     * check about nothing.
+     *
+     * What replaces it is the property the original was protecting — that the
+     * rail's action ids are the contract's BARE strings and not suffixed
+     * variants, which is the regression that once sent T8's lookups to zero
+     * hits — asserted over the ids that still exist.
+     *
+     * THE DELETED IDENTIFIER IS NOT NAMED ANYWHERE IN THIS FILE, prose included.
+     * The re-introduction guard below is spelled as an EXACT key list rather
+     * than as `not.toContain('<the old name>')` for that reason, and it is the
+     * stronger of the two spellings anyway: a `not.toContain` closes exactly one
+     * name, while the equality closes every re-addition, under any name.
+     */
     for (const el of [
       within(calfRow).getByTestId(TEST_IDS.laneRowUnread),
-      within(calfRow).getByTestId(TEST_IDS.laneRowPin),
       within(calfRow).getByTestId(TEST_IDS.laneRowSteer),
     ]) {
       expect(el.getAttribute('data-testid')).not.toContain(':');
     }
+
+    // THE FROZEN OBJECT'S KEY SET, EXACTLY — the file's existing convention, and
+    // what makes the deletion durable. Restoring the pin key fails this equality;
+    // so does any other silent addition or removal.
+    expect(Object.keys(TEST_IDS)).toEqual([
+      'workspace',
+      'podBar',
+      'podTab',
+      'podTabPermissionBadge',
+      'podTabBypassBadge',
+      'newPodButton',
+      'newPodDialog',
+      'newPodTitleInput',
+      'newPodBrowseButton',
+      'newPodCwdDisplay',
+      'newPodModeOption',
+      'newPodBypassWarning',
+      'newPodSubmit',
+      'laneRail',
+      'laneRow',
+      'laneRowUnread',
+      'laneRowSteer',
+      'transcriptPrimary',
+      'transcriptSplit',
+      'transcriptEvent',
+      'transcriptLoadMore',
+      'dispatchCard',
+      'dispatchCardAgent',
+      'composer',
+      'composerInput',
+      'composerSend',
+      'permissionCard',
+      'permissionAllow',
+      'permissionAllowAlways',
+      'permissionDeny',
+      'permissionDenyReason',
+    ]);
   });
 
   it('the primary transcript renders every transcript and dispatch-card id', () => {

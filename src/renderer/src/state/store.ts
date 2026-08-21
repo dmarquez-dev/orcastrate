@@ -697,12 +697,40 @@ export class WorkspaceStateStore {
       // --- Lanes ----------------------------------------------------------
 
       /**
-       * THE SINGLE LANE-SELECTION VERB, and the four branches of its
-       * resolution order in the order the contract states them. NOTE WHAT IS
-       * ABSENT: no branch writes `primaryLaneId`.
+       * THE SINGLE LANE-SELECTION VERB, and the five branches of its
+       * resolution order in the order the contract states them
+       * (`contracts/lane-pin-removal.ts` section 2). NOTE WHAT IS ABSENT: no
+       * branch writes `primaryLaneId`.
        */
       showLane(podId: PodId, laneId: LaneId): void {
+        // 0. 'inline' ROUTING MODE OPENS NO FOLLOWER, EVER. Every event
+        //    carries the Matriarch's laneId there, so a follower pane on a
+        //    Calf would show BYTE-IDENTICAL contents to the primary under a
+        //    different lane title. This rule used to be enforced one level up,
+        //    by the deleted pin-gating field on the rail's view model, which
+        //    suppressed the rail's pin button; the button is gone, so the rule
+        //    lives in the action instead — which is also the only placement
+        //    `jumpToLane` inherits by delegating.
+        //    The unread count IS still cleared: the user looked at the lane.
+        //    `routingMode === null` takes NO special branch — the shell does
+        //    not render the rail until the mode resolves, so there is no
+        //    click — and it falls through to the ordinary path.
+        //
+        //    A TABLE, NOT A COMPARISON, for the reason `isolation.test.ts`
+        //    criterion 12 scans for the comparison and for the reason the
+        //    provider's own deleted routing-mode table was one: a routing mode
+        //    added by a later session fails to compile HERE, loudly, instead
+        //    of quietly falling into whichever half the `else` was.
+        const mode = store.state.routingMode;
+        const opensFollower = mode === null || OPENS_FOLLOWER_BY_ROUTING_MODE[mode];
+
         store.patchRuntime(podId, (runtime) => {
+          //    Step 0 resolves BEFORE the unknown-lane check, exactly as the
+          //    contract numbers them. It is not observable that it does:
+          //    `clearLaneUnread` returns the runtime untouched when the count
+          //    is already zero, and a lane the Pod does not know has no count.
+          if (!opensFollower) return clearLaneUnread(runtime, laneId);
+
           // 1. Unknown lane: no-op, all three fields untouched.
           if (!isKnownLane(runtime, laneId)) return runtime;
 
@@ -954,6 +982,19 @@ export class WorkspaceStateStore {
 function isoNow(): Timestamp {
   return new Date().toISOString();
 }
+
+/**
+ * Whether a lane selection may open a FOLLOWER pane at all
+ * (`contracts/lane-pin-removal.ts` section 2, `showLane` step 0).
+ */
+const OPENS_FOLLOWER_BY_ROUTING_MODE: Readonly<Record<RoutingMode, boolean>> = {
+  // Selecting a Calf really does change what a pane shows.
+  lanes: true,
+  // Spec 4.3 fallback: every event carries the Matriarch's laneId, so a
+  // follower pane would show the events the primary already shows, byte for
+  // byte, under a different lane title.
+  inline: false,
+};
 
 /**
  * A lane the Pod knows about — or any lane at all while the list is still

@@ -262,7 +262,7 @@ describe('the toggle (AC4)', () => {
     );
     const toggle = screen.getByTestId(SPLIT_FILTER);
     expect((toggle as HTMLButtonElement).disabled).toBe(false);
-    expect(toggle.getAttribute('aria-label')).toBe('Show 1 hidden system events');
+    expect(toggle.getAttribute('aria-label')).toBe('Show 1 hidden system event');
     expect(screen.queryByTestId(PRIMARY_FILTER)).toBeNull();
   });
 });
@@ -497,9 +497,106 @@ describe('a lane that is all plumbing', () => {
     );
     expect(screen.queryByText('No events in this lane yet.')).toBeNull();
     expect(screen.getByTestId(PRIMARY_FILTER).getAttribute('aria-label')).toBe(
-      'Show 1 hidden system events',
+      'Show 1 hidden system event',
     );
     fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
     expect(screen.getByTestId('transcript-event:1')).toBeTruthy();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Permissions moved to the plumbing set (`transcript-filter-amendment.ts`)
+// ---------------------------------------------------------------------------
+
+/**
+ * REWRITTEN, NOT EXTENDED. Anything here that asserted a permission ROW in the
+ * default view encoded the SUPERSEDED decision. What replaces it asserts the
+ * move — hidden by default, revealed at its ORIGINAL interleaved position —
+ * and, in the same tests, the rows that must still be present, because
+ * "no permission row renders" passes perfectly against a pane that rendered
+ * nothing at all.
+ */
+describe('permissions are plumbing now, and the CARD is unaffected', () => {
+  const events = [
+    makeEvent(1, { type: 'assistant_text', text: 'before' }),
+    makeEvent(2, {
+      type: 'permission_request',
+      requestId: 'req-1',
+      toolName: 'Bash',
+      input: { command: 'rm -rf /' },
+      toolUseId: 'toolu_1',
+    }),
+    makeEvent(3, { type: 'assistant_text', text: 'after' }),
+  ];
+
+  it("hides the permission row by default and reveals it IN PLACE at seq 2", () => {
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    const pane = screen.getByTestId('transcript-primary');
+
+    // The POSITIVE half: rows 1 and 3 are on screen. Without it, the absence
+    // of row 2 would also hold for a pane that rendered nothing.
+    expect(renderedSeqs(pane)).toEqual(['1', '3']);
+    expect(typeCount(pane, 'permission_request')).toBe(0);
+
+    fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
+    // Interleaved at its original position, not appended in a block.
+    expect(renderedSeqs(pane)).toEqual(['1', '2', '3']);
+    expect(typeCount(pane, 'permission_request')).toBe(1);
+    expect(screen.getByTestId('transcript-event:2').textContent).toContain('Bash');
+  });
+
+  it('hides a permission_decision by the same rule, and still renders it on demand', () => {
+    const withDecision = [
+      makeEvent(1, { type: 'assistant_text', text: 'before' }),
+      makeEvent(2, { type: 'permission_decision', requestId: 'req-1', decision: 'allow' }),
+    ];
+    render(<TranscriptPane {...props({ view: makeView(withDecision) })} />);
+    const pane = screen.getByTestId('transcript-primary');
+    expect(renderedSeqs(pane)).toEqual(['1']);
+    fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
+    expect(renderedSeqs(pane)).toEqual(['1', '2']);
+    expect(screen.getByTestId('transcript-event:2').textContent).toContain('allow');
+  });
+
+  it('leaves the permission CARD present and operable in the DEFAULT mode', () => {
+    // HIDING THE ROW DOES NOT HIDE THE PROMPT. The card is `permissionSlot`'s
+    // business and the filter never touches it.
+    const onAllow = vi.fn();
+    const card = (
+      <div data-testid="permission-card:req-1">
+        <button type="button" onClick={onAllow}>
+          Allow
+        </button>
+      </div>
+    );
+    render(<TranscriptPane {...props({ view: makeView(events), permissionSlot: card })} />);
+
+    // BOTH halves, in one test: the card is here AND the row is not.
+    const cardEl = screen.getByTestId('permission-card:req-1');
+    expect(cardEl).toBeTruthy();
+    expect(screen.getByTestId('transcript-primary').querySelectorAll(
+      '[data-event-type="permission_request"]',
+    )).toHaveLength(0);
+
+    // Operable, not merely present.
+    fireEvent.click(within(cardEl).getByRole('button', { name: 'Allow' }));
+    expect(onAllow).toHaveBeenCalledTimes(1);
+  });
+
+  it('still COUNTS a hidden permission as hidden, so the toggle does not under-claim', () => {
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    expect(screen.getByTestId(PRIMARY_FILTER).getAttribute('aria-label')).toBe(
+      'Show 1 hidden system event',
+    );
+  });
+
+  it('leaves highWaterSeq untouched across a toggle — the badge reports what ARRIVED', () => {
+    const view = makeView(events);
+    expect(view.highWaterSeq).toBe(3);
+    render(<TranscriptPane {...props({ view })} />);
+    fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
+    fireEvent.click(screen.getByTestId(PRIMARY_FILTER));
+    expect(view.highWaterSeq).toBe(3);
+    expect(view.events.map((e) => e.seq)).toEqual([1, 2, 3]);
   });
 });

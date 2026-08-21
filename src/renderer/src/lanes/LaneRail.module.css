@@ -213,31 +213,6 @@
 }
 
 /*
- * The pin. An ICON, not a word — the row is narrow and the label changes with
- * the state, so the accessible name carries the action ("Show <agent> in the
- * second pane" / "Close the second pane") and the glyph carries nothing.
- * Rendered only where `LaneRowVm.canPin` is true, which is never the Matriarch.
- */
-.pinAction {
-  composes: rowAction;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: var(--oc-space-4);
-  color: var(--oc-fg-muted);
-}
-
-.pinAction[aria-pressed='true'] {
-  border-color: var(--oc-focus-ring);
-  color: var(--oc-fg-primary);
-  background: var(--oc-bg-selected);
-}
-
-.pinGlyph {
-  display: block;
-}
-
-/*
  * The finished-lane disclosure. Always present while it has anything to hide,
  * and it states the count in words.
  */

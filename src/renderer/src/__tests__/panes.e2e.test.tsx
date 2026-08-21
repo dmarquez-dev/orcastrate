@@ -97,6 +97,67 @@ function seqsIn(pane: HTMLElement): string[] {
     .map((item) => item.getAttribute('data-testid')?.slice('transcript-event:'.length) ?? '');
 }
 
+/**
+ * Every BUTTON a rail row draws, by test id, in DOM order.
+ *
+ * WHY A FULL ORDERED LIST RATHER THAN A `queryBy(...)` FOR THE THING THAT IS
+ * GONE. `contracts/lane-pin-removal.ts` deleted the pin button, and the
+ * obvious assertion — "the pin is not there" — passes just as well against a
+ * rail that drew no row at all, or a row that lost Steer with it. Listing
+ * every control the row DOES draw says the same thing and cannot be satisfied
+ * by an empty page: the select button has to be present, in the right place,
+ * for the list to match. It is also why this file no longer needs to name the
+ * deleted id, which acceptance criterion 1 forbids it from doing.
+ */
+function rowControls(laneId: LaneId): string[] {
+  return within(laneRow(laneId))
+    .getAllByRole('button')
+    .map((button) => button.getAttribute('data-testid') ?? '<no test id>');
+}
+
+type User = ReturnType<typeof userEvent.setup>;
+
+/**
+ * THE GESTURE THAT SHOWS A LANE, now that the pin is gone: the rail row's own
+ * select button. `LaneRailProps.onSelect` is wired to `showLane`, which opens
+ * or focuses the follower pane — one control, where there used to be two.
+ */
+async function clickLaneRow(user: User, laneId: LaneId): Promise<void> {
+  await user.click(within(laneRow(laneId)).getByTestId(testId(LANE_ROW_SELECT_TEST_ID, laneId)));
+}
+
+/**
+ * The follower pane is open AND it is showing `title`'s lane.
+ *
+ * The title is read from the pane's accessible name rather than from its body
+ * text, because the body would also contain the right words if the pane had
+ * opened on the wrong lane and merely happened to render an event mentioning
+ * it. `Pinned transcript: <title>` is the pane naming its own subject.
+ */
+function expectFollowerShowing(title: string): HTMLElement {
+  const pane = splitPane();
+  expect(pane).not.toBeNull();
+  expect((pane as HTMLElement).getAttribute('aria-label')).toBe(`Pinned transcript: ${title}`);
+  expect(splitFlag()).toBe('true');
+  return pane as HTMLElement;
+}
+
+/**
+ * Close the follower pane through the pane's OWN unpin control, and assert it
+ * closed.
+ *
+ * This is the affordance the pin's removal leans on: with the rail's pin gone
+ * this is the ONLY remaining way to close a pane, so every flow in this file
+ * that opens one closes it again here rather than leaving the last guard on it
+ * to a single test.
+ */
+async function closeFollowerFromItsOwnControl(user: User, pane: HTMLElement): Promise<void> {
+  await user.click(within(pane).getByTestId(PANE_TEST_IDS.transcriptUnpin));
+  expect(splitPane()).toBeNull();
+  expect(splitFlag()).toBe('false');
+  expect(followerRows()).toEqual([]);
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -206,39 +267,76 @@ describe('the follower pane, steered from the rail', () => {
     // Selecting the lane already in the primary pane never opens a follower.
     expect(splitPane()).toBeNull();
 
-    await user.click(within(laneRow(CALF_EARLY_ID)).getByTestId(TEST_IDS.laneRowPin));
-    expect(splitPane()?.textContent).toContain(EARLY_SAYS);
+    /*
+     * THE SECOND GESTURE, REWRITTEN. Under the deleted shape this step was a
+     * click on the rail's pin button. There is no pin button now, and the
+     * gesture that replaced it is the rail row itself — so the sequence is
+     * still three clicks in the same order, and the second and third are now
+     * the SAME control clicked twice, which is exactly the collapse the
+     * removal was for.
+     */
+    await clickLaneRow(user, CALF_EARLY_ID);
+    const pane = expectFollowerShowing('explorer');
+    expect(pane.textContent).toContain(EARLY_SAYS);
 
-    await user.click(within(laneRow(CALF_EARLY_ID)).getByTestId(testId(LANE_ROW_SELECT_TEST_ID, CALF_EARLY_ID)));
+    await clickLaneRow(user, CALF_EARLY_ID);
 
     // The step that used to swap. It focuses the pane the Calf is already in
     // and does nothing else.
     expect(primaryText()).toContain(MATRIARCH_SAYS);
     expect(primaryText()).not.toContain(EARLY_SAYS);
-    expect(splitPane()?.textContent).toContain(EARLY_SAYS);
+    expect(expectFollowerShowing('explorer').textContent).toContain(EARLY_SAYS);
     expect(followerRows()).toEqual([CALF_EARLY_ID]);
     expect(laneRow(MATRIARCH_ID).getAttribute('data-in-primary-pane')).toBe('true');
-    // The Matriarch has no pin control in any state, so there is no gesture
-    // left that could move it.
-    expect(within(laneRow(MATRIARCH_ID)).queryByTestId(TEST_IDS.laneRowPin)).toBeNull();
+
+    /*
+     * NO ROW OFFERS A PIN, IN ANY STATE — asserted as the FULL ordered list of
+     * each row's controls, with the follower pane open, which is the state the
+     * pin used to be at its most visible in.
+     *
+     * The Matriarch draws only its select button: `agentId` is null on the
+     * harness fixture so Steer is not offered, and the pin is gone. The early
+     * Calf carries an `agentId` and so still draws Steer beside its select
+     * button, in that order. A rail that rendered nothing, or a row that lost
+     * Steer along with the pin, fails here — which a bare "the pin is absent"
+     * assertion would not.
+     */
+    expect(rowControls(MATRIARCH_ID)).toEqual([testId(LANE_ROW_SELECT_TEST_ID, MATRIARCH_ID)]);
+    expect(rowControls(CALF_EARLY_ID)).toEqual([
+      testId(LANE_ROW_SELECT_TEST_ID, CALF_EARLY_ID),
+      TEST_IDS.laneRowSteer,
+    ]);
+    expect(rowControls(CALF_LATE_ID)).toEqual([testId(LANE_ROW_SELECT_TEST_ID, CALF_LATE_ID)]);
+
+    // ...and the pane the rail can no longer close still closes from its own
+    // control, which is the affordance the removal relies on.
+    await closeFollowerFromItsOwnControl(user, expectFollowerShowing('explorer'));
   });
 
   it('closes the follower pane from the pane’s own unpin control, not from the rail', async () => {
     const user = userEvent.setup();
     await mountPod(paneApi(THREE_LANES));
 
-    await user.click(within(laneRow(CALF_EARLY_ID)).getByTestId(TEST_IDS.laneRowPin));
-    const pane = splitPane();
-    expect(pane).not.toBeNull();
-    expect(splitFlag()).toBe('true');
+    await clickLaneRow(user, CALF_EARLY_ID);
+    const pane = expectFollowerShowing('explorer');
+    expect(pane.textContent).toContain(EARLY_SAYS);
 
-    // Driven by the ID the contract names, inside the pane — a callback spy
-    // would pass for a control the pane never rendered.
-    await user.click(within(pane as HTMLElement).getByTestId(PANE_TEST_IDS.transcriptUnpin));
+    /*
+     * THE ONLY REMAINING WAY TO CLOSE A PANE. The rail's pin used to offer a
+     * second one and is gone (`contracts/lane-pin-removal.ts` section 3), so
+     * this control is now load-bearing on its own.
+     *
+     * Reached by its ACCESSIBLE NAME as well as by the id the contract names:
+     * the id proves the contract's element is the one rendered, and the name
+     * proves a keyboard user can find it and can tell WHICH pane it closes.
+     * A callback spy would pass for a control the pane never rendered at all.
+     */
+    expect(within(pane).getByRole('button', { name: 'Unpin explorer' })).toBe(
+      within(pane).getByTestId(PANE_TEST_IDS.transcriptUnpin),
+    );
 
-    expect(splitPane()).toBeNull();
-    expect(splitFlag()).toBe('false');
-    expect(followerRows()).toEqual([]);
+    await closeFollowerFromItsOwnControl(user, pane);
+
     // The primary pane never carries one, before or after.
     expect(
       within(screen.getByTestId(TEST_IDS.transcriptPrimary)).queryByTestId(
@@ -420,10 +518,10 @@ describe('the transcript filter against a live push', () => {
     });
     expect(unreadOf(CALF_EARLY_ID)).toBe('2');
 
-    // Now put the lane on screen and read what the DEFAULT mode renders.
-    await user.click(within(laneRow(CALF_EARLY_ID)).getByTestId(TEST_IDS.laneRowPin));
-    const pane = splitPane() as HTMLElement;
-    expect(pane).not.toBeNull();
+    // Now put the lane on screen — by clicking the row, the gesture that
+    // replaced the pin — and read what the DEFAULT mode renders.
+    await clickLaneRow(user, CALF_EARLY_ID);
+    const pane = expectFollowerShowing('explorer');
 
     expect(seqsIn(pane)).toEqual(['2']);
     expect(pane.textContent).toContain(EARLY_SAYS);
@@ -439,7 +537,10 @@ describe('the transcript filter against a live push', () => {
       testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'split'),
     );
     expect(toggle.getAttribute('aria-pressed')).toBe('false');
-    expect(toggle.getAttribute('aria-label')).toBe('Show 1 hidden system events');
+    // SINGULAR AT ONE (`contracts/transcript-filter-amendment.ts` section 3).
+    // This assertion said "events" until this session and was MASKED, not
+    // passing: the test aborted on the deleted pin id several lines above it.
+    expect(toggle.getAttribute('aria-label')).toBe('Show 1 hidden system event');
     expect(
       within(pane).getByTestId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilterCount).textContent,
     ).toBe('1');
@@ -450,7 +551,10 @@ describe('the transcript filter against a live push', () => {
     expect(seqsIn(pane)).toEqual(['1', '2']);
     expect(pane.textContent).toContain('hook_started');
     expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    expect(toggle.getAttribute('aria-label')).toBe('Hide 1 system events');
+    expect(toggle.getAttribute('aria-label')).toBe('Hide 1 system event');
+
+    // The pane this flow opened still closes from its own control.
+    await closeFollowerFromItsOwnControl(user, pane);
   });
 
   it('holds a mode per pane, so revealing plumbing in one pane leaves the other filtered', async () => {
@@ -470,9 +574,9 @@ describe('the transcript filter against a live push', () => {
       });
     });
 
-    await user.click(within(laneRow(CALF_EARLY_ID)).getByTestId(TEST_IDS.laneRowPin));
+    await clickLaneRow(user, CALF_EARLY_ID);
     const primary = screen.getByTestId(TEST_IDS.transcriptPrimary);
-    const pane = splitPane() as HTMLElement;
+    const pane = expectFollowerShowing('explorer');
 
     // Both panes hide one event, so a bare `getByTestId` for the count would
     // be ambiguous here. That ambiguity is the point of the scoping.
@@ -492,5 +596,88 @@ describe('the transcript filter against a live push', () => {
         .getByTestId(testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'primary'))
         .getAttribute('aria-pressed'),
     ).toBe('false');
+
+    // The pane this flow opened still closes from its own control, and the
+    // primary pane's mode survives the close.
+    await closeFollowerFromItsOwnControl(user, pane);
+    expect(seqsIn(screen.getByTestId(TEST_IDS.transcriptPrimary))).toEqual(['2']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 'inline' routing mode: a rail click shows the lane and opens NOTHING
+// ---------------------------------------------------------------------------
+
+/**
+ * THE RULE THE DELETED `canPin` USED TO CARRY, now a property of `showLane`
+ * itself (`contracts/lane-pin-removal.ts` section 2, branch 0) and driven here
+ * through the whole app rather than through the action.
+ *
+ * In inline mode every event carries the Matriarch's laneId, so a follower
+ * pane opened on a Calf would show BYTE-IDENTICAL contents to the primary.
+ * `canPin` was false for every row there and the rail simply drew no pin.
+ * Deleting the field without moving the rule would make a rail click open that
+ * duplicate pane — a regression introduced by a removal, which is the hardest
+ * kind to notice, and the reason it is asserted at this level as well as at
+ * the store's.
+ */
+describe("a Pod in 'inline' routing mode", () => {
+  function inlineApi(): StubOrcastrateApi {
+    return stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_BRAVO] }) },
+      lanes: { list: async () => ({ ok: true, value: THREE_LANES }) },
+      events: { read: async () => ({ ok: true, value: { events: SEEDED_EVENTS, hasMore: false } }) },
+      app: { routingMode: async () => ({ ok: true, value: 'inline' as const }) },
+    });
+  }
+
+  it('shows a clicked Calf without opening a second pane, and still opens one in lanes mode', async () => {
+    const user = userEvent.setup();
+    const api = inlineApi();
+    await mountPod(api);
+
+    // The mode reached the pane, so the negative below is about the ROUTING
+    // RULE and not about a stub that failed to answer.
+    const primary = screen.getByTestId(TEST_IDS.transcriptPrimary);
+    expect(primary.getAttribute('data-routing-mode')).toBe('inline');
+    expect(railOrder()).toEqual([MATRIARCH_ID, CALF_EARLY_ID, CALF_LATE_ID]);
+
+    await clickLaneRow(user, CALF_EARLY_ID);
+
+    /*
+     * NO SECOND PANE — and the POSITIVE half in the same assertion, which is
+     * what stops a workspace that failed to mount at all from passing: the
+     * primary pane is still there, still the Matriarch's, and still showing
+     * her events.
+     */
+    expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
+    expect(splitFlag()).toBe('false');
+    expect(followerRows()).toEqual([]);
+    expect(screen.getByTestId(TEST_IDS.transcriptPrimary).getAttribute('aria-label')).toBe(
+      'Transcript: Matriarch',
+    );
+    expect(primaryText()).toContain(MATRIARCH_SAYS);
+
+    // Clicking the Matriarch's own row is likewise inert.
+    await clickLaneRow(user, MATRIARCH_ID);
+    expect(screen.queryByTestId(TEST_IDS.transcriptSplit)).toBeNull();
+    expect(primaryText()).toContain(MATRIARCH_SAYS);
+  });
+
+  it("still opens the follower pane for the same click in 'lanes' mode", async () => {
+    // The falsifying half of the test above: the same gesture, the same
+    // fixture, one different routing mode. Without this, a `showLane` that had
+    // stopped opening a follower in EVERY mode would pass the inline test.
+    const user = userEvent.setup();
+    await mountPod(paneApi(THREE_LANES));
+
+    expect(screen.getByTestId(TEST_IDS.transcriptPrimary).getAttribute('data-routing-mode')).toBe(
+      'lanes',
+    );
+    await clickLaneRow(user, CALF_EARLY_ID);
+
+    const pane = expectFollowerShowing('explorer');
+    expect(pane.textContent).toContain(EARLY_SAYS);
+    await closeFollowerFromItsOwnControl(user, pane);
   });
 });

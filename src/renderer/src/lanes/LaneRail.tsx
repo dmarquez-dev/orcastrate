@@ -52,8 +52,6 @@ function finishedLabel(action: 'Show' | 'Hide', count: number): string {
 export function LaneRail({
   rows,
   onSelect,
-  onShowInFollower,
-  onHideFollower,
   onSteer,
   routingMode,
 }: LaneRailProps) {
@@ -101,8 +99,6 @@ export function LaneRail({
               key={row.lane.id}
               row={row}
               onSelect={onSelect}
-              onShowInFollower={onShowInFollower}
-              onHideFollower={onHideFollower}
               onSteer={onSteer}
             />
           ))}

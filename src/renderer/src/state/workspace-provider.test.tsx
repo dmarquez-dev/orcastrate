@@ -365,14 +365,16 @@ describe('derived views', () => {
   });
 
   // -------------------------------------------------------------------------
-  // The pane model's four `LaneRowVm` fields (renderer-panes.ts section 3)
+  // The pane model's THREE surviving `LaneRowVm` fields (renderer-panes.ts
+  // section 3, as amended by `lane-pin-removal.ts` section 3).
   //
-  // `canPin` is ASSERTED here rather than assumed by the rail, because the
-  // rail's only alternative is re-deriving it from `isMatriarch` — which gets
-  // the 'inline' half wrong every time.
+  // The fourth field — the pin gate — is DELETED with the pin control it
+  // gated. The tuple below keeps its full shape minus that field rather than
+  // shrinking to a presence check, so a derivation that silently stopped
+  // marking the follower still fails.
   // -------------------------------------------------------------------------
 
-  /** Every row as `laneId/inPrimaryPane/inFollowerPane/focusedFollower/canPin`. */
+  /** Every row as `laneId/inPrimaryPane/inFollowerPane/focusedFollower`. */
   function PaneRowsProbe(): ReactNode {
     const rail = useLaneRail();
     return (
@@ -384,7 +386,6 @@ describe('derived views', () => {
               String(row.inPrimaryPane),
               String(row.inFollowerPane),
               String(row.focusedFollower),
-              String(row.canPin),
             ].join('/'),
           )
           .join(',')}
@@ -396,7 +397,7 @@ describe('derived views', () => {
     return screen.getByTestId('panes').textContent ?? '';
   }
 
-  it('marks the primary, the follower and the focused follower, and offers canPin only to Calves', async () => {
+  it('marks the primary, the follower and the focused follower', async () => {
     const api = podsApi([makeStubPod({ id: POD })]);
     let actions: Contract.WorkspaceActions | null = null;
     function Probe(): ReactNode {
@@ -410,39 +411,52 @@ describe('derived views', () => {
       api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, CALF] });
     });
 
-    // Unsplit: the Matriarch holds the primary, nothing is a follower, and the
-    // Matriarch has NO pin control while the Calf does.
-    expect(panesText()).toBe('lane-matriarch/true/false/false/false,lane-a/false/false/false/true');
+    // Unsplit: the Matriarch holds the primary, nothing is a follower.
+    expect(panesText()).toBe('lane-matriarch/true/false/false,lane-a/false/false/false');
 
     await act(async () => {
       actions?.showLane(POD, 'lane-a');
     });
 
     // The Calf is now the follower AND the focused one — the pane a further
-    // rail click would overwrite. The Matriarch never moved and still cannot
-    // be pinned.
-    expect(panesText()).toBe('lane-matriarch/true/false/false/false,lane-a/false/true/true/true');
+    // rail click would overwrite. The Matriarch never moved.
+    expect(panesText()).toBe('lane-matriarch/true/false/false,lane-a/false/true/true');
   });
 
-  it('offers canPin to NO row in inline routing mode, Calves included', async () => {
+  it('marks NO follower in inline routing mode, because showLane opens none', async () => {
+    // The rule the deleted pin gate used to carry, now read back through the
+    // SAME probe as the test directly above. Only the routing mode differs,
+    // and the second `showLane` call is identical — so if step 0 of `showLane`
+    // were dropped, this row would read `false/true/true` exactly as the
+    // 'lanes' case does.
     const api = stubOrcastrateApi({
       pods: { list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }) },
       app: { routingMode: async () => ({ ok: true, value: 'inline' as const }) },
     });
+    let actions: Contract.WorkspaceActions | null = null;
+    function Probe(): ReactNode {
+      actions = useWorkspaceActions();
+      return <PaneRowsProbe />;
+    }
     await act(async () => {
-      renderWithWorkspace(<PaneRowsProbe />, { api });
+      renderWithWorkspace(<Probe />, { api });
     });
     act(() => {
       api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, CALF] });
     });
 
-    // Not a vacuous pass: BOTH rows are present, and the Calf — the row that
-    // is pinnable in 'lanes' mode, asserted true directly above — is false
-    // here. Only the mode differs between the two tests.
+    expect(panesText()).toBe('lane-matriarch/true/false/false,lane-a/false/false/false');
+
+    await act(async () => {
+      actions?.showLane(POD, 'lane-a');
+    });
+
+    // Not vacuous: BOTH rows are still present and the Matriarch still holds
+    // the primary. It is only the follower marking that never appears.
     const rows = panesText().split(',');
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toBe('lane-matriarch/true/false/false/false');
-    expect(rows[1]).toBe('lane-a/false/false/false/false');
+    expect(rows[0]).toBe('lane-matriarch/true/false/false');
+    expect(rows[1]).toBe('lane-a/false/false/false');
   });
 
   it('gives an empty idle transcript for a lane with no events, and merges pushes into it', async () => {
