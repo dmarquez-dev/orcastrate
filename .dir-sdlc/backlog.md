@@ -440,3 +440,73 @@ files rather than promoted.
   with a named exception (recommended); relocate the world builder, which moves
   the crossing rather than removing it; or accept a renderer-only suite driven by
   a hand-written fake, which reintroduces the tautology the suite exists to avoid.
+
+## Decided for sub-session B — inputs to its decomposition, not deferred work
+
+Settled 2026-08-20 by explicit user decision. These are requirements the
+workspace-refinement session must account for, in the sense sub-session 1's
+"Decided for sub-session 2" section was.
+
+- **Decide whether `Open` and `Reconnect` still earn separate existence.**
+  Since `2026-08-20-orcastrate-open-resumes`, `openPod` and `reconnectPod` make
+  the **identical call** — both `#start(pod, true)` — for any Pod with **no live
+  session**. `#dispose` early-returns when `#sessions` holds no entry, so
+  Reconnect's extra step is a no-op there. They differ only against a *live*
+  session: `openPod` returns the Pod untouched and dedupes concurrent opens via
+  `#opening`, while `reconnectPod` always disposes and rebuilds the runner.
+
+  **Wider than first framed.** The collapse is not limited to `'closed'` Pods —
+  it covers a `'beached'` one too. `PodsChrome.tsx`'s comment asserts that "a
+  beached Pod … answers `pods.open` with an error", but a review of that Small
+  session grepped `src/main/ipc/` and found **no guard anywhere in main refusing
+  `pods.open` on a beached Pod**. The beached→Reconnect routing is a
+  renderer-side convention, not an enforced rule, and that comment is currently
+  false. Either the guard should exist or the comment should go.
+
+  **Why this belongs to sub-session B specifically.** `PodsChrome`'s
+  `showRunControl` and its verb choice are the same surface that B's pinning
+  refinement and its Pod-delete affordance both modify, and this backlog already
+  records `podReconnect` as one of four invoke channels with no affordance
+  calling it. Deciding the verb question separately would mean touching that one
+  component three times.
+
+  **Constraint on any answer.** A beached Pod must keep an affordance that
+  carries its cause — design §8 — so collapsing the two verbs must not lose the
+  distinction between "stopped deliberately" and "stopped with a reason".
+
+## 2026-08-20 — 2026-08-20-orcastrate-open-resumes (Small)
+
+Advisory findings the user chose to carry forward at that session's Gate 3. Small
+writes no `reviews/` file, so this is their only durable record; the other two
+advisories were left in the session thread.
+
+### Correctness risks
+
+- **The `RESUME_FAILED` regex matches the bare word `resume` anywhere in the
+  CLI's message.** `src/main/pod/errors.ts:63`. Pre-existing and deliberately
+  broad per its own comment, but that breadth **became load-bearing on the common
+  path** the moment `openPod` started resuming: it is now the discriminator
+  deciding whether a failed start becomes a silent fresh session or a surfaced,
+  beached error. A genuine spawn failure whose message happens to contain the
+  word "resume" would be misread as a rejected resume and answered with a new
+  conversation. Narrowing it to the CLI's actual session-rejection wording, with
+  a fixture proving a spawn failure containing the word still beaches, is the fix.
+
+- **The abandoned `ccSessionId` persists through the fallback.** On the
+  fallback path the Pod row keeps the rejected session id until the fresh runner
+  emits `onSessionId`. An app killed inside that window resumes the dead id on
+  the next Open and writes a second `resume_fallback` notice. Bounded — each open
+  still performs exactly one retry, and the SDK emits its id at `system/init`, so
+  the window is small — but clearing or replacing the id at fallback time would
+  close it.
+
+### Contract gaps
+
+- **Design §4.4 still makes an absolute claim its own §8 now contradicts.**
+  `docs/superpowers/specs/2026-08-18-orcastrate-design.md:236-238` says a resume
+  mismatch "degrades to 'CC remembers more than the UI shows', **never to data
+  loss**", while the failure row added at `:390` states that the resume fallback
+  is precisely the case where CC remembers *less* than the UI shows. The §8 row
+  is correct and carries the exception; the §4.4 sentence needs a cross-reference
+  so the two stop disagreeing. This is the same class of defect this session and
+  the last one each hit once — prose that is no longer true of shipped code.

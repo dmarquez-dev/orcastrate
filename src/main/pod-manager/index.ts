@@ -12,6 +12,8 @@ export {
   STARTUP_RECONCILIATION_REASON,
   STARTUP_RECONCILIATION_SUBTYPE,
 } from './startup-reconciliation';
+export { RESUME_FALLBACK_REASON, RESUME_FALLBACK_SUBTYPE } from './resume-fallback';
+export type { ResumeFallbackData } from './resume-fallback';
 export type {
   ReconciledPod,
   StartupReconciler,

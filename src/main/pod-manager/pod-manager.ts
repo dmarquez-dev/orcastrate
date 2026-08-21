@@ -70,9 +70,14 @@ import type {
 
 import { cwdMissing, IpcFailure, notFound } from '../ipc/errors';
 import { createLaneRouter } from '../lane';
-import { UNROUTED_LANE_ID } from '../pod';
+import { PodRunnerError, UNROUTED_LANE_ID } from '../pod';
 
 import type { Pushes } from './pushes';
+import {
+  RESUME_FALLBACK_REASON,
+  RESUME_FALLBACK_SUBTYPE,
+  type ResumeFallbackData,
+} from './resume-fallback';
 import {
   STARTUP_RECONCILIATION_REASON,
   STARTUP_RECONCILIATION_SUBTYPE,
@@ -415,6 +420,13 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * Criterion 6: opening an already-open Pod returns the same Pod and does NOT
    * create a second runner. Two concurrent opens share one in-flight promise
    * for the same reason.
+   *
+   * OPEN RESUMES. It passed `false` here until 2026-08-20, so a Pod closed and
+   * reopened — the routine flow — always started a Claude Code session with no
+   * memory of the conversation the transcript was still showing. Design 4.2
+   * defines `resume` as "the session id, set when reopening a persisted Pod";
+   * this is that. A Pod with no `ccSessionId` still starts fresh, which is
+   * `#start`'s own guard and not a special case here.
    */
   async openPod(podId: PodId): Promise<Pod> {
     const pod = this.#requirePod(podId);
@@ -423,7 +435,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     const inflight = this.#opening.get(podId);
     if (inflight) return inflight;
 
-    const started = this.#start(pod, false).finally(() => {
+    const started = this.#start(pod, true).finally(() => {
       this.#opening.delete(podId);
     });
     this.#opening.set(podId, started);
@@ -436,6 +448,14 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * `resume`, not `resumeSessionId`). A Pod that never reached its first turn
    * has no `ccSessionId`; that reconnects as a fresh session rather than
    * failing, because there is nothing to resume.
+   *
+   * IT NO LONGER DIFFERS FROM `openPod` IN WHAT IT STARTS — both resume. What
+   * remains is what each does to a session that is ALREADY live: this one
+   * disposes it and builds a new runner, `openPod` returns the open Pod
+   * untouched and never builds a second. For a `closed` Pod, where no session
+   * exists, the two are now the same call. That is stated rather than papered
+   * over; the split still earns its place at the UI, where `'beached'` and
+   * `'closed'` want different affordances.
    */
   async reconnectPod(podId: PodId): Promise<Pod> {
     this.#requirePod(podId);
@@ -463,7 +483,17 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     await Promise.all([...this.#sessions.keys()].map((podId) => this.#dispose(podId)));
   }
 
-  async #start(pod: Pod, resume: boolean): Promise<Pod> {
+  /**
+   * `attemptResume` is the CALLER's intent; `resumeSessionId` below is what
+   * actually happened, and the failure path turns on the second. Both public
+   * entry points now pass `true`; the ONE caller that passes `false` is the
+   * fallback retry at the bottom of this method, which is also what makes the
+   * retry incapable of recursing.
+   */
+  async #start(pod: Pod, attemptResume: boolean): Promise<Pod> {
+    // A Pod that never reached its first turn has nothing to resume, and asking
+    // the CLI to resume nothing is not a thing to fail over — it starts fresh.
+    const resumeSessionId = attemptResume ? pod.ccSessionId : null;
     const matriarchLaneId = this.#ensureMatriarchLane(pod.id);
     this.#reviveMatriarchLane(pod.id, matriarchLaneId);
     const router = createLaneRouter({
@@ -495,7 +525,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
         permissionMode: pod.permissionMode,
         envOverrides: pod.envOverrides,
         forwardSubagentText: true,
-        ...(resume && pod.ccSessionId !== null ? { resume: pod.ccSessionId } : {}),
+        ...(resumeSessionId !== null ? { resume: resumeSessionId } : {}),
       }),
     };
 
@@ -528,6 +558,24 @@ export class PodManager implements PodManagerApi, StartupReconciler {
           stopErr,
         );
       }
+      // A REJECTED RESUME IS NOT A DEAD POD. It is the one start failure the
+      // user can neither fix nor act on, and refusing to open would be worse
+      // than the defect this whole change exists to fix.
+      //
+      // THE TEST IS DELIBERATELY NARROW, and both halves of it matter:
+      //  - `resumeSessionId !== null`, so a start that never asked to resume
+      //    cannot take this path however the failure is labelled; and
+      //  - the code is exactly `RESUME_FAILED`, which `classifyStartupFailure`
+      //    (`../pod/errors.ts`) only ever produces when a `resume` id WAS
+      //    supplied AND the CLI's wording names the session.
+      // `CWD_MISSING` and `SPAWN_FAILED` therefore fall through to the beach
+      // below with their cause intact. Widening either half would turn a
+      // missing directory or an unspawnable binary into a silent fresh
+      // session, which is the one way this fix could be worse than the bug.
+      if (resumeSessionId !== null && err instanceof PodRunnerError && err.code === 'RESUME_FAILED') {
+        return await this.#startFreshAfterRejectedResume(pod, resumeSessionId, err);
+      }
+
       // Spec 8: a Pod that cannot come up is Beached, not merely errored — a
       // failure WITH a cause, so `'beached'` and never `'closed'`. The envelope
       // the renderer receives still carries the specific cause; this only
@@ -541,6 +589,75 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     const opened = this.#store.updatePod(pod.id, { status: 'idle' });
     this.#push.podStatus({ podId: pod.id, status: 'idle' });
     return opened;
+  }
+
+  /**
+   * The retry, and the notice that keeps it from being silent.
+   *
+   * EXACTLY ONE RETRY, and it cannot become two: it calls `#start` with
+   * `attemptResume: false`, so no `resume` option is sent, so the CLI has
+   * nothing to reject and `classifyStartupFailure` cannot label the result
+   * `RESUME_FAILED` again. The reaping of the first runner has already happened
+   * in `#start`'s catch before this is called.
+   *
+   * THE NOTICE IS WRITTEN AFTER THE FRESH SESSION IS UP, never before. Its
+   * sentence claims a new conversation exists; if the retry also fails, that
+   * claim would be false, and `#start`'s own failure path beaches the Pod with
+   * the retry's cause instead. The event is appended, not derived, so it
+   * survives the next restart — the transcript must still explain itself
+   * tomorrow.
+   */
+  async #startFreshAfterRejectedResume(
+    pod: Pod,
+    abandonedCcSessionId: string,
+    cause: PodRunnerError,
+  ): Promise<Pod> {
+    this.#log.warn(
+      `[orcastrate] claude code refused to resume session ${abandonedCcSessionId} for pod ` +
+        `${pod.id}; starting a fresh session instead: ${cause.message}`,
+    );
+    const opened = await this.#start(pod, false);
+    this.#appendResumeFallbackNotice(pod.id, {
+      subtypeMarker: RESUME_FALLBACK_SUBTYPE,
+      reason: RESUME_FALLBACK_REASON,
+      podId: pod.id,
+      abandonedCcSessionId,
+      detail: describe(cause),
+      at: this.#now(),
+    });
+    return opened;
+  }
+
+  /**
+   * One `system` event on the Matriarch, which is the lane the transcript reads
+   * by default — the same shape and the same rendering path as the startup
+   * reconciliation notice, so no `EventType` grows and nothing new has to learn
+   * to render it.
+   *
+   * Unlike the boot sweep this DOES push: a window exists by now, the Pod the
+   * user is looking at just came up, and without the push the explanation would
+   * not appear until the transcript was next re-read.
+   */
+  #appendResumeFallbackNotice(podId: PodId, data: ResumeFallbackData): void {
+    const matriarchLaneId = this.#store.getMatriarchLane(podId)?.id;
+    if (matriarchLaneId === undefined) {
+      // Nothing to hang the notice on. Losing the durable record silently is
+      // the one thing worse than losing the resume, so it is logged.
+      this.#log.warn(
+        `[orcastrate] pod ${podId} has no Matriarch lane; the resume-fallback notice was dropped`,
+      );
+      return;
+    }
+    const stored = this.#store.appendMany([
+      {
+        podId,
+        laneId: matriarchLaneId,
+        type: 'system',
+        payload: { type: 'system', subtype: RESUME_FALLBACK_SUBTYPE, data },
+        createdAt: data.at,
+      },
+    ]);
+    this.#push.podEvent({ podId, events: stored });
   }
 
   /**

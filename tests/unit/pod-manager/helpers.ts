@@ -44,6 +44,16 @@ import { openEventStore } from '../../../src/main/store';
 export interface FakeRunnerScript {
   /** Reject `start()` with this instead of resolving. */
   failStartWith?: unknown;
+  /**
+   * How many `start()` attempts fail with `failStartWith`, counted across every
+   * runner built for the Pod. Default: all of them.
+   *
+   * Needed by the resume-fallback tests, where the FIRST start must be rejected
+   * and the retry must come up. Counting across runners rather than per runner
+   * is the point: the retry builds a SECOND runner, and a per-runner counter
+   * would let it fail again.
+   */
+  failStartTimes?: number;
   /** Reject `stop()` with this. */
   failStopWith?: unknown;
   /** Statuses `stop()` emits through `onStatus` before it settles. */
@@ -58,6 +68,12 @@ export interface FakeRunner extends PodRunner {
   handlers: PodRunnerHandlers | null;
 }
 
+/**
+ * `start()` failures already spent, keyed by the script object so the count is
+ * shared by every runner the same script builds.
+ */
+const startFailuresUsed = new WeakMap<FakeRunnerScript, number>();
+
 function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): FakeRunner {
   const runner: FakeRunner = {
     options,
@@ -69,7 +85,11 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
     async start(handlers: PodRunnerHandlers, _onPermission: PermissionHandler): Promise<void> {
       runner.startCalls += 1;
       runner.handlers = handlers;
-      if (script.failStartWith !== undefined) throw script.failStartWith;
+      if (script.failStartWith === undefined) return;
+      const used = startFailuresUsed.get(script) ?? 0;
+      if (script.failStartTimes !== undefined && used >= script.failStartTimes) return;
+      startFailuresUsed.set(script, used + 1);
+      throw script.failStartWith;
     },
     async send(): Promise<void> {},
     async interrupt(): Promise<void> {},
@@ -263,6 +283,12 @@ export interface SeedPodOptions {
   status?: PodStatus;
   lastActiveAt?: string;
   title?: string;
+  /**
+   * Claude Code's own session id, as a Pod that reached its first turn would
+   * have persisted it. Left unset, the seeded Pod has `null` — a Pod that never
+   * reached a first turn and so has nothing to resume.
+   */
+  ccSessionId?: string;
   /** Lane statuses to create, Matriarch first. Default: one running Matriarch. */
   lanes?: { kind: Lane['kind']; status: Lane['status'] }[];
 }
@@ -289,6 +315,7 @@ export function seedPod(h: ManagerHarness, options: SeedPodOptions = {}): PodId 
   const patch: Parameters<EventStore['updatePod']>[1] = {};
   if (options.status !== undefined) patch.status = options.status;
   if (options.lastActiveAt !== undefined) patch.lastActiveAt = options.lastActiveAt;
+  if (options.ccSessionId !== undefined) patch.ccSessionId = options.ccSessionId;
   if (Object.keys(patch).length > 0) h.raw.updatePod(podId, patch);
 
   const lanes = options.lanes ?? [{ kind: 'matriarch' as const, status: 'running' as const }];

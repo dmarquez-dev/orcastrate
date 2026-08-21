@@ -7,7 +7,10 @@
  *    caller of `openPod`/`reconnectPod` in the renderer, and which verb applies
  *    is the STATUS's decision: `'beached'` needs `pods.reconnect` and answers
  *    `pods.open` with an error, while `'closed'` needs `pods.open`. A closed
- *    Pod must never trigger a resume.
+ *    Pod must never call `pods.reconnect`. This pins the VERB, not what the
+ *    verb does with Claude Code's session id: since 2026-08-20 `pods.open`
+ *    resumes too, so the old wording here ("a closed Pod must never trigger a
+ *    resume") described the defect rather than the routing rule.
  *
  * 2. CLOSING A POD WITH NO LIVE RUNNER IS BENIGN. Symptom 3 of the session —
  *    "the tab's x refuses with a not-running error" — is NOT reproducible from

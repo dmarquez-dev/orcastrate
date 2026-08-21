@@ -236,6 +236,14 @@ context from `resume`; Orcastrate restores the visible transcript from
 its own store. The two are independent, and a mismatch degrades to "CC remembers
 more than the UI shows", never to data loss.
 
+Both routes back into a persisted Pod resume: **Open** (a `closed` Pod) and
+**Reconnect** (a **Beached** one) each start against the stored
+`cc_session_id`. They still differ in what they do to a session that is already
+live — Open returns the open Pod untouched, Reconnect disposes the existing
+runner first — but neither starts a fresh conversation over a Pod that has one.
+The exception is a Pod that never reached its first turn and so has no
+`cc_session_id`; there is nothing to resume, and it starts fresh.
+
 ## 5. User interface
 
 ### 5.1 Shell
@@ -379,6 +387,7 @@ Write safety:
 | Malformed NDJSON line | Skipped; the stream is not torn down. The SDK parses stdout itself and drops unparseable lines to its own logger, so Orcastrate never sees the raw line and cannot log it — the tolerance is real, the raw-line diagnostic is not available to us. Orcastrate's own tolerance applies one level up, to well-formed messages of unrecognized `type`. |
 | Calf still open when the turn's `result` arrives | Marked **Orphaned** at that turn boundary rather than spinning indefinitely. Note this is *not* "a `tool_use` with no `tool_result`": CLI 2.1.235 answers every `tool_use` before `result`, including on interrupt, where it synthesizes an `is_error` result. The condition is a lane opened by `system`/`task_started` with no terminal `system`/`task_updated`. |
 | Lane still open at process start | Marked **Orphaned** by the startup reconciliation sweep, which runs once at application start before any window exists. No Claude Code process survives an application restart, so a lane the store still records as `running` cannot ever reach `done` — the process that owned it is gone. Both Matriarch and Calf lanes are swept, every reconciled Pod keeps a durable `system` event naming what changed and why, and the Pod itself becomes `closed` (section 4.4) unless it was already **Beached**, which is left alone with its cause intact. The recovery is **Open**: opening the Pod puts its Matriarch lane back to `running`, so the sweep is reversible. Distinct from the turn-boundary row above, which orphans a Calf inside a live process; this row is about a process that no longer exists. |
+| Claude Code refuses the stored `cc_session_id` at resume | The Pod opens as a **fresh** Claude Code session rather than failing or beaching: the runner is reaped, one retry runs with no `resume` option, and a durable `system` event (subtype `resume_fallback`) is appended to the Matriarch lane saying the previous conversation could not be resumed and this is a new one. Refusing to open would be worse than the loss of context, and a silent restart would be worse still — this is the one case where CC remembers *less* than the UI shows, so it is stated in the transcript. Narrow by construction: only a `RESUME_FAILED` raised when a `resume` id was actually supplied takes this path, so `CWD_MISSING` and `SPAWN_FAILED` still beach the Pod with their cause and never retry. A retry that itself fails beaches the Pod with the retry's cause and writes no notice. |
 | Settings file unwritable | OS error surfaced; no partial write (atomic rename guarantees this). |
 | Working directory missing at resume | Pod opens read-only in a **Beached** state with an explanation; the user may repoint or delete it. |
 
