@@ -40,8 +40,6 @@ const CONVERSATION = [
   'assistant_text',
   'tool_use',
   'tool_result',
-  'permission_request',
-  'permission_decision',
 ] as const satisfies readonly EventType[];
 
 const DIAGNOSTIC = ['error', 'malformed'] as const satisfies readonly EventType[];
@@ -51,6 +49,8 @@ const PLUMBING = [
   'system',
   'lane_opened',
   'lane_closed',
+  'permission_request',
+  'permission_decision',
 ] as const satisfies readonly EventType[];
 
 /**
@@ -59,6 +59,14 @@ const PLUMBING = [
  * `tool_use` is here rather than in the plumbing set because it is where the
  * inline dispatch card renders (spec 5.2) — filtering it would strip the
  * causality the card exists to preserve.
+ *
+ * AMENDED 2026-08-21 (`contracts/transcript-filter-amendment.ts`):
+ * `permission_request` and `permission_decision` LEFT this set for the plumbing
+ * set, taking it from six members to four. THE USER'S REASON: a permission
+ * raises a real confirmation prompt — the permission card, in the pane's own
+ * `permissionSlot`, which they must answer before the turn continues. The
+ * transcript row beside it is a second copy of something they have already been
+ * made to look at.
  */
 export const CONVERSATION_EVENT_TYPES: readonly EventType[] = CONVERSATION;
 
@@ -77,6 +85,14 @@ export const DIAGNOSTIC_EVENT_TYPES: readonly EventType[] = DIAGNOSTIC;
  * what the model said. `lane_opened` / `lane_closed` are lane bookkeeping the
  * rail already reports, with the lane's status, where the user is already
  * looking.
+ *
+ * `permission_request` / `permission_decision` JOINED THIS SET on 2026-08-21.
+ * THEY MOVE, THEY ARE NOT DROPPED: spec 5.2 requires every member of the frozen
+ * `EventType` union to stay RENDERABLE, and both still render through
+ * `TranscriptEventItem`'s existing cases, revealed by the toggle at their
+ * original `seq` position, interleaved. NOTHING WAS DELETED FROM
+ * `TranscriptEventItem`, and THE PERMISSION CARD IS UNAFFECTED — hiding the
+ * transcript ROW does not hide the PROMPT.
  */
 export const PLUMBING_EVENT_TYPES: readonly EventType[] = PLUMBING;
 
@@ -127,6 +143,24 @@ export type _EventTypeSetsAreDisjoint = _AssertNever<
  *
  * The second line is the spelling in `src/main/store/schema.ts:210-212`. It is
  * why this file does not use it.
+ *
+ * RE-PROVED 2026-08-21, BECAUSE THE TUPLE CONTENTS CHANGED. A guard that held
+ * over a 6/2/4 partition is not thereby known to hold over a 4/2/6 one, and a
+ * guard nobody watched fire is the defect class this project has now shipped
+ * three times. Three throwaway probes, `tsc --noEmit --strict --ignoreConfig`,
+ * over copies of this exact region with the CURRENT tuples:
+ *
+ *   A. 13-member local union       -> TS2344: Type '"thirteenth_event_type"'
+ *                                    does not satisfy the constraint 'never'.
+ *                                    (raised by `_EventTypesArePartitioned`)
+ *   B. `tool_use` in TWO sets,
+ *      union fully covered         -> TS2344: Type '"tool_use"' does not
+ *                                    satisfy the constraint 'never', raised by
+ *                                    `_EventTypeSetsAreDisjoint` ALONE. The
+ *                                    cover guard stayed silent. COVER IS NOT A
+ *                                    PARTITION.
+ *   C. `const x: _Unpartitioned[] = []`
+ *      over probe A's union        -> exit 0, NO ERROR AT ALL.
  */
 
 // ---------------------------------------------------------------------------

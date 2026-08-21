@@ -38,17 +38,41 @@ const ALL_EVENT_TYPES: Record<EventType, true> = {
 const EVERY_EVENT_TYPE = Object.keys(ALL_EVENT_TYPES) as EventType[];
 
 describe('the three sets partition EventType (AC1)', () => {
-  it('lands the contract lists verbatim', () => {
+  /**
+   * REWRITTEN 2026-08-21, NOT REGRESSED. The previous membership and 6/2/4
+   * arity assertions encoded the SUPERSEDED decision that a permission is a
+   * conversation event; `contracts/transcript-filter-amendment.ts` moved both
+   * permission types to the plumbing set and the sets are 4/2/6 now. An
+   * assertion that fails because the decision changed is the previous
+   * decision, and it goes.
+   */
+  it('lands the contract lists verbatim, in the contract order', () => {
     expect(CONVERSATION_EVENT_TYPES).toEqual([
       'user_message',
       'assistant_text',
       'tool_use',
       'tool_result',
+    ]);
+    expect(DIAGNOSTIC_EVENT_TYPES).toEqual(['error', 'malformed']);
+    expect(PLUMBING_EVENT_TYPES).toEqual([
+      'thinking',
+      'system',
+      'lane_opened',
+      'lane_closed',
       'permission_request',
       'permission_decision',
     ]);
-    expect(DIAGNOSTIC_EVENT_TYPES).toEqual(['error', 'malformed']);
-    expect(PLUMBING_EVENT_TYPES).toEqual(['thinking', 'system', 'lane_opened', 'lane_closed']);
+  });
+
+  it('is 4 / 2 / 6, and the permissions are in PLUMBING', () => {
+    expect(CONVERSATION_EVENT_TYPES).toHaveLength(4);
+    expect(DIAGNOSTIC_EVENT_TYPES).toHaveLength(2);
+    expect(PLUMBING_EVENT_TYPES).toHaveLength(6);
+    for (const type of ['permission_request', 'permission_decision'] as const) {
+      expect(PLUMBING_EVENT_TYPES).toContain(type);
+      expect(CONVERSATION_EVENT_TYPES).not.toContain(type);
+      expect(DIAGNOSTIC_EVENT_TYPES).not.toContain(type);
+    }
   });
 
   it('assigns every EventType to exactly one set', () => {

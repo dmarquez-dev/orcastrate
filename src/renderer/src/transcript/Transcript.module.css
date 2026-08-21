@@ -142,6 +142,39 @@
   gap: var(--oc-space-1);
 }
 
+/*
+ * THE USER'S TURN, AND ONLY THE USER'S (`contracts/transcript-turns.ts`
+ * section 1, as amended at Gate 2).
+ *
+ * TWO PRODUCERS, NOT TWELVE ROW KINDS. There are twelve `EventType` members,
+ * but everything that is not the human is Claude Code's side of the
+ * conversation — a tool call, a tool result, a dispatch card, a lane notice, an
+ * `error` and a `malformed` row alike. The left column means "not you", not
+ * "Claude said this in prose", so `assistant` and `system` both live there and
+ * `turnRoleOf` keeps its third member for TREATMENT rather than for side.
+ *
+ * `margin-inline-start`, NOT `margin-left`: a logical property, so the layout
+ * is not wrong under RTL. It is the mechanism VS Code ships for the same job
+ * (microsoft/vscode#249681).
+ *
+ * THE CAP IS THE ONLY MEASURE CONSTRAINT. An inset is cheap — ~4 characters at
+ * the 1280 default — but stacking a cap AND an inset over-constrains the
+ * half-width follower pane, so the row is pushed and capped and not also
+ * indented.
+ *
+ * COLOUR IS NEVER THE ONLY CARRIER. Remove every colour from this page and the
+ * alignment, the cap, the border and the visible "You" label all still
+ * distinguish the two producers.
+ */
+.event[data-turn-role='user'] {
+  margin-inline-start: auto;
+  max-width: 90%;
+  padding: var(--oc-space-2);
+  border: 1px solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-raised);
+}
+
 .eventLabel {
   font-size: var(--oc-text-xs);
   font-weight: 700;
@@ -176,6 +209,63 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   overflow-x: auto;
+}
+
+/* --- Compact tool activity and its disclosure ---------------------------- */
+
+/*
+ * The `└` is DECORATION on the result's own row, not a join between two rows.
+ * `tool_use` and `tool_result` are two events with two `seq` values and they
+ * are frequently not adjacent; the glyph makes the result READ as attached to
+ * the call above it without the two becoming one `<li>`.
+ */
+.toolRow {
+  display: flex;
+  align-items: center;
+  gap: var(--oc-space-1);
+  min-width: 0;
+}
+
+.attachGlyph {
+  color: var(--oc-fg-muted);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+}
+
+.disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oc-space-2);
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--oc-space-1) var(--oc-space-2);
+  border: 1px solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.disclosure:hover {
+  background: var(--oc-bg-hover);
+}
+
+/* ONE LINE. The summary is one line by construction; this keeps it one line
+   when the pane is narrower than the summary is wide. */
+.disclosureSummary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chevron {
+  flex: 0 0 auto;
+  color: var(--oc-fg-muted);
 }
 
 .muted {
