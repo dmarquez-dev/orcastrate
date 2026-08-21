@@ -27,6 +27,8 @@ import { PodTab } from './PodTab';
 export interface PodBarInternalProps extends PodBarProps {
   /** Start the Pod's process. The connector picks open vs. reconnect. */
   onOpen(podId: PodId): void;
+  /** Ask for the delete confirmation. Nothing here deletes anything. */
+  onDelete(podId: PodId): void;
 }
 
 export function PodBar({
@@ -36,6 +38,7 @@ export function PodBar({
   onNewPod,
   onClose,
   onOpen,
+  onDelete,
 }: PodBarInternalProps): JSX.Element {
   const listRef = useRef<HTMLUListElement>(null);
   const [draggingId, setDraggingId] = useState<PodId | null>(null);
@@ -85,6 +88,9 @@ export function PodBar({
             key={tab.pod.id}
             onClose={() => {
               onClose(tab.pod.id);
+            }}
+            onDelete={() => {
+              onDelete(tab.pod.id);
             }}
             onDragEnd={endDrag}
             onDragEnter={() => {

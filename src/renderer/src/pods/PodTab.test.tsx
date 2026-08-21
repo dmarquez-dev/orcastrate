@@ -1,12 +1,19 @@
 // @vitest-environment jsdom
 /**
- * The tab's half of the closed-Pod story: the `Closed` LABEL, the status dot's
- * new token, and the run control as the named way out.
+ * The tab's chrome: the `Closed` LABEL, the status dot's token, and the TWO
+ * controls the tab now carries.
+ *
+ * REWRITTEN, not extended, for the run control. This file used to describe one
+ * always-present `x` whose meaning was "Close" for every Pod, beside a run
+ * control labelled with a bare word. Both descriptions are of behaviour that no
+ * longer exists: the tab now carries a run/stop control (PLAY when the Pod has
+ * no process, PAUSE when it has one) and — only when there is no process — a
+ * separate red delete control.
  *
  * `PodTab` is presentational. It takes a `PodTabVm` and callbacks, reaches
  * around its props into nothing, and re-derives openness from nothing —
  * `opened` arrives already computed by the state layer's single derivation, and
- * this component only decides whether to OFFER the control and what to call it.
+ * this component only decides WHICH controls to offer and what to call them.
  * Every test below therefore drives it with data alone.
  */
 
@@ -15,7 +22,14 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { statusToken } from '../shell/contract-runtime';
-import { PodTab, POD_TAB_OPEN_TEST_ID, type PodTabProps } from './PodTab';
+import {
+  PodTab,
+  POD_TAB_DELETE_TEST_ID,
+  POD_TAB_OPEN_TEST_ID,
+  POD_TAB_STOP_TEST_ID,
+  type PodTabProps,
+} from './PodTab';
+import { runControlFor } from './run-control';
 import { tabVm, type TabOverrides } from './test-fixtures';
 
 // Imported for its `afterEach(cleanup)` side effect.
@@ -25,6 +39,7 @@ function renderTab(overrides: TabOverrides, props: Partial<PodTabProps> = {}) {
   const onOpen = vi.fn();
   const onSelect = vi.fn();
   const onClose = vi.fn();
+  const onDelete = vi.fn();
   const full: PodTabProps = {
     tab: tabVm(overrides),
     index: 0,
@@ -34,6 +49,7 @@ function renderTab(overrides: TabOverrides, props: Partial<PodTabProps> = {}) {
     onSelect,
     onClose,
     onOpen,
+    onDelete,
     onMove: vi.fn(),
     onFocusSibling: vi.fn(),
     onDragStart: vi.fn(),
@@ -48,12 +64,17 @@ function renderTab(overrides: TabOverrides, props: Partial<PodTabProps> = {}) {
       <PodTab {...full} />
     </ul>,
   );
-  return { ...result, onOpen, onSelect, onClose, props: full };
+  return { ...result, onOpen, onSelect, onClose, onDelete, props: full };
 }
 
 const CLOSED: TabOverrides = { id: 'a', title: 'Alpha', status: 'closed', opened: false };
 const BEACHED: TabOverrides = { id: 'a', title: 'Alpha', status: 'beached', opened: false };
 const OPEN: TabOverrides = { id: 'a', title: 'Alpha', status: 'idle', opened: true };
+
+/** The icon SHAPE, read from the glyph's own attribute rather than from CSS. */
+function iconOf(control: HTMLElement): string | null {
+  return control.querySelector('[data-icon]')?.getAttribute('data-icon') ?? null;
+}
 
 describe('the `closed` status on a Pod tab', () => {
   it('says the word Closed, so colour is not the only carrier of the state', () => {
@@ -82,45 +103,159 @@ describe('the `closed` status on a Pod tab', () => {
   });
 });
 
-describe('the run control is the named way out', () => {
-  it('is labelled Open for a closed Pod, in text and in its accessible name', () => {
+describe('the tab carries two distinct controls', () => {
+  /*
+   * BOTH HALVES OF EACH NEGATIVE ARE ASSERTED IN THE SAME TEST. "No delete
+   * control for an opened Pod" passes trivially against a component that
+   * rendered nothing at all, so every `toBeNull` below sits beside the control
+   * that MUST be there in the same render.
+   */
+  it('offers run and delete, and only those two, for a Pod with no process', () => {
     renderTab(CLOSED);
-    const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
-    expect(control.tagName).toBe('BUTTON');
-    expect(control.textContent).toBe('Open');
-    expect(control.getAttribute('aria-label')).toBe('Open Alpha');
+    const run = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
+    const del = screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`);
+
+    expect(run.tagName).toBe('BUTTON');
+    expect(del.tagName).toBe('BUTTON');
+    // The stop control is the OTHER mode of the run control, so it is absent.
+    expect(screen.queryByTestId(`${POD_TAB_STOP_TEST_ID}:a`)).toBeNull();
   });
 
-  it('is labelled Reconnect for a beached Pod, in text and in its accessible name', () => {
-    renderTab(BEACHED);
-    const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
-    expect(control.textContent).toBe('Reconnect');
-    expect(control.getAttribute('aria-label')).toBe('Reconnect Alpha');
-  });
-
-  it('is not offered at all for an open Pod', () => {
+  it('offers stop and NO delete control at all for a Pod with a live process', () => {
     renderTab(OPEN);
+    // Present first, so the two absences below cannot be satisfied by an empty
+    // render.
+    const stop = screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`);
+    expect(stop.tagName).toBe('BUTTON');
+    expect(screen.getByTestId('pod-tab:a')).toBeDefined();
+
+    // ABSENT, not disabled. A running Pod must not be one click from deletion,
+    // and a disabled control is still a control the user can land on and read.
+    expect(screen.queryByTestId(`${POD_TAB_DELETE_TEST_ID}:a`)).toBeNull();
+    expect(screen.queryByLabelText('Delete Alpha')).toBeNull();
     expect(screen.queryByTestId(`${POD_TAB_OPEN_TEST_ID}:a`)).toBeNull();
   });
 
-  it('is operable by keyboard alone', async () => {
+  it('draws PLAY when the Pod has no process and PAUSE when it has one', () => {
+    renderTab(CLOSED);
+    expect(iconOf(screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`))).toBe('play');
+
+    renderTab(OPEN);
+    expect(iconOf(screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`))).toBe('pause');
+  });
+
+  it('draws PLAY for a beached Pod too — the icon says "this will run"', () => {
+    renderTab(BEACHED);
+    expect(iconOf(screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`))).toBe('play');
+  });
+});
+
+describe('the stop control is honest about what it does', () => {
+  it('is named Stop, not Close, because the Pod row survives', () => {
+    renderTab(OPEN);
+    const stop = screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`);
+    expect(stop.getAttribute('aria-label')).toBe('Stop Alpha');
+    // The old name described closing the TAB, which is not what happens.
+    expect(screen.queryByLabelText('Close Alpha')).toBeNull();
+  });
+
+  it('invokes the close action and nothing else', async () => {
+    const user = userEvent.setup();
+    const { onClose, onOpen, onDelete, onSelect } = renderTab(OPEN);
+    await user.click(screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(onSelect).not.toHaveBeenCalled();
+  });
+});
+
+describe('neither control is distinguished by colour alone', () => {
+  it('names the delete control Delete <title> and gives it its own icon shape', () => {
+    renderTab(CLOSED);
+    const del = screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`);
+    const run = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
+
+    // The NAME, not a class and not a style: this is what survives for a user
+    // who cannot see that the control is red.
+    expect(del.getAttribute('aria-label')).toBe('Delete Alpha');
+    expect(run.getAttribute('aria-label')).toBe('Open Alpha');
+
+    // And the shapes differ, so the two are told apart in greyscale as well.
+    expect(iconOf(del)).toBe('delete');
+    expect(iconOf(run)).toBe('play');
+    expect(iconOf(del)).not.toBe(iconOf(run));
+  });
+
+  it('asks for the confirmation rather than deleting anything', async () => {
+    const user = userEvent.setup();
+    const { onDelete, onClose, onOpen } = renderTab(CLOSED);
+    await user.click(screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`));
+
+    expect(onDelete).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it('reaches the delete control by keyboard alone', async () => {
+    const user = userEvent.setup();
+    const { onDelete } = renderTab(CLOSED);
+    const del = screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`);
+
+    del.focus();
+    expect(document.activeElement).toBe(del);
+    await user.keyboard('{Enter}');
+    expect(onDelete).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the run control names the verb and, for a beached Pod, the cause', () => {
+  it('is named Open <title> for a closed Pod and calls the run action', async () => {
     const user = userEvent.setup();
     const { onOpen, onSelect } = renderTab(CLOSED);
     const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
 
-    control.focus();
-    expect(document.activeElement).toBe(control);
-    await user.keyboard('{Enter}');
+    expect(control.getAttribute('aria-label')).toBe('Open Alpha');
+    expect(control.getAttribute('data-verb')).toBe('open');
 
+    await user.click(control);
     expect(onOpen).toHaveBeenCalledTimes(1);
     // Starting the Pod is not selecting it; the tab's own handler is untouched.
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it('moves focus to the tab when the control unmounts after the Pod opens', () => {
+  it('carries the CAUSE in the name for a beached Pod, and asks for reconnect', async () => {
+    const user = userEvent.setup();
+    const { onOpen } = renderTab(BEACHED);
+    const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
+
+    // The whole of design section 8's requirement, at the one affordance the
+    // user can act on. The name says which verb AND why, because the icon is
+    // the same PLAY triangle a closed Pod gets.
+    expect(control.getAttribute('aria-label')).toBe('Reconnect Alpha, stopped with an error');
+    expect(control.getAttribute('data-verb')).toBe('reconnect');
+
+    await user.click(control);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes both the name and the verb from runControlFor and derives nothing itself', () => {
+    for (const overrides of [CLOSED, BEACHED]) {
+      const { unmount } = renderTab(overrides);
+      const vm = runControlFor(overrides.status ?? 'idle', 'Alpha');
+      const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
+      expect(control.getAttribute('aria-label')).toBe(vm.accessibleName);
+      expect(control.getAttribute('data-verb')).toBe(vm.verb);
+      unmount();
+    }
+  });
+
+  it('KEEPS focus on the run/stop control when the Pod opens under the user', () => {
     // The accessibility floor: focus moves predictably after an action that
-    // changes what is on screen. Without this the user is stranded on
-    // `document.body` the instant the control disappears.
+    // changes what is on screen. Here it does not have to move at all — the
+    // run/stop control is ONE element whose mode changes, so the user who
+    // pressed Open is still on the same button, now named Stop.
     const { rerender, props } = renderTab(CLOSED);
     const control = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
     control.focus();
@@ -131,12 +266,31 @@ describe('the run control is the named way out', () => {
       </ul>,
     );
 
+    const stop = screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`);
+    expect(document.activeElement).toBe(stop);
+    expect(stop.getAttribute('aria-label')).toBe('Stop Alpha');
     expect(screen.queryByTestId(`${POD_TAB_OPEN_TEST_ID}:a`)).toBeNull();
-    expect(document.activeElement).toBe(screen.getByTestId('pod-tab:a'));
+  });
+
+  it('rescues focus to the run/stop control when the DELETE control unmounts', () => {
+    // The delete control does unmount when the Pod opens, which strands focus
+    // on `document.body`. It lands on the neighbouring control instead.
+    const { rerender, props } = renderTab(CLOSED);
+    screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`).focus();
+
+    rerender(
+      <ul>
+        <PodTab {...props} tab={tabVm(OPEN)} />
+      </ul>,
+    );
+
+    expect(screen.queryByTestId(`${POD_TAB_DELETE_TEST_ID}:a`)).toBeNull();
+    expect(document.activeElement).toBe(screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:a`));
   });
 
   it('leaves focus alone when it had already moved somewhere else', () => {
     const { rerender, props } = renderTab(CLOSED);
+    screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`).focus();
     const elsewhere = screen.getByTestId('pod-tab:a').ownerDocument.createElement('button');
     document.body.append(elsewhere);
     elsewhere.focus();

@@ -173,7 +173,11 @@
   font-size: var(--oc-text-xs);
 }
 
-/* Open / Reconnect. A word, not a colour: the label carries the meaning. */
+/*
+ * The run/stop control, in both modes: PLAY when the Pod has no process, PAUSE
+ * when it has one. Neutral chrome — this control is never the dangerous one,
+ * so it does not compete with the delete control for attention.
+ */
 .runControl {
   display: flex;
   align-items: center;
@@ -191,21 +195,26 @@
   background: var(--oc-bg-hover);
 }
 
-.close {
+/*
+ * Delete. Red, but colour is the LAST of three carriers, not the only one: the
+ * control has its own glyph shape (an x, against the run control's triangle or
+ * bars) and its own accessible name ("Delete <title>"), and it is absent
+ * entirely for a Pod with a live process.
+ */
+.deleteControl {
   display: flex;
   align-items: center;
   padding-inline: var(--oc-space-1);
   border: 0;
   border-radius: var(--oc-radius-sm);
   background: transparent;
-  color: var(--oc-fg-muted);
+  color: var(--oc-danger);
   cursor: pointer;
   font-size: var(--oc-text-sm);
 }
 
-.close:hover {
-  background: var(--oc-bg-hover);
-  color: var(--oc-fg-primary);
+.deleteControl:hover {
+  background: var(--oc-danger-bg);
 }
 
 .newPod {

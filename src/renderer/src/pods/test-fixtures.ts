@@ -8,6 +8,13 @@ export interface TabOverrides {
   active?: boolean;
   opened?: boolean;
   status?: PodStatus;
+  /**
+   * Claude Code's session id, or null for a Pod that never reached its first
+   * turn. Explicit here because the delete confirmation's checkbox is ABSENT
+   * when it is null, and a fixture that could not express both sides would let
+   * that assertion pass by rendering nothing.
+   */
+  ccSessionId?: string | null;
   permissionMode?: PermissionMode;
   awaitingPermission?: boolean;
   pendingPermissionCount?: number;
@@ -22,6 +29,7 @@ export function tabVm(overrides: TabOverrides): PodTabVm {
     active = false,
     opened = true,
     status = 'idle',
+    ccSessionId = null,
     permissionMode = 'default',
     awaitingPermission = false,
     pendingPermissionCount = awaitingPermission ? 1 : 0,
@@ -29,7 +37,7 @@ export function tabVm(overrides: TabOverrides): PodTabVm {
   } = overrides;
 
   return {
-    pod: makeStubPod({ id, title, permissionMode, status }),
+    pod: makeStubPod({ id, title, permissionMode, status, ccSessionId }),
     active,
     opened,
     status,
