@@ -5,6 +5,13 @@
 
 export { PodManager } from './pod-manager';
 export type { PodManagerApi, PodManagerDeps } from './pod-manager';
+export {
+  armPendingEcho,
+  suppressEchoedUserPrompts,
+  PENDING_ECHO_CAP,
+  PENDING_ECHO_TTL_MS,
+} from './pending-echo';
+export type { PendingEcho } from './pending-echo';
 export { createPushes } from './pushes';
 export type { Pushes, SendToRenderer } from './pushes';
 export { ROUTING_MODE } from './routing-mode';
