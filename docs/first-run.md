@@ -1,5 +1,20 @@
 # First run
 
+> **Status: executed 2026-08-20.** This guide was written before Orcastrate had
+> ever been launched and is kept in that voice, because it is the record of what
+> was and was not known at the time. It has since been run. What that run found
+> is in `.dir-sdlc/backlog.md` under "2026-08-20 — first run findings", and the
+> four lifecycle defects it turned up were fixed by sessions
+> `2026-08-20-orcastrate-pod-lifecycle` and `2026-08-20-orcastrate-open-resumes`.
+> `.dir-sdlc/log.md` records what has since been re-verified by hand.
+>
+> **Still accurate and still worth following** for a fresh machine or a clean
+> database: sections 1–5 (the safety notes, the launch procedure, the
+> `Error: Electron uninstall` fix, and the read-only scenarios) were unaffected by
+> those fixes. **Section 8's expectation table is partly superseded** — the
+> relaunch symptoms it does not mention were the bug; several of its "known and
+> understood" rows are now fixed. Read it against the backlog, not on its own.
+
 Orcastrate has never been launched. Every one of its 1392 tests is unit or jsdom;
 `npm run build` succeeds, but no session has opened a window, and no code path
 below has been observed against a real Electron runtime, a real filesystem, or a

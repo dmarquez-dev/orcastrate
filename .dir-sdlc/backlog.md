@@ -474,6 +474,28 @@ workspace-refinement session must account for, in the sense sub-session 1's
   carries its cause — design §8 — so collapsing the two verbs must not lose the
   distinction between "stopped deliberately" and "stopped with a reason".
 
+- **Decide whether creating a Pod must also start it.** Raised by the user from
+  using the app on 2026-08-20: "I currently can't create a Pod without it
+  starting." That is deliberate today and documented at
+  `src/renderer/src/state/store.ts:473-476` — *"Creates the Pod row AND opens its
+  process."* `createPod` invokes `pods.create` and then `pods.open` in one action.
+
+  It is worth revisiting now rather than earlier because the ground moved: a Pod
+  is born `'closed'` since `2026-08-20-orcastrate-pod-lifecycle`
+  (`sqlite-event-store.ts:175`), the tab renders a working `Open` control for a
+  closed Pod, and reopening resumes since `2026-08-20-orcastrate-open-resumes`.
+  So "create without starting" is now a coherent state the UI already knows how
+  to display and recover from, which it was not when the auto-open was written.
+
+  **What it costs to change.** Creating a Pod spawns a real Claude Code process
+  with real token cost, so a user who wants to set up several Pods and start them
+  deliberately currently cannot. Against that: the New Pod dialog's error
+  handling folds create-failure and open-failure into one path
+  (`store.ts:461-481`), and splitting them means deciding what the dialog says
+  when the row is created but the process is not — which is the same surface as
+  the run-control verb question above, and another reason to decide the two
+  together.
+
 ## 2026-08-20 — 2026-08-20-orcastrate-open-resumes (Small)
 
 Advisory findings the user chose to carry forward at that session's Gate 3. Small
