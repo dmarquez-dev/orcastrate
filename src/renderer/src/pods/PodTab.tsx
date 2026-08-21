@@ -5,7 +5,20 @@ import type { PodTabVm } from '../contracts/renderer-state';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken, testId } from '../shell/contract-runtime';
 import a11y from '../shell/a11y.module.css';
+import { runControlFor } from './run-control';
 import styles from './PodBar.module.css';
+
+/*
+ * The three icon glyphs. This app draws its icons as characters — `+` on New
+ * Pod, `−` on a removed env row, `BYPASS` on the bypass chip — and has no SVG
+ * anywhere, so a glyph is the convention rather than a shortcut. Each rides in
+ * an `aria-hidden` span with a `data-icon` attribute: the name is what a screen
+ * reader gets, `data-icon` is what a test asserts the SHAPE by, and neither is
+ * a colour.
+ */
+const PLAY = '▶';
+const PAUSE = '❚❚';
+const CROSS = '×';
 
 /** Status in words. Colour is never the only carrier of meaning. */
 const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
@@ -21,8 +34,8 @@ const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
 };
 
 /**
- * The run-control's `data-testid` base, suffixed with the PodId:
- * `pod-tab-open:<podId>`.
+ * The RUN mode of the run/stop control, suffixed with the PodId:
+ * `pod-tab-open:<podId>`. Present only while `opened` is false.
  *
  * NOT in the frozen `TEST_IDS`, deliberately. That object's own note allows an
  * id a component adds for its internal use as long as it does not collide, and
@@ -30,10 +43,28 @@ const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
  * `pod-tab-bypass:` are all anchored on their own colon). Adding it to the
  * contract would be a contract change, which is out of scope here.
  *
- * ONE id covers both modes — Open and Reconnect — so "no run control is
+ * ONE id covers both verbs — Open and Reconnect — so "no run control is
  * reachable for an opened Pod" is a single query rather than two.
  */
 export const POD_TAB_OPEN_TEST_ID = 'pod-tab-open';
+
+/**
+ * The STOP mode of the same control: `pod-tab-stop:<podId>`, present only while
+ * `opened` is true. One control, two mutually exclusive modes — a Pod is never
+ * both runnable and stoppable — so the id names the meaning the control
+ * currently has rather than leaving a suite to infer it from the Pod's state.
+ */
+export const POD_TAB_STOP_TEST_ID = 'pod-tab-stop';
+
+/**
+ * The DELETE control: `pod-tab-delete:<podId>`. A SEPARATE control from
+ * run/stop, present only while `opened` is false.
+ *
+ * It is absent — not disabled — for a running Pod, because a Pod with a live
+ * process must not be one click from deletion, and a disabled control is still
+ * a control a user can land on, read, and misjudge.
+ */
+export const POD_TAB_DELETE_TEST_ID = 'pod-tab-delete';
 
 export interface PodTabProps {
   tab: PodTabVm;
@@ -42,13 +73,20 @@ export interface PodTabProps {
   dragging: boolean;
   dropTarget: boolean;
   onSelect(): void;
+  /** STOPS the process. The row and the transcript survive, so it is "Stop". */
   onClose(): void;
   /**
    * Starts the Pod's process. The parent decides whether that is `openPod` or
    * `reconnectPod`; this component only decides whether to OFFER the control
-   * and what to call it.
+   * and what to call it, both through `runControlFor`.
    */
   onOpen(): void;
+  /**
+   * Opens the DELETE CONFIRMATION. It does not delete anything — no component
+   * below `PodsChrome` reaches `deletePod`, and the confirmation is the only
+   * route to it.
+   */
+  onDelete(): void;
   /** Keyboard reorder. `delta` is -1 or +1; the bar clamps. */
   onMove(delta: number): void;
   /** Roving focus between tabs, for the unmodified arrow keys. */
@@ -63,8 +101,8 @@ export interface PodTabProps {
  * One Pod bar tab.
  *
  * The tab itself is the `<button>` that selects the Pod, so it is the element
- * that carries `pod-tab:<podId>`; Close is a sibling control rather than a
- * button nested inside a button.
+ * that carries `pod-tab:<podId>`; the run/stop and delete controls are siblings
+ * rather than buttons nested inside a button.
  */
 export function PodTab({
   tab,
@@ -75,6 +113,7 @@ export function PodTab({
   onSelect,
   onClose,
   onOpen,
+  onDelete,
   onMove,
   onFocusSibling,
   onDragStart,
@@ -87,34 +126,47 @@ export function PodTab({
   const bypass = pod.permissionMode === 'bypassPermissions';
 
   /*
-   * A listed Pod with no live process needs somewhere to start one, or its
-   * composer stays disabled with no way out — which is exactly what happens to
-   * every Pod after a restart, since `pods.list` restores rows and nothing
-   * else. Beached is the same predicament reached from the other direction, so
-   * it gets the same slot with the verb the state layer actually needs
-   * (`reconnectPod`); the word is never the only difference, because the
-   * status line above already says "Beached, process stopped".
+   * TWO CONTROLS, NOT ONE CONTROL WITH TWO MEANINGS.
+   *
+   *   run/stop   ALWAYS present. PLAY when the Pod has no process, PAUSE when
+   *              it has one. A listed Pod with no live process needs somewhere
+   *              to start one, or its composer stays disabled with no way out
+   *              — which is every Pod after a restart, since `pods.list`
+   *              restores rows and nothing else.
+   *   delete     Present ONLY when the Pod has no process. A running Pod must
+   *              not be one click from deletion, so it is absent rather than
+   *              disabled.
+   *
+   * `opened` is the state layer's single derivation (`PodTabVm`), and
+   * `'beached'` is one of the two statuses it reports false for, so `!opened`
+   * already covers the beached case and no second predicate is needed here.
+   * WHICH verb the run control offers is `runControlFor`'s decision alone.
    */
-  const beached = status === 'beached';
-  const showRunControl = beached || !opened;
-  const runLabel = beached ? 'Reconnect' : 'Open';
+  const run = runControlFor(status, pod.title);
+  const showDeleteControl = !opened;
 
   const tabRef = useRef<HTMLButtonElement>(null);
-  const hadRunControl = useRef(showRunControl);
+  const runRef = useRef<HTMLButtonElement>(null);
+  const hadDeleteControl = useRef(showDeleteControl);
 
   /*
-   * The run control unmounts the moment the Pod opens, which strands keyboard
-   * focus on `document.body`. Focus then moves to the tab the user was
-   * operating — predictable, and adjacent to where the control stood. If focus
-   * had already moved somewhere else it is left alone.
+   * The delete control unmounts the moment the Pod opens, which strands
+   * keyboard focus on `document.body`. Focus then moves to the run/stop control
+   * — the element immediately before it in the row, and the one the user was
+   * about to reach anyway. If focus had already moved somewhere else it is left
+   * alone.
+   *
+   * THE RUN/STOP CONTROL NEEDS NO SUCH RESCUE, because it never unmounts: it is
+   * ONE element whose mode changes, so a user focused on Open is still focused
+   * on the same button when it becomes Stop.
    */
   useEffect(() => {
-    const had = hadRunControl.current;
-    hadRunControl.current = showRunControl;
-    if (!had || showRunControl) return;
+    const had = hadDeleteControl.current;
+    hadDeleteControl.current = showDeleteControl;
+    if (!had || showDeleteControl) return;
     if (document.activeElement !== null && document.activeElement !== document.body) return;
-    tabRef.current?.focus();
-  }, [showRunControl]);
+    (runRef.current ?? tabRef.current)?.focus();
+  }, [showDeleteControl]);
 
   const itemClass = [
     styles.tabItem,
@@ -211,26 +263,48 @@ export function PodTab({
         ) : null}
       </button>
 
-      {showRunControl ? (
-        <button
-          aria-label={`${runLabel} ${pod.title}`}
-          className={styles.runControl}
-          data-testid={testId(POD_TAB_OPEN_TEST_ID, pod.id)}
-          onClick={onOpen}
-          type="button"
-        >
-          {runLabel}
-        </button>
-      ) : null}
+      {/*
+        ONE ELEMENT, TWO MODES. Rendering the two modes as a single button is
+        not a saving: it is what keeps a keyboard user's focus in place when the
+        Pod starts or stops under them, and it is why the run/stop control needs
+        no focus rescue while the delete control does.
 
+        "Stop", not "Close": the Pod row and its transcript survive, and a name
+        that said Close would describe closing the tab. PAUSE rather than a
+        square because reopening RESUMES the conversation. PLAY for BOTH run
+        verbs — the icon says "this will run", and which verb, and why, is
+        carried by the accessible name.
+      */}
       <button
-        aria-label={`Close ${pod.title}`}
-        className={styles.close}
-        onClick={onClose}
+        aria-label={opened ? `Stop ${pod.title}` : run.accessibleName}
+        className={styles.runControl}
+        data-testid={testId(opened ? POD_TAB_STOP_TEST_ID : POD_TAB_OPEN_TEST_ID, pod.id)}
+        data-verb={opened ? 'stop' : run.verb}
+        onClick={opened ? onClose : onOpen}
+        ref={runRef}
         type="button"
       >
-        <span aria-hidden="true">&times;</span>
+        <span aria-hidden="true" data-icon={opened ? 'pause' : 'play'}>
+          {opened ? PAUSE : PLAY}
+        </span>
       </button>
+
+      {showDeleteControl ? (
+        <button
+          // Red, AND its own icon shape, AND its own name. Colour is never the
+          // only carrier: a user who cannot see that this is red still reads
+          // "Delete Alpha" and still sees a glyph that is not the run control's.
+          aria-label={`Delete ${pod.title}`}
+          className={styles.deleteControl}
+          data-testid={testId(POD_TAB_DELETE_TEST_ID, pod.id)}
+          onClick={onDelete}
+          type="button"
+        >
+          <span aria-hidden="true" data-icon="delete">
+            {CROSS}
+          </span>
+        </button>
+      ) : null}
     </li>
   );
 }

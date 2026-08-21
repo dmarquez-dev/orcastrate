@@ -21,8 +21,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { EventStore } from '../../../src/shared/contracts/event-store';
-import type { PodId } from '../../../src/shared/contracts/events';
-import type { IpcResult } from '../../../src/shared/contracts/ipc';
+import type { Pod, PodId } from '../../../src/shared/contracts/events';
+import type { IpcResult, PodSessionRemover } from '../../../src/shared/contracts/ipc';
 import type { CreatePodRunner } from '../../../src/shared/contracts/pod-runner';
 import type { IpcMainLike } from '../../../src/main/ipc';
 import { registerIpcHandlers } from '../../../src/main/ipc';
@@ -92,6 +92,12 @@ export interface Harness {
    */
   beachcomber: FakeBeachcomberService;
   helm: FakeHelmService;
+  /**
+   * Every Pod handed to the injected `deletePodSession` port, in order. A
+   * recording list rather than a counter: a port that was never called and a
+   * port that was called with the wrong Pod must not read the same.
+   */
+  sessionRemovals: Pod[];
   /** Whatever `pickDirectory` should answer next. */
   setPickedDirectory(path: string | null): void;
   /** Force the directory picker to fail. */
@@ -102,6 +108,13 @@ export interface Harness {
 export interface HarnessOptions {
   /** Answers PodManager's cwd capability check. Default: everything is a directory. */
   isDirectory?: (path: string) => boolean;
+  /**
+   * The Pod-session port. Default: a recording fake that answers `'not-found'`
+   * and reaches no disk — this suite tests the TRANSPORT, and the real remover
+   * is exercised in `tests/unit/pod-session/`. A test that wants the real one
+   * over a temp tree supplies it here.
+   */
+  deletePodSession?: PodSessionRemover;
 }
 
 export function makeHarness(options: HarnessOptions = {}): Harness {
@@ -154,6 +167,14 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
   let picked: string | null = 'C:\\picked';
   let pickError: unknown = null;
 
+  const sessionRemovals: Pod[] = [];
+  const deletePodSession: PodSessionRemover =
+    options.deletePodSession ??
+    (async (pod: Pod) => {
+      sessionRemovals.push(pod);
+      return { outcome: 'not-found' as const, error: null };
+    });
+
   const beachcomber = fakeBeachcomberService();
   // The same `pushed` sink PodManager writes to. In production T8 supplies
   // `sendToRenderers` here, which is the same function it supplies to
@@ -172,10 +193,12 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
     },
     beachcomber,
     helm,
+    deletePodSession,
   });
 
   return {
     store,
+    sessionRemovals,
     manager,
     pushed,
     beachcomber,

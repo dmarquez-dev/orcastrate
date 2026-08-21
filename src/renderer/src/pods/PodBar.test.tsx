@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken } from '../shell/contract-runtime';
 import { PodBar } from './PodBar';
+import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from './PodTab';
 import { renderedPodIds, tabVm } from './test-fixtures';
 
 // Imported for its `afterEach(cleanup)` side effect (`vitest.config.ts` sets
@@ -20,9 +21,11 @@ function renderBar(
   const onClose = vi.fn();
   const onNewPod = vi.fn();
   const onOpen = vi.fn();
+  const onDelete = vi.fn();
   const result = render(
     <PodBar
       onClose={onClose}
+      onDelete={onDelete}
       onNewPod={onNewPod}
       onOpen={onOpen}
       onReorder={onReorder}
@@ -31,7 +34,7 @@ function renderBar(
       {...overrides}
     />,
   );
-  return { ...result, onReorder, onSelect, onClose, onNewPod, onOpen };
+  return { ...result, onReorder, onSelect, onClose, onNewPod, onOpen, onDelete };
 }
 
 const THREE = [
@@ -143,13 +146,50 @@ describe('PodBar', () => {
     expect(screen.getByTestId(TEST_IDS.newPodButton)).toBeDefined();
   });
 
-  it('wires select, close and new Pod', () => {
+  /*
+   * REWRITTEN. This used to click a control named "Close Charlie" that every
+   * tab carried. There is no such control: an OPENED Pod carries a Stop
+   * control, and a stopped one carries a run control and a delete control.
+   */
+  it('wires select, stop and new Pod', () => {
     const { onSelect, onClose, onNewPod } = renderBar(THREE);
     fireEvent.click(screen.getByTestId(`${TEST_IDS.podTab}:b`));
-    fireEvent.click(screen.getByRole('button', { name: 'Close Charlie' }));
+    // Charlie is `waiting`, i.e. opened, so its run/stop control is Stop.
+    fireEvent.click(screen.getByRole('button', { name: 'Stop Charlie' }));
     fireEvent.click(screen.getByTestId(TEST_IDS.newPodButton));
     expect(onSelect).toHaveBeenCalledWith('b');
     expect(onClose).toHaveBeenCalledWith('c');
     expect(onNewPod).toHaveBeenCalledTimes(1);
+  });
+
+  it('wires the run control and the delete control to the right Pod', () => {
+    const { onOpen, onDelete, onClose } = renderBar([
+      tabVm({ id: 'a', title: 'Alpha', status: 'closed', opened: false }),
+      tabVm({ id: 'b', title: 'Bravo', status: 'running' }),
+    ]);
+
+    fireEvent.click(screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`));
+    fireEvent.click(screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`));
+
+    expect(onOpen).toHaveBeenCalledWith('a');
+    expect(onDelete).toHaveBeenCalledWith('a');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('offers the delete control only on the row with no live process', () => {
+    renderBar([
+      tabVm({ id: 'a', title: 'Alpha', status: 'closed', opened: false }),
+      tabVm({ id: 'b', title: 'Bravo', status: 'running' }),
+    ]);
+
+    // Both halves in one render, so neither absence is satisfied by an empty
+    // bar: Alpha has run + delete, Bravo has stop and no delete.
+    expect(screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`)).toBeDefined();
+    expect(screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`)).toBeDefined();
+    expect(screen.getByTestId(`${POD_TAB_STOP_TEST_ID}:b`)).toBeDefined();
+
+    expect(screen.queryByTestId(`${POD_TAB_DELETE_TEST_ID}:b`)).toBeNull();
+    expect(screen.queryByLabelText('Delete Bravo')).toBeNull();
+    expect(screen.queryByTestId(`${POD_TAB_STOP_TEST_ID}:a`)).toBeNull();
   });
 });

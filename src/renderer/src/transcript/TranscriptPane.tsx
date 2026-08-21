@@ -1,12 +1,19 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import type { Lane, Seq } from '@shared/contracts/events';
 
-import { TEST_IDS, type TranscriptPaneProps } from '../contracts/renderer-view';
+import { PANE_TEST_IDS, TEST_IDS, type TranscriptPaneProps } from '../contracts/renderer-view';
 import { dispatchedLaneIdOf } from './DispatchCard';
 import { buildLaneIndex, collectDispatchedLanes } from './lane-index';
 import styles from './Transcript.module.css';
 import { TranscriptEventItem } from './TranscriptEventItem';
+import { TranscriptFilterToggle } from './TranscriptFilterToggle';
+import {
+  DEFAULT_TRANSCRIPT_FILTER,
+  filterTranscriptEvents,
+  hiddenEventCount,
+  type TranscriptFilterMode,
+} from './transcript-filter';
 
 /**
  * How close to the bottom still counts as "at the bottom". Sub-pixel scroll
@@ -39,6 +46,7 @@ export function TranscriptPane({
   lanes,
   routingMode,
   isSplit,
+  onHide,
   hasMore,
   onLoadMore,
   onJumpToLane,
@@ -49,7 +57,44 @@ export function TranscriptPane({
   const atBottomRef = useRef(true);
 
   const laneId = lane === null ? null : lane.id;
-  const events = view.events;
+
+  /**
+   * THE FILTER MODE IS THIS PANE'S OWN STATE, and it lives here rather than in
+   * the state layer for the reason `panel-provider.tsx` gives from the other
+   * side: which rows a user has chosen to see is client interaction state, not
+   * server data. Two panes show different lanes for different reasons, so a
+   * shared mode would make revealing plumbing in one pane change the other.
+   */
+  const [filterMode, setFilterMode] = useState<TranscriptFilterMode>(DEFAULT_TRANSCRIPT_FILTER);
+  const toggleFilter = useCallback(() => {
+    setFilterMode((current) => (current === 'conversation' ? 'everything' : 'conversation'));
+  }, []);
+
+  /**
+   * `view.events` IS NEVER MUTATED, SLICED IN PLACE, OR RE-SORTED. The filter
+   * decides what is RENDERED from it and nothing else, and its output is a
+   * subsequence — so an expanded pane restores every hidden event at its
+   * original position in `seq` order, interleaved, never appended in a block at
+   * the end.
+   *
+   * Nothing here touches `unreadEventCount` or `highWaterSeq`: the badge
+   * reports what ARRIVED, not what is currently on screen, or a user would
+   * clear a badge by toggling a filter.
+   */
+  const events = useMemo(
+    () => filterTranscriptEvents(view.events, filterMode),
+    [view.events, filterMode],
+  );
+
+  /**
+   * How many events the 'conversation' mode hides in this stream RIGHT NOW —
+   * a property of the stream, not of the current mode, so the toggle can name
+   * the count it is about to hide while it is showing everything.
+   */
+  const hiddenCount = useMemo(
+    () => hiddenEventCount(view.events, 'conversation'),
+    [view.events],
+  );
 
   /**
    * Dispatch lanes, keyed by `seq`.
@@ -118,10 +163,38 @@ export function TranscriptPane({
       aria-label={isSplit ? `Pinned transcript: ${title}` : `Transcript: ${title}`}
     >
       <header className={styles.paneHeader}>
-        <h2 className={styles.paneTitle} ref={headingRef} tabIndex={-1}>
-          {title}
-          {isSplit ? <span className={styles.pinnedTag}> (pinned)</span> : null}
-        </h2>
+        <div className={styles.paneHeaderRow}>
+          <h2 className={styles.paneTitle} ref={headingRef} tabIndex={-1}>
+            {title}
+            {isSplit ? <span className={styles.pinnedTag}> (pinned)</span> : null}
+          </h2>
+          <div className={styles.paneHeaderActions}>
+            <TranscriptFilterToggle
+              mode={filterMode}
+              hiddenCount={hiddenCount}
+              pane={isSplit ? 'split' : 'primary'}
+              onToggle={toggleFilter}
+            />
+            {/*
+              THE FOLLOWER PANE'S OWN UNPIN CONTROL, and only the follower's.
+              The primary pane never carries it in any state: the Matriarch
+              cannot be closed, and a control that closes nothing is worse than
+              no control.
+            */}
+            {isSplit && onHide != null ? (
+              <button
+                type="button"
+                className={styles.unpin}
+                data-testid={PANE_TEST_IDS.transcriptUnpin}
+                aria-label={`Unpin ${title}`}
+                title={`Unpin ${title}`}
+                onClick={onHide}
+              >
+                Unpin
+              </button>
+            ) : null}
+          </div>
+        </div>
         {lane !== null && lane.description !== null ? (
           <p className={styles.paneSubtitle}>{lane.description}</p>
         ) : null}
@@ -156,7 +229,13 @@ export function TranscriptPane({
       >
         {events.length === 0 && view.phase !== 'loading' ? (
           <p className={styles.paneStatus}>
-            {lane === null ? 'Select a lane to see its transcript.' : 'No events in this lane yet.'}
+            {lane === null
+              ? 'Select a lane to see its transcript.'
+              : view.events.length === 0
+                ? 'No events in this lane yet.'
+                : // The lane is NOT empty — the filter is hiding all of it. Saying
+                  // "no events" here would be a lie the toggle's count contradicts.
+                  `Nothing but system events in this lane yet. Show ${hiddenCount} hidden system events to read them.`}
           </p>
         ) : (
           <ol className={styles.events}>

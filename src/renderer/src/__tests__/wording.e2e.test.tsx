@@ -10,14 +10,23 @@
  * pass while the app and the contract drifted apart together.
  */
 
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import type { PermissionMode, Pod, PodStatus } from '@shared/contracts/events';
+import type { NormalizedEvent, PermissionMode, Pod, PodStatus, Seq } from '@shared/contracts/events';
 import type { ComposerState } from '../contracts/renderer-state';
-import { BYPASS_PERMISSIONS_WARNING, PERMISSION_MODE_OPTIONS, TEST_IDS } from '../contracts/renderer-view';
+import {
+  BYPASS_PERMISSIONS_WARNING,
+  PERMISSION_MODE_OPTIONS,
+  TEST_IDS,
+  TRANSCRIPT_FILTER_TEST_IDS,
+} from '../contracts/renderer-view';
 import { disabledMessage } from '../composer/Composer';
+import { DELETE_POD_COPY, DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
+import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
+import { runControlFor } from '../pods/run-control';
+import { filterToggleLabel } from '../transcript';
 import { steerPrefill } from '../state';
 import { testId } from '../shell/contract-runtime';
 import { makeStubPod, stubOrcastrateApi, type StubOrcastrateApi } from '../test-utils';
@@ -29,6 +38,7 @@ import {
   CALF_LATE,
   CALF_LATE_ID,
   MATRIARCH,
+  MATRIARCH_ID,
   POD_ALPHA,
   POD_BRAVO,
   flushPendingWork,
@@ -289,4 +299,152 @@ describe('the composer sentence for a Pod that is not running', () => {
       expect(api.calls.podOpen).toEqual([]);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// The copy this session added, pinned verbatim
+// ---------------------------------------------------------------------------
+
+/**
+ * THREE NEW USER-VISIBLE STRINGS, AND WHY EACH IS PINNED AS WORDS.
+ *
+ * Each is asserted TWICE: once against a literal typed out here, so the WORDS
+ * are fixed and a rewording is a test failure rather than silent drift; and
+ * once against the constant the app renders from, so the app and its own
+ * declaration cannot drift apart while agreeing with each other. A single
+ * comparison against the imported constant would be a tautology — it would
+ * pass whatever the sentence became.
+ */
+
+/**
+ * `pods.delete` has always removed the Pod's transcript history and no dialog
+ * has ever said so. This is that sentence.
+ */
+const DELETE_HISTORY_SENTENCE = "This Pod's transcript history is removed permanently.";
+
+/**
+ * The beached run control's accessible name, INCLUDING THE CAUSE.
+ *
+ * Design section 8 requires a beached Pod to keep an affordance carrying its
+ * cause. Both run verbs draw the same play glyph, so the icon cannot carry the
+ * distinction and the name must — and a keyboard user hears only the name.
+ */
+const BEACHED_RUN_NAME = 'Reconnect Beached, stopped with an error';
+
+/** The same control for a Pod that simply is not running. */
+const CLOSED_RUN_NAME = 'Open Closed';
+
+/**
+ * The filter toggle's name, WITH THE COUNT IN WORDS.
+ *
+ * "Hidden" as a bare label leaves a user unable to tell an empty lane from a
+ * filtered one, and a count that exists only as a visual badge is not
+ * available to a screen reader at all.
+ */
+const FILTER_SHOW_TWO = 'Show 2 hidden system events';
+const FILTER_HIDE_TWO = 'Hide 2 system events';
+/** With nothing to hide the button still renders, and drops the count. */
+const FILTER_SHOW_NONE = 'Show system events';
+
+const DELETABLE: Pod = makeStubPod({
+  id: 'pod-doomed',
+  title: 'Doomed',
+  status: 'closed',
+  ccSessionId: 'cc-session-doomed',
+});
+
+const BEACHED_POD: Pod = makeStubPod({ id: 'pod-beached', title: 'Beached', tabOrder: 0, status: 'beached' });
+const CLOSED_POD: Pod = makeStubPod({ id: 'pod-closed', title: 'Closed', tabOrder: 1, status: 'closed' });
+
+function listing(pods: Pod[]): StubOrcastrateApi {
+  return stubOrcastrateApi({ pods: { list: async () => ({ ok: true, value: pods }) } });
+}
+
+describe('the delete confirmation', () => {
+  it('says the transcript history is removed permanently, word for word', async () => {
+    const user = userEvent.setup();
+    mountWorkspace(listing([DELETABLE]));
+
+    await user.click(await screen.findByTestId(testId(POD_TAB_DELETE_TEST_ID, DELETABLE.id)));
+    const dialog = await screen.findByTestId(DELETE_POD_TEST_IDS.dialog);
+
+    // `getByText` with a string matches an element's OWN text in full, so this
+    // is the verbatim sentence and not a substring of a longer one.
+    const sentence = within(dialog).getByText(DELETE_HISTORY_SENTENCE);
+    expect(sentence.textContent).toBe(DELETE_HISTORY_SENTENCE);
+    // ...and the dialog's own declaration says the same thing.
+    expect(DELETE_POD_COPY.historyWarning).toBe(DELETE_HISTORY_SENTENCE);
+    // The dialog POINTS at it: the sentence is the description a screen reader
+    // is given, not a paragraph a sighted reader may or may not scan.
+    expect(dialog.getAttribute('aria-describedby')).toBe(sentence.getAttribute('id'));
+  });
+});
+
+describe('the run control on a Pod with no process', () => {
+  it('names the cause for a beached Pod and does not for a merely closed one', async () => {
+    mountWorkspace(listing([BEACHED_POD, CLOSED_POD]));
+
+    const beached = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, BEACHED_POD.id));
+    const closed = screen.getByTestId(testId(POD_TAB_OPEN_TEST_ID, CLOSED_POD.id));
+
+    expect(beached.getAttribute('aria-label')).toBe(BEACHED_RUN_NAME);
+    expect(closed.getAttribute('aria-label')).toBe(CLOSED_RUN_NAME);
+    // And the producer agrees, so the name and the verb cannot drift apart.
+    expect(runControlFor('beached', 'Beached').accessibleName).toBe(BEACHED_RUN_NAME);
+    expect(runControlFor('closed', 'Closed').accessibleName).toBe(CLOSED_RUN_NAME);
+    // Two not-open Pods in ONE reply: neither name can come from a constant.
+    expect(beached.getAttribute('aria-label')).not.toBe(closed.getAttribute('aria-label'));
+  });
+});
+
+function systemEvent(seq: Seq, subtype: string): NormalizedEvent {
+  return {
+    id: seq,
+    podId: BRAVO_ID,
+    laneId: MATRIARCH_ID,
+    seq,
+    type: 'system',
+    payload: { type: 'system', subtype, data: { note: subtype } },
+    createdAt: '2026-01-01T00:01:00.000Z',
+  };
+}
+
+describe('the transcript filter toggle', () => {
+  it('states the count it is hiding, in words, in both modes and when there is nothing to hide', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_BRAVO] }) },
+      lanes: { list: async () => ({ ok: true, value: [MATRIARCH] }) },
+    });
+    mountWorkspace(api);
+
+    const primary = await screen.findByTestId(TEST_IDS.transcriptPrimary);
+    const toggle = within(primary).getByTestId(
+      testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'primary'),
+    );
+
+    // ALWAYS PRESENT, and never disabled: an affordance that appears only when
+    // it has work to do is one a user never learns exists.
+    expect(toggle.getAttribute('aria-label')).toBe(FILTER_SHOW_NONE);
+    expect(toggle.hasAttribute('disabled')).toBe(false);
+    expect(
+      within(primary).queryByTestId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilterCount),
+    ).toBeNull();
+
+    act(() => {
+      api.emit.podEvent({
+        podId: BRAVO_ID,
+        events: [systemEvent(1, 'hook_started'), systemEvent(2, 'hook_progress')],
+      });
+    });
+
+    expect(toggle.getAttribute('aria-label')).toBe(FILTER_SHOW_TWO);
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-label')).toBe(FILTER_HIDE_TWO);
+
+    // ...and the producer says the same three things.
+    expect(filterToggleLabel('conversation', 0)).toBe(FILTER_SHOW_NONE);
+    expect(filterToggleLabel('conversation', 2)).toBe(FILTER_SHOW_TWO);
+    expect(filterToggleLabel('everything', 2)).toBe(FILTER_HIDE_TWO);
+  });
 });

@@ -186,6 +186,26 @@ describe('NewPodDialog', () => {
     expect(screen.getByTestId(TEST_IDS.newPodCwdDisplay).textContent).toBe(PICKED);
   });
 
+  it('offers no "Create and open" option, because Create no longer opens', async () => {
+    // Create makes the row and stops. A checkbox here would reintroduce the
+    // folded error path that decision removes — a spawn failure reported as a
+    // failed create for a Pod that had in fact been created. The only checkbox
+    // this dialog may ever show is the bypass confirmation, and it is absent
+    // until the danger mode is selected.
+    const browse = pickResolving(PICKED);
+    const { container } = renderDialog({ browse });
+    await fillValidDraft(browse);
+
+    expect(container.querySelectorAll('input[type="checkbox"]').length).toBe(0);
+    expect(screen.queryByLabelText(/open/i)).toBeNull();
+    expect(container.textContent).not.toContain('Create and open');
+
+    // The bypass confirmation still appears when its mode is chosen, so the
+    // count above is a real absence rather than a dialog that shows nothing.
+    fireEvent.click(screen.getByTestId(`${TEST_IDS.newPodModeOption}:bypassPermissions`));
+    expect(container.querySelectorAll('input[type="checkbox"]').length).toBe(1);
+  });
+
   it('cancels on Escape and on the Cancel button', () => {
     const { onCancel } = renderDialog();
     fireEvent.keyDown(screen.getByTestId(TEST_IDS.newPodDialog), { key: 'Escape' });

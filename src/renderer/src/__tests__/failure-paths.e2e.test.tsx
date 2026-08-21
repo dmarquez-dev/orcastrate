@@ -19,16 +19,26 @@
  *      which element carries the message and what the app does around it —
  *      the dialog stays open, the draft survives, the card stays.
  *
- * ARITHMETIC. There are TWENTY-ONE invoke channels. TWELVE reach a rendered
- * error surface; NINE do not. See `SURFACELESS_CHANNELS` for the nine and why
- * each is there. This is a finding about the app, not about the suite.
+ * ARITHMETIC. There are TWENTY-ONE invoke channels. FOURTEEN reach a rendered
+ * error surface; SEVEN do not. See `SURFACELESS_CHANNELS` for the seven and
+ * why each is there. This is a finding about the app, not about the suite.
  *
  * WHAT MOVED, AND WHAT DID NOT. The original fifteen channels classified six
  * surfaced and nine silent. Sub-session 3 added six more — three
- * `beachcomber:*` and three `helm:*` — and ALL SIX SURFACE. The allowlist
- * therefore still holds exactly the nine names it always held: the count of
- * silent channels did not move, the count of surfaced ones went from six to
- * twelve, and both halves are asserted below so neither can drift alone.
+ * `beachcomber:*` and three `helm:*` — and ALL SIX SURFACE, taking the split
+ * to twelve and nine.
+ *
+ * THIS SESSION MOVED TWO NAMES OFF THE ALLOWLIST, and they are the two the
+ * backlog recorded as invoke channels with no affordance calling them.
+ * `pod:delete` gained the stopped tab's red control and its confirmation;
+ * `pod:reconnect` gained the beached tab's run control. Both now surface their
+ * failure — the confirmation renders it inline, `PodsChrome` renders the run
+ * failure above the bar — so the split is fourteen and seven. NEITHER WAS
+ * REACHED BY CLICKING BUTTONS AT RANDOM: the confirmation's Cancel precedes
+ * its Delete in DOM order, so the generic sweep closes the dialog before it
+ * can confirm, and no Pod in the fixture is beached until this file makes one.
+ * `driveEveryAffordance` therefore drives both deliberately, and the
+ * call-count assertion in the classification test is what proves they landed.
  *
  * That all six surface is not luck. `renderer-panels.ts` gives each panel view
  * a single-writer `actionError` field for exactly this reason, and
@@ -42,7 +52,7 @@
  * call-count assertion in the classification test is what proves they landed.
  */
 
-import { act, screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -56,9 +66,12 @@ import { PANEL_TEST_IDS, type PanelKey } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { BEACHCOMBER_LOCAL_TEST_IDS } from '../beachcomber';
+import { DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
+import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
 import {
   ipcError,
   makeStubBeachcomberEntries,
+  makeStubPod,
   makeStubBeachcomberPreview,
   makeStubBeachcomberScan,
   stubOrcastrateApi,
@@ -67,6 +80,7 @@ import {
 } from '../test-utils';
 
 import {
+  ALPHA_ID,
   BRAVO_ID,
   MATRIARCH,
   MATRIARCH_ID,
@@ -127,14 +141,12 @@ function laneApi(): StubOrcastrateApi {
  *   podUpdate            Only `reorderPods` calls it, and only a drag commits
  *                        a reorder. `PodBarPanel` has the surface; no click
  *                        reaches it.
- *   podDelete            No affordance in the shell calls `deletePod`.
  *   podClose             `PodsChrome` calls `closePod` as `void actions...`
  *                        and discards the result.
  *   podInterrupt         `App` calls `interruptPod` as `void actions...` and
  *                        discards the result.
  *   podSetPermissionMode No affordance changes an existing Pod's mode; the
  *                        dialog's mode picker is create-time only.
- *   podReconnect         No affordance in the shell calls `reconnectPod`.
  *   laneList             The error reaches `lanesError`, but `LaneRail`
  *                        renders no error at all.
  *   eventsRead           The error reaches `runtime.backfill.error`, which
@@ -146,6 +158,11 @@ function laneApi(): StubOrcastrateApi {
  *   appRoutingMode       A failure leaves `routingMode` null, which renders
  *                        the waiting `EmptyWorkspace` rather than a message.
  *
+ * `podDelete` AND `podReconnect` ARE NO LONGER HERE, and `pod-deletion.ts`
+ * forbids the first from ever coming back: "a delete that silently does
+ * nothing is the worst failure this feature has". Both are driven deliberately
+ * below and both put their message on screen.
+ *
  * NONE OF SUB-SESSION 3's SIX CHANNELS IS HERE, and none may be added. Both
  * frozen panel contracts say so in their headers — each panel view carries a
  * single-writer `actionError` that its panel renders unconditionally — and the
@@ -154,11 +171,9 @@ function laneApi(): StubOrcastrateApi {
  */
 const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = [
   'podUpdate',
-  'podDelete',
   'podClose',
   'podInterrupt',
   'podSetPermissionMode',
-  'podReconnect',
   'laneList',
   'eventsRead',
   'appRoutingMode',
@@ -177,9 +192,7 @@ const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = [
  */
 const UNREACHABLE_CHANNELS: readonly InvokeChannelKey[] = [
   'podUpdate',
-  'podDelete',
   'podSetPermissionMode',
-  'podReconnect',
 ];
 
 /**
@@ -414,13 +427,31 @@ async function driveEveryAffordance(
   // A second page of history: `events:read`.
   await clickIfPresent(user, watch, TEST_IDS.transcriptLoadMore);
 
-  // `dialog:pickDirectory`, then `pod:create`, then `pod:open`.
+  // `dialog:pickDirectory`, then `pod:create`.
   await clickIfPresent(user, watch, TEST_IDS.newPodButton);
   await typeIfPresent(user, watch, TEST_IDS.newPodTitleInput, 'Charlie');
   await clickIfPresent(user, watch, TEST_IDS.newPodBrowseButton);
   await clickIfPresent(user, watch, TEST_IDS.newPodSubmit);
 
-  // A send from the Pod that create just opened: `pod:send`.
+  /*
+   * `pod:open`, FROM THE TAB THAT CREATE JUST PRODUCED.
+   *
+   * Create no longer starts the process (`contracts/pod-verbs.ts` Part B), so
+   * the composer of a freshly created Pod is disabled and `pod:send` is
+   * unreachable until something opens it. This step is what keeps `podSend`
+   * classifiable at all; without it the channel is never invoked and
+   * misreports as one with no error surface.
+   *
+   * Reached by the control's ACCESSIBLE NAME rather than by the created Pod's
+   * id, which is the stub's to choose.
+   */
+  const created = screen.queryByRole('button', { name: 'Open Charlie' });
+  if (created !== null) {
+    await user.click(created);
+    await settle(watch);
+  }
+
+  // A send from the Pod that was just opened: `pod:send`.
   await typeIfPresent(user, watch, TEST_IDS.composerInput, 'are you there');
   await clickIfPresent(user, watch, TEST_IDS.composerSend);
 
@@ -432,6 +463,32 @@ async function driveEveryAffordance(
   // strip: opening a panel replaces the body, and which panel is open must not
   // be decided by DOM order halfway through a sweep.
   await clickEveryEnabledButton(user, watch, isPanelStripOpenButton);
+
+  /*
+   * `pod:reconnect`. No Pod in the fixture is beached, and the verb the run
+   * control offers is a pure function of status — so the status is pushed
+   * first, exactly as main would push it, and then the SAME control the sweep
+   * has already clicked once now routes to the other verb.
+   */
+  act(() => {
+    api.emit.podStatus({ podId: BRAVO_ID, status: 'beached' });
+  });
+  await settle(watch);
+  await clickIfPresent(user, watch, testId(POD_TAB_OPEN_TEST_ID, BRAVO_ID));
+
+  /*
+   * `pod:delete`, driven deliberately for TWO reasons the generic sweep cannot
+   * overcome. The delete control exists only while the Pod has no process, and
+   * the sweep may well have opened this one; and inside the confirmation the
+   * Cancel button precedes Delete in DOM order, so a sweep that clicks every
+   * button in order closes the dialog before it can confirm.
+   */
+  act(() => {
+    api.emit.podStatus({ podId: ALPHA_ID, status: 'closed' });
+  });
+  await settle(watch);
+  await clickIfPresent(user, watch, testId(POD_TAB_DELETE_TEST_ID, ALPHA_ID));
+  await clickIfPresent(user, watch, DELETE_POD_TEST_IDS.confirm);
 
   // Both panels, opened deliberately and driven to the wire. Each is closed
   // first so it starts from a fresh scan / scope list whatever the sweep above
@@ -482,14 +539,14 @@ describe('which channels can say what went wrong', () => {
     expect(new Set(SURFACELESS_CHANNELS).size).toBe(SURFACELESS_CHANNELS.length);
     expect(new Set(UNREACHABLE_CHANNELS).size).toBe(UNREACHABLE_CHANNELS.length);
     expect(SURFACELESS_CHANNELS).toEqual(expect.arrayContaining([...UNREACHABLE_CHANNELS]));
-    // TWELVE of TWENTY-ONE surface, and NINE do not. Both halves are pinned,
+    // FOURTEEN of TWENTY-ONE surface, and SEVEN do not. Both halves are pinned,
     // not just their difference: a channel added to the frozen map without a
     // classification would move the total and be caught here, and a name added
     // to the allowlist would move the other. If either moves, this file's
     // header is stale and saying so is this assertion's whole job.
     expect(INVOKE_KEYS.length).toBe(21);
-    expect(SURFACELESS_CHANNELS.length).toBe(9);
-    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(12);
+    expect(SURFACELESS_CHANNELS.length).toBe(7);
+    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(14);
     // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
     // `PodStatus` and added a `system` subtype; it added NO channel in either
     // direction, and this is where that stays true. A push channel is not
@@ -574,7 +631,7 @@ describe('every invoke channel failing in turn', () => {
 
 /**
  * One test per channel the sweep above classified as HAVING a surface — all
- * TWELVE of them. The sweep proves the message reaches some pixel; these prove
+ * FOURTEEN of them. The sweep proves the message reaches some pixel; these prove
  * WHICH pixel, and what the app does around it.
  */
 describe('the message main wrote is the message on screen', () => {
@@ -587,8 +644,10 @@ describe('the message main wrote is the message on screen', () => {
     expect(surfaced).toEqual([
       'podList',
       'podCreate',
+      'podDelete',
       'podOpen',
       'podSend',
+      'podReconnect',
       'permissionRespond',
       'dialogPickDirectory',
       'beachcomberScan',
@@ -614,25 +673,134 @@ describe('the message main wrote is the message on screen', () => {
     expect(within(dialog).getByText('the folder picker would not open')).toBeDefined();
   });
 
-  it('shows the pods.open failure in the dialog when the row was created but would not start', async () => {
+  /*
+   * THE FOLDED CREATE-THEN-OPEN ERROR PATH IS GONE, AND SO IS ITS TEST.
+   *
+   * A test named "shows the pods.open failure in the dialog when the row was
+   * created but would not start" stood here. `contracts/pod-verbs.ts` Part B
+   * deleted the code path it covered: create makes the row and stops, so a
+   * created Pod that has not started is the NORMAL, INTENDED outcome rather
+   * than an error the dialog reports. The dialog's error path narrowed to
+   * create-failure alone, which the test below covers. It was DELETED rather
+   * than repaired because there is nothing left to repair it into — the
+   * surface it asserted on no longer exists.
+   *
+   * `pod:open` still has an error surface, from the tab's run control, and the
+   * test that replaces it drives exactly that.
+   */
+  it('shows the pods.open failure above the Pod bar when the run control cannot start the Pod', async () => {
     const user = userEvent.setup();
-    const api = stubOrcastrateApi();
-    // `createPod` creates the row and THEN opens it. Only the open fails here.
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_ALPHA] }) },
+    });
     api.failInvoke('podOpen', ipcError('SPAWN_FAILED', 'the CLI would not start'));
 
     mountWorkspace(api);
 
-    await user.click(await screen.findByTestId(TEST_IDS.newPodButton));
-    await user.type(screen.getByTestId(TEST_IDS.newPodTitleInput), 'Charlie');
-    await user.click(screen.getByTestId(TEST_IDS.newPodBrowseButton));
-    await user.click(await screen.findByTestId(TEST_IDS.newPodSubmit));
+    await user.click(await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, ALPHA_ID)));
     await flushPendingWork();
 
-    const dialog = await screen.findByTestId(TEST_IDS.newPodDialog);
-    expect(within(dialog).getByText('the CLI would not start')).toBeDefined();
-    // The row itself WAS created — the failure is the start, not the create —
-    // so the Pod is on the bar, unopened.
-    expect(within(screen.getByTestId(TEST_IDS.podBar)).getByText('Charlie')).toBeDefined();
+    // Whatever main wrote, word for word — no wrapper sentence around it.
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('the CLI would not start');
+    // The row survives and the control survives: the app is still driveable.
+    expect(screen.getByTestId(testId(TEST_IDS.podTab, ALPHA_ID))).toBeDefined();
+    expect(screen.getByTestId(testId(POD_TAB_OPEN_TEST_ID, ALPHA_ID))).toBeDefined();
+  });
+
+  it('shows the pods.reconnect failure above the Pod bar and leaves the beached Pod listed', async () => {
+    const user = userEvent.setup();
+    const beached = makeStubPod({ id: 'pod-beached', title: 'Beached', status: 'beached' });
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [beached] }) },
+    });
+    api.failInvoke('podReconnect', ipcError('SPAWN_FAILED', 'the session could not be resumed'));
+
+    mountWorkspace(api);
+
+    const control = await screen.findByTestId(testId(POD_TAB_OPEN_TEST_ID, beached.id));
+    expect(control.getAttribute('data-verb')).toBe('reconnect');
+    await user.click(control);
+    await flushPendingWork();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('the session could not be resumed');
+    expect(screen.getByTestId(testId(TEST_IDS.podTab, beached.id))).toBeDefined();
+  });
+
+  it('shows the pods.delete failure inside the confirmation, which stays open with the Pod still on the bar', async () => {
+    const user = userEvent.setup();
+    const doomed = makeStubPod({ id: 'pod-doomed', title: 'Doomed', status: 'closed' });
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [doomed] }) },
+    });
+    api.failInvoke('podDelete', ipcError('IO', 'the Pod row could not be removed'));
+
+    mountWorkspace(api);
+
+    await user.click(await screen.findByTestId(testId(POD_TAB_DELETE_TEST_ID, doomed.id)));
+    const dialog = await screen.findByTestId(DELETE_POD_TEST_IDS.dialog);
+    await user.click(within(dialog).getByTestId(DELETE_POD_TEST_IDS.confirm));
+    await flushPendingWork();
+
+    // `pod-deletion.ts`: a delete that silently does nothing is the worst
+    // failure this feature has, so this message is rendered rather than
+    // allowlisted.
+    expect(screen.getByTestId(DELETE_POD_TEST_IDS.error).textContent).toBe(
+      'the Pod row could not be removed',
+    );
+    // The call failed, so the Pod is still there and Delete is still offered.
+    expect(screen.getByTestId(testId(TEST_IDS.podTab, doomed.id))).toBeDefined();
+    expect(within(dialog).getByTestId(DELETE_POD_TEST_IDS.confirm)).toBeDefined();
+  });
+
+  it('reports a session file that could not be binned while saying the Pod itself was deleted', async () => {
+    const user = userEvent.setup();
+    const doomed = makeStubPod({
+      id: 'pod-doomed',
+      title: 'Doomed',
+      status: 'closed',
+      ccSessionId: 'cc-session-doomed',
+    });
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async () => ({ ok: true, value: [doomed] }),
+        // PARTIAL SUCCESS IS A VALUE, NOT AN ERROR (`pod-deletion.ts` section
+        // 2): the row really was deleted and the file really was not, and the
+        // user has to be told WHICH. `failInvoke` cannot express this — the
+        // result is `{ ok: true }` — so the channel is answered directly.
+        delete: async (req) => ({
+          ok: true,
+          value: {
+            podId: req.podId,
+            podDeleted: true,
+            session: 'failed',
+            sessionError: 'the recycle bin refused the file',
+          },
+        }),
+      },
+    });
+
+    mountWorkspace(api);
+
+    await user.click(await screen.findByTestId(testId(POD_TAB_DELETE_TEST_ID, doomed.id)));
+    const dialog = await screen.findByTestId(DELETE_POD_TEST_IDS.dialog);
+    await user.click(within(dialog).getByTestId(DELETE_POD_TEST_IDS.session));
+    await user.click(within(dialog).getByTestId(DELETE_POD_TEST_IDS.confirm));
+    await flushPendingWork();
+
+    // Both facts, not one: the platform's message VERBATIM, and which of the
+    // two things actually happened.
+    const error = screen.getByTestId(DELETE_POD_TEST_IDS.error).textContent ?? '';
+    expect(error).toContain('the recycle bin refused the file');
+    expect(error).toContain('The Pod itself was deleted.');
+    // ...and it was: the row is gone from the bar even though the dialog stays.
+    await waitFor(() => {
+      expect(screen.queryByTestId(testId(TEST_IDS.podTab, doomed.id))).toBeNull();
+    });
+    // Nothing left to confirm — a second Delete would answer NOT_FOUND.
+    expect(within(dialog).queryByTestId(DELETE_POD_TEST_IDS.confirm)).toBeNull();
+    expect(within(dialog).getByTestId(DELETE_POD_TEST_IDS.cancel).textContent).toBe('Dismiss');
   });
 
   it('shows the pods.list failure above the Pod bar', async () => {
@@ -672,12 +840,19 @@ describe('the message main wrote is the message on screen', () => {
 
     mountWorkspace(api);
 
-    // `createPod` is the only path that OPENS a Pod, and the composer needs an
-    // opened Pod to send at all.
+    // CREATE MAKES A ROW AND STOPS, so this is two steps now: create the Pod,
+    // then start it from the run control on the tab that just appeared. The
+    // composer needs an opened Pod before it will send at all, and reaching it
+    // through the run control is what proves the two-step flow ends somewhere
+    // a message can leave from.
     await user.click(await screen.findByTestId(TEST_IDS.newPodButton));
     await user.type(screen.getByTestId(TEST_IDS.newPodTitleInput), 'Charlie');
     await user.click(screen.getByTestId(TEST_IDS.newPodBrowseButton));
     await user.click(await screen.findByTestId(TEST_IDS.newPodSubmit));
+    await user.click(await screen.findByRole('button', { name: 'Open Charlie' }));
+    await waitFor(() => {
+      expect(screen.queryByTestId('composer-disabled-note')).toBeNull();
+    });
 
     const input = await screen.findByTestId(TEST_IDS.composerInput);
     api.failInvoke('podSend', ipcError('NOT_RUNNING', 'the Pod stopped before that arrived'));

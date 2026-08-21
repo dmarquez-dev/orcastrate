@@ -36,6 +36,8 @@ import type {
   PermissionRequestedPush,
   PermissionResolvedPush,
   CreatePodRequest,
+  DeletePodRequest,
+  PodDeletionResult,
   ReadEventsRequest,
   ReadEventsResponse,
   UpdatePodRequest,
@@ -181,9 +183,16 @@ export function makeStubLane(overrides: Partial<Lane> = {}): Lane {
 // A default that carries only one bland row makes every downstream suite build
 // its own corpus, and three hand-built corpora drift from the contract in
 // three different directions. So the default scan below carries every shape
-// the panel has to render — a blocked row, an orphan, a guessed path, an empty
-// root — and the default Helm document carries the unmanaged keys and the
-// hooks text that "round-trips untouched" is actually about.
+// the panel has to render — a blocked row, an orphan, a guessed path, and all
+// four roots populated — and the default Helm document carries the unmanaged
+// keys and the hooks text that "round-trips untouched" is actually about.
+//
+// IT DOES NOT CARRY AN EMPTY ROOT, and the claim that it did stood in this
+// comment unchecked: every one of `projects`, `shellSnapshots`, `fileHistory`
+// and `pasteCache` has at least one entry below. A suite that needs the
+// empty-root rendering must build it — `makeStubBeachcomberScan({ entries })`
+// recomputes the per-root totals from whatever it is handed — rather than
+// believe this paragraph.
 //
 // Every value here is contract-valid, including the rule that is easiest to
 // break by hand: `orphan` may only ever be true when
@@ -591,7 +600,25 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
           ...(req.envOverrides === undefined ? {} : { envOverrides: req.envOverrides }),
         }),
       ),
-      delete: channel('podDelete', (_podId: PodId): void => undefined),
+      /**
+       * T0's widened channel: a `DeletePodRequest` in, a `PodDeletionResult`
+       * out. `channel` records the whole ARGUMENT LIST, so `calls.podDelete`
+       * holds the request object and a suite can assert what `deleteSession`
+       * was actually sent rather than only that a delete happened.
+       *
+       * The default answers `'not-requested'` when the caller did not ask for
+       * the session file, and `'trashed'` when it did — the two outcomes a
+       * dialog test needs without overriding the channel. The three outcomes
+       * that depend on the filesystem (`'no-session'`, `'not-found'`,
+       * `'failed'`) are override territory: a default that guessed one of them
+       * would let a suite assert a path it never exercised.
+       */
+      delete: channel('podDelete', (req: DeletePodRequest): PodDeletionResult => ({
+        podId: req.podId,
+        podDeleted: true,
+        session: req.deleteSession ? 'trashed' : 'not-requested',
+        sessionError: null,
+      })),
       open: channel('podOpen', (podId: PodId): Pod => makeStubPod({ id: podId, status: 'running' })),
       close: channel('podClose', (_podId: PodId): void => undefined),
       reconnect: channel('podReconnect', (podId: PodId): Pod =>

@@ -12,6 +12,8 @@ export interface PodBarPanelProps {
   onClose(podId: PodId): void;
   /** Start the Pod's process; the connector picks open vs. reconnect. */
   onOpen(podId: PodId): void;
+  /** Ask for the delete confirmation; the connector owns the dialog. */
+  onDelete(podId: PodId): void;
   onNewPod(): void;
   /**
    * `WorkspaceActions.reorderPods`. Resolves and never rejects (frozen
@@ -34,6 +36,7 @@ export function PodBarPanel({
   onSelect,
   onClose,
   onOpen,
+  onDelete,
   onNewPod,
   reorderPods,
 }: PodBarPanelProps): JSX.Element {
@@ -76,6 +79,7 @@ export function PodBarPanel({
     <div className={styles.panel}>
       <PodBar
         onClose={onClose}
+        onDelete={onDelete}
         onNewPod={onNewPod}
         onOpen={onOpen}
         onReorder={handleReorder}

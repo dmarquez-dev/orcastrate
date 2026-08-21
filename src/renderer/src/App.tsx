@@ -50,14 +50,18 @@ export function App(): JSX.Element {
   // which is what the panes are given — no `[]` default hides a real registry.
   const lanes = useMemo(() => rail.value.map((row) => row.lane), [rail.value]);
 
-  const selectedLaneId = session?.selectedLaneId ?? null;
-  const pinnedLaneId = session?.pinnedLaneId ?? null;
+  // THE PANE MODEL FEEDS THE SLOTS (`contracts/renderer-panes.ts` section 1).
+  // `WorkspaceLayoutProps` is unchanged — `primary` and `split` are the same
+  // two slots they always were. What changed is which lane feeds each: the
+  // primary is the Matriarch's, always, and `split` takes the first follower.
+  const primaryLaneId = session?.primaryLaneId ?? null;
+  const followerLaneId = session?.followerLaneIds[0] ?? null;
 
   // Hooks are unconditional; whether their output is RENDERED is decided below.
-  const primaryView = useTranscript(selectedLaneId);
-  const splitView = useTranscript(pinnedLaneId);
-  const primaryCards = usePermissionCards(selectedLaneId);
-  const splitCards = usePermissionCards(pinnedLaneId);
+  const primaryView = useTranscript(primaryLaneId);
+  const splitView = useTranscript(followerLaneId);
+  const primaryCards = usePermissionCards(primaryLaneId);
+  const splitCards = usePermissionCards(followerLaneId);
   const composer = useComposer();
 
   const podBar = (
@@ -121,19 +125,23 @@ export function App(): JSX.Element {
       actions.jumpToLane(podId, laneId);
     };
 
+    // BOTH FOLLOWER CALLBACKS ARE PASSED ON EVERY RENDER. They are optional in
+    // the frozen contract only so T1 and T2 can land concurrently; an absent
+    // one here is a defect, not a valid state, and `App.smoke.test.tsx` reads
+    // the props rather than inferring them from what the rail happened to draw.
     laneRail = (
       <LaneRail
-        onPin={(laneId) => {
-          actions.pinLane(podId, laneId);
+        onHideFollower={(laneId) => {
+          actions.hideLane(podId, laneId);
         }}
         onSelect={(laneId) => {
-          actions.selectLane(podId, laneId);
+          actions.showLane(podId, laneId);
+        }}
+        onShowInFollower={(laneId) => {
+          actions.showLane(podId, laneId);
         }}
         onSteer={(laneId) => {
           actions.steerFromLane(podId, laneId);
-        }}
-        onUnpin={() => {
-          actions.unpinLane(podId);
         }}
         routingMode={routingMode}
         rows={rail.value}
@@ -144,7 +152,7 @@ export function App(): JSX.Element {
       <TranscriptPane
         hasMore={session.backfill.hasMore}
         isSplit={false}
-        lane={laneOf(selectedLaneId)}
+        lane={laneOf(primaryLaneId)}
         lanes={lanes}
         onJumpToLane={jumpToLane}
         onLoadMore={() => {
@@ -156,13 +164,19 @@ export function App(): JSX.Element {
       />
     );
 
+    // The follower pane carries its OWN dismiss control (`onHide`), because the
+    // pane is where a user looks to dismiss what is in front of them. The
+    // primary never gets one: the Matriarch cannot be closed.
     split =
-      pinnedLaneId === null ? null : (
+      followerLaneId === null ? null : (
         <TranscriptPane
           hasMore={session.backfill.hasMore}
           isSplit
-          lane={laneOf(pinnedLaneId)}
+          lane={laneOf(followerLaneId)}
           lanes={lanes}
+          onHide={() => {
+            actions.hideLane(podId, followerLaneId);
+          }}
           onJumpToLane={jumpToLane}
           onLoadMore={() => {
             void actions.loadMoreEvents(podId);

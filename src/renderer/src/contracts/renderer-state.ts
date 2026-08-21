@@ -46,8 +46,10 @@ import type {
 } from '@shared/contracts/events';
 import type {
   CreatePodRequest,
+  DeletePodRequest,
   IpcError,
   PermissionRespondRequest,
+  PodDeletionResult,
   UpdatePodRequest,
 } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
@@ -69,6 +71,23 @@ import type { RoutingMode } from '@shared/contracts/lane-router';
 export type ActionResult<T = void> =
   | { ok: true; value: T }
   | { ok: false; error: IpcError };
+
+/**
+ * `ActionResult<PodDeletionResult>`, named so the confirmation dialog can hold
+ * one (`contracts/pod-deletion.ts` section 4).
+ */
+export type PodDeletionActionResult = ActionResult<PodDeletionResult>;
+
+/**
+ * TODAY'S CAP ON FOLLOWER PANES, and the only place it is written down.
+ *
+ * The behaviour adopted at Gate 1 is Matriarch-always-primary with ONE
+ * follower steered from the rail. That is a CAP on a list, not a different
+ * shape: growing to two Calves later is a change to this number plus the
+ * layout, and costs neither a further contract amendment nor a rewrite of the
+ * pane model's tests. See `contracts/renderer-panes.ts`.
+ */
+export const MAX_FOLLOWER_PANES = 1;
 
 /** Load lifecycle for anything fetched over IPC. */
 export type LoadPhase = 'idle' | 'loading' | 'ready' | 'error';
@@ -196,19 +215,51 @@ export interface PodSessionView {
   /** Snapshot-replaced wholesale on every `laneChanged` push (see below). */
   lanes: Loadable<LaneRowVm[]>;
   /**
-   * The lane whose transcript occupies the primary pane. Never null once
-   * `lanes.value` is non-empty: it defaults to the Matriarch.
-   */
-  selectedLaneId: LaneId | null;
-  /**
-   * The lane pinned into the split pane beside the primary transcript
-   * (spec 5.2), or null when the view is unsplit.
+   * AMENDMENT (`contracts/renderer-panes.ts` section 1). The three fields below
+   * REPLACE the deleted `selectedLaneId` and `pinnedLaneId`.
    *
-   * INVARIANT: `pinnedLaneId !== selectedLaneId`. Pinning the selected lane, or
-   * selecting the pinned lane, resolves to the swap rules in `WorkspaceActions`
-   * rather than producing two identical panes.
+   * The lane in the primary pane. NON-NULL once `lanes.value` is non-empty.
+   *
+   * TODAY'S POLICY, ASSERTED RATHER THAN ENCODED: this is ALWAYS the Matriarch.
+   * `primaryLaneId === matriarchOf(lanes).id` holds after every action and
+   * after every `laneChanged` snapshot. Nothing in `WorkspaceActions` can move
+   * another lane into it — THERE IS NO ACTION THAT WRITES THIS FIELD, which is
+   * what makes "the Matriarch is never displaced" a property of the action
+   * surface rather than a rule someone has to remember.
+   *
+   * `null` ONLY while the lane list is empty (before `lanes.list` answers, or
+   * for a Pod that has never opened). A consumer renders "No lane selected" for
+   * null exactly as it did for `selectedLaneId`.
    */
-  pinnedLaneId: LaneId | null;
+  primaryLaneId: LaneId | null;
+  /**
+   * Lanes in follower panes, in DISPLAY ORDER, left to right after the primary.
+   *
+   * TODAY'S POLICY, ASSERTED RATHER THAN ENCODED: `followerLaneIds.length <= 1`
+   * (`MAX_FOLLOWER_PANES`). `WorkspaceLayoutProps.split` is fed
+   * `followerLaneIds[0] ?? null`, so an empty array is the unsplit view and a
+   * one-element array is today's split.
+   *
+   * INVARIANT — UNIQUENESS. This replaces the deleted
+   * `pinnedLaneId !== selectedLaneId` invariant, and it is one rule at any N:
+   *   - `primaryLaneId` is never a member of `followerLaneIds`;
+   *   - `followerLaneIds` contains no duplicates;
+   *   - every member names a lane in `lanes.value`.
+   * The state layer restores all three after every `laneChanged` snapshot.
+   *
+   * DELETED WITH THE OLD SHAPE: swap-on-pin. Showing a lane that is already in
+   * a follower pane no longer exchanges the two panes — see `showLane`.
+   */
+  followerLaneIds: readonly LaneId[];
+  /**
+   * Index into `followerLaneIds` naming the pane a rail selection replaces.
+   * `null` when `followerLaneIds` is empty.
+   *
+   * At today's cap of one follower this is always `0` when a follower exists,
+   * and the focus rule degenerates to "clicking a Calf updates the Calf pane,
+   * always" — which is the whole user-visible point of the change.
+   */
+  focusedFollowerIndex: number | null;
   /** Per-lane transcript state, keyed by LaneId. Missing key === not yet read. */
   transcripts: Readonly<Record<LaneId, TranscriptView | undefined>>;
   /** Backfill paging cursor, per Pod (not per lane). See `TranscriptView`. */
@@ -231,8 +282,34 @@ export interface LaneRowVm {
   lane: Lane;
   /** `lane.kind === 'matriarch'`. Pinned to the top of the rail. */
   isMatriarch: boolean;
-  selected: boolean;
-  pinned: boolean;
+  /**
+   * AMENDMENT (`contracts/renderer-panes.ts` section 3). The four fields below
+   * REPLACE the deleted `selected` and `pinned`.
+   *
+   * `lane.id === primaryLaneId`. True for exactly one row, and today that row
+   * is always the Matriarch.
+   */
+  inPrimaryPane: boolean;
+  /** `followerLaneIds.includes(lane.id)`. */
+  inFollowerPane: boolean;
+  /**
+   * True when this row's lane is the one a rail click would REPLACE — i.e.
+   * `followerLaneIds[focusedFollowerIndex] === lane.id`. Present so the rail
+   * can mark the pane it is about to overwrite; a consumer that ignores it is
+   * still correct at today's cap of one.
+   */
+  focusedFollower: boolean;
+  /**
+   * THE MATRIARCH HAS NO PIN CONTROL AT ALL, and this is the field that says
+   * so rather than the rail re-deriving it from `isMatriarch`. False for the
+   * Matriarch, because it is structurally undisplaceable and can never be a
+   * follower; true for every Calf.
+   *
+   * In 'inline' routing mode this is FALSE for every row: selecting a Calf does
+   * not filter the transcript there (`LaneRailProps.routingMode`), so offering
+   * a pin would promise a pane that shows the same events.
+   */
+  canPin: boolean;
   /** `lane.subagentType ?? 'matriarch'` — the rail's "agent type" column. */
   agentType: string;
   /** `lane.description`, or null for the Matriarch. */
@@ -245,7 +322,7 @@ export interface LaneRowVm {
    * finished lane's `elapsedMs` is frozen and stops re-rendering.
    */
   elapsedMs: number;
-  /** Events appended to this lane since it was last selected. */
+  /** Events appended to this lane since it was last shown in a pane. */
   unreadEventCount: number;
   /** This lane has an unanswered permission request. */
   awaitingPermission: boolean;
@@ -397,9 +474,14 @@ export interface WorkspaceActions {
   refreshPods(): Promise<ActionResult<Pod[]>>;
 
   /**
-   * Creates the Pod row and opens its process. `cwd` MUST have come from
-   * `pickDirectory()`; a renderer-composed path is a contract violation. Main
-   * validates it regardless and answers `CWD_MISSING`.
+   * Creates the Pod ROW. IT DOES NOT OPEN THE PROCESS: `pods.open` is the one
+   * channel that starts a CLI, and a create that also opened made "the row
+   * exists" and "a process is running" a single indivisible outcome no caller
+   * could ask for separately — and reported a spawn failure as a failed
+   * create, for a Pod that had in fact been created.
+   *
+   * `cwd` MUST have come from `pickDirectory()`; a renderer-composed path is a
+   * contract violation. Main validates it regardless and answers `CWD_MISSING`.
    */
   createPod(req: CreatePodRequest): Promise<ActionResult<Pod>>;
 
@@ -417,8 +499,23 @@ export interface WorkspaceActions {
    */
   reorderPods(orderedPodIds: PodId[]): Promise<ActionResult<void>>;
 
-  /** Deletes the row and its history. Does not touch anything on disk. */
-  deletePod(podId: PodId): Promise<ActionResult<void>>;
+  /**
+   * AMENDMENT (`contracts/pod-deletion.ts` section 4). Deletes the Pod row and
+   * its transcript history, permanently, and — when `req.deleteSession` is
+   * true — also moves this Pod's Claude Code session file to the OS recycle
+   * bin.
+   *
+   * Still resolves and never rejects. Still safe to call twice: the second
+   * call answers `NOT_FOUND`, which the dialog reports as the Pod already
+   * being gone rather than as a failure.
+   *
+   * ON SUCCESS the state layer removes the Pod's row, its runtime, and clears
+   * `activePodId` if it named this Pod. It does this whenever `podDeleted` is
+   * true, INDEPENDENTLY of `session`: a Pod whose session file could not be
+   * binned is still a deleted Pod, and `session: 'failed'` is a value the
+   * dialog reports, not a failed deletion.
+   */
+  deletePod(req: DeletePodRequest): Promise<PodDeletionActionResult>;
 
   /** Starts or resumes the CLI process. */
   openPod(podId: PodId): Promise<ActionResult<Pod>>;
@@ -463,29 +560,49 @@ export interface WorkspaceActions {
   // --- Lanes --------------------------------------------------------------
 
   /**
-   * Selects the primary-pane lane and zeroes its `unreadEventCount`.
-   * If `laneId` is currently pinned, the panes SWAP: the previously selected
-   * lane becomes pinned, so the invariant `pinnedLaneId !== selectedLaneId`
-   * holds without closing the split.
+   * THE SINGLE LANE-SELECTION VERB. REPLACES the deleted `selectLane`,
+   * `pinLane` and `unpinLane`. Puts `laneId` on screen and zeroes its
+   * `unreadEventCount`.
+   *
+   * RESOLUTION ORDER, and a consumer may rely on all four branches:
+   *
+   *  1. `laneId` names no lane in `lanes.value` -> NO-OP. Legitimate in
+   *     'inline' routing mode and for a dispatch whose lane was dropped by a
+   *     snapshot. The same tolerance `selectLane` had.
+   *  2. `laneId === primaryLaneId` -> the primary pane is already showing it.
+   *     Clears its unread count and nothing else. NEVER opens a follower.
+   *  3. `laneId` is already in `followerLaneIds` -> FOCUS, DO NOT DUPLICATE.
+   *     `focusedFollowerIndex` moves to that lane's index; the array is
+   *     unchanged, its length included. This is the uniqueness invariant doing
+   *     its job, and it is the branch a push-based implementation gets wrong.
+   *  4. Otherwise -> REPLACE THE FOCUSED FOLLOWER. When `followerLaneIds` is
+   *     empty, one is opened and `focusedFollowerIndex` becomes 0. When a
+   *     follower exists, the lane at `focusedFollowerIndex` is replaced IN
+   *     PLACE — the array's length does not change and no lane is appended,
+   *     because the cap is `MAX_FOLLOWER_PANES`.
+   *
+   * WHAT THIS DELIBERATELY CANNOT DO: move a lane into the primary pane.
    */
-  selectLane(podId: PodId, laneId: LaneId): void;
+  showLane(podId: PodId, laneId: LaneId): void;
 
   /**
-   * Opens `laneId` in the split pane beside the current transcript
-   * (spec 5.2 "pin to split"). Pinning the SELECTED lane is a no-op — it would
-   * render the same lane twice. Pinning while another lane is pinned replaces
-   * the pin. At most one lane is pinned.
+   * Closes ONE follower pane and removes its lane from `followerLaneIds`.
+   *
+   * `laneId` names which pane. A `laneId` that is not currently a follower is
+   * a NO-OP, not an error — a double-click on an unpin control must not throw
+   * and must not close a different pane. After the removal
+   * `focusedFollowerIndex` becomes `null` when the array is empty, and
+   * otherwise clamps into range.
    */
-  pinLane(podId: PodId, laneId: LaneId): void;
-
-  /** Closes the split. No-op when nothing is pinned. */
-  unpinLane(podId: PodId): void;
+  hideLane(podId: PodId, laneId: LaneId): void;
 
   /**
-   * Jump target for the inline dispatch card (spec 5.2): selects the lane the
-   * dispatch opened. A no-op when `laneId` names no known lane, which happens
-   * legitimately in 'inline' routing mode and for a dispatch whose lane has
-   * been deleted with its Pod.
+   * UNCHANGED SIGNATURE, REDEFINED BEHAVIOUR. The inline dispatch card's jump
+   * target DELEGATES TO `showLane` — so a jump opens or steers the follower
+   * pane rather than replacing the Matriarch's transcript, which is the
+   * behaviour the pane model exists to remove. Still a no-op when `laneId`
+   * names no known lane, which happens legitimately in 'inline' routing mode
+   * and for a dispatch whose lane has been deleted with its Pod.
    */
   jumpToLane(podId: PodId, laneId: LaneId): void;
 

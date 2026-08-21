@@ -12,6 +12,7 @@ import {
   EVENT_CHANNELS,
   INVOKE_CHANNELS,
   type CreatePodRequest,
+  type DeletePodRequest,
   type IpcResult,
   type LaneChangedPush,
   type OrcastrateApi,
@@ -19,6 +20,7 @@ import {
   type PermissionRespondRequest,
   type PermissionResolvedPush,
   type PickDirectoryResponse,
+  type PodDeletionResult,
   type PodEventPush,
   type PodStatusPush,
   type ReadEventsRequest,
@@ -90,7 +92,11 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
       list: () => call<Pod[]>(INVOKE_CHANNELS.podList),
       create: (req: CreatePodRequest) => call<Pod>(INVOKE_CHANNELS.podCreate, req),
       update: (req: UpdatePodRequest) => call<Pod>(INVOKE_CHANNELS.podUpdate, req),
-      delete: (podId: PodId) => call<void>(INVOKE_CHANNELS.podDelete, podId),
+      // The REQUEST OBJECT is forwarded as-is, not unpacked into positional
+      // arguments: `deleteSession` decides whether a file leaves the disk, and
+      // a positional boolean at a call site says nothing about what it destroys.
+      delete: (req: DeletePodRequest) =>
+        call<PodDeletionResult>(INVOKE_CHANNELS.podDelete, req),
       open: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podOpen, podId),
       close: (podId: PodId) => call<void>(INVOKE_CHANNELS.podClose, podId),
       reconnect: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podReconnect, podId),

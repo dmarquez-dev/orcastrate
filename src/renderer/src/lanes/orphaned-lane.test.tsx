@@ -96,6 +96,10 @@ describe('an orphaned Matriarch lane after a relaunch', () => {
   it('reads Orphaned, not Running', async () => {
     renderWithWorkspace(<App />, { api: railApi() });
 
+    // AND IT IS ON THE RAIL, not behind the finished-lane disclosure. The
+    // Matriarch is NEVER collapsed whatever its status
+    // (`contracts/renderer-panes.ts` section 6, rule 1) — this `findByTestId`
+    // is what would fail if that rule were dropped.
     const row = await screen.findByTestId(testId(TEST_IDS.laneRow, ORPHANED.id));
     expect(row.getAttribute('data-matriarch')).toBe('true');
     // The word, through the existing label map — colour is never the only

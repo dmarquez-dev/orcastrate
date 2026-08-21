@@ -19,6 +19,7 @@ function renderPanel(reorderPods: (ids: PodId[]) => Promise<ActionResult<void>>)
   return render(
     <PodBarPanel
       onClose={vi.fn()}
+      onDelete={vi.fn()}
       onNewPod={vi.fn()}
       onOpen={vi.fn()}
       onSelect={vi.fn()}

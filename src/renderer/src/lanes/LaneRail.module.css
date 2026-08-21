@@ -80,12 +80,21 @@
   background: var(--oc-bg-raised);
 }
 
-.row[data-selected='true'] {
+.row[data-in-primary-pane='true'] {
   background: var(--oc-bg-selected);
 }
 
-.row[data-pinned='true'] {
+/*
+ * A lane in a follower pane. The rail marks the pane a click would overwrite
+ * with a stronger edge than the pane merely being open — but the pin icon's
+ * `aria-pressed` is the carrier of the state, never this edge alone.
+ */
+.row[data-in-follower-pane='true'] {
   box-shadow: inset var(--oc-space-1) 0 0 0 var(--oc-border-strong);
+}
+
+.row[data-focused-follower='true'] {
+  box-shadow: inset var(--oc-space-1) 0 0 0 var(--oc-focus-ring);
 }
 
 .rowMain {
@@ -203,8 +212,50 @@
   background: var(--oc-bg-hover);
 }
 
-.rowAction[aria-pressed='true'] {
+/*
+ * The pin. An ICON, not a word — the row is narrow and the label changes with
+ * the state, so the accessible name carries the action ("Show <agent> in the
+ * second pane" / "Close the second pane") and the glyph carries nothing.
+ * Rendered only where `LaneRowVm.canPin` is true, which is never the Matriarch.
+ */
+.pinAction {
+  composes: rowAction;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--oc-space-4);
+  color: var(--oc-fg-muted);
+}
+
+.pinAction[aria-pressed='true'] {
   border-color: var(--oc-focus-ring);
+  color: var(--oc-fg-primary);
+  background: var(--oc-bg-selected);
+}
+
+.pinGlyph {
+  display: block;
+}
+
+/*
+ * The finished-lane disclosure. Always present while it has anything to hide,
+ * and it states the count in words.
+ */
+.finishedToggle {
+  margin: 0 var(--oc-space-3) var(--oc-space-3);
+  padding: var(--oc-space-1) var(--oc-space-2);
+  border: 1px solid var(--oc-border);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.finishedToggle:hover {
+  background: var(--oc-bg-hover);
+  color: var(--oc-fg-primary);
 }
 
 /* Available to assistive technology, invisible on screen. */

@@ -30,7 +30,12 @@
 
 import type { BeachcomberService } from '../../shared/contracts/beachcomber';
 import type { HelmService } from '../../shared/contracts/helm';
-import { INVOKE_CHANNELS, type IpcResult } from '../../shared/contracts/ipc';
+import {
+  INVOKE_CHANNELS,
+  type IpcResult,
+  type PodDeletionResult,
+  type PodSessionRemover,
+} from '../../shared/contracts/ipc';
 import type { PodManagerApi } from '../pod-manager';
 
 import { fail, IpcFailure, ok } from './errors';
@@ -38,6 +43,7 @@ import {
   requireBeachcomberPreviewRequest,
   requireBeachcomberTrashRequest,
   requireCreatePodRequest,
+  requireDeletePodRequest,
   requireHelmSaveRequest,
   requireHelmScopeId,
   requirePermissionMode,
@@ -76,6 +82,16 @@ export interface IpcHandlerDeps {
    */
   beachcomber: BeachcomberService;
   helm: HelmService;
+  /**
+   * Moves ONE Pod's Claude Code session file to the recycle bin. INJECTED for
+   * exactly the reason the two panel services are: this module composes no
+   * path and reaches no filesystem. `src/main/index.ts` is the only place it is
+   * constructed, from the `CLAUDE_HOME` and the single `TrashItem` that already
+   * live there — there is no second deletion capability anywhere.
+   *
+   * RESOLVES ALWAYS, including when the trash rejects. See its declaration.
+   */
+  deletePodSession: PodSessionRemover;
 }
 
 /** Every channel `registerIpcHandlers` installed, in registration order. */
@@ -108,7 +124,51 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): string[] {
 
   register(INVOKE_CHANNELS.podUpdate, (req) => manager.updatePod(requireUpdatePodRequest(req)));
 
-  register(INVOKE_CHANNELS.podDelete, (podId) => manager.deletePod(requirePodId(podId)));
+  /**
+   * THE ORDER IS LOAD-BEARING, and it is the whole of this handler's logic:
+   *
+   *   1. READ THE ROW. `ccSessionId` and `cwd` live on it and nowhere else, so
+   *      once the row is gone the session file can no longer be named.
+   *   2. DELETE THE ROW (`manager.deletePod`, which also disposes any live
+   *      runner). Unknown Pod -> NOT_FOUND, exactly as today.
+   *   3. ONLY THEN hand the captured row to the session port, which is what
+   *      reaches the trash capability.
+   *
+   * Trashing LAST means a rejection cannot leave a Pod row pointing at a file
+   * that is already in the recycle bin. It also means a failed `deletePod`
+   * never bins anything.
+   *
+   * NO PATH IS COMPOSED HERE. This module is a transport; `deletePodSession` is
+   * a port for the same reason `beachcomber` and `pickDirectory` are.
+   */
+  register(INVOKE_CHANNELS.podDelete, async (payload): Promise<PodDeletionResult> => {
+    const req = requireDeletePodRequest(payload);
+    const pod = manager.listPods().find((row) => row.id === req.podId);
+
+    await manager.deletePod(req.podId);
+
+    // `pod === undefined` is unreachable in practice — `deletePod` would have
+    // answered NOT_FOUND above — but it is not worth a non-null assertion.
+    if (!req.deleteSession || pod === undefined) {
+      return {
+        podId: req.podId,
+        podDeleted: true,
+        session: 'not-requested',
+        sessionError: null,
+      };
+    }
+
+    // Resolves always: a trash rejection arrives as `'failed'`, never as a
+    // throw, so there is no branch here that could turn a failed bin into a
+    // failed deletion.
+    const removal = await deps.deletePodSession(pod);
+    return {
+      podId: req.podId,
+      podDeleted: true,
+      session: removal.outcome,
+      sessionError: removal.error,
+    };
+  });
 
   register(INVOKE_CHANNELS.podOpen, (podId) => manager.openPod(requirePodId(podId)));
 

@@ -9,6 +9,8 @@
  *     or `better-sqlite3`;
  *   - no file outside `src/renderer/src/state/**` references the preload
  *     bridge;
+ *   - no file under `src/renderer/**` reaches `src/main/**` through a RELATIVE
+ *     specifier, apart from one named exception;
  *   - no file under `src/renderer/**` outside `styles/` carries a hex colour,
  *     an `rgb(`/`hsl(` literal, a px font-size, or a hardcoded font stack;
  *   - no `*.module.css` under `beachcomber/`, `helm/` or `shell/` sets a
@@ -69,6 +71,47 @@ const STATE_ROOT = `${RENDERER_ROOT}/src/state`;
 const STYLES_ROOT = `${RENDERER_ROOT}/src/styles`;
 const TESTS_ROOT = `${RENDERER_ROOT}/src/__tests__`;
 const CONTRACT_STATE = `${RENDERER_ROOT}/src/contracts/renderer-state.ts`;
+const MAIN_ROOT = `${ROOT}/src/main`;
+
+/**
+ * THE ONE FILE ALLOWED TO REACH MAIN, AND WHY IT IS ALLOWED.
+ *
+ * `relaunch.e2e.test.tsx` reproduces a DISAGREEMENT between main and the
+ * renderer about what `status: 'idle'` means across a process restart. A stub
+ * `pods.list` cannot reproduce a disagreement, because the stub is written by
+ * the same hand as the assertion — seed the fixture with `'closed'` and the
+ * renderer dutifully shows Open, having proved only that the fixture was typed
+ * correctly. So that suite runs a real `EventStore`, a real `PodManager` and
+ * its real `reconcileStartup()`, and its own header says so at length.
+ *
+ * IT IS NAMED HERE RATHER THAN TOLERATED SILENTLY, which is the whole point of
+ * this rule. Before it existed the ban on reaching main was STATED in
+ * `transcript/startup-reconciliation.test.tsx` and enforced nowhere: the
+ * criterion-11 import rule below exempts every relative specifier, so a
+ * `../../../../src/main/...` import passed it without being seen. A rule that
+ * is stated and not enforced teaches a later reader to trust a line that is
+ * not held, and the exception it hid was a deliberate one nobody had recorded.
+ */
+const MAIN_REACHING_FILES: readonly string[] = [
+  'src/renderer/src/__tests__/relaunch.e2e.test.tsx',
+];
+
+/**
+ * Resolves a relative import against the importing file's directory.
+ *
+ * Deliberately does no extension guessing and no `index` resolution: the
+ * question is which DIRECTORY the specifier escapes into, and a prefix test
+ * over the normalized path answers it without a module resolver.
+ */
+function resolveRelative(fromFile: string, specifier: string): string {
+  const parts = fromFile.split('/').slice(0, -1);
+  for (const segment of specifier.split('/')) {
+    if (segment === '.' || segment === '') continue;
+    if (segment === '..') parts.pop();
+    else parts.push(segment);
+  }
+  return parts.join('/');
+}
 
 async function filesUnder(root: string, extensions: RegExp): Promise<string[]> {
   const io = await fs();
@@ -181,6 +224,20 @@ describe('the hygiene matchers themselves', () => {
       'Helvetica, sans-serif',
     ]);
   });
+
+  it('resolves a relative specifier that escapes the renderer into the main tree, and one that does not', () => {
+    const from = `${TESTS_ROOT}/relaunch.e2e.test.tsx`;
+    // The exact shape `relaunch.e2e.test.tsx` uses. If this did not resolve
+    // into `src/main`, the rule below would be vacuous and would report every
+    // file as clean.
+    expect(resolveRelative(from, '../../../../src/main/pod-manager')).toBe(
+      `${MAIN_ROOT}/pod-manager`,
+    );
+    expect(resolveRelative(from, '../../../../src/main/store')).toBe(`${MAIN_ROOT}/store`);
+    // ...and a specifier that stays inside the renderer does not.
+    expect(resolveRelative(from, './harness').startsWith(MAIN_ROOT)).toBe(false);
+    expect(resolveRelative(from, '../pods/PodTab').startsWith(MAIN_ROOT)).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -206,6 +263,23 @@ describe('renderer security hygiene (criterion 9)', () => {
       }
     }
     expect(offenders).toEqual([]);
+  });
+
+  it('reaches src/main/** from exactly the files named as exceptions, and no others', async () => {
+    const reaching: string[] = [];
+    for (const file of await filesUnder(RENDERER_ROOT, /\.(ts|tsx)$/)) {
+      const text = stripComments(await read(file));
+      const escapes = importSpecifiers(text)
+        .filter((specifier) => specifier.startsWith('.'))
+        .some((specifier) => resolveRelative(file, specifier).startsWith(`${MAIN_ROOT}/`));
+      if (escapes) reaching.push(relative(file));
+    }
+
+    // TWO-SIDED, exactly as `SURFACELESS_CHANNELS` is in `failure-paths`. A
+    // file that starts reaching main fails as loudly as one that stops — the
+    // second half is what keeps the exception from outliving its reason, and
+    // is why this is `toEqual` and not a subset check.
+    expect(reaching.sort()).toEqual([...MAIN_REACHING_FILES].sort());
   });
 
   it('reaches the preload bridge only from the state layer', async () => {
@@ -384,6 +458,19 @@ describe('this suite has no live dependencies (criterion 11)', () => {
     expect(offenders).toEqual([]);
   });
 
+  /**
+   * BARE SPECIFIERS ONLY, AND THAT IS NOW SAID OUT LOUD.
+   *
+   * `specifier.startsWith('.')` skips every relative import, so this rule has
+   * never had anything to say about where a relative path LEADS. That silence
+   * used to be invisible, and a suite reaching four levels up into
+   * `src/main/**` passed it untouched while a different file's header claimed
+   * the renderer may not import main at all.
+   *
+   * The relative half is now covered by "reaches src/main/** from exactly the
+   * files named as exceptions" above. This rule keeps its own, narrower job:
+   * which PACKAGES the suite is allowed to depend on.
+   */
   it('imports only the frozen contracts, the renderer, and the test libraries', async () => {
     const allowed = new Set([
       'vitest',
