@@ -346,6 +346,24 @@ const FILTER_HIDE_TWO = 'Hide 2 system events';
 /** With nothing to hide the button still renders, and drops the count. */
 const FILTER_SHOW_NONE = 'Show system events';
 
+/**
+ * THE SINGULAR, WHICH IS THE CASE THIS FILE DID NOT COVER AND THE DEFECT LIVED
+ * IN (`contracts/transcript-filter-amendment.ts` section 3).
+ *
+ * Every constant above is n === 2 or n === 0, and a label built as
+ * `Show ${n} hidden system events` renders all three of them correctly while
+ * saying "Show 1 hidden system events" at one. The three constants above would
+ * therefore have passed unchanged through the defect for as long as it lived,
+ * which is what makes these two additions the whole point of touching this
+ * file rather than an ornament on it.
+ *
+ * `LaneRail.tsx`'s `finishedLabel` is the local precedent that already gets
+ * the same construction right, and it is pinned in `panes.e2e.test.tsx` at
+ * both one and two for the same reason.
+ */
+const FILTER_SHOW_ONE = 'Show 1 hidden system event';
+const FILTER_HIDE_ONE = 'Hide 1 system event';
+
 const DELETABLE: Pod = makeStubPod({
   id: 'pod-doomed',
   title: 'Doomed',
@@ -409,6 +427,19 @@ function systemEvent(seq: Seq, subtype: string): NormalizedEvent {
   };
 }
 
+/** A visible companion, so the pane renders its transcript and not its empty copy. */
+function assistantSays(seq: Seq, text: string): NormalizedEvent {
+  return {
+    id: seq,
+    podId: BRAVO_ID,
+    laneId: MATRIARCH_ID,
+    seq,
+    type: 'assistant_text',
+    payload: { type: 'assistant_text', text },
+    createdAt: '2026-01-01T00:01:00.000Z',
+  };
+}
+
 describe('the transcript filter toggle', () => {
   it('states the count it is hiding, in words, in both modes and when there is nothing to hide', async () => {
     const user = userEvent.setup();
@@ -446,5 +477,58 @@ describe('the transcript filter toggle', () => {
     expect(filterToggleLabel('conversation', 0)).toBe(FILTER_SHOW_NONE);
     expect(filterToggleLabel('conversation', 2)).toBe(FILTER_SHOW_TWO);
     expect(filterToggleLabel('everything', 2)).toBe(FILTER_HIDE_TWO);
+  });
+
+  it('is singular at exactly one hidden event, in both modes', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_BRAVO] }) },
+      lanes: { list: async () => ({ ok: true, value: [MATRIARCH] }) },
+    });
+    mountWorkspace(api);
+
+    const primary = await screen.findByTestId(TEST_IDS.transcriptPrimary);
+
+    /*
+     * A REAL ONE-HIDDEN-EVENT STREAM. The visible event is pushed alongside
+     * the hidden one deliberately: with only the system event in the lane the
+     * pane renders its filtered-empty copy instead of the transcript, which is
+     * a different code path carrying its own copy of this phrase, and the
+     * count would then be one for a reason this test did not arrange.
+     */
+    act(() => {
+      api.emit.podEvent({
+        podId: BRAVO_ID,
+        events: [systemEvent(1, 'hook_started'), assistantSays(2, 'and one visible reply')],
+      });
+    });
+
+    /*
+     * Asserted through `getByRole('button', { name })`, which is what a
+     * keyboard user actually resolves the control by — strictly stronger than
+     * reading `aria-label` off a node found by test id, because it fails if
+     * the element stops being a button or the name stops being reachable.
+     */
+    const collapsed = within(primary).getByRole('button', { name: FILTER_SHOW_ONE });
+    expect(collapsed.getAttribute('aria-pressed')).toBe('false');
+    // The count badge agrees, so "1" is really one and not a rounded label.
+    expect(
+      within(primary).getByTestId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilterCount).textContent,
+    ).toBe('1');
+
+    await user.click(collapsed);
+
+    const expanded = within(primary).getByRole('button', { name: FILTER_HIDE_ONE });
+    expect(expanded).toBe(collapsed);
+    expect(expanded.getAttribute('aria-pressed')).toBe('true');
+    // The event it was hiding is now on screen: the name is about something.
+    expect(within(primary).getByTestId('transcript-event:1').getAttribute('data-event-type')).toBe(
+      'system',
+    );
+
+    // ...and the producer says the same two things, so the app and its own
+    // declaration cannot drift apart while agreeing with each other.
+    expect(filterToggleLabel('conversation', 1)).toBe(FILTER_SHOW_ONE);
+    expect(filterToggleLabel('everything', 1)).toBe(FILTER_HIDE_ONE);
   });
 });
