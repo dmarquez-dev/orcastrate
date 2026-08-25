@@ -390,7 +390,7 @@ describe('status token values in tokens.css', () => {
       declared.set(name, value.trim().toLowerCase());
     }
 
-    // Both status unions, exhaustively: Pod plus Lane, seven names.
+    // Both status unions, exhaustively: Pod plus Lane, eight names.
     expect([...declared.keys()].sort()).toEqual([
       'beached',
       'closed',
@@ -398,6 +398,7 @@ describe('status token values in tokens.css', () => {
       'idle',
       'orphaned',
       'running',
+      'stopped',
       'waiting',
     ]);
 
@@ -406,6 +407,12 @@ describe('status token values in tokens.css', () => {
     // Named on its own, because aliasing idle is the specific shortcut the
     // widening had available and did not take.
     expect(declared.get('closed')).not.toBe(declared.get('idle'));
+    // `stopped` is the fourth LaneStatus and sits nearest the two quiet
+    // neutrals. Named for the same reason `closed` is: aliasing either of them
+    // was the shortcut available, and the distinctness assertion above was NOT
+    // relaxed to make room.
+    expect(declared.get('stopped')).not.toBe(declared.get('idle'));
+    expect(declared.get('stopped')).not.toBe(declared.get('closed'));
   });
 
   /**
@@ -432,9 +439,10 @@ describe('status token values in tokens.css', () => {
     expect([...unionMembers(declared ?? '')].sort()).toEqual(
       [...unionMembers(implemented ?? '')].sort(),
     );
-    // Both must actually carry the fifth PodStatus, or the pair agrees by
-    // being equally wrong.
+    // Both must actually carry the fifth PodStatus and the fourth LaneStatus,
+    // or the pair agrees by being equally wrong.
     expect(unionMembers(declared ?? '')).toContain('closed');
+    expect(unionMembers(declared ?? '')).toContain('stopped');
   });
 });
 

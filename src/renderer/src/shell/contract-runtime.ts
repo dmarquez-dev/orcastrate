@@ -31,7 +31,8 @@ export type AnyStatus =
   | 'beached'
   | 'closed'
   | 'done'
-  | 'orphaned';
+  | 'orphaned'
+  | 'stopped';
 
 /**
  * `Readonly<Record<AnyStatus, string>>` is the real guard in the widening: add
@@ -48,6 +49,7 @@ const STATUS_TOKENS: Readonly<Record<AnyStatus, string>> = {
   beached: TOKENS.statusBeached,
   closed: TOKENS.statusClosed,
   orphaned: TOKENS.statusOrphaned,
+  stopped: TOKENS.statusStopped,
 };
 
 /**

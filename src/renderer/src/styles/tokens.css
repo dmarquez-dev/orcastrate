@@ -56,9 +56,45 @@
      (a flat bar, `PodBar.module.css`) is the second non-colour signal. */
   --oc-status-closed: #4a5060;
 
+  /* AMENDMENT (2026-08-25-orcastrate-pod-status-and-chrome) — the fourth
+     LaneStatus: the Pod that owns this lane was stopped. Warm neutral, so it
+     separates from the two quiet neutrals it sits nearest — `idle` (#7c8598,
+     cool) and `closed` (#4a5060, dark cool) — by HUE and by LIGHTNESS both:
+     WCAG contrast 1.796 against `idle` and 3.903 against `closed`, so the
+     semantically adjacent pair clears the shipped `closed`/`idle` precedent
+     (2.173). Quiet on purpose — a deliberately stopped lane is a routine
+     resting state and must not compete with `waiting`, which needs a human;
+     lightening it further pushes against that.
+     KNOWN AND ACCEPTED (do not re-derive): 1.052 against `waiting` (#e6a33c),
+     both warm. That is this palette's existing shape, not a regression the
+     amendment introduces — the worst SHIPPED pair is `idle`/`beached` at
+     1.005 and five shipped pairs sit under 1.2. The palette is
+     hue-differentiated throughout; the systemic question is on the backlog.
+     Re-pinned from #8f8577 by escalation E1: that value measured 1.022
+     against `idle`, i.e. hue-only separation. */
+  --oc-status-stopped: #c0b39d;
+
   /* `bypassPermissions`. Deliberately unlike every routine status above. */
   --oc-danger: #ff6b6b;
   --oc-danger-bg: #3a1f22;
+
+  /* AMENDMENT (2026-08-25-orcastrate-pod-status-and-chrome) — CONTROL
+     colours, not status colours. `--oc-status-*` names what a Pod IS; these
+     name what a CONTROL does, and keeping the families apart is what stops
+     `run` reading as a status hue. Same shape as the danger pair above,
+     which the delete control already consumes, so the three controls are
+     described the same way. Colour is the THIRD carrier: the accessible name
+     and the icon shape carry the meaning first.
+     `--oc-action-run` is a warmer, more saturated green than
+     `--oc-status-done` (#4bb87a); `--oc-action-stop` is a clearer yellow than
+     `--oc-status-waiting` (#e6a33c), which is amber — so a control never
+     reads as a status swatch. Each `*-bg` is its foreground's hue dropped to
+     a panel lightness, the same recipe as `--oc-danger-bg`, so a hover reads
+     as the control's own colour rather than as grey. */
+  --oc-action-run: #35c46b;
+  --oc-action-run-bg: #173a26;
+  --oc-action-stop: #e0c341;
+  --oc-action-stop-bg: #3a3418;
 
   /* Spacing scale. Nothing between these steps. */
   --oc-space-1: 4px;

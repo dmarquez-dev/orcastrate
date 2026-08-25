@@ -79,6 +79,41 @@ export const TOKENS = {
    */
   statusClosed: '--oc-status-closed',
 
+  // AMENDMENT (sub-session 2026-08-25-orcastrate-pod-status-and-chrome, T3) —
+  // ADDITIONS ONLY, the five `ADDED_TOKENS` of
+  // `contracts/renderer-theme-amendment.ts`. Nothing above is renamed,
+  // revalued or removed, so no existing component's appearance changes as a
+  // side effect.
+
+  /**
+   * The fourth `LaneStatus`: the Pod that owns this lane was stopped. It joins
+   * the seven `--oc-status-*` tokens above and is covered by the same
+   * exhaustiveness and distinctness rules — its value separates from both
+   * `statusIdle` and `statusClosed` by hue AND by lightness, so a stopped lane
+   * survives greyscale and the distinctness assertion needed no relaxing.
+   */
+  statusStopped: '--oc-status-stopped',
+
+  /**
+   * A NEW FAMILY, deliberately NOT `--oc-status-*`. These name what a CONTROL
+   * does; `--oc-status-*` names what a Pod IS. Keeping the families apart is
+   * what stops `run` from being read as a status hue and what keeps the
+   * `--oc-status-*` distinctness rule meaning what it means. `danger` /
+   * `dangerBg` is the same shape one family over and the delete control
+   * already consumes exactly that pair, so the three controls end up described
+   * the same way. Colour stays the THIRD carrier: the accessible name and the
+   * `data-icon` shape carry the meaning, and a consumer must not make hue the
+   * only difference between two controls.
+   */
+  /** Foreground of the run control (Open / Reconnect). Green. */
+  actionRun: '--oc-action-run',
+  /** Hover surface behind the run control. */
+  actionRunBg: '--oc-action-run-bg',
+  /** Foreground of the stop control. Yellow. */
+  actionStop: '--oc-action-stop',
+  /** Hover surface behind the stop control. */
+  actionStopBg: '--oc-action-stop-bg',
+
   /** The `bypassPermissions` badge. Distinct from every routine status. */
   danger: '--oc-danger',
   dangerBg: '--oc-danger-bg',
@@ -140,5 +175,13 @@ export declare function cssVar(token: string): string;
  * and the lane rail row cannot drift into different colors for one state.
  */
 export declare function statusToken(
-  status: 'idle' | 'running' | 'waiting' | 'beached' | 'closed' | 'done' | 'orphaned',
+  status:
+    | 'idle'
+    | 'running'
+    | 'waiting'
+    | 'beached'
+    | 'closed'
+    | 'done'
+    | 'orphaned'
+    | 'stopped',
 ): string;
