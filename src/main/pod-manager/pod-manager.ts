@@ -475,18 +475,87 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     return this.#start(pod, true);
   }
 
+  /**
+   * THE POD AND ITS LANES END TOGETHER. Until 2026-08-25 this wrote
+   * `status: 'closed'` to the POD and never ended the LANES: `lane.endedAt`
+   * stayed null, `elapsedMsOf` fell back to `nowMs` for any lane with a null
+   * `endedAt`, and the rail kept reading Running with a duration ticking up on
+   * a Pod that had no process. The sweep below is the other half of the close.
+   */
   async closePod(podId: PodId): Promise<void> {
     this.#requirePod(podId);
     await this.#dispose(podId);
     const pod = this.#store.getPod(podId);
     // `'closed'`, not `'idle'`: after `#dispose` there is no runner, and
     // `'idle'` now means a runner exists and is between turns. The
-    // `'beached'` guard is preserved — closing a Beached Pod must not erase
-    // why it died, or the user is sent to `Open` instead of `Reconnect`.
+    // `'beached'` guard is preserved AND IS NOT WIDENED — closing a Beached
+    // Pod must not erase why it died, or the user is sent to `Open` instead of
+    // `Reconnect`, and for the same reason a Beached Pod's LANES ARE NOT
+    // SWEPT: `'beached'` records a CAUSE, its affordance is Reconnect rather
+    // than Open, and rewriting its lanes as deliberately stopped would assert
+    // the opposite of what happened. Those lanes are the boot sweep's to
+    // orphan.
     if (pod !== null && pod.status !== 'beached') {
+      // BEFORE the `podStatus` push, never after. `podStatus` is what flips the
+      // tab out of its running affordance; a renderer that saw the Pod closed
+      // while the rail still said Running would show, for one frame, exactly
+      // the disagreement this sweep exists to remove.
+      this.#stopRunningLanes(podId);
       this.#store.updatePod(podId, { status: 'closed' });
       this.#push.podStatus({ podId, status: 'closed' });
     }
+  }
+
+  /**
+   * `'stopped'`'s ONE writer. Nothing else in `src/main` writes it: not
+   * `LaneRouter.closeLane`, not `#closeLaneRow`, not `reconcileStartup` — one
+   * writer is what makes the status mean one thing.
+   *
+   * IDEMPOTENT BY THE FILTER, which is the whole of the guarantee a second
+   * `closePod` must satisfy. Only a lane still `'running'` is swept, so a
+   * second close finds nothing: no `ended_at` is restamped (a duration that
+   * jumped forward when a user clicked Stop on an already-stopped Pod would be
+   * a lie about when the work ended), no second `lane_closed` is appended, and
+   * with nothing changed there is nothing for a `laneChanged` push to say.
+   *
+   * NOTHING IS CAUGHT HERE. A failing `setLaneStatus` or `appendMany` is a
+   * defect, not an expected failure, and it propagates to `closePod`'s caller
+   * — `pod:close` over IPC — rather than being swallowed to report a close that
+   * did not happen.
+   */
+  #stopRunningLanes(podId: PodId): void {
+    // ONE `#now()` for the whole sweep, the same discipline `reconcileStartup`
+    // uses, so two lanes stopped by one gesture read as one gesture.
+    const at = this.#now();
+    const stoppedLaneIds: LaneId[] = [];
+    for (const lane of this.#store.listLanes(podId)) {
+      if (lane.status !== 'running') continue;
+      // `'stopped'` is terminal, and migration 1's
+      // `CHECK ((status = 'running') = (ended_at IS NULL))` REQUIRES the stamp.
+      this.#store.setLaneStatus(lane.id, 'stopped', at);
+      stoppedLaneIds.push(lane.id);
+    }
+    if (stoppedLaneIds.length === 0) return;
+
+    // ONE `appendMany` so the batch is all-or-nothing and the per-Pod `seq` run
+    // stays contiguous. Each event rides its OWN lane's id. Synthetic, so no
+    // `raw`.
+    this.#store.appendMany(
+      stoppedLaneIds.map(
+        (laneId): NewEvent => ({
+          podId,
+          laneId,
+          type: 'lane_closed',
+          payload: { type: 'lane_closed', laneId, status: 'stopped' },
+          createdAt: at,
+        }),
+      ),
+    );
+
+    // `LaneChangedPush` replaces the rail wholesale, so ONE push after the
+    // whole sweep and never one per lane. The list is read back AFTER the
+    // writes, or the renderer redraws the rows it was already showing.
+    this.#push.laneChanged({ podId, lanes: this.#store.listLanes(podId) });
   }
 
   /** App quit: every runner disposed, every prompt settled. */
@@ -1156,7 +1225,17 @@ export class PodManager implements PodManagerApi, StartupReconciler {
           // payload, and keying off the event would misfile every Calf.
           if (this.#ensureLaneRow(session, event.payload.lane)) lanesChanged = true;
         } else if (event.payload.type === 'lane_closed') {
-          if (this.#closeLaneRow(session, event.payload.laneId, event.payload.status)) {
+          // NARROWED AT THE CALL SITE, NOT WIDENED AT THE CALLEE.
+          // `LaneClosedPayload.status` gained `'stopped'`, but `'stopped'` has
+          // exactly one writer — `#stopRunningLanes`, which writes the lane row
+          // itself with the sweep's single stamp and appends its events through
+          // `appendMany` directly, never through this path. Letting a
+          // `'stopped'` event reach `#closeLaneRow` here could only RESTAMP an
+          // `ended_at` that is already correct, so `#closeLaneRow` keeps its
+          // `'done' | 'orphaned'` signature and this branch skips the fourth
+          // member.
+          const { status } = event.payload;
+          if (status !== 'stopped' && this.#closeLaneRow(session, event.payload.laneId, status)) {
             lanesChanged = true;
           }
         }
