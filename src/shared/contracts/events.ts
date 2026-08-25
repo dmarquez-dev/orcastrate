@@ -98,7 +98,28 @@ export type Timestamp = string;
  */
 export type PodStatus = 'closed' | 'idle' | 'running' | 'waiting' | 'beached';
 
-export type LaneStatus = 'running' | 'done' | 'orphaned';
+/**
+ * The lifecycle of one lane.
+ *
+ *   'running'   the lane is open and carries no `endedAt`.
+ *   'done'      the lane finished ITS OWN work and returned a `tool_result`.
+ *   'orphaned'  the lane was FOUND open with no runner — at a turn boundary
+ *               (`lane-router.ts`) or at process start (the boot sweep). It is
+ *               a recovery state and owes the user an explanation.
+ *   'stopped'   The Pod that owns this lane was stopped deliberately. Terminal,
+ *               carries an `endedAt`, and — unlike `'orphaned'` — is not a
+ *               recovery state and needs no explanation to the user.
+ *
+ * `'stopped'` is APPENDED. Order in a union is documentation, not semantics,
+ * but it is fixed so that every existing citation of the union's text stays
+ * readable.
+ *
+ * Widening this union is not free: `src/main/store/schema.ts` mirrors it into a
+ * CHECK constraint, and SQLite's CHECK is the only runtime enforcement of the
+ * status set anywhere in the product. A fifth member needs a new migration,
+ * which the schema-head guard in that file demands at build time.
+ */
+export type LaneStatus = 'running' | 'done' | 'orphaned' | 'stopped';
 
 export type LaneKind = 'matriarch' | 'calf';
 
@@ -254,8 +275,11 @@ export interface LaneOpenedPayload {
 export interface LaneClosedPayload {
   type: 'lane_closed';
   laneId: LaneId;
-  /** 'done' on tool_result; 'orphaned' at a turn boundary with no result. */
-  status: Extract<LaneStatus, 'done' | 'orphaned'>;
+  /**
+   * 'done' on tool_result; 'orphaned' at a turn boundary with no result;
+   * 'stopped' when closePod stops the Pod.
+   */
+  status: Extract<LaneStatus, 'done' | 'orphaned' | 'stopped'>;
 }
 
 export interface PermissionRequestPayload {
