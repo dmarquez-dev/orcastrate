@@ -1057,3 +1057,32 @@ configs to work around it.** What works:
 
 Either place future worktrees inside the repository, or record the two commands above
 where the next session's agents will find them.
+
+### Hand-run confirmation, 2026-08-26 (post-merge) — and two things it did NOT prove
+
+**The fix works against a real Electron window.** A stop now renders in the default
+transcript. Confirmed by hand the same day it merged, which closes the loop the
+2026-08-26 morning hand-run opened.
+
+Two observations from that run, neither a defect, both worth recording:
+
+- **Historical stops became visible retroactively, which nobody wrote down.** The user
+  saw stop notices on *opening* the Pod as well as on stopping it. Cause, verified
+  against the store: that Pod holds four `lane_closed`/`stopped` events (ids 6, 78, 88
+  from the morning, 106 from the run itself). The three older ones were durable all
+  along and invisible — they *are* this session's defect. The exemption applies to the
+  filter, and the filter runs over backfilled history as well as live pushes, so every
+  previously-hidden stop in every existing Pod is now visible. That is correct
+  behaviour — a real record of a real user action — but the definition of done spoke
+  only about the live push, so the retroactive half shipped unstated. **Anyone opening
+  an old Pod will see stop notices that were never there before.**
+
+- **The hand-run could not exercise the narrowness constraint.** `SELECT status,
+  COUNT(*) ... WHERE type='lane_closed' GROUP BY status` over the live database returns
+  **`stopped: 4` and nothing else** — there are zero `done` and zero `orphaned`
+  `lane_closed` events in it. So the window had nothing the filter was supposed to keep
+  hidden, and the hard constraint of this session ("do not unhide `lane_closed`
+  wholesale") remains proven only by test: `typeCount(pane, 'lane_closed') === 0`
+  against the `done` fixtures, and T3's `KEPT_POD` assertion. **A future hand-run that
+  wants to test it needs a Pod with a lane that finished normally**, which is a
+  different scenario to set up and did not arise here.

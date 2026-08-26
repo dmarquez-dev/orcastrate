@@ -148,3 +148,18 @@ shipped green twice.
 hand-run of that morning was the diagnosis, not the verification. A hand-run of the
 stop flow is the natural next step, and it is now cheap — the words either appear or
 they do not.
+
+## 2026-08-26 — fourth hand-run (no session), post-merge
+
+Drove the merged fix against a real Electron window the same day. **It works**: a stop
+renders `Lane closed` / `Stopped` in the default transcript.
+
+Two things the run established that the session had not:
+
+- **Historical stops are visible retroactively.** The filter runs over backfilled
+  history, not just live pushes, so the three older `lane_closed`/`stopped` events in
+  the test Pod (durable since the morning, invisible until now) render on open. Correct,
+  but unstated in the definition of done.
+- **Narrowness was NOT hand-tested.** The live database holds four `lane_closed` events,
+  all `stopped`, and no `done` or `orphaned` at all — so there was nothing the filter was
+  meant to hide. That constraint still rests on tests alone.
