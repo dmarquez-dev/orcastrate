@@ -50,3 +50,30 @@ them:
 - **No in-progress indicator** is partly caused by this project's own transcript
   filter: `thinking` is in `PLUMBING_EVENT_TYPES` and therefore hidden by default
   since 2026-08-21. Recorded as such rather than as a pre-existing gap.
+
+## 2026-08-26 — 2026-08-25-orcastrate-pod-status-and-chrome
+
+Cleared the seven second-hand-run findings. A stopped Pod now reads Stopped with a
+frozen duration; work in flight has a timer-free status affordance; the Pod tab and
+lane rail chrome are done. 8 tasks, 7 commits, 36 files, +3453/-48; 70 of 71
+acceptance criteria met, 1 revision round, 3 escalations.
+
+Three decisions the user took:
+
+- **E1** — the stopped status token was re-pinned from `#8f8577` to `#c0b39d` after
+  review measured the first at 1.022 WCAG contrast against `idle`, hue-only
+  separation. The orchestrator then established that the shipped palette's worst pair
+  is `idle`/`beached` at 1.005, so the greyscale weakness is systemic; the re-pin
+  fixes the semantically adjacent pair and the systemic question went to the backlog.
+- **E2** — T8 was authorised outside the frozen manifest to add the new e2e suite to
+  `hygiene.test.ts`'s main-reaching allowlist, rather than widening that rule to a
+  glob, which would have returned it to the stated-but-unenforced state it was
+  written to end.
+- **E3** — two defects the session found while proving its own fix were backlogged
+  rather than fixed: `#stopRunningLanes` never pushes `podEvent`, and `lane_closed`
+  is PLUMBING. T7's criterion 3 is recorded **not met** because its premise was
+  false, not because the work fell short.
+
+The last one is the session's most useful output after the fix itself. T7 refused to
+assert the current empty-transcript behaviour as correct, which would have locked the
+defect in behind a green suite.

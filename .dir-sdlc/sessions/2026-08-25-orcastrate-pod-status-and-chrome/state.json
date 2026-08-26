@@ -1,0 +1,149 @@
+{
+  "session": "2026-08-25-orcastrate-pod-status-and-chrome",
+  "updatedAt": "2026-08-26T10:20:48-07:00",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-25-orcastrate-pod-status-and-chrome",
+  "branch": "dir/2026-08-25-orcastrate-pod-status-and-chrome",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "25d241f",
+      "commit": "e15b1c4"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "e15b1c4",
+      "commit": "b51b840"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 1,
+      "startRef": "25d241f",
+      "commit": "0740742"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "25d241f",
+      "commit": "a8e0a66"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "0740742",
+      "commit": "fa84950"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "0740742",
+      "commit": "6862852"
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "6862852",
+      "commit": "dac2f65",
+      "note": "Criterion 3 NOT MET, by user decision at escalation E3. Its premise was factually false - lane_closed is PLUMBING, not CONVERSATION - and the event never reaches the renderer because #stopRunningLanes omits the podEvent push. Both carried to the backlog; the session closed at its Gate 2 scope. The implementer added no assertion pinning the current behaviour as correct."
+    },
+    {
+      "id": "T8",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "6862852",
+      "note": "Not in the frozen manifest. Authorised by escalation E2 to repair T7 fallout in a file T7 does not own.",
+      "commit": "f9ca5ce"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T3",
+      "question": "--oc-status-stopped (#8f8577) separates from --oc-status-idle by hue only; measured contrast 1.022 against the 2.173 of the closed/idle pair criterion 3 cites as its precedent. A stopped lane does not survive greyscale. The value is pinned by a frozen contract, so changing it is a contract change.",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Re-pin --oc-status-stopped lighter (e.g. #c0b39d) and amend the contract",
+          "rationale": "Buys real lightness separation - 1.80 vs idle, 3.90 vs closed, verified by the orchestrator - while keeping the warm-neutral intent and the status/action family boundary. Trade-off: a lighter stopped competes more with waiting for attention.",
+          "evidence": "judgment"
+        },
+        {
+          "summary": "Keep #8f8577; correct criterion 3's basis to hue-only and push the greyscale obligation to T5/T6",
+          "rationale": "No code change and the spec stops claiming something measurably untrue. tokens.css:56 records that closed already carries a second non-colour signal for this same reason, so the pattern exists in the repo.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Additionally replace hygiene's string-inequality guard with a measured separation assertion",
+          "rationale": "Makes the guard mean what criterion 3 says it means so the next status widening cannot repeat this silently. Only viable on top of option 1, and widens a hygiene rule beyond this task.",
+          "evidence": "judgment"
+        }
+      ],
+      "answer": "Re-pin --oc-status-stopped to #c0b39d and amend the frozen contract. The user weighed that a lighter stopped competes more with waiting and accepted it. Orchestrator additionally measured #c0b39d at 1.052 against waiting and established that the shipped palette's worst pair (idle vs beached) is 1.005, so the greyscale weakness is systemic and pre-existing; that systemic question goes to the backlog rather than being settled in this session."
+    },
+    {
+      "id": "E2",
+      "taskId": "T7",
+      "question": "T7 cannot add its own file to hygiene.test.ts's MAIN_REACHING_FILES allowlist - that file is T3's, already committed. Criterion 1 requires importing the real PodManager from __tests__/, which the allowlist governs. Who adds the entry?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Dispatch a scoped follow-up to the owner's domain to add the one entry",
+          "rationale": "The rule's own comment says the point is that exceptions are named rather than tolerated silently, so registering a second deliberate exception is the extension point working as designed. Orchestrator dispatches rather than edits.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Orchestrator edits the one line directly",
+          "rationale": "Smallest change to a file no agent currently holds. Deviates from the rule that the orchestrator dispatches and does not implement.",
+          "evidence": "judgment"
+        },
+        {
+          "summary": "Widen the rule to allow any *.e2e.test.tsx under __tests__/",
+          "rationale": "Removes the recurring maintenance point, but converts a named-exception rule into a blanket exemption - precisely the 'stated and not enforced' failure the rule was written to end. T7 recommends against.",
+          "evidence": "judgment"
+        }
+      ],
+      "answer": "Dispatch a scoped follow-up owning hygiene.test.ts to add the one allowlist entry with a rationale comment, then review and commit it. Tracked as T8, authorised by this escalation rather than by the frozen manifest."
+    },
+    {
+      "id": "E3",
+      "taskId": "T7",
+      "question": "Criterion 3's premise is factually FALSE: lane_closed is in PLUMBING, not CONVERSATION (transcript-filter.ts:47-54), so it is hidden in the default view - criteria 3 and 4 contradict each other as written. Independently, T7 found that the lane_closed event never reaches the renderer at all in either mode: #stopRunningLanes pushes only laneChanged, never podEvent, while #appendResumeFallbackNotice does push podEvent for exactly this reason. Both verified by the orchestrator. How should the stop be made visible in the transcript?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Follow-up task: add the podEvent push AND a payload-scoped filter exemption for stopped lane_closed",
+          "rationale": "Fixes both gaps and satisfies criterion 3's intent without unhiding routine lane_closed noise. The narrow-predicate shape isStartupReconciliationNotice already establishes the pattern, and being payload-scoped it leaves the _AssertNever partition guards untouched. T7 recommends this.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Add only the podEvent push; the row is revealed by the Show system events toggle",
+          "rationale": "One-line production change, no filter edit. Does not satisfy criterion 3 as written, and puts the explanation behind a toggle at the moment it matters.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Drop criterion 3 and backlog the podEvent gap",
+          "rationale": "The rail already carries the word Stopped, and transcript-filter.ts's own comment argues lane bookkeeping is what the rail already reports where the user is already looking. Keeps this session closed at its agreed scope.",
+          "evidence": "repo"
+        }
+      ],
+      "answer": "Backlog both the missing podEvent push and the false criterion-3 premise, with mechanisms traced, and close the session at its agreed Gate 2 scope. The rail already carries the word Stopped where the user is looking. Criterion 3 is recorded as not met, by user decision, rather than silently dropped."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 3,
+    "reviewRounds": 1
+  }
+}

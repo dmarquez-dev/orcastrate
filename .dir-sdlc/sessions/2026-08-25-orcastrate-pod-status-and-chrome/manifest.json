@@ -1,0 +1,178 @@
+{
+  "session": "2026-08-25-orcastrate-pod-status-and-chrome",
+  "createdAt": "2026-08-25",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/lane-stopped-status.ts",
+    "contracts/renderer-theme-amendment.ts",
+    "contracts/activity-indicator.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Widen LaneStatus with 'stopped'; pin migration 1's lane-status list, ship migration 4, add the schema-head guard",
+      "agent": "dir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/shared/contracts/events.ts",
+        "src/shared/contracts/event-store.ts",
+        "src/main/store/**",
+        "tests/unit/store/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`src/shared/contracts/events.ts` declares `export type LaneStatus = 'running' | 'done' | 'orphaned' | 'stopped'` with `'stopped'` APPENDED, and its docblock states the meaning verbatim from `contracts/lane-stopped-status.ts` section 1: the Pod that owns this lane was stopped deliberately; terminal; carries an `endedAt`; not a recovery state. `LaneClosedPayload.status` becomes `Extract<LaneStatus, 'done' | 'orphaned' | 'stopped'>` and its inline comment names all three cases. `src/shared/contracts/event-store.ts`'s `setLaneStatus` docblock, which today reads \"for a terminal status ('done' | 'orphaned')\", is corrected to name all three.",
+        "Migration 1 no longer interpolates the live `LANE_STATUSES`. `MIGRATION_1_LANE_STATUSES` is a bare `['running', 'done', 'orphaned'] as const` carrying NO `satisfies readonly LaneStatus[]` clause — deliberately, for the reason `MIGRATION_1_POD_STATUSES`' docblock gives — and is what `schema.ts`'s `lanes` CHECK renders from. The live `LANE_STATUSES` is widened to four members.",
+        "A test asserts that migrations 1, 2 and 3 each render SQL byte-identical to the text of the blob that shipped them, in the shape `tests/unit/store/migration-2.test.ts` already establishes. It must have been seen FAILING against the unpinned form before the pin landed; the report quotes the command and the observed diff. A released migration is never edited — migration 4 is a new entry appended to `MIGRATIONS`, and no character of `MIGRATION_1`, `MIGRATION_2` or `MIGRATION_3` changes except the `sqlIn(LANE_STATUSES)` -> `sqlIn(MIGRATION_1_LANE_STATUSES)` substitution, which the byte-identity test proves changed nothing in the rendered output.",
+        "Migration 4 exists at version 4 and rebuilds `lanes` with a status CHECK rendered from a pinned `MIGRATION_4_LANE_STATUSES` carrying all four members WITH `satisfies readonly LaneStatus[]`. The rebuilt table reproduces `CHECK ((status = 'running') = (ended_at IS NULL))` verbatim, so a `'stopped'` row is required to carry an `ended_at`. A test writes a lane with status `'stopped'` and a null `ended_at` and asserts the CHECK rejects it.",
+        "Migration 4 recreates ALL FOUR of `idx_lanes_pod`, `idx_lanes_tool_use`, `idx_lanes_matriarch` and `idx_lanes_parent` on the rebuilt table, by those exact names, with `idx_lanes_tool_use` and `idx_lanes_matriarch` still UNIQUE and all three partial indexes still carrying their `WHERE` clauses. Proved by reading `sqlite_master` on a real migrated database and comparing name, uniqueness and partial predicate against the pre-migration schema — not by reading the migration's SQL string. `pods` carried no index and migrations 2 and 3 say steps 7-8 of the rebuild \"reduce to nothing\"; that is false of `lanes` and copying migration 3 verbatim drops these four silently.",
+        "Migration 4 loses no data. A test populates a v3 database with at least two Pods, several lanes including a Calf with a non-null `parent_lane_id`, and events on each lane; migrates to v4; and asserts identical lane and event row counts and identical lane rows before and after. Every count comes from a `SELECT COUNT(*)` executed in the test, never from a literal. `PRAGMA foreign_key_check` returns empty after the migration. The counts and the command that produced them are named in the report.",
+        "After migration 4, the `lanes` entry in `sqlite_master` self-references `lanes`, not `lanes_new`: the new table is created with `parent_lane_id TEXT REFERENCES lanes(id) ON DELETE CASCADE`, which is correct precisely because `SqliteEventStore.migrate()` runs with `PRAGMA foreign_keys` OFF and `ALTER TABLE ... RENAME TO` therefore does not rewrite REFERENCES clauses. A test asserts a Calf row survives the migration and still cascades when its parent lane is deleted with foreign keys ON.",
+        "Migration 4 backfills nothing. Every lane row's `status` and `ended_at` are byte-identical before and after, asserted row by row rather than in aggregate. Shape changes and data changes stay in separate migrations.",
+        "`_LaneStatusCoveredAtSchemaHead` is added using the `_AssertNever<T extends never>` spelling that `schema.ts:219-232` already validates for `PodStatus`, NOT the `_UncoveredAtSchemaHead` empty-array-literal spelling, which was proved by experiment never to fire. The task runs the compiler probe: temporarily add a fifth `LaneStatus` member to `events.ts`, confirm `npm run typecheck:node` fails AT THAT GUARD, revert, and quote the compiler's error text in the report. \"Verified by inspection\" does not satisfy this criterion.",
+        "`LANE_KINDS` and `EVENT_TYPES` remain interpolated into migration 1 and are NOT pinned by this task. Pinning them would rewrite migration 1's rendered text for a second reason inside one diff and make any byte-identity failure impossible to attribute. The backlog already carries the item; report it, do not fix it.",
+        "`npm run typecheck:node` and `npx vitest run tests/unit/store` both pass. `npm run typecheck:web` is EXPECTED to fail at `src/renderer/src/lanes/lane-status.ts`, whose `Readonly<Record<LaneStatus, string>>` loses exhaustiveness the moment the union widens; that file is T6's and must not be edited here. Name the failure and its file in the report rather than working around it."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "closePod ends the Pod's running lanes as 'stopped', and is proved idempotent against an already-closed Pod",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": ["src/main/pod-manager/**", "tests/unit/pod-manager/**"],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "After `closePod` on a non-beached Pod, every lane of that Pod whose status was `'running'` has status `'stopped'` and a non-null `ended_at`, and every one of those stamps is the SAME value — one `this.#now()` for the whole sweep, as `reconcileStartup` already does, so two lanes stopped by one gesture read as one gesture. Asserted by reading the lane rows back from a real `SqliteEventStore`.",
+        "One `lane_closed` event per swept lane, appended on that lane's own id with `status: 'stopped'` and the sweep's single `createdAt`, in a SINGLE `appendMany` so the batch is all-or-nothing. The per-Pod `seq` run remains contiguous and gap-free after the call, asserted by reading the events back and checking the sequence, not by trusting the store.",
+        "Exactly ONE `laneChanged` push is emitted for the Pod, after the whole sweep and BEFORE the `podStatus` push. `LaneChangedPush` replaces the rail wholesale, so one push per sweep and never one per lane; the ordering matters because a renderer that saw the Pod closed while the rail still said Running would render, for one frame, the exact disagreement this task removes. Asserted by recording push channel order in the test double for the push surface.",
+        "The `pod.status !== 'beached'` guard is preserved and NOT widened: `closePod` against a beached Pod leaves every lane's status and `ended_at` untouched and appends no `lane_closed`. A comment at the guard states why — `'beached'` records a CAUSE and its affordance is Reconnect, so rewriting its lanes as deliberately stopped would assert the opposite of what happened, and those lanes belong to the boot sweep.",
+        "IDEMPOTENCE, and it closes the coverage gap promoted at `2026-08-20-orcastrate-pod-lifecycle`'s Gate 3. Driving `closePod` TWICE against a real `PodManager` over a real `SqliteEventStore` leaves each lane's `ended_at` at its FIRST value, appends no second `lane_closed` for any lane, does not throw, and leaves the Pod `'closed'`. Asserted by lane row state and event count against the real objects — never by spying on a mock, because a mock configured to be called once proves only that it was configured. This is the first test in the repository exercising `closePod` against an already-closed Pod; `git grep -n closePod -- src/main tests` before and after must show that.",
+        "`'stopped'` is written by `closePod` and by nothing else. `LaneRouter.closeLane` and `PodManager.#closeLaneRow` keep their `'done' | 'orphaned'` parameter types; `reconcileStartup` still writes `'orphaned'`; `STARTUP_RECONCILIATION_REASON` is unchanged byte for byte. Proved by a source scan for the literal `'stopped'` under `src/main/`, reported with the command and its output.",
+        "No error is swallowed to keep the path quiet. If the lane sweep or the append throws, the failure propagates to `closePod`'s caller; nothing is caught without a comment at the catch site saying why it is ignorable. The report states what the IPC caller observes when the sweep fails.",
+        "Every test uses the injected clock, never `Date.now()` or the wall clock, and nothing sleeps. Each test was seen FAILING before the implementation existed; the report names the command run and the failure observed, for each. A test never observed failing has not been shown to test anything.",
+        "`npm run typecheck:node`, `npx vitest run tests/unit/pod-manager` and `npx vitest run tests/unit/store` all pass."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Theme seam: add the stopped status token and the four run/stop action tokens, and widen both halves of the statusToken pair",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-theme.ts",
+        "src/renderer/src/shell/contract-runtime.ts",
+        "src/renderer/src/shell/WorkspaceLayout.test.tsx",
+        "src/renderer/src/styles/tokens.css",
+        "src/renderer/src/__tests__/hygiene.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`TOKENS` in `renderer-theme.ts` gains exactly the five names in `contracts/renderer-theme-amendment.ts`' `ADDED_TOKENS` — `statusStopped`, `actionRun`, `actionRunBg`, `actionStop`, `actionStopBg` — under an AMENDMENT comment naming this session. Nothing existing is renamed, revalued or removed, so no component's appearance changes as a side effect. The `action*` family is deliberately NOT `--oc-status-*`: those name what a Pod IS, these name what a CONTROL does, and keeping the families apart is what preserves the status-distinctness rule's meaning.",
+        "`styles/tokens.css` declares all five on `:root` with the pinned values from `ADDED_TOKEN_VALUES` — `--oc-status-stopped: #8f8577`, `--oc-action-run: #35c46b`, `--oc-action-run-bg: #173a26`, `--oc-action-stop: #e0c341`, `--oc-action-stop-bg: #3a3418`. These are the only new colour literals anywhere in the renderer; the hygiene rule \"hardcodes no colour outside styles/\" still passes.",
+        "`__tests__/hygiene.test.ts`'s \"declares one distinct value per status\" expects EIGHT sorted names — beached, closed, done, idle, orphaned, running, stopped, waiting — and its distinctness assertion is NOT relaxed to make room. `#8f8577` is chosen so it does not have to be: it separates from `idle` (#7c8598) and `closed` (#4a5060) by hue AND by lightness, so a stopped lane survives greyscale. Add a named assertion that `--oc-status-stopped` differs from both, in the spirit of the existing `closed` vs `idle` line.",
+        "`shell/WorkspaceLayout.test.tsx`'s \"maps every status in both status unions to its own token\" carries eight statuses, and asserts `statusToken('stopped') === '--oc-status-stopped'` alongside the existing named `waiting` and `closed` lines.",
+        "`statusToken`'s DECLARED union in `renderer-theme.ts` and `AnyStatus` in `shell/contract-runtime.ts` both gain `'stopped'`, in this one task and one commit. They are a hand-written declare/implement pair with nothing in the type system connecting them, so landing one without the other breaks the call sites later rather than the build now; hygiene's \"keeps statusToken declared and implemented over the same union\" is the only guard and must pass. `STATUS_TOKENS` gains `stopped: TOKENS.statusStopped` and keeps its `Readonly<Record<AnyStatus, string>>` annotation exactly as it is — that annotation is the one real guard in the chain and must not be weakened to land the change.",
+        "Run the compiler probe and quote it: temporarily delete the `stopped` entry from `STATUS_TOKENS`, confirm `npm run typecheck:web` fails on the `Record<AnyStatus, string>` annotation, revert, and put the compiler's error text in the report. Separately, confirm by probe that removing `'stopped'` from ONLY the `renderer-theme.ts` declaration leaves `typecheck:web` GREEN and is caught only by the hygiene test — that asymmetry is why both files are owned here.",
+        "Colour is never the only carrier of meaning. This task adds colour tokens and nothing that consumes them; it introduces no rule, class or attribute by which colour becomes load-bearing, and the report states that the two consuming tasks carry that obligation.",
+        "`npm run typecheck:web` passes, and `npx vitest run src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/shell` passes. Each widened guard was seen failing before the token landed; name the command and the failure."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "WorkingIndicator: a CSS-only, timer-free status affordance for work in flight",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/activity/**"],
+      "dependsOn": [],
+      "acceptance": [
+        "`src/renderer/src/activity/WorkingIndicator.tsx` exports `WorkingIndicator` taking exactly `WorkingIndicatorProps` from `contracts/activity-indicator.ts` — `{ active: boolean; size: 'dot' | 'bar' }` — and returns `null` when `active` is false, so an inactive row mounts nothing that could animate. An `index.ts` re-exports the component, its props type and `WORKING_INDICATOR_TEST_ID`.",
+        "NO TIMER, NO CLOCK, NO JS ANIMATION. A test reads `WorkingIndicator.tsx` as TEXT and asserts it contains none of `setInterval`, `setTimeout`, `requestAnimationFrame`, `Date.now`, and no `useEffect`. This is the hard constraint: `LaneRow.tsx:30` holds no timer and `elapsedMs` arrives pre-computed, and the provider's single `useElapsedClock(hasRunningLane)` stops when no lane is running — an indicator that schedules its own frames would re-render every finished row forever and keep running after the last lane ended.",
+        "The animation is a CSS `@keyframes` rule in `WorkingIndicator.module.css`, applied by a class, and `@media (prefers-reduced-motion: reduce)` disables it while leaving a static, still-visible mark. Neither branch may leave the indicator invisible: taking the signal away from the users most likely to need it is not a reduced-motion fallback. Both branches are asserted against the stylesheet read as text.",
+        "The rendered element carries `aria-hidden=\"true\"` and contributes NO accessible text. A test renders it inside a container with a known accessible name and asserts that name is byte-identical with `active` true and with `active` false. Motion is the third carrier of meaning, after the status word and the status shape — the same rule colour answers to everywhere else in this app. It adds no `aria-live` region: announcing every turn start would narrate the whole session.",
+        "The element carries `data-testid=\"working-indicator\"` rendered LITERALLY with no suffix, matching the `laneRowUnread` / `laneRowSteer` pattern, so a mount site's suite reaches it with `within(row)`.",
+        "`WorkingIndicator.styles.test.ts` follows the `#?raw` pattern of `shell/Panels.styles.test.ts` INCLUDING its vacuity guard (the stylesheet was read as text, not as a class-name proxy, and is non-empty). It asserts: no hex, `rgb()` or `hsl()`; no bare `px`/`rem`/`em`/`pt` length; no `!important`; no `outline: none` or `outline: 0`; and that every `var(--oc-…)` referenced appears in `Object.values(TOKENS)`. It uses ONLY tokens that exist today — `--oc-status-running`, the spacing scale, `--oc-radius-sm` — and requires none of T3's five, which is why this task depends on nothing.",
+        "Purely presentational: it imports no store, no hook from `../state`, no context, and no `@shared` runtime value. It takes data and nothing else, and does not know whether it is on a tab or in a rail row — that is what lets two tasks mount it without coordinating.",
+        "Every test was seen FAILING before the implementation existed; the report names the command run and the failure observed, for each.",
+        "`npm run typecheck:web` and `npx vitest run src/renderer/src/activity` pass."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Pod tab chrome: coloured run/stop controls, glyph size parity, control padding, whole-tab hover, and the working indicator",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/pods/**"],
+      "dependsOn": ["T3", "T4"],
+      "acceptance": [
+        "The run control is green and the stop control yellow, from `var(--oc-action-run)` and `var(--oc-action-stop)` with hover surfaces from `var(--oc-action-run-bg)` and `var(--oc-action-stop-bg)`; the delete control keeps `--oc-danger` / `--oc-danger-bg` unchanged. No colour literal appears in `PodBar.module.css` or in any `pods/` component, and every `var(--oc-…)` used is named in the frozen `TOKENS` map. It is ONE button in two modes, so the mode selects the colour; the button must not become two elements — that would strand keyboard focus when a Pod starts or stops under the user, which is the reason the single element exists.",
+        "COLOUR REMAINS A REDUNDANT CARRIER, NEVER THE SOLE ONE, and this is the constraint the whole item turns on. Every existing assertion in `PodTab.test.tsx` that reaches a control by ACCESSIBLE NAME — `Stop <title>`, `Open <title>` / `Reconnect <title>`, `Delete <title>` — still passes UNCHANGED and is neither deleted nor weakened; `runControlFor`'s verb choice is untouched; the `data-icon` values `play`, `pause` and `delete` remain three distinct shapes; `data-verb` is unchanged. The report states which three carriers each control now has.",
+        "The play/pause glyph and the delete `×` render at the same size. They are text glyphs, not SVG, so per-character metrics differ at equal `font-size`: both icon spans must therefore declare the SAME `font-size` token AND the same explicit square box (matching `width`, `height` and `line-height` from the token scale) with the glyph centred. Asserted against `PodBar.module.css` read via `#?raw` with the `Panels.styles.test.ts` vacuity guard. The report must state plainly that jsdom applies no stylesheet, so this is a declaration-level proof and not a rendered-box measurement.",
+        "The delete `×` has padding separating it from the tab's trailing edge and from the run/stop control, and a RUNNING Pod has trailing padding to the right of the stop control, so the two states carry an equal trailing inset and the tab does not change width perceptibly when the delete control mounts or unmounts. All spacing comes from `--oc-space-*` tokens; no bare length. Asserted against the stylesheet text.",
+        "The ENTIRE tab highlights on hover, not just the name. The hover rule moves to the tab ITEM — the `<li>` carrying `.tabItem`, which encloses the tab button, the run/stop control and the delete control when present — so hovering anywhere over the tab, including the gap between controls, highlights the whole target. `.tab:hover` alone no longer carries it. Asserted against the stylesheet text, and the report names which element the highlight is declared on.",
+        "FOCUS STAYS VISIBLE AND KEYBOARD REACH IS UNCHANGED. `PodBar.module.css` contains no `outline: none` and no `outline: 0`; the hover surface does not obscure the focus ring; the arrow-key roving focus and Ctrl/Cmd-arrow reorder behaviour, and the delete-control focus-rescue effect that moves focus to the run control when the delete control unmounts, all still pass their existing tests unmodified.",
+        "`WorkingIndicator` is mounted per the contract's `POD_TAB_MOUNT`: inside the tab button adjacent to the status dot, with `size=\"dot\"` and `active={status === 'running'}` — and NOT for `'waiting'`, which means the Pod is blocked on the USER and already carries the busiest dot shape plus the permission badge; animating there would tell the user to wait for a machine that is waiting for them. A test asserts the indicator is present for `running` and absent for each of `idle`, `waiting`, `closed` and `beached`.",
+        "Every test added or changed was seen FAILING before the implementation; the report names the command and the failure for each. No pre-existing assertion in `pods/` is deleted or relaxed to make a change land.",
+        "`npm run typecheck:web` and `npx vitest run src/renderer/src/pods` pass."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Lane rail: render the stopped status, highlight the whole swimlane, and mount the working indicator",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/lanes/**"],
+      "dependsOn": ["T1", "T3", "T4"],
+      "acceptance": [
+        "`lanes/lane-status.ts`'s `LANE_STATUS_LABEL` gains `stopped: 'Stopped'`, restoring exhaustiveness to its `Readonly<Record<LaneStatus, string>>` and unblocking `typecheck:web` for the whole program. One word is the whole accessibility story here: it is what a screen reader, a greyscale display and a colour-blind user actually get. `lanes/finished-lanes.ts`'s `FINISHED_LANE_STATUSES` gains `'stopped'`, and a test confirms a STOPPED MATRIARCH still shows in the rail — rule 1 of `isCollapsibleFinishedLane` protects it, and that is the case that matters.",
+        "`LaneRail.module.css` colours the stopped dot from `var(--oc-status-stopped)`, alongside the existing per-status dot rules. The dot never appears without the status word beside it; colour is never the only carrier.",
+        "THE WHOLE SWIMLANE HIGHLIGHTS ON SELECTION. The selection background is declared on the row CONTAINER (`.row`, the `<li>`) and spans the full row width with no horizontal inset — no `padding-inline` or `margin-inline` on the highlighted element pulls it in from the row edges, and the highlight is not declared on `.rowMain`, which is the inner button and cannot cover the sibling `Steer` action. Asserted against `LaneRail.module.css` read via `#?raw` with the `Panels.styles.test.ts` vacuity guard, and named in the report.",
+        "The Matriarch's highlight is DARKER than a Calf's, both differ from the unselected surface, and the report names the three distinct token values used. All three come from the frozen `TOKENS` map; no new token is invented here — a component needing one that does not exist stops and escalates.",
+        "`Steer` stays DARKER than the highlight and the highlight extends AROUND it rather than stopping at it: `.rowAction` keeps its own background token, and because the highlight is on the row container the highlighted area is continuous behind and around the action rather than clipped at its edge. A test asserts `Steer` and the highlighted row resolve to different declared background tokens.",
+        "The visual state and the announced state agree, and neither is silently changed. `aria-current`, the row's `data-in-primary-pane` / `data-in-follower-pane` / `data-focused-follower` attributes, and the follower text in the select button's accessible name behave exactly as they do today. The report must state which of primary / follower / focused-follower the new visual distinguishes and which it does not — a `2026-08-20-orcastrate-workspace-refinement` advisory records that `aria-current` is set for a row in the primary OR a follower pane and so does not distinguish them, and that `focusedFollower` reaches assistive technology through the accessible name alone. Report the disagreement if one remains; do not widen or narrow `aria-current` to paper over it.",
+        "`WorkingIndicator` is mounted per the contract's `LANE_ROW_MOUNT`: inside the `.meta` line adjacent to the status word, with `size=\"bar\"` and `active={row.status === 'running'}`. A test asserts it is present for `running` and absent for each of `done`, `orphaned` and `stopped` — its absence is what makes its presence mean something.",
+        "`LaneRow` STILL HOLDS NO TIMER AND NO CLOCK. A test reads `LaneRow.tsx` as text and asserts it contains none of `setInterval`, `setTimeout`, `requestAnimationFrame`, `Date.now`, and that `LaneRow` is still exported `memo`-wrapped. `elapsedMs` continues to arrive pre-computed on the view model.",
+        "A test renders a lane with `status: 'stopped'` and a fixed non-null `endedAt` and asserts the row reads \"Stopped\" AND that its formatted elapsed text is byte-identical across at least two advances of the provider's clock — the frozen duration is the user-visible half of the defect and must be asserted, not inferred from `endedAt` being set.",
+        "Every test added or changed was seen FAILING before the implementation; the report names the command and the failure for each. No pre-existing assertion in `lanes/` is deleted or relaxed to make a change land.",
+        "`npm run typecheck` (BOTH projects — this is the task that closes T1's expected `typecheck:web` failure) and `npx vitest run src/renderer/src/lanes` pass."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "End-to-end proof that stopping a Pod reads as Stopped with a frozen duration, plus repository-wide fallout repair",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx",
+        "src/renderer/src/__tests__/harness.tsx",
+        "src/renderer/src/__tests__/panes.e2e.test.tsx",
+        "src/renderer/src/__tests__/permissions.e2e.test.tsx",
+        "src/renderer/src/__tests__/pod-controls.e2e.test.tsx",
+        "src/renderer/src/__tests__/pod-open.e2e.test.tsx",
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx",
+        "src/renderer/src/__tests__/relaunch.e2e.test.tsx",
+        "src/renderer/src/__tests__/transcript-turns.e2e.test.tsx",
+        "src/renderer/src/__tests__/wording.e2e.test.tsx",
+        "src/renderer/src/__tests__/workspace.e2e.test.tsx",
+        "src/renderer/src/test-utils/**",
+        "src/renderer/src/transcript/**/*.test.tsx",
+        "src/main/lane/**/*.test.ts",
+        "tests/router/**",
+        "tests/unit/ipc/**",
+        "tests/unit/pod/**",
+        "tests/unit/pod-session/**"
+      ],
+      "dependsOn": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "acceptance": [
+        "A new `src/renderer/src/__tests__/pod-stop.e2e.test.tsx` drives the REAL `PodManager` over a real store and the real renderer — the pattern `relaunch.e2e.test.tsx` already establishes, and what keeps the suite non-tautological. A Pod with a running Matriarch is stopped through the Pod tab's stop control; the rail row then reads \"Stopped\", its formatted duration is byte-identical across at least two advances of the provider clock, and the tab offers Open and Delete. Seen FAILING against pre-session behaviour first, with the observed failure quoted in the report.",
+        "That suite carries a POSITIVE VACUITY GUARD before any equality assertion — an assertion that the fixture actually produced the rows and events it is about (`expect(x.length).toBeGreaterThan(0)`). A vacuous `toEqual` shipped in this repository one session ago in `tests/unit/ipc/user-prompt.test.ts`, satisfiable for any fixture whose replay ingests nothing; a test that would still pass with the implementation deleted is not a test.",
+        "The transcript records the stop in words: the `lane_closed` event T2 appends is visible in the DEFAULT transcript view with no filter toggle, and reads \"Stopped\" through `LANE_STATUS_LABEL`. Asserted end to end. `lane_closed` is already a CONVERSATION event type, so this must hold with `transcript-filter.ts` unmodified.",
+        "`thinking` REMAINS a member of `PLUMBING_EVENT_TYPES` and `src/renderer/src/transcript/transcript-filter.ts` is byte-identical to its pre-session state. Asserted, and stated in the report. Fixing the liveness finding by unhiding `thinking` was ruled out at Gate 1: it reintroduces the noise the filter exists to remove, and thinking blocks are long.",
+        "Repository-wide: `npm run typecheck` and `npm test` both pass with zero failures. The report names the total test count from the runner's own output and the command that produced it — no asserted count may be one nobody ran.",
+        "`npx vitest run --sequence.shuffle` is run and its result reported. Tests do not share mutable state and pass in any order. The known order-dependent `tests/unit/store/errors.test.ts` is named if it fails and is NOT fixed opportunistically — it is pre-existing, outside this session's scope, and already in the backlog.",
+        "No test in this task sleeps, reads the wall clock or the ambient time zone, touches the network, or binds a fixed port. Where a condition must be awaited, it is waited on with a timeout or made synchronous.",
+        "FALLOUT REPAIR ONLY. This task changes test files, never production code. Any file outside this task's ownership set that needs a change is reported as an escalation with 1-3 ranked options, not edited — another agent may own it. Any existing assertion this task must relax is reported with the reason rather than quietly weakened."
+      ]
+    }
+  ]
+}

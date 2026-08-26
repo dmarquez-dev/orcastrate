@@ -770,3 +770,109 @@ The user confirmed the four items from the first hand-run all read correctly in
 use: the user's own prompt now appears, right-aligned; tool calls are compact with
 collapsed results; permissions are out of the transcript; the lane-rail pin control
 is gone.
+
+## 2026-08-26 — 2026-08-25-orcastrate-pod-status-and-chrome
+
+The seven items in the *second hand-run findings* block above are **cleared** by this
+session. What follows is work it deliberately deferred, plus two defects it found
+while proving the fix.
+
+### Defects found by this session, not fixed by it
+
+- **A stopped lane's `lane_closed` event is durably written and never reaches the
+  renderer.** *Mechanism verified twice — by T7 and independently by the orchestrator,
+  2026-08-26.* `PodManager.#stopRunningLanes` appends the events and then pushes only
+  `laneChanged` — never `podEvent`. The renderer's backfill short-circuits on
+  `hasMore === false`, so the event stays invisible for the life of the session. The
+  precedent is in the same file: `#appendResumeFallbackNotice` **does** push
+  `podEvent`, and its comment gives the reason — *"without the push the explanation
+  would not appear until the transcript was next re-read."* The sweep missed it.
+  The fix is one line, `this.#push.podEvent({ podId, events: stored })`, in
+  `#stopRunningLanes`.
+
+- **`lane_closed` is PLUMBING, so even once pushed it is hidden in the default
+  transcript view.** This falsifies the premise of this session's own T7 criterion 3,
+  which asserted `lane_closed` was a CONVERSATION type — it is not
+  (`transcript-filter.ts`, `PLUMBING` alongside `thinking`). Criterion 3 was recorded
+  **not met** rather than quietly dropped. If the stop should read in words in the
+  default view, the shape to use is a **payload-scoped exemption** for `lane_closed`
+  with `status: 'stopped'`, following `isStartupReconciliationNotice`, which is narrow
+  enough to leave the `_AssertNever` partition guards untouched. **Do not unhide
+  `lane_closed` wholesale** — that reintroduces routine lane bookkeeping noise, which
+  is what the filter exists to remove.
+
+  These two are one user-visible outcome and should be taken together.
+
+### Deferred, with the reason
+
+- **The status palette is hue-differentiated throughout; "survives greyscale" is not a
+  property any pair of it has.** Escalation E1 re-pinned `--oc-status-stopped` from
+  `#8f8577` to `#c0b39d` because the first measured 1.022 against `idle`. But the
+  orchestrator's sweep of the whole palette found the shipped worst pair is
+  `idle` vs `beached` at **1.005**, with five shipped pairs under 1.2, and the new
+  value sits at 1.052 against `waiting`. The re-pin fixed the semantically adjacent
+  pair, where confusing two resting states costs something. The systemic question was
+  explicitly not settled: a palette-wide lightness pass, and whether the hygiene
+  guard should assert measured separation rather than string inequality, which today
+  it cannot catch.
+
+- **`LANE_KINDS` and `EVENT_TYPES` are still interpolated live into migration 1** and
+  carry the identical latent bug this session pinned `MIGRATION_1_LANE_STATUSES`
+  against. Excluded deliberately: pinning them in the same diff would have rewritten
+  migration 1's rendered text for a second reason and made any byte-identity failure
+  unattributable. `migration-frozen.test.ts` now covers migrations 1-3 generically, so
+  it will catch either one the moment those unions widen.
+
+- **`migration-frozen.test.ts` shells out to `git show` at run time.** In a shallow
+  clone (`actions/checkout` defaults to `fetch-depth: 1`) or an exported tarball with
+  no `.git`, the three cases go **red rather than skipped** — the better failure mode,
+  and nothing is broken today since this repo has no CI workflows. If shallow-clone CI
+  ever lands, the durable fix is committing the shipped renderings as a fixture.
+
+- **Migration 4's own blob hash must be added to `migration-frozen.test.ts`** once this
+  branch merges. Nothing in the file records that obligation — which is exactly the
+  omission that made migration 1's pin necessary.
+
+- **`statusToken('stopped')` has no production caller.** Accepted out of scope at
+  Gate 2: the rail consumes `--oc-status-*` variables directly, exactly as `orphaned`
+  does. The pair was widened to keep the hygiene guard honest. The `statusToken`
+  versus CSS-variable split is worth a deliberate look rather than being inherited
+  again.
+
+- **Dangling contract pointers in shipped source.** `PodTab.tsx` and `LaneRow.tsx`
+  cite `contracts/activity-indicator.ts` and its `POD_TAB_MOUNT` / `LANE_ROW_MOUNT`
+  constants, but frozen contracts live in `.dir-sdlc/sessions/<slug>/contracts/` and
+  are not part of the source tree. The comments describe the mount shape correctly;
+  they will read as a real file to the next person.
+
+### Cosmetic, recorded rather than fixed
+
+- **Hover feedback vanishes on a selected Matriarch.** `.rowMain:hover` uses
+  `--oc-bg-hover`, which is now also the selected-Matriarch surface. A selected Calf
+  still darkens on hover. If revisited, the fix is a Matriarch-specific hover surface,
+  **not** a change to the three selection tokens.
+- **`.rowMain:hover` paints only the button box**, so on a highlighted row a hover
+  draws an inner rectangle inside the full-width swimlane — the shape the selection
+  highlight just removed still exists for hover.
+- **`tokens.css` overstates one comparison.** The re-pin comment says the value
+  "clears the shipped `closed`/`idle` precedent (2.173)" while naming the semantically
+  adjacent pair; `stopped`/`idle` is 1.796, *below* 2.173. Only the `closed`
+  comparison clears it. Every number is individually correct; the sentence assembling
+  them is not. Same class of defect as the finding that produced E1.
+- **`PodBar.module.css`'s header comment is stale** — it says the only bare lengths are
+  hairline borders "for which the token set has no entry", but `--oc-border-hairline`
+  and `--oc-border-thick` now exist and the same file already uses one.
+- **`tokens.css`'s Status block header is stale** — still reads
+  `Lane running|done|orphaned`, three members, where this session made it four.
+- **`LaneRow.source.test.ts`'s guard is broader than its criterion** — it also bars
+  `useState`/`useEffect`/`useRef`, so it will go red on a legitimate future `useRef`
+  that schedules nothing.
+- **`migration-2.test.ts` still carries its own migration-1 byte-identity test**, now
+  fully subsumed by `migration-frozen.test.ts`. Two copies of one guard drift apart.
+
+### Process note, for whoever runs the next session
+
+**A repository-wide `npm test` is not a reliable gate while any task is in flight.**
+T8's reviewer saw 8 failures that were a concurrent reviewer mid-write to
+`workspace-provider.tsx` for its own red-step probe; a clean re-run on a quiescent
+tree passed 2020/2020. Run the full suite when the tree is quiescent, or scope it.
