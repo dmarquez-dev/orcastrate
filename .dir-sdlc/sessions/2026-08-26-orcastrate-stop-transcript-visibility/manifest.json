@@ -1,0 +1,100 @@
+{
+  "session": "2026-08-26-orcastrate-stop-transcript-visibility",
+  "createdAt": "2026-08-26",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/stop-event-push.ts",
+    "contracts/stop-notice-visibility.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Push podEvent from #stopRunningLanes so the stop reaches the renderer",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/**",
+        "tests/unit/pod-manager/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`PodManager.#stopRunningLanes` captures the `NormalizedEvent[]` that `this.#store.appendMany(...)` returns and pushes it as `this.#push.podEvent({ podId, events: stored })`. The push statement sits IMMEDIATELY AFTER the `appendMany` and BEFORE the existing `laneChanged` push, and carries a comment at the call site stating the reason `contracts/stop-event-push.ts` section 2 gives — the push is bound to the write it publishes, so `append and forget to push` is not a state the code can be left in, which is the state it was left in and the whole defect. The comment must give that reason in the implementer's own words at the site; it must not be a pointer to the contract file.",
+        "A test in `tests/unit/pod-manager/close-pod-lane-sweep.test.ts` drives a real `PodManager` over a real migrated `SqliteEventStore` through `closePod` on a Pod with at least TWO running lanes, and asserts that EXACTLY ONE push lands on `EVENT_CHANNELS.podEvent`; that its `events` array holds one `lane_closed` per swept lane, each with `payload.status === 'stopped'` and each on its OWN lane's id; and that every pushed event's `seq` and `id` equal what the store actually persisted, read back from the store rather than written as a literal in the test. A vacuity guard asserting the pushed `events` array is non-empty precedes any `toEqual` over it, per the guard shape this file and `pod-stop.e2e.test.tsx` already use.",
+        "Ordering is asserted, not assumed: within the recorded push order for a single sweep, the `podEvent` index is less than the `laneChanged` index. The file's existing `criterion 3` test — one `laneChanged`, landing before `podStatus` — still passes with its body UNMODIFIED; the diff shows no edit to it. If accommodating the third channel appeared to require weakening that test, that is a contract conflict to report, not to resolve.",
+        "Idempotence holds on the new channel. A second `closePod` against the already-closed Pod records ZERO further `podEvent` pushes and zero further `laneChanged` pushes, and no `podEvent` push with an empty `events: []` is recorded at any point in the suite — the push sits below the existing `if (stoppedLaneIds.length === 0) return;` guard, which is what delivers this. Asserted by push counts across the second call in the file's existing idempotence test, against a real store, never by a spy configured to expect one call.",
+        "A beached Pod still sweeps nothing and now also pushes nothing on `podEvent`: the file's existing beached test gains that count assertion and keeps passing. The `pod.status !== 'beached'` guard in `closePod` is not widened or otherwise edited.",
+        "Nothing is caught or swallowed in the new code. A failing `appendMany` or a throwing push propagates to `closePod`'s caller, and the file's existing `rethrows an appendMany failure rather than closing the Pod quietly` test passes with its body unmodified.",
+        "WATCH THE TEST FAIL BEFORE TRUSTING IT — RED STEP, and this is a deliverable, not a habit. The tests for criteria 2, 3 and 4 are written and run BEFORE the `podEvent` push is added, with `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run tests/unit/pod-manager/close-pod-lane-sweep.test.ts` run from the worktree root. The report quotes the actual failure text observed for the criterion-2 test — expected to be a zero-length `podEvent` push list against a non-zero expectation. A criterion whose evidence is `verified by inspection` or `the test passes` does not satisfy this one: a test never seen failing has not been shown to test anything.",
+        "SCOPED commands only, never `npm test`: `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run tests/unit/pod-manager/` passes with every test accounted for, and `npm run typecheck:node` passes. A repo-wide run is not a valid gate while peer tasks are mid-write in the same worktree, and its result must not be reported as evidence for any criterion here.",
+        "Files outside `src/main/pod-manager/**` and `tests/unit/pod-manager/**` are not created or modified. In particular `src/renderer/**` is untouched: the renderer's `onPodEvent` handler and `merge.ts` already deliver head-of-stream events and need no change, and `src/main/store/**` is another task's tree."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Exempt lane_closed with status 'stopped' from the conversation-mode filter",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/transcript/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`src/renderer/src/transcript/transcript-filter.ts` gains `isDeliberateStopNotice(payload)`, returning true only for `payload.type === 'lane_closed' && payload.status === 'stopped'`, and `isHiddenInConversation` checks the two exemptions independently in the three-line form `contracts/stop-notice-visibility.ts` section 2 spells out. `filterTranscriptEvents` and `hiddenEventCount` are not edited.",
+        "THE HARD CONSTRAINT HOLDS STRUCTURALLY: the `CONVERSATION`, `DIAGNOSTIC` and `PLUMBING` tuples, the three exported set constants, `_UnpartitionedEventType`, `_EventTypesArePartitioned`, `_EventTypeSetsAreDisjoint` and the recorded probe block are byte-identical to their state at `ad0368a`. `lane_closed` remains a member of `PLUMBING`, all six members in their existing order. Checkable from the diff of that file: no hunk touches lines 38-164.",
+        "BEHAVIOUR, tested in one stream so the narrowness is a single assertion rather than three separate ones: given `lane_closed` events with `status` `'stopped'`, `'done'` and `'orphaned'` in the same array, `filterTranscriptEvents(events, 'conversation')` returns the `'stopped'` one and only it, in its original position; `filterTranscriptEvents(events, 'everything')` returns all three; and `hiddenEventCount(events, 'conversation')` equals 2. `'done'` and `'orphaned'` staying hidden is the deliberate half of this criterion, not incidental.",
+        "The exemption is proved NARROW by the corpus, not just by the new test. `transcript-filter.test.ts`'s `payloadFor('lane_closed')` and `transcript/test-fixtures.ts:103` both still build `status: 'done'`, unedited; the existing `hides exactly the plumbing types and keeps conversation and diagnostics` test and `TranscriptPane.filter.test.tsx`'s `typeCount(pane, 'lane_closed') === 0` both pass with their bodies UNMODIFIED. A wholesale unhide would break both, so their passing while untouched is the evidence. If either needed editing to go green, stop and report it rather than editing it.",
+        "The prose sites listed in `contracts/stop-notice-visibility.ts` section 3 (a through d) are corrected in the same change: the `HIDDEN_IN_CONVERSATION` docblock, the `isStartupReconciliationNotice` heading, the `TranscriptFilterMode` docblock's enumeration of what `'conversation'` renders, and the `PLUMBING_EVENT_TYPES` docblock's justification. The standard is that the surviving prose accurately describes a filter with TWO payload-scoped exemptions, says how the two differ in kind, and records why a deliberate stop is not the lane bookkeeping the rail already reports. This is judged by reading the resulting comments against the resulting code — deleting a paragraph to remove a now-false sentence FAILS this criterion, because the argument a later reader needs would be gone.",
+        "No new rendering work exists in the diff. `TranscriptEventItem.tsx`'s `lane_closed` case already renders `Labelled label=\"Lane closed\"` with an `aria-hidden` dot and `LANE_STATUS_LABEL[payload.status]`, so the row reads `Lane closed` / `Stopped` once it clears the filter; confirm this by reading the file and report the confirmation. No case, variant label, or style is added for the stopped status, and the `aria-hidden=\"true\"` on the dot is not removed — the word is what carries the meaning for a screen reader and a greyscale display.",
+        "WATCH THE TEST FAIL BEFORE TRUSTING IT — RED STEP. Criterion 3's test is written and run BEFORE the predicate is added, via `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run src/renderer/src/transcript/transcript-filter.test.ts` from the worktree root. The report quotes the observed failure — expected to be the `'stopped'` event absent from the conversation-mode result. Inspection is not evidence for this criterion.",
+        "SCOPED commands only, never `npm test`: `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run src/renderer/src/transcript/` passes, and `npm run typecheck:web` passes. A repo-wide run is not a valid gate while peer tasks are mid-write.",
+        "Files outside `src/renderer/src/transcript/**` are not created or modified — in particular not `src/renderer/src/__tests__/pod-stop.e2e.test.tsx`, which is T3's, and not `src/main/**`."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "The joined proof: a stop click puts words in the default transcript",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2"
+      ],
+      "acceptance": [
+        "The proof lives in `src/renderer/src/__tests__/pod-stop.e2e.test.tsx` and in no other file. That file is already named in `hygiene.test.ts`'s `MAIN_REACHING_FILES`, so no hygiene exception is added and `hygiene.test.ts` is not edited — which is the reason this file was chosen over a new suite, and the reason a new suite must not be created.",
+        "THE JOINED TEST. Starting from the file's existing `stopScenario()` — real migrated store, real `PodManager`, real `closePod`, the five push channels wired by channel name — the test mounts the workspace, clicks the Pod tab's stop control by its accessible name, and then asserts that inside `TEST_IDS.transcriptPrimary` a transcript row appears whose text contains both `Lane closed` and `Stopped`. Nothing in the test writes `'stopped'` into a fixture: the status on screen was computed by `PodManager` from the click.",
+        "IT PROVES THE DEFAULT VIEW, which is the user-visible outcome the session exists for. The transcript filter toggle is never clicked, and at the moment of the text assertion the primary toggle's `data-mode` attribute is still `'conversation'`, asserted in the same test. A proof that only holds in `'everything'` mode does not satisfy this criterion.",
+        "IT PROVES THE PUSH, not a re-read. The `events.read` call count recorded by the world's stub is captured immediately before the click and asserted UNCHANGED at the moment the row is found, so a backfill cannot be what made the row appear. If the existing `RecordedCalls` shape does not count `events.read`, extend it within this file.",
+        "NOT VACUOUS, in both directions. Before the click, no `Lane closed` row is present in the primary transcript — asserted, not assumed. After the click, the untouched second Pod (`KEPT_POD`) has no `lane_closed` event persisted and shows no such row, so a build that swept every lane in the store would fail here.",
+        "TWO INJECTED-DEFECT DEMONSTRATIONS, BOTH REQUIRED, because this test spans two halves and a test that only detects one of them is misdescribed by its own name. (a) With T1's `podEvent` push disabled in the worktree, run the scoped command and observe the joined test FAIL; restore. (b) With T2's `isDeliberateStopNotice` forced to return false, run it again and observe the joined test FAIL; restore. The report quotes the observed failure text for EACH, names which half each demonstration disabled, and confirms the suite is green with both restored. One demonstration does not satisfy this criterion, and neither does an argument that the test must fail. Note this is an injected-defect demonstration rather than a red step, because both halves land before this task starts.",
+        "Every test already in the file passes with its body UNMODIFIED — the four stop tests and the two filter tests. The `still hides thinking by default` test in particular is not weakened: `thinking` stays in `PLUMBING_EVENT_TYPES` and this session does not touch it. The diff over this file is additive.",
+        "The new test obeys the file's existing determinism discipline: `vi.useFakeTimers({ toFake: ['Date'] })`, every instant a UTC literal, no sleeping, `waitFor` on the condition, its own world built and disposed in `afterEach`. Its name states the condition and the outcome — a name mentioning the default view and the rendered words, not a name that says the stop `works`.",
+        "SCOPED command only, never `npm test`: `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run src/renderer/src/__tests__/pod-stop.e2e.test.tsx` passes, and `npm run typecheck:web` passes. A repo-wide run is not a valid gate while peer tasks are mid-write, and an unrelated failure elsewhere in the suite must not be reported as a finding against this task.",
+        "No file outside `src/renderer/src/__tests__/pod-stop.e2e.test.tsx` is created or modified. If the joined proof appears to require changing `src/main/pod-manager/**` or `src/renderer/src/transcript/**`, that is a finding to report against T1 or T2 — not an edit to make, because those trees belong to other tasks and a peer may be writing in them."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Pin migration 4's shipped blob in the frozen-migration tripwire",
+      "agent": "dir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "tests/unit/store/migration-frozen.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`SHIPPED_BLOB` in `tests/unit/store/migration-frozen.test.ts` gains `4: 'e15b1c4:src/main/store/schema.ts'` — the commit `feat(store): widen LaneStatus with 'stopped' state via migration 4`, now merged to `main` — and the parametrised byte-identity test covers `[1, 2, 3, 4]`. The entry follows the file's existing convention of a frozen commit hash and never `main`, for the reason the file already records: `main` is a moving ref, so the moment a branch merges the expected side becomes the actual side and the tripwire goes vacuous.",
+        "The file records the OBLIGATION it currently omits: a comment on `SHIPPED_BLOB`, positioned where the author of migration 5 will see it, stating that every shipped migration gets an entry here at the commit that shipped it, and that the fix for a failure is never to update the expectation but to pin the list the migration interpolates and put the widening in a NEW migration. Nothing in the file records this today, and that omission is exactly what made migration 1's pin necessary in the first place. Written in the file's own comment register — the argument, not a restatement of the code.",
+        "The new row is proved NON-VACUOUS. The existing `the renderer is not vacuous` test gains an assertion that the rendered migration 4 contains its `lanes` CHECK naming all four lane statuses via `sqlIn(['running', 'done', 'orphaned', 'stopped'])`, so a `shippedMigration(4)` that silently rendered an empty string or skipped interpolation fails rather than passes.",
+        "WATCH THE TEST FAIL BEFORE TRUSTING IT — INJECTED-DEFECT DEMONSTRATION, since the code under test already shipped and there is no red step available. Point entry 4 at migration 3's blob (`16927ac:src/main/store/schema.ts`), run the scoped command, and observe the byte-identity case for migration 4 FAIL; restore `e15b1c4` and observe it pass. The report quotes the observed failure text. Without this, a row that is silently skipped rather than compared is indistinguishable from a row that passes.",
+        "`git show e15b1c4:src/main/store/schema.ts` resolves in this repository and its blob contains a readable `const MIGRATION_4 = ` template — confirmed by running the command and reporting the result, because every assertion above rests on that blob existing at that ref.",
+        "SCOPED command only, never `npm test`: `node C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\node_modules\\vitest\\vitest.mjs run tests/unit/store/migration-frozen.test.ts` passes with four byte-identity cases plus the two guard tests, and `npm run typecheck:node` passes.",
+        "EXPLICITLY OUT OF SCOPE and NOT to be fixed: the file shells out to `git show` at run time, so it goes red rather than skipped in a shallow clone. That weakness is backlogged. Also out of scope: pinning `LANE_KINDS` and `EVENT_TYPES`, which are still interpolated into migration 1 and carry the identical latent bug — the previous session's contract explains why doing it opportunistically would make a byte-identity failure impossible to attribute. Report either if touched; do not touch them.",
+        "No file outside `tests/unit/store/migration-frozen.test.ts` is created or modified. `src/main/store/**` is NOT edited: migration 4 has shipped, migrations are forward-only, and a released migration is never edited."
+      ]
+    }
+  ]
+}

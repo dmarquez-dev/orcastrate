@@ -111,3 +111,40 @@ user-visible outcome has been seen. They are no longer a prediction.
 Migration 4 ran clean against the existing database on first launch. Startup
 reconciliation closed 2 Pods and orphaned 2 lanes left running by the previous
 process, as designed.
+
+## 2026-08-26 — 2026-08-26-orcastrate-stop-transcript-visibility
+
+Fixed the transcript-visibility defect pair confirmed by hand that morning. A stop now
+reads `Lane closed` / `Stopped` in the default transcript. 4 tasks, 4 commits, 7 files,
++487/-35; 36 of 36 acceptance criteria met, 2 revision rounds, 1 escalation. Post-merge
+on a quiescent tree: `npm run typecheck` clean, `npm test` 2027/2027.
+
+**Every blocking finding in this session was an assertion or a claim that could not be
+wrong** — which is notable in a session whose whole purpose was proving something true:
+
+- **T1's suite-wide guard could not fail.** `createPushes` drops empty batches before
+  they are recorded, so the `afterEach` loop iterated a collection that was empty by
+  construction — while its comment claimed a hoisted push "fails here wherever it was
+  added". Caught by injecting that exact defect and watching all 10 tests pass. Fixed
+  by recording at the `Pushes` boundary; the same injection now reddens 9 of 10.
+- **T4's new comment was false.** The paragraph written to stop this class of error
+  recurring asserted "migration 4 shipped unpinned too". It shipped fully pinned
+  (`MIGRATION_4_LANE_STATUSES`, `e15b1c4:schema.ts:291,605`). The replacement states
+  the true and more useful thing: pinning and *watching* are separate obligations.
+- **T2's apparent contract conflict was not one.** A criterion forbade edits to
+  `transcript-filter.ts:38-164` while another mandated one at 81–96. The frozen
+  contract freezes only `136-164`; the criterion's paraphrase over-reached by ~100
+  lines. Resolved on repo evidence, not judgment.
+
+**None of the three would have survived a reviewer that read reports instead of
+reproducing them, and all three came from asking for reproduction by name.** Two
+reviewers went further than asked: T4's ran a *stronger* injection of its own to settle
+whether the row was genuinely byte-compared, and T3's verified that each injected half
+failed *only* the new test while the six pre-existing ones stayed green — the direct
+evidence that neither half's own coverage sees the other, which is why the defect
+shipped green twice.
+
+**Not verified: a real Electron window.** T3 proves the joined path in jsdom. The
+hand-run of that morning was the diagnosis, not the verification. A hand-run of the
+stop flow is the natural next step, and it is now cheap — the words either appear or
+they do not.

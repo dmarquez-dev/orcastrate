@@ -1,0 +1,34 @@
+# Session log — 2026-08-26-orcastrate-stop-transcript-visibility
+
+- 2026-08-26T18:00Z — Gate 1 presented and approved. Track: Standard.
+- 2026-08-26T18:03Z — Disciplines composed: backend (43), database (36), frontend (35), test (38). Bundled bases only; no project fragments.
+- 2026-08-26T18:04Z — dir-git init-session: worktree C:\Users\dmarq\Development\Repos\orcastrate-worktrees\2026-08-26-orcastrate-stop-transcript-visibility, branch dir/2026-08-26-orcastrate-stop-transcript-visibility from main at ad0368a. No node_modules junction created.
+- 2026-08-26T18:05Z — state.json written, phase discuss.
+- 2026-08-26T18:07Z — dir-architect dispatched (decomposition, strong/claude-opus-5). Phase -> spec.
+- 2026-08-26T18:20Z — dir-architect returned: 4 tasks, 2 contracts, coverage mapping with no uncovered rows. Claims verified by orchestrator (ownership disjointness, both lane_closed fixtures status 'done', hygiene MAIN_REACHING_FILES two-sided at :300, e15b1c4 is the migration-4 commit, false claim in prior frozen contract at lane-stopped-status.ts:77).
+- 2026-08-26T18:22Z — spec.md assembled. Phase -> awaiting-signoff. Gate 2 presented.
+- 2026-08-26T18:28Z — Gate 2 approved. manifest.json and contracts/ FROZEN.
+- 2026-08-26T18:30Z — T1 (backend), T2 (frontend), T4 (database) dispatched concurrently, all startRef ad0368a, all strong/claude-opus-5. T3 pending on T1+T2. Phase -> implement.
+- 2026-08-26T18:44Z — T1 reported done. Orchestrator verified: fix shape, call-site comment, only 2 removed lines in test file (import + afterEach, both extended).
+- 2026-08-26T18:48Z — T4 reported done. Orchestrator verified diff and that the docblock edit orphans no sentence.
+- 2026-08-26T18:50Z — OPERATIONAL CORRECTION: the documented vitest command does NOT work in this session. The worktree is a SIBLING of the main repo, so Node ancestor resolution never reaches orcastrate/node_modules. Reproduced by the orchestrator. Working form: NODE_PATH=<main>/node_modules node <main>/node_modules/vitest/vitest.mjs run <path>, from the worktree root. `npm run typecheck:*` is not runnable in the worktree at all; the real typecheck must run on the main tree post-merge.
+- 2026-08-26T18:52Z — dir-reviewer dispatched for T1 and T4 concurrently (strong/claude-opus-5), both asked to REPRODUCE demonstrations rather than read them. T1, T4 -> in_review.
+- 2026-08-26T19:02Z — T2 reported done, raising a frozen-manifest conflict (criterion 2's line range vs criterion 5(d)'s mandated docblock edit). Orchestrator verified: the ONLY executable changes in transcript-filter.ts are isDeliberateStopNotice and two lines in isHiddenInConversation; all other diff lines are comments; partition consts and both _AssertNever guards untouched.
+- 2026-08-26T19:05Z — E1 recorded (ambiguous, unresolved). Reviewer for T2 dispatched and asked to rule on it explicitly. T2 -> in_review.
+- 2026-08-26T19:20Z — T4 review round 1: 1 blocking (the new obligation comment asserted "migration 4 shipped unpinned too", false — MIGRATION_4_LANE_STATUSES is declared at e15b1c4:schema.ts:291 and used at 605). Orchestrator verified independently. Revision dispatched.
+- 2026-08-26T19:30Z — T1 review round 1: 1 blocking (the suite-wide afterEach empty-batch guard cannot fail — createPushes drops empty batches at pushes.ts:35-37 before recording; reviewer proved it by injection, 10/10 still passing). Orchestrator verified. Revision dispatched.
+- 2026-08-26T19:45Z — T2 review round 1: PASS, 0 blocking. E1 RESOLVED on repo evidence: the frozen contract §2 freezes 136-164 plus named identifiers, not 38-164, and §3(d) mandates the PLUMBING_EVENT_TYPES docblock edit. Only criterion 2's paraphrase over-reached.
+- 2026-08-26T19:55Z — T4 re-review: PASS, blocking resolved, no replacement falsehood found.
+- 2026-08-26T20:00Z — dir-git commit-task x2: T2 = bb6f18a (feat(transcript): show deliberately stopped lanes in conversation mode), T4 = 083aa2d (test(store): extend frozen-migration checks to migration 4). T1's three files confirmed unstaged.
+- 2026-08-26T20:00Z — T1 revision round 1 returned (option 1: record at the Pushes boundary via a Proxy in helpers.ts; injection now fails 9/10). Re-review dispatched.
+- 2026-08-26T20:15Z — T1 re-review: PASS, blocking resolved. Reviewer reproduced the injection (9/10 fail where the same injection previously passed 10/10) and re-ran the whole directory confirming all six per-suite counts unmoved by the shared-harness change.
+- 2026-08-26T20:18Z — T1 committed fcf5e40 (fix(pod-manager): push transcript events when stopping lanes). Worktree clean.
+- 2026-08-26T20:20Z — T3 dispatched (test, strong/claude-opus-5), startRef fcf5e40. Both halves committed, so T3 works alone.
+- 2026-08-26T20:32Z — T3 reported done with BOTH injected-defect demonstrations. Orchestrator verified: exactly 2 removed lines, both in makeWorld, neither in a test body; both peer trees byte-clean, so the injections were genuinely restored.
+- 2026-08-26T20:35Z — dir-reviewer dispatched for T3 (strong/claude-opus-5), asked to reproduce both injections and to check criterion 4's baseline is not vacuously zero. Phase -> review.
+- 2026-08-26T20:50Z — T3 review: PASS, 0 blocking. Reviewer reproduced BOTH injections independently, each in isolation; both peer trees restored byte-clean. Criterion 4's baseline confirmed non-vacuous (waitFor eventsRead > 0 before capture).
+- 2026-08-26T20:52Z — T3 committed 63209e4. All four task commits complete.
+- 2026-08-26T20:55Z — coverage.md end state filled. All 9 DoD rows met. Contract-operation search returns `not called` for all 8 by the mechanical rule; recorded as a scoping artifact of a defect-fix session, with reachability evidence (store.ts:287, App.tsx:147/167) verified and written into the artifact.
+- 2026-08-26T21:00Z — Gate 3 presented and APPROVED. Merged f7008ae.
+- 2026-08-26T21:05Z — POST-MERGE VERIFICATION on quiescent main: `npm run typecheck` CLEAN both projects (first real check of T1's Proxy<Pushes> and import type { Pushes }); `npm test` 132 files / 2027 tests, ALL PASSING.
+- 2026-08-26T21:10Z — backlog appended. Phase -> merged.

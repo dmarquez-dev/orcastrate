@@ -970,3 +970,90 @@ them.** Both matter, because one of these items is not the CSS change it looks l
 
 - **The behaviour of the stop flow itself.** Reported clean, and no defect was
   observed in it.
+
+---
+
+## 2026-08-26 — 2026-08-26-orcastrate-stop-transcript-visibility
+
+The transcript-visibility defect pair is **fixed and merged** (`f7008ae`). A stop now
+puts `Lane closed` / `Stopped` in the default transcript, proven by a joined jsdom
+test that fails if either half is disabled. Post-merge on a quiescent tree:
+`npm run typecheck` clean both projects, `npm test` 2027/2027.
+
+### Contract gaps
+
+- **A frozen contract from the previous session carries a now-falsified claim.**
+  `.dir-sdlc/sessions/2026-08-25-orcastrate-pod-status-and-chrome/contracts/lane-stopped-status.ts:77`
+  states a stopped lane "is visible in the default transcript with no filter change".
+  It was false when written — that is the defect this session fixed — and it is now
+  false in a second way, because visibility today depends on the payload-scoped
+  exemption the claim says is unnecessary. Frozen contracts are not edited, and it is
+  not this session's file, but it is live misinformation for anyone reading that
+  session's artifacts.
+- **A manifest criterion's mechanical gloss over-reached the region it paraphrased.**
+  T2's acceptance criterion 2 forbade any hunk touching `transcript-filter.ts:38-164`,
+  while criterion 5(d) mandated an edit to the `PLUMBING_EVENT_TYPES` docblock at
+  base lines 81–96 — inside that range. The frozen contract itself was consistent:
+  `contracts/stop-notice-visibility.ts` §2 freezes `136-164` plus named identifiers,
+  and §3(d) assigns the docblock edit. **Only the criterion's paraphrase was wrong**,
+  by roughly a hundred lines. Recorded so no later reader adopts `38-164` as the
+  frozen region and re-derives the same false conflict. This is the project's
+  recurring pattern #2 — a criterion stated as a mechanical grep whose letter and
+  purpose pull apart — and it cost one escalation.
+
+### Correctness risks
+
+- **`close-pod-lane-sweep.test.ts` had complete push-channel coverage for
+  `laneChanged` and `podStatus` and none for `podEvent`.** That absence is what let
+  this defect ship green. T1 closed it for this verb; the general shape — *every push
+  channel a method touches is counted* — is enforced nowhere.
+- **`recordAttempts`' Proxy trap forwards exactly one argument**
+  (`tests/unit/pod-manager/helpers.ts:245-248`). Correct today, since every `Pushes`
+  method takes one; it would silently drop a second parameter if one were added. A
+  rest-args forward removes the trap at no cost. The same trap returns a fresh
+  closure per property access, so `push.podEvent !== push.podEvent` — inert now, a
+  hazard for any future `vi.spyOn` on a harness push method.
+- **`pod-manager.ts` carries two textually identical
+  `this.#push.podEvent({ podId, events: stored });` statements** (lines 567 and 755).
+  A pattern-based injection hits both and over-disables; line-targeted editing is
+  required. Worth knowing for whoever runs the stop demonstration next.
+- **The `KEPT_POD` *rendered* assertion in `pod-stop.e2e.test.tsx` is near-vacuous
+  alone** — with the inert runner the kept Pod's conversation-mode transcript
+  plausibly renders zero rows of any kind, so an empty lane-closed list would hold on
+  a build that rendered nothing. The criterion is met because the durable-side
+  assertion beside it is falsifiable. Making the rendered half carry weight needs a
+  positive control row in the kept pane.
+
+### Test and CI concerns
+
+- **The contract-operation coverage search returns `not called` for every operation
+  in a defect-fix session, and that is a false alarm by construction.** The rule
+  searches the session's *touched* files, then discards the definition site, same-task
+  files, and test files. A session that changes six production lines and adds tests
+  around them has all its consumers in untouched pre-existing code, so nothing can
+  survive. Reachability had to be established separately and recorded by hand — see
+  `coverage.md`'s closing note. The check is not wrong, but its output needs reading
+  with the session's shape in mind, and a reader who takes the column at face value
+  concludes eight operations are dead.
+
+### Process note
+
+**A DIR worktree placed as a SIBLING of the repository breaks every documented test
+command.** `dir-git` created this session's worktree at
+`Repos\orcastrate-worktrees\<slug>`, whose ancestors are `orcastrate-worktrees\` and
+`Repos\` — never `Repos\orcastrate\`. So `node <main>/node_modules/vitest/vitest.mjs`
+fails at startup with `Cannot find module 'vitest/config'`, and **all four
+implementers plus three reviewers independently hit it and independently built scratch
+configs to work around it.** What works:
+
+- **node-env suites** — `NODE_PATH=<main>/node_modules` prefixed to the same command.
+- **jsdom/JSX suites** — `NODE_PATH` is *not* sufficient; Vite does not honour it for
+  bare specifiers, so JSX fails on `react/jsx-dev-runtime`. Needs a scratch vitest
+  config mirroring the worktree's own, with generated `resolve.alias` entries mapping
+  every package in the main repo's `node_modules` — **and** `NODE_PATH` still set,
+  because the config file itself sits outside any `node_modules` ancestry.
+- **`npm run typecheck:*` is not runnable in such a worktree at all.** No typecheck
+  claim made from inside one is evidence. It ran clean post-merge on main.
+
+Either place future worktrees inside the repository, or record the two commands above
+where the next session's agents will find them.

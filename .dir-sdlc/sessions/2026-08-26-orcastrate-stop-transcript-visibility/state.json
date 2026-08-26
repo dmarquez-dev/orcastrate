@@ -1,0 +1,89 @@
+{
+  "slug": "2026-08-26-orcastrate-stop-transcript-visibility",
+  "track": "standard",
+  "phase": "merged",
+  "createdAt": "2026-08-26T18:05:00Z",
+  "updatedAt": "2026-08-26T21:10:00Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate-worktrees\\2026-08-26-orcastrate-stop-transcript-visibility",
+  "branch": "dir/2026-08-26-orcastrate-stop-transcript-visibility",
+  "baseBranch": "main",
+  "startRef": "ad0368a",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Push podEvent from #stopRunningLanes so the stop reaches the renderer",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "status": "done",
+      "startRef": "ad0368a",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "commit": "fcf5e40"
+    },
+    {
+      "id": "T2",
+      "title": "Payload-scoped transcript-filter exemption for a deliberate stop",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "status": "done",
+      "startRef": "ad0368a",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "commit": "bb6f18a"
+    },
+    {
+      "id": "T3",
+      "title": "Joined proof: stop sweep to rendered transcript text",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "fcf5e40",
+      "commit": "63209e4"
+    },
+    {
+      "id": "T4",
+      "title": "Pin migration 4's shipped blob in the frozen-migration tripwire",
+      "agent": "dir-database-engineer",
+      "domain": "database",
+      "status": "done",
+      "startRef": "ad0368a",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "commit": "083aa2d"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "T2's criterion 2 forbids any hunk touching transcript-filter.ts lines 38-164; criterion 5(d) mandates correcting the PLUMBING_EVENT_TYPES docblock, which sits at base lines 81-96, inside that range. The two cannot both be satisfied literally. Which governs?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Read criterion 2's line range as an imprecise gloss on its real subject (the type partition); accept the comment-only insertion.",
+          "rationale": "Criterion 2's stated subject is that the partition and both _AssertNever guards survive. A comment cannot loosen a type guard, and criterion 5(d) explicitly mandates the edit. Orchestrator verified every executable line in the range is byte-identical; the only executable changes in the file are the new predicate and two lines in isHiddenInConversation.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Honour the line range literally and relocate the mandated paragraph below line 164.",
+          "rationale": "Preserves the criterion as written, but criterion 5(d) says record the distinction at that site, and the argument for an exemption belongs beside the set it qualifies.",
+          "evidence": "judgment"
+        },
+        {
+          "summary": "Amend the criterion for future sessions so a line-range gloss never again contradicts a prose criterion.",
+          "rationale": "This is recurring pattern #2 in this project - a criterion stated as a mechanical grep whose letter and purpose pull apart. The manifest is frozen, so this is backlog work, not an in-session edit.",
+          "evidence": "repo"
+        }
+      ],
+      "answer": "Resolved on repo evidence, not by user decision. The frozen contract stop-notice-visibility.ts SS2 names the frozen region as the tuples, the guards and the probe block at transcript-filter.ts:136-164 - not 38-164 - and SS3(d) affirmatively assigns the PLUMBING_EVENT_TYPES docblock edit to T2 'in the same commit as the predicate'. The contract is internally consistent; only criterion 2's paraphrase over-reached, by roughly a hundred lines. T2's reading stands and criterion 2 is met. Carry the correction to the backlog so no later reader adopts 38-164 as the frozen region."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 2,
+    "escalationsRaised": 1,
+    "reviewRounds": 2
+  },
+  "mergeCommit": "f7008ae"
+}
