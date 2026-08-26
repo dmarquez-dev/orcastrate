@@ -809,6 +809,13 @@ while proving the fix.
 
   These two are one user-visible outcome and should be taken together.
 
+  **CONFIRMED BY HAND 2026-08-26** (third hand-run). The symptom was predicted in
+  words before the check and then observed exactly: after stopping a Pod, **the
+  transcript is empty — nothing about the stop appears in it at all.** Until now
+  both defects had only been traced by reading the source, twice. The user-visible
+  outcome is now witnessed, so the pair needs no further diagnosis before a fix —
+  only the fix, and a way to prove it that does not depend on reading source.
+
 ### Deferred, with the reason
 
 - **The status palette is hue-differentiated throughout; "survives greyscale" is not a

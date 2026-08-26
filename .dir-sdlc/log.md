@@ -101,11 +101,12 @@ the change it looks like:
   in `WorkingIndicator` would falsify the guarantee the last session built it to
   have.
 
-**Not exercised:** the two transcript-visibility defects this session's backlog
-predicts (`#stopRunningLanes` never pushing `podEvent`, and `lane_closed` being
-PLUMBING). The transcript was not reported on after the stop, so their predicted
-symptom — nothing at all appearing in the default view — remains traced but not
-observed by hand.
+**Confirmed by hand:** the two transcript-visibility defects
+(`#stopRunningLanes` never pushing `podEvent`, and `lane_closed` being PLUMBING).
+Their predicted symptom was stated before the check and then observed exactly —
+**after the stop the transcript was empty, with nothing about the stop in it.**
+Both were previously traced twice by reading; this is the first time the
+user-visible outcome has been seen. They are no longer a prediction.
 
 Migration 4 ran clean against the existing database on first launch. Startup
 reconciliation closed 2 Pods and orphaned 2 lanes left running by the previous
