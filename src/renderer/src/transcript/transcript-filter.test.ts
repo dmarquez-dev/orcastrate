@@ -10,9 +10,15 @@ import {
   STARTUP_RECONCILIATION_SUBTYPE,
   filterTranscriptEvents,
   hiddenEventCount,
+  isDeliberateStopNotice,
   isStartupReconciliationNotice,
 } from './transcript-filter';
-import { makeEvent, makeFirstRunEvents, makeReconciliationEvent } from './test-fixtures';
+import {
+  makeCalf,
+  makeEvent,
+  makeFirstRunEvents,
+  makeReconciliationEvent,
+} from './test-fixtures';
 
 /**
  * Every member of the frozen union, written out. This object is a SECOND,
@@ -156,8 +162,9 @@ describe('filterTranscriptEvents (AC6)', () => {
   });
 
   it('ignores payload contents for every subtype the CLI owns', () => {
-    // The blanket rule, undisturbed by the one exemption below: these are the
-    // CLI's own vocabulary and it changes them, so none of them is looked at.
+    // The blanket rule, undisturbed by either payload-scoped exemption below:
+    // these are the CLI's own vocabulary and it changes them, so none of them
+    // is looked at.
     const systems = [
       makeEvent(1, { type: 'system', subtype: 'init', data: null }),
       makeEvent(2, { type: 'system', subtype: 'hook_started', data: { a: 1 } }),
@@ -176,7 +183,7 @@ describe('filterTranscriptEvents (AC6)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The ONE payload-content exemption (contract amendment, escalation E5)
+// The FIRST payload-content exemption (contract amendment, escalation E5)
 // ---------------------------------------------------------------------------
 
 describe('the startup-reconciliation notice is diagnostic, not plumbing', () => {
@@ -266,6 +273,62 @@ describe('the startup-reconciliation notice is diagnostic, not plumbing', () => 
       expect(found).toBeGreaterThanOrEqual(cursor);
       cursor = found + 1;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The SECOND payload-content exemption (contracts/stop-notice-visibility.ts)
+// ---------------------------------------------------------------------------
+
+describe('a deliberate stop is visible; the rest of lane_closed is not', () => {
+  /**
+   * ONE STREAM, ONE ASSERTION, so the narrowness is the test rather than a
+   * corollary of three separate ones. All three are `lane_closed`; only the
+   * status differs, which is the whole of what the exemption reads.
+   *
+   * `'done'` and `'orphaned'` staying hidden is the DELIBERATE half of this.
+   * A `done` lane closing is a Calf finishing its own work — dozens a session,
+   * and the routine bookkeeping the filter exists to remove. `'stopped'` has
+   * exactly one writer, `PodManager.#stopRunningLanes`, and it runs only
+   * because a user pressed Stop.
+   */
+  const stream = () => [
+    makeEvent(1, { type: 'lane_closed', laneId: 'lane-calf-1', status: 'done' }),
+    makeEvent(2, { type: 'lane_closed', laneId: 'lane-calf-2', status: 'stopped' }),
+    makeEvent(3, { type: 'lane_closed', laneId: 'lane-calf-3', status: 'orphaned' }),
+  ];
+
+  it("keeps the 'stopped' one and only it, in place, and hides 'done' and 'orphaned'", () => {
+    const events = stream();
+
+    const kept = filterTranscriptEvents(events, 'conversation');
+    expect(kept).toEqual([events[1]]);
+    expect(kept.map((e) => e.seq)).toEqual([2]);
+
+    expect(filterTranscriptEvents(events, 'everything').map((e) => e.seq)).toEqual([1, 2, 3]);
+    expect(hiddenEventCount(events, 'conversation')).toBe(2);
+  });
+
+  it('is anchored on the TYPE first, so no other plumbing payload can leak through', () => {
+    // The predicate reads `status` only after `lane_closed` is established.
+    // Nothing else in the union carries a `status` the exemption could latch
+    // onto, and this pins that it cannot start.
+    const notLaneClosed = [
+      makeEvent(1, { type: 'system', subtype: 'stopped', data: { status: 'stopped' } }),
+      makeEvent(2, { type: 'thinking', text: 'stopped' }),
+      makeEvent(3, { type: 'lane_opened', lane: makeCalf('lane-calf-9') }),
+    ];
+    for (const event of notLaneClosed) {
+      expect(isDeliberateStopNotice(event.payload), `seq ${event.seq}`).toBe(false);
+    }
+    expect(filterTranscriptEvents(notLaneClosed, 'conversation')).toEqual([]);
+  });
+
+  it('reads the status directly, with no near-miss tolerance', () => {
+    const done = makeEvent(1, { type: 'lane_closed', laneId: 'lane-calf-1', status: 'done' });
+    const stopped = makeEvent(2, { type: 'lane_closed', laneId: 'lane-calf-2', status: 'stopped' });
+    expect(isDeliberateStopNotice(done.payload)).toBe(false);
+    expect(isDeliberateStopNotice(stopped.payload)).toBe(true);
   });
 });
 

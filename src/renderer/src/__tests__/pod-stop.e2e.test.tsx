@@ -140,6 +140,18 @@ interface RecordedCalls {
   podList: number;
   podClose: PodId[];
   podOpen: PodId[];
+  /**
+   * How many times the renderer asked main to RE-READ the transcript.
+   *
+   * Counted because a `lane_closed` row appearing on screen after a stop has
+   * two possible causes, and only one of them is the behaviour this suite
+   * exists to protect: the event was PUSHED to a live window, or the renderer
+   * happened to re-read the store and found it already durable. The second is
+   * what the defect looked like in production — the row showed up on the next
+   * re-read, which for a user who never switched Pods was never. Holding this
+   * number still across the click is what tells the two apart.
+   */
+  eventsRead: number;
 }
 
 interface StopWorld {
@@ -163,7 +175,7 @@ function makeWorld(): StopWorld {
   const store = openEventStore(':memory:');
   store.migrate();
 
-  const calls: RecordedCalls = { podList: 0, podClose: [], podOpen: [] };
+  const calls: RecordedCalls = { podList: 0, podClose: [], podOpen: [], eventsRead: 0 };
 
   // Assigned immediately below. The push transport reads it lazily because the
   // manager must exist before the api that carries its pushes.
@@ -226,7 +238,10 @@ function makeWorld(): StopWorld {
       list: async (podId) => invoke(() => manager.listLanes(podId)),
     },
     events: {
-      read: async (req: ReadEventsRequest) => invoke(() => manager.readEvents(req)),
+      read: async (req: ReadEventsRequest) => {
+        calls.eventsRead += 1;
+        return invoke(() => manager.readEvents(req));
+      },
     },
   });
 
@@ -379,6 +394,32 @@ async function selectPod(
   await waitFor(() => {
     expect(laneRow(laneId)).toBeDefined();
   });
+}
+
+/** The primary transcript pane — the one the user reads without splitting. */
+async function primaryTranscript(): Promise<HTMLElement> {
+  return screen.findByTestId(TEST_IDS.transcriptPrimary);
+}
+
+/** The primary pane's filter toggle, whose `data-mode` is the view on screen. */
+function primaryFilterToggle(): HTMLElement {
+  return screen.getByTestId(testId(TRANSCRIPT_FILTER_TEST_IDS.transcriptFilter, 'primary'));
+}
+
+/** Every rendered transcript row inside a pane, in render order. */
+function transcriptRows(pane: HTMLElement): HTMLElement[] {
+  return within(pane).queryAllByTestId(/^transcript-event:/);
+}
+
+/**
+ * The rows reading `Lane closed`, whatever status they carry.
+ *
+ * Both halves of the text are checked at the call sites rather than here: a
+ * helper that looked for `Stopped` too could not express "no lane-closed row of
+ * ANY kind is on screen", which is the before-the-click half of the proof.
+ */
+function laneClosedRows(pane: HTMLElement): HTMLElement[] {
+  return transcriptRows(pane).filter((row) => (row.textContent ?? '').includes('Lane closed'));
 }
 
 /** Every lane the store holds for a Pod, straight from the durable side. */
@@ -648,5 +689,108 @@ describe('the transcript filter this session did not touch', () => {
     // disabled and never absent.
     expect(toggle.getAttribute('data-mode')).toBe('conversation');
     expect(toggle.hasAttribute('disabled')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The joined proof
+// ---------------------------------------------------------------------------
+
+/**
+ * THE ONE TEST THAT SPANS BOTH HALVES OF THE 2026-08-26 DEFECT.
+ *
+ * Pressing Stop left the transcript empty for two independent reasons, and
+ * neither half's own suite can see the other:
+ *
+ *   - MAIN never published the write. `#stopRunningLanes` appended the
+ *     `lane_closed` rows and pushed only `laneChanged`, so the events were
+ *     durable in SQLite and never reached a live window.
+ *   - THE RENDERER would have dropped them anyway. `lane_closed` is a member of
+ *     `PLUMBING`, and `'conversation'` — the DEFAULT mode — hides it.
+ *
+ * A unit test on either side goes green with the other side still broken, and
+ * the user still sees nothing. This test is the only place the whole path is
+ * exercised: real sweep -> real push -> real filter -> words on screen.
+ *
+ * The two properties that make it a proof rather than a demonstration are the
+ * DEFAULT VIEW (the filter toggle is never clicked, and `data-mode` is asserted
+ * still `'conversation'` when the words are read) and the PUSH (the `events.read`
+ * count is held still across the click, so a re-read cannot be what produced the
+ * row). Drop either and the test would pass on the broken build.
+ */
+describe('the stop notice in the default transcript', () => {
+  it('shows a Lane closed / Stopped row in conversation mode after the stop click, with no transcript re-read', async () => {
+    const user = userEvent.setup();
+    const { world, stoppedLaneId, keptLaneId } = await stopScenario();
+    const [stoppedPod, keptPod] = podIds(world);
+    mountWorkspace(world.api);
+
+    await waitFor(() => {
+      expect(laneRow(stoppedLaneId)).toBeDefined();
+    });
+    const primary = await primaryTranscript();
+
+    // THE DEFAULT VIEW, established before anything happens. Nothing in this
+    // test ever clicks the toggle, and this is the mode it stays in.
+    expect(primaryFilterToggle().getAttribute('data-mode')).toBe('conversation');
+
+    // NOT VACUOUS, DIRECTION ONE. If a lane-closed row were already on screen,
+    // every assertion below would hold on a build that did nothing at all.
+    await waitFor(() => {
+      expect(world.calls.eventsRead, 'the renderer never backfilled the transcript').toBeGreaterThan(
+        0,
+      );
+    });
+    expect(laneClosedRows(primary)).toEqual([]);
+
+    // The baseline the push is measured against. Captured immediately before
+    // the gesture, so any read the click provoked would move it.
+    const readsBeforeClick = world.calls.eventsRead;
+
+    // THE GESTURE, by ACCESSIBLE NAME — the same string a screen-reader user
+    // would hear, not a test id the UI could rename out from under them.
+    at(STOPPED_AT);
+    await user.click(screen.getByRole('button', { name: 'Stop Stopped' }));
+
+    // THE OUTCOME THE SESSION EXISTS FOR: words, in the default transcript.
+    // Nothing in this file wrote `'stopped'` anywhere — the status in this row
+    // was computed by the real `PodManager` from the click above.
+    await waitFor(() => {
+      const rows = laneClosedRows(primary);
+      expect(rows.length, 'the stop put no Lane closed row in the primary transcript').toBe(1);
+      expect(rows[0]?.textContent ?? '').toContain('Stopped');
+    });
+
+    // AT THE MOMENT THE ROW IS FOUND, and synchronously with it, the two
+    // properties that make the row mean what the test says it means.
+    const row = laneClosedRows(primary)[0];
+    expect(row?.textContent ?? '').toContain('Lane closed');
+    expect(row?.textContent ?? '').toContain(LANE_STATUS_LABEL.stopped);
+    // Still the default view: no toggle was clicked, and a proof that only held
+    // in `'everything'` mode would not be a proof of the user's outcome.
+    expect(primaryFilterToggle().getAttribute('data-mode')).toBe('conversation');
+    // And it arrived by PUSH. Not one re-read happened between the click and
+    // the row, so the durable-but-invisible failure mode cannot explain it.
+    expect(world.calls.eventsRead, 'the row appeared via a re-read, not the push').toBe(
+      readsBeforeClick,
+    );
+
+    // NOT VACUOUS, DIRECTION TWO. One gesture closed one Pod's lanes. A sweep
+    // that ended every lane in the store would satisfy everything above.
+    expect(persistedEvents(world, keptPod).filter((e) => e.type === 'lane_closed')).toEqual([]);
+    await selectPod(user, keptPod, keptLaneId);
+    const keptPrimary = await primaryTranscript();
+    await waitFor(() => {
+      expect(laneRow(keptLaneId).textContent).toContain(LANE_STATUS_LABEL.running);
+    });
+    expect(laneClosedRows(keptPrimary)).toEqual([]);
+
+    // The Pod that WAS stopped still reads the notice when the user comes back
+    // to it, so the row is part of the transcript and not a transient flash.
+    await selectPod(user, stoppedPod, stoppedLaneId);
+    const backAgain = await primaryTranscript();
+    await waitFor(() => {
+      expect(laneClosedRows(backAgain).length).toBe(1);
+    });
   });
 });

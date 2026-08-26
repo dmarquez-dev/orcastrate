@@ -15,7 +15,7 @@
 
 import { describe, expect, it, afterEach } from 'vitest';
 
-import type { LaneChangedPush } from '../../../src/shared/contracts/ipc';
+import type { LaneChangedPush, PodEventPush } from '../../../src/shared/contracts/ipc';
 import { EVENT_CHANNELS } from '../../../src/shared/contracts/ipc';
 import {
   eventsFor,
@@ -34,7 +34,28 @@ function harness(): ManagerHarness {
 }
 
 afterEach(async () => {
-  while (harnesses.length > 0) await harnesses.pop()?.dispose();
+  while (harnesses.length > 0) {
+    const made = harnesses.pop();
+    // SUITE-WIDE: `PodManager` may never CALL `podEvent` with an empty `events`
+    // array. That channel means "something arrived", and a redundant close that
+    // announced nothing would hand the renderer's merge nothing to merge.
+    //
+    // Read from `attempted`, NOT from `pushed`: `createPushes` drops an empty
+    // batch before `send`, so `pushed` cannot tell a manager that never made
+    // the call from one that made it and had it swallowed one layer down. The
+    // second is the defect this guards — a `#stopRunningLanes` whose
+    // correctness would rest on a filter it does not own. `attempted` is
+    // recorded above that filter, so a push hoisted above the
+    // `stoppedLaneIds.length === 0` guard fails here wherever it was added.
+    for (const entry of made?.attempted ?? []) {
+      if (entry.channel !== EVENT_CHANNELS.podEvent) continue;
+      expect(
+        (entry.payload as PodEventPush).events.length,
+        'a podEvent push carried an empty events array',
+      ).toBeGreaterThan(0);
+    }
+    await made?.dispose();
+  }
 });
 
 /** A Pod as a previous turn left it: open, with two running lanes and one done. */
@@ -184,6 +205,72 @@ describe('criterion 3: exactly one laneChanged push, before the podStatus push',
 });
 
 // ---------------------------------------------------------------------------
+// Criterion 3b — the sweep PUBLISHES what it wrote, on `podEvent`
+//
+// The events were durable in SQLite and invisible on screen: the renderer's
+// backfill short-circuits on `hasMore === false`, so a `lane_closed` that is
+// never pushed does not surface until the transcript is next re-read.
+// ---------------------------------------------------------------------------
+
+describe('criterion 3b: exactly one podEvent push, carrying what the store stored', () => {
+  it('pushes one lane_closed per swept lane with the seq and id the store assigned', async () => {
+    const h = harness();
+    const { podId, matriarchId, runningCalfId } = seedOpenPodWithLanes(h);
+    const before = h.pushed.length;
+
+    await h.manager.closePod(podId);
+
+    const pushes = h.pushed
+      .slice(before)
+      .filter((entry) => entry.channel === EVENT_CHANNELS.podEvent)
+      .map((entry) => entry.payload as PodEventPush);
+    // ONE push for the whole sweep: the batch is one `appendMany`, so it is
+    // one arrival, not one per lane.
+    expect(pushes).toHaveLength(1);
+    const push = pushes[0] as PodEventPush;
+    expect(push.podId).toBe(podId);
+    // Vacuity guard, and it precedes every `toEqual` below: a `toEqual` of an
+    // empty array against an empty expectation passes while proving that
+    // nothing reached the renderer at all.
+    expect(push.events.length, 'the stop pushed no events').toBeGreaterThan(0);
+
+    const payloads = push.events.map(
+      (event) => event.payload as { type: string; laneId: string; status: string },
+    );
+    expect(payloads.map((payload) => payload.type)).toEqual(['lane_closed', 'lane_closed']);
+    // Each event on its OWN lane's id, not the Pod's Matriarch twice.
+    expect(payloads.map((payload) => payload.laneId)).toEqual([matriarchId, runningCalfId]);
+    expect(payloads.map((payload) => payload.status)).toEqual(['stopped', 'stopped']);
+
+    // Read `seq` and `id` back from the store rather than writing literals.
+    // The renderer's merge dedupes on exactly these two, so a push carrying
+    // anything the store did not assign is a push the transcript drops.
+    const persisted = eventsFor(h, podId).filter((event) => event.payload.type === 'lane_closed');
+    expect(persisted.length, 'the stop persisted no lane_closed event').toBeGreaterThan(0);
+    expect(push.events.map((event) => ({ id: event.id, seq: event.seq }))).toEqual(
+      persisted.map((event) => ({ id: event.id, seq: event.seq })),
+    );
+  });
+
+  it('lands on podEvent BEFORE laneChanged within the one sweep', async () => {
+    const h = harness();
+    const { podId } = seedOpenPodWithLanes(h);
+    const before = h.pushed.length;
+
+    await h.manager.closePod(podId);
+
+    // Ordering asserted, not assumed: the push is bound to the append it
+    // publishes, so it precedes the rail refresh that follows the whole sweep.
+    const order = h.pushed.slice(before).map((entry) => entry.channel);
+    const eventAt = order.indexOf(EVENT_CHANNELS.podEvent);
+    const laneAt = order.indexOf(EVENT_CHANNELS.laneChanged);
+    expect(eventAt).toBeGreaterThanOrEqual(0);
+    expect(laneAt).toBeGreaterThanOrEqual(0);
+    expect(eventAt).toBeLessThan(laneAt);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criterion 4 — the beached guard is preserved and NOT widened
 // ---------------------------------------------------------------------------
 
@@ -210,6 +297,9 @@ describe('criterion 4: a beached Pod keeps its lanes', () => {
     expect(h.raw.getLane(calfId as string)?.endedAt).toBeNull();
     expect(laneClosedEvents(h, podId)).toHaveLength(0);
     expect(h.spy.writes.filter((write) => write.method === 'setLaneStatus')).toHaveLength(0);
+    // Nothing was appended, so there is nothing to announce: the new push sits
+    // below the sweep's early return and cannot fire for a beached Pod.
+    expect(h.pushesOn<PodEventPush>(EVENT_CHANNELS.podEvent)).toHaveLength(0);
   });
 });
 
@@ -228,6 +318,10 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     const firstCalfEndedAt = h.raw.getLane(runningCalfId)?.endedAt;
     const firstEventCount = eventsFor(h, podId).length;
     const firstLaneChanged = h.pushesOn<LaneChangedPush>(EVENT_CHANNELS.laneChanged).length;
+    const firstPodEvent = h.pushesOn<PodEventPush>(EVENT_CHANNELS.podEvent).length;
+    // The first close DID announce something, so the count below is a real
+    // "no more" and not the trivially-satisfied "never any".
+    expect(firstPodEvent, 'the first stop pushed no podEvent').toBeGreaterThan(0);
 
     // The clock advances on every read, so a restamp would be visible as a
     // different ISO string rather than as a coincidence.
@@ -241,6 +335,10 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     expect(eventsFor(h, podId)).toHaveLength(firstEventCount);
     expect(laneClosedEvents(h, podId)).toHaveLength(2);
     expect(h.pushesOn<LaneChangedPush>(EVENT_CHANNELS.laneChanged)).toHaveLength(firstLaneChanged);
+    // A second close sweeps nothing, so it announces nothing — on the new
+    // channel too. Counted against the real store, never against a spy told to
+    // expect one call.
+    expect(h.pushesOn<PodEventPush>(EVENT_CHANNELS.podEvent)).toHaveLength(firstPodEvent);
     expect(h.raw.getPod(podId)?.status).toBe('closed');
   });
 });

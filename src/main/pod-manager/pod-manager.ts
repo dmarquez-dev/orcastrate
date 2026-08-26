@@ -516,7 +516,9 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * second close finds nothing: no `ended_at` is restamped (a duration that
    * jumped forward when a user clicked Stop on an already-stopped Pod would be
    * a lie about when the work ended), no second `lane_closed` is appended, and
-   * with nothing changed there is nothing for a `laneChanged` push to say.
+   * with nothing changed there is nothing for a `laneChanged` or a `podEvent`
+   * push to say — both sit below the early return, so a redundant close cannot
+   * announce an empty batch on a channel that means "something arrived".
    *
    * NOTHING IS CAUGHT HERE. A failing `setLaneStatus` or `appendMany` is a
    * defect, not an expected failure, and it propagates to `closePod`'s caller
@@ -540,7 +542,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     // ONE `appendMany` so the batch is all-or-nothing and the per-Pod `seq` run
     // stays contiguous. Each event rides its OWN lane's id. Synthetic, so no
     // `raw`.
-    this.#store.appendMany(
+    const stored = this.#store.appendMany(
       stoppedLaneIds.map(
         (laneId): NewEvent => ({
           podId,
@@ -551,6 +553,18 @@ export class PodManager implements PodManagerApi, StartupReconciler {
         }),
       ),
     );
+
+    // The push is kept HERE, touching the `appendMany` whose rows it carries,
+    // so that "append the events and forget to announce them" is not a state
+    // this method can be left in. It was left in exactly that state: the rows
+    // were durable in SQLite and the user, who was looking at the Pod they had
+    // just pressed Stop on, saw an empty transcript, because the renderer's
+    // backfill short-circuits and nothing re-reads the stream until the next
+    // session. Moved past the `laneChanged` push to the bottom of the method,
+    // it becomes separable from its write again by the next edit that lands
+    // here. The stored rows go out unmodified — the store assigned their `seq`
+    // and `id`, and the renderer's merge dedupes on those.
+    this.#push.podEvent({ podId, events: stored });
 
     // `LaneChangedPush` replaces the rail wholesale, so ONE push after the
     // whole sweep and never one per lane. The list is read back AFTER the
