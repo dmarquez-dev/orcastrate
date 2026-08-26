@@ -86,6 +86,19 @@ export const DIAGNOSTIC_EVENT_TYPES: readonly EventType[] = DIAGNOSTIC;
  * rail already reports, with the lane's status, where the user is already
  * looking.
  *
+ * THAT JUSTIFICATION HAS A LIMIT, AND `isDeliberateStopNotice` IS WHERE IT
+ * ENDS. It holds for `lane_opened`, and for a `lane_closed` reading `done` or
+ * `orphaned`: a Calf finishing its own work happens dozens of times a session,
+ * and an orphaned lane is a recovery state the startup-reconciliation notice
+ * already explains in words. It FAILS for a deliberate stop, because the rail
+ * reports a STATUS and the user's question is about an EVENT — "I pressed
+ * Stop; did anything happen?" A rail row that reads Stopped is the same shape
+ * whether the stop landed a second ago or was already true when the window
+ * opened, so it cannot answer that question, and the transcript is the only
+ * place that can. So `lane_closed` STAYS in this set, wholly and in place, and
+ * the one payload that answers a user's own action is exempted by the
+ * predicate instead. See `isDeliberateStopNotice`.
+ *
  * `permission_request` / `permission_decision` JOINED THIS SET on 2026-08-21.
  * THEY MOVE, THEY ARE NOT DROPPED: spec 5.2 requires every member of the frozen
  * `EventType` union to stay RENDERABLE, and both still render through
@@ -171,8 +184,11 @@ export type _EventTypeSetsAreDisjoint = _AssertNever<
  * Which events a pane is currently rendering.
  *
  *   'conversation' — the default. Renders the conversation, the diagnostics,
- *                    and the startup-reconciliation notice (see
- *                    `isStartupReconciliationNotice`).
+ *                    the startup-reconciliation notice (see
+ *                    `isStartupReconciliationNotice`) and the deliberate-stop
+ *                    notice (see `isDeliberateStopNotice`). Those last two are
+ *                    payload-scoped exemptions, not whole types: `system` and
+ *                    `lane_closed` are otherwise hidden here.
  *   'everything'   — renders all twelve types. Identical to today's behaviour.
  */
 export type TranscriptFilterMode = 'conversation' | 'everything';
@@ -183,7 +199,11 @@ export const DEFAULT_TRANSCRIPT_FILTER: TranscriptFilterMode = 'conversation';
  * The hidden set, as a Set for O(1) membership. Keyed on the event TYPE.
  * Subtypes are the CLI's vocabulary and it changes them; a filter keyed on one
  * of those would rot silently. The blanket rule stands for every subtype the
- * CLI owns — the ONE exemption below is not one of them.
+ * CLI owns, and NEITHER of the two exemptions below reads one: the first reads
+ * a marker Orcastrate's own boot sweep writes, the second reads
+ * `LaneStatus`, a `CHECK`-constrained column in this repository's own schema.
+ * The rule is not "look at no payload ever" — it is "never key on a vocabulary
+ * someone else can change under us", and both exemptions honour it.
  */
 const HIDDEN_IN_CONVERSATION: ReadonlySet<EventType> = new Set<EventType>(PLUMBING);
 
@@ -201,13 +221,19 @@ const HIDDEN_IN_CONVERSATION: ReadonlySet<EventType> = new Set<EventType>(PLUMBI
 export const STARTUP_RECONCILIATION_SUBTYPE = 'startup_reconciliation';
 
 /**
- * THE ONE PLACE FILTERING LOOKS AT `payload` CONTENTS.
+ * ONE OF THE TWO PLACES FILTERING LOOKS AT `payload` CONTENTS — the other is
+ * `isDeliberateStopNotice`, added 2026-08-26. THE TWO DIFFER IN KIND, and the
+ * difference is the whole of why each is permissible: THIS one reads a MARKER
+ * WRITTEN BY ORCASTRATE'S OWN BOOT SWEEP, a string with one producer in this
+ * repository; that one reads a SCHEMA-CONSTRAINED ENUM, a `CHECK`-constrained
+ * `LaneStatus` column this repository defines. Neither reads a subtype the CLI
+ * owns, which is the only thing the blanket rule forbids.
  *
  * AMENDED 2026-08-20 BY USER DECISION (escalation E5). A `system` event bearing
  * the `startup_reconciliation` marker is treated as DIAGNOSTIC and is visible
  * in BOTH modes, exactly as `error` and `malformed` are.
  *
- * WHY THIS ONE AND NO OTHER. The no-subtype-special-casing rule exists because
+ * WHY THIS ONE IS PERMISSIBLE. The no-subtype-special-casing rule exists because
  * subtypes are the CLI's vocabulary and the CLI changes them under us. That
  * rationale does not reach this marker: it is written by ORCASTRATE'S OWN
  * startup sweep (`pod-manager.ts` `#appendReconciliationEvents`), so it cannot
@@ -238,19 +264,57 @@ export function isStartupReconciliationNotice(payload: NormalizedEvent['payload'
 }
 
 /**
+ * THE SECOND PLACE FILTERING LOOKS AT `payload` CONTENTS, added 2026-08-26
+ * (`contracts/stop-notice-visibility.ts`). A `lane_closed` whose status is
+ * `'stopped'` is visible in `'conversation'` mode. `'done'` and `'orphaned'`
+ * are not.
+ *
+ * WHY THIS ONE IS PERMISSIBLE. `payload.status` is not a CLI subtype. It is
+ * `LaneStatus`, a `CHECK`-constrained column in this repository's own schema,
+ * so it cannot change without a migration in this repository — a STRONGER
+ * guarantee than the startup-reconciliation marker enjoys, not a weaker one.
+ * And `'stopped'` has exactly one writer, `PodManager.#stopRunningLanes`,
+ * which runs only because a user pressed Stop.
+ *
+ * WHY IT IS WORTH AN EXEMPTION. `lane_closed` is plumbing because lane
+ * bookkeeping is routine — but a deliberate stop is not routine and is not
+ * bookkeeping. It is the direct consequence of something the user just did,
+ * and before this exemption the default transcript answered "I pressed Stop;
+ * what happened?" with nothing at all. That was the defect.
+ *
+ * WHY IT IS NARROW ON PURPOSE. Un-hiding `lane_closed` wholesale would put a
+ * row in the transcript every time a Calf finished — dozens a session — which
+ * is precisely the chatter this filter exists to remove, and it would tell the
+ * user nothing the rail is not already showing them.
+ */
+export function isDeliberateStopNotice(payload: NormalizedEvent['payload']): boolean {
+  if (payload.type !== 'lane_closed') return false;
+  return payload.status === 'stopped';
+}
+
+/**
  * Whether 'conversation' mode hides this event.
  *
- * NOTE WHAT DID *NOT* CHANGE. `system` is still wholly a member of
- * `PLUMBING_EVENT_TYPES`; the three sets still partition `EventType` and both
- * `_AssertNever` guards above are untouched and still hold. The partition is
- * over the TYPE. What the exemption changes is this PREDICATE — "hidden" is
- * now "the type is plumbing AND the event is not the reconciliation notice"
+ * NOTE WHAT DID *NOT* CHANGE, AND STILL HAS NOT. `system` and `lane_closed`
+ * are both still wholly members of `PLUMBING_EVENT_TYPES`; the three sets
+ * still partition `EventType` and both `_AssertNever` guards above are
+ * untouched and still hold. The partition is over the TYPE. What the
+ * exemptions change is this PREDICATE — "hidden" is now "the type is plumbing
+ * AND the event is neither the reconciliation notice nor a deliberate stop"
  * rather than "the type is plumbing". No guard was loosened to make room for
- * it, because none of them was ever about payload contents.
+ * either, because none of them was ever about payload contents.
+ *
+ * THE TWO EXEMPTIONS ARE CHECKED INDEPENDENTLY, neither aware of the other,
+ * and this is spelled as three statements rather than an `||` chain so that a
+ * third exemption has exactly one obvious place to go. Anyone adding one owes
+ * the same argument the two above give: that the field it reads belongs to
+ * this repository, and that the row it reveals answers a question the rest of
+ * the UI cannot.
  */
 function isHiddenInConversation(event: NormalizedEvent): boolean {
   if (!HIDDEN_IN_CONVERSATION.has(event.payload.type)) return false;
-  return !isStartupReconciliationNotice(event.payload);
+  if (isStartupReconciliationNotice(event.payload)) return false;
+  return !isDeliberateStopNotice(event.payload);
 }
 
 /**
