@@ -77,3 +77,36 @@ Three decisions the user took:
 The last one is the session's most useful output after the fix itself. T7 refused to
 assert the current empty-transcript behaviour as correct, which would have locked the
 defect in behind a green suite.
+
+## 2026-08-26 — third hand-run (no session)
+
+The `pod-status-and-chrome` session was driven by hand the day it merged — the
+first end-to-end evidence for any of the three surfaces it changed. **The stop
+flow behaved correctly**: colours read accurately, the stopped state reads
+correctly, and no behavioural defect was observed.
+
+Findings are recorded to `.dir-sdlc/backlog.md` under "third hand-run findings".
+All are visual, and all concern the indicator set rather than the stop path.
+
+Two mechanisms were traced before writing them down, because one finding is not
+the change it looks like:
+
+- **The Pod tab draws two adjacent elements**, `statusDot` and `WorkingIndicator`,
+  not one dot with several states. "One dot on the tab" is therefore a decision
+  about which element survives, and the naive collapse drops the status hue for
+  the running state.
+- **`WorkingIndicator` renders `null` when inactive by contract**, and that is the
+  property that keeps nothing ticking after the last lane ends. The requested
+  resting-state outline must go to `statusDot` or to a new component; putting it
+  in `WorkingIndicator` would falsify the guarantee the last session built it to
+  have.
+
+**Not exercised:** the two transcript-visibility defects this session's backlog
+predicts (`#stopRunningLanes` never pushing `podEvent`, and `lane_closed` being
+PLUMBING). The transcript was not reported on after the stop, so their predicted
+symptom — nothing at all appearing in the default view — remains traced but not
+observed by hand.
+
+Migration 4 ran clean against the existing database on first launch. Startup
+reconciliation closed 2 Pods and orphaned 2 lanes left running by the previous
+process, as designed.

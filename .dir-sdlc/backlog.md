@@ -882,3 +882,84 @@ while proving the fix.
 T8's reviewer saw 8 failures that were a concurrent reviewer mid-write to
 `workspace-provider.tsx` for its own red-step probe; a clean re-run on a quiescent
 tree passed 2020/2020. Run the full suite when the tree is quiescent, or scope it.
+
+---
+
+## 2026-08-26 — third hand-run findings (no session; observed directly)
+
+The stop flow was driven against a real Electron window immediately after the
+`pod-status-and-chrome` session merged — the first end-to-end evidence for any of
+the three surfaces that session changed. **Behaviour was clean.** Colours read
+accurately, the stopped state reads correctly, and nothing in the flow misbehaved.
+Every finding below is visual.
+
+**Two mechanisms were traced before writing, so the next session does not re-derive
+them.** Both matter, because one of these items is not the CSS change it looks like.
+
+- **The Pod tab shows TWO adjacent elements, not one.** What reads as "a solid blue
+  dot plus a flashing blue dot" is `styles.statusDot` — hue from
+  `statusToken(status)` at render time — sitting immediately beside a
+  `<WorkingIndicator size="dot">` that is active for `'running'` alone
+  (`PodTab.tsx`). The grey outline at rest and the amber on a permission prompt are
+  the same single `statusDot` at its `idle`/`closed` and `waiting` hues; the
+  indicator is simply absent then. So "make the tab one dot" is a decision about
+  **which of two existing elements survives**, not a restyle of one.
+- **`WorkingIndicator` renders `null` when inactive, by design and by contract.**
+  Its own doc-comment makes that the load-bearing property: "a row whose work has
+  finished renders this once — as `null` — and the last lane ending leaves nothing
+  ticking." **A resting-state outline is therefore a contract change, not a CSS
+  change** — see the third item.
+
+### UX refinements — the indicator set
+
+- **The lane rail should use the dot form, not the bar.** `LaneRow.tsx:129` mounts
+  `size="bar"`; the user's read is that a purely dot-based set looks best and that
+  the two surfaces should not use two different shapes. This one **is** the one-word
+  change it appears to be — `size="dot"` — but `WorkingIndicator.module.css` sizes
+  `dot` for a dense surface, so check it against the rail row's height rather than
+  assuming it transplants.
+
+- **The Pod tab should carry one dot, not two.** Wanted: the blue dot animated while
+  working, and a green outline when the Pod is open but not actively thinking. Note
+  the cost before choosing — collapsing the pair means either the `statusDot` itself
+  animates while `running` (and `WorkingIndicator` leaves the tab entirely), or the
+  indicator replaces the status dot while running, **which drops the status hue for
+  exactly the state it is describing**. The first is the shape to prefer; it also
+  keeps the contract's "third carrier" rule intact, since the `srOnly` sentence and
+  the dot's `data-status` both survive either way.
+
+- **A resting state wants an affordance, and today there is none.** The ask is a
+  green outline on the tab when open-but-idle, and on the lane a green outline plus
+  a word — `Active` or `Waiting`. **This is the item to be careful with.** It is not
+  a tweak to `WorkingIndicator`: making it render something when `active` is false
+  falsifies the property quoted above and puts an element back on every finished row
+  forever. The two shapes that do not: give the resting affordance to the
+  **`statusDot`** (which already renders in every state and already has the hue), or
+  add a **separate presentational component** for it. Whichever is chosen, the lane's
+  proposed word must come from `LANE_STATUS_LABEL`, not a new literal — `Running`
+  and the other three are already the labels that surface there, and `Active` /
+  `Waiting` are neither.
+
+### Palette — one collision worth measuring
+
+- **A stopped lane's dot was read as "yellow".** It is `--oc-status-stopped`
+  (`#c0b39d`), the warm tan E1 re-pinned it to. `--oc-status-waiting` is `#e6a33c`,
+  amber. The two are not adjacent in meaning but were described with the same word
+  at dot size, which is the observation the shipped hygiene guard — string
+  inequality — cannot make. **Measure `stopped` against `waiting` before the tab and
+  the rail both go dot-only**, since shrinking the affordance is the change that
+  makes a hue collision matter more. This is the same systemic question the
+  `pod-status-and-chrome` block already deferred; treat it as one more data point
+  for that pass, not a separate fix.
+
+- **Open question the user raised, not a finding:** whether the tab should read grey
+  outline where the lane reads stopped. Worth noting the two are different unions —
+  a stopped Pod's `PodStatus` is `'closed'` (`--oc-status-closed`, `#4a5060`) while
+  its Matriarch's `LaneStatus` is `'stopped'` (`#c0b39d`). They are *supposed* to
+  differ. Decide deliberately whether that difference should be visible at a glance
+  or whether the two surfaces should agree.
+
+### Not a finding
+
+- **The behaviour of the stop flow itself.** Reported clean, and no defect was
+  observed in it.
