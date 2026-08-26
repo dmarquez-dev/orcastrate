@@ -9,15 +9,15 @@
  * side, which is exactly what makes a widened live enum visible as a diff
  * instead of invisible.
  *
- * This file generalises that to migrations 1, 2 AND 3, because migration 1 was
- * not the only one interpolating a live constant and "we checked migration 1"
- * is not a property of the migration list. Migration 1's lane-status list was
- * the second instance of the same latent bug and is the reason this file
- * exists: `MIGRATION_1` interpolated the live `LANE_STATUSES`, so appending
- * `'stopped'` to the contract union rewrote already-shipped DDL for every
- * future FRESH database while every already-migrated database kept the old
- * text — two structurally different v1 schemas both claiming
- * `schema_version = 1`.
+ * This file generalises that to EVERY migration that has shipped — 1, 2, 3 and
+ * 4 today — because migration 1 was not the only one interpolating a live
+ * constant and "we checked migration 1" is not a property of the migration
+ * list. Migration 1's lane-status list was the second instance of the same
+ * latent bug and is the reason this file exists: `MIGRATION_1` interpolated
+ * the live `LANE_STATUSES`, so appending `'stopped'` to the contract union
+ * rewrote already-shipped DDL for every future FRESH database while every
+ * already-migrated database kept the old text — two structurally different v1
+ * schemas both claiming `schema_version = 1`.
  *
  * A failure here means a shipped migration's RENDERED TEXT changed. The fix is
  * never to update the expectation: it is to pin the list the migration
@@ -42,11 +42,30 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * the head of `main` when migration 2 was written. `schema.ts` was untouched
  * between the commit that added migration 1 and that one, so the two blobs are
  * identical and this hash keeps the two suites citing one source.
+ *
+ * WRITING MIGRATION 5? IT GETS AN ENTRY HERE, at the commit that shipped it,
+ * and its version joins the `it.each` list below. This map is the whole
+ * tripwire: a migration missing from it is not "passing", it is simply not
+ * being checked, and that silence is what let migration 1's live
+ * `LANE_STATUSES` interpolation rewrite already-shipped DDL unnoticed.
+ *
+ * Pinning and WATCHING are two separate obligations, and migration 4 is the
+ * proof: it met the first and not the second. Its `schema.ts` correctly
+ * interpolated a migration-local `MIGRATION_4_LANE_STATUSES` rather than the
+ * live union — but nothing in this file recorded that an entry was owed here,
+ * so nothing was watching that it stayed pinned. A correct migration is not a
+ * checked one. This paragraph is what makes migration 5 a checked one.
+ *
+ * And when a row here goes red, the fix is NEVER to update the expectation.
+ * Red means a shipped migration's rendered text changed, which is the bug, not
+ * the alarm. Pin the list that migration interpolates as a migration-local
+ * constant and put the widening in a NEW migration.
  */
 const SHIPPED_BLOB: Readonly<Record<number, string>> = {
   1: '96f6e925f75c9b101903116a0522c98971e0f347:src/main/store/schema.ts',
   2: '87aa69b:src/main/store/schema.ts',
   3: '16927ac:src/main/store/schema.ts',
+  4: 'e15b1c4:src/main/store/schema.ts',
 };
 
 const migration = (version: number): string => {
@@ -103,7 +122,7 @@ function shippedMigration(version: number): string {
 }
 
 describe('every shipped migration renders byte-identically to the blob that shipped it', () => {
-  it.each([1, 2, 3])('migration %i', (version) => {
+  it.each([1, 2, 3, 4])('migration %i', (version) => {
     expect(migration(version)).toBe(shippedMigration(version));
   });
 
@@ -118,6 +137,12 @@ describe('every shipped migration renders byte-identically to the blob that ship
     );
     expect(shippedMigration(3)).toContain(
       `CHECK (status IN ${sqlIn(['closed', 'idle', 'running', 'waiting', 'beached'])})`,
+    );
+    // Migration 4 rebuilt `lanes` around the widened lane-status list, so its
+    // rendered text must name all four — including the `'stopped'` whose
+    // arrival is what made this file necessary.
+    expect(shippedMigration(4)).toContain(
+      `CHECK (status IN ${sqlIn(['running', 'done', 'orphaned', 'stopped'])})`,
     );
   });
 
