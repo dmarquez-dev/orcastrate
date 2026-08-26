@@ -34,6 +34,7 @@ import type {
   PodRunnerHandlers,
   PodRunnerOptions,
 } from '../../../src/shared/contracts/pod-runner';
+import type { Pushes } from '../../../src/main/pod-manager';
 import { createPushes, PodManager, ROUTING_MODE } from '../../../src/main/pod-manager';
 import { openEventStore } from '../../../src/main/store';
 
@@ -217,6 +218,37 @@ export interface Pushed {
   payload: unknown;
 }
 
+/**
+ * Records every `Pushes` call BEFORE `createPushes` gets to filter it.
+ *
+ * `createPushes` DROPS a `podEvent` whose `events` array is empty (`pushes.ts`,
+ * "Contract: Batched in `seq` order. Never empty."). That filter is correct and
+ * stays, but it means the `send` collector downstream of it can never observe
+ * an empty batch — so a test that watched only `pushed` could not tell a
+ * PodManager that never made a bad call from one that made it and had it
+ * swallowed. Those are different defects: the second leaves a method whose
+ * correctness depends entirely on a filter one layer away.
+ *
+ * This proxy sits ABOVE the filter, so `attempted` is what `PodManager` ACTUALLY
+ * called. `pushed` keeps its old meaning — what reached the renderer — and every
+ * existing assertion over it is unaffected.
+ */
+function recordAttempts(pushes: Pushes, attempted: Pushed[]): Pushes {
+  return new Proxy(pushes, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver) as unknown;
+      if (typeof value !== 'function') return value;
+      // The method names on `Pushes` are the `EVENT_CHANNELS` keys, so the
+      // recorded channel is the same string `send` would have been handed.
+      const channel = (EVENT_CHANNELS as Record<string, string>)[property as string];
+      return (payload: unknown): void => {
+        attempted.push({ channel: channel ?? String(property), payload });
+        (value as (p: unknown) => void).call(target, payload);
+      };
+    },
+  });
+}
+
 export interface ManagerHarness {
   /** The spied store. Reads go straight through. */
   store: EventStore;
@@ -224,7 +256,14 @@ export interface ManagerHarness {
   raw: EventStore;
   spy: StoreSpy;
   manager: PodManager;
+  /** What reached the renderer: recorded by `createPushes`'s `send`. */
   pushed: Pushed[];
+  /**
+   * What `PodManager` CALLED, recorded above `createPushes`'s empty-batch
+   * filter. Use this — never `pushed` — to assert that a push was not MADE, as
+   * opposed to not delivered.
+   */
+  attempted: Pushed[];
   pushesOn<T>(channel: string): T[];
   statusPushes(podId: PodId): PodStatusPush[];
   logged: { level: 'warn' | 'error'; args: unknown[] }[];
@@ -248,6 +287,7 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
   const { store, spy } = spyOnWrites(raw);
 
   const pushed: Pushed[] = [];
+  const attempted: Pushed[] = [];
   const logged: { level: 'warn' | 'error'; args: unknown[] }[] = [];
   const built = new Map<PodId, FakeRunner[]>();
   const scripts = new Map<PodId, FakeRunnerScript>();
@@ -268,9 +308,12 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
   const manager = new PodManager({
     store,
     createRunner,
-    push: createPushes((channel, payload) => {
-      pushed.push({ channel, payload });
-    }),
+    push: recordAttempts(
+      createPushes((channel, payload) => {
+        pushed.push({ channel, payload });
+      }),
+      attempted,
+    ),
     routingMode: ROUTING_MODE,
     newId: () => `id-${(ids += 1)}`,
     now,
@@ -287,6 +330,7 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
     spy,
     manager,
     pushed,
+    attempted,
     logged,
     now,
     pushesOn<T>(channel: string): T[] {
