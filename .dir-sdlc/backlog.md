@@ -673,7 +673,13 @@ that session's `reviews/T1.md`–`T4.md`.
   `parent_tool_use_id` and is a **Calf opening prompt**, two of them with identical
   text to each other.
 
-## 2026-08-21 — second hand-run findings (no session; observed directly)
+## 2026-08-21 — second hand-run findings — CLEARED 2026-08-26 (session 2026-08-25-orcastrate-pod-status-and-chrome)
+
+All seven shipped. Kept for provenance; **not pending work**. What that session
+deferred, and the two defects it found while proving its own fix, are in the
+2026-08-26 block at the end of this file.
+
+### Original heading: 2026-08-21 — second hand-run findings (no session; observed directly)
 
 The transcript-readability session was driven by hand on 2026-08-21, immediately
 after it merged. The user's verdict on the shipped work: *"Chat behavior and
