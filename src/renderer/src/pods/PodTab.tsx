@@ -2,6 +2,7 @@ import { useEffect, useRef, type CSSProperties, type DragEvent, type JSX, type K
 
 import type { PodStatus } from '@shared/contracts/events';
 import type { PodTabVm } from '../contracts/renderer-state';
+import { WorkingIndicator } from '../activity';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken, testId } from '../shell/contract-runtime';
 import a11y from '../shell/a11y.module.css';
@@ -225,6 +226,20 @@ export function PodTab({
         type="button"
       >
         <span className={styles.statusDot} data-status={status} style={dotStyle} />
+        {/*
+          The liveness affordance, per `contracts/activity-indicator.ts`
+          POD_TAB_MOUNT: adjacent to the status dot, `size="dot"`, and active
+          for `'running'` ALONE — a turn is streaming.
+
+          NOT for `'waiting'`. That means the Pod is blocked on the USER; it
+          already carries the busiest dot shape in the set plus the permission
+          badge, and animating there would tell the user to wait for a machine
+          that is waiting for them.
+
+          It is `aria-hidden` and adds no text, so it is the third carrier: the
+          `srOnly` sentence below still opens with `STATUS_LABEL[status]`.
+        */}
+        <WorkingIndicator active={status === 'running'} size="dot" />
         <span className={a11y.srOnly}>
           {`${STATUS_LABEL[status]}.${opened ? '' : ' Not opened.'} Pod ${index + 1} of ${total}.`}
         </span>

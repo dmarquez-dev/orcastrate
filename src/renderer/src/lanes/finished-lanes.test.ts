@@ -35,8 +35,19 @@ function row(overrides: Partial<LaneRowLike> = {}): LaneRowLike {
 const COLLAPSIBLE = row({ lane: makeCalf({ id: 'lane-plain-done' }) });
 
 describe('FINISHED_LANE_STATUSES', () => {
-  it('is exactly done and orphaned', () => {
-    expect([...FINISHED_LANE_STATUSES]).toEqual(['done', 'orphaned']);
+  /**
+   * WIDENED, not relaxed (`contracts/lane-stopped-status.ts` section 6). A
+   * lane whose Pod the user stopped is finished for the purpose of the rail's
+   * disclosure, exactly as a `done` or `orphaned` one is. The list stays
+   * EXHAUSTIVE and in union order so a fifth `LaneStatus` still has to come
+   * through here rather than defaulting into the collapse.
+   */
+  it('is exactly done, orphaned and stopped', () => {
+    expect([...FINISHED_LANE_STATUSES]).toEqual(['done', 'orphaned', 'stopped']);
+  });
+
+  it('does not include the one non-terminal status', () => {
+    expect(FINISHED_LANE_STATUSES).not.toContain('running');
   });
 });
 
@@ -55,6 +66,17 @@ describe('isCollapsibleFinishedLane — the four never-collapse rules', () => {
     // The loop ran over something. (A previous session shipped a guard that
     // asserted over zero items and looked green.)
     expect(FINISHED_LANE_STATUSES.length).toBeGreaterThan(0);
+  });
+
+  it('collapses a stopped Calf but NEVER a stopped Matriarch', () => {
+    // Rule 4 reaches the new status...
+    expect(isCollapsibleFinishedLane(row({ status: 'stopped' }))).toBe(true);
+    // ...and rule 1 still outranks it. This is the case that matters: the
+    // Matriarch is index 0 of the rail forever and is the lane the composer
+    // talks to, so a stopped Pod must not hide the row that says so.
+    expect(
+      isCollapsibleFinishedLane(row({ lane: makeLane(), isMatriarch: true, status: 'stopped' })),
+    ).toBe(false);
   });
 
   it('never collapses a lane in the primary or a follower pane', () => {

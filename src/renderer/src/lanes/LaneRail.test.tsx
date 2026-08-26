@@ -3,10 +3,12 @@ import { Profiler, StrictMode } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { WORKING_INDICATOR_TEST_ID } from '../activity';
 import { testId } from '../shell/contract-runtime';
 import { LaneRail } from './LaneRail';
 import { LANE_ROW_SELECT_TEST_ID } from './LaneRow';
 import { formatElapsed } from './format-elapsed';
+import { LANE_STATUS_LABEL } from './lane-status';
 import { makeCalf, makeLane, makeRow } from './test-fixtures';
 
 // `vitest.config.ts` sets `globals: false`, so RTL never installs its own
@@ -449,4 +451,46 @@ describe('formatElapsed', () => {
     expect(formatElapsed(125_000)).toBe('2m 05s');
     expect(formatElapsed(3_845_000)).toBe('1h 04m');
   });
+});
+
+/**
+ * `contracts/activity-indicator.ts` section 4, `LANE_ROW_MOUNT`.
+ *
+ * The indicator is `aria-hidden` and contributes no accessible text, so it is
+ * the THIRD carrier of liveness, after the status word and the status shape.
+ * That makes its ABSENCE the assertion that matters: an indicator drawn on a
+ * finished lane would mean nothing at all.
+ */
+describe('LaneRail — the working indicator (contract LANE_ROW_MOUNT)', () => {
+  it("mounts the indicator on a running lane, in the meta line beside the status word", () => {
+    renderRail({ rows: [makeRow(makeLane({ status: 'running' }), { status: 'running' })] });
+
+    const row = screen.getByTestId('lane-row:lane-matriarch');
+    const indicator = within(row).getByTestId(WORKING_INDICATOR_TEST_ID);
+
+    // `size="bar"`, the wider form for a surface with room.
+    expect(indicator.getAttribute('data-size')).toBe('bar');
+    // It carries nothing by itself.
+    expect(indicator.getAttribute('aria-hidden')).toBe('true');
+    // ADJACENT TO THE STATUS WORD: same `.meta` line, and the word is still
+    // there, which is the condition the contract puts on any mount site.
+    const status = row.querySelector('[data-status]');
+    expect(status).not.toBeNull();
+    expect(indicator.parentElement).toBe(status?.parentElement);
+    expect(row.textContent).toContain('Running');
+  });
+
+  it.each(['done', 'orphaned', 'stopped'] as const)(
+    'mounts NO indicator on a %s lane',
+    (status) => {
+      // The Matriarch is never collapsed, whatever its status, so the row is
+      // demonstrably rendered and the absence below is the indicator's.
+      renderRail({ rows: [makeRow(makeLane({ status }), { status })] });
+
+      const row = screen.getByTestId('lane-row:lane-matriarch');
+      expect(row.querySelector('[data-status]')?.getAttribute('data-status')).toBe(status);
+      expect(row.textContent).toContain(LANE_STATUS_LABEL[status]);
+      expect(within(row).queryByTestId(WORKING_INDICATOR_TEST_ID)).toBeNull();
+    },
+  );
 });

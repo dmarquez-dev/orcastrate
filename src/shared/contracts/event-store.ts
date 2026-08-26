@@ -169,7 +169,7 @@ export interface EventStore {
   listLanes(podId: PodId): Lane[];
 
   /**
-   * Sets status and, for a terminal status ('done' | 'orphaned'), stamps
+   * Sets status and, for a terminal status ('done' | 'orphaned' | 'stopped'), stamps
    * `endedAt`. Setting a lane back to 'running' clears `endedAt`.
    * Throws NOT_FOUND.
    */

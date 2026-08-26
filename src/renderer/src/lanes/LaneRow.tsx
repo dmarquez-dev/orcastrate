@@ -2,6 +2,7 @@ import { memo } from 'react';
 
 import type { LaneId } from '@shared/contracts/events';
 
+import { WorkingIndicator } from '../activity';
 import type { LaneRowVm } from '../contracts/renderer-state';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
@@ -113,6 +114,19 @@ function LaneRowImpl({ row, onSelect, onSteer }: LaneRowProps) {
             <span className={styles.dot} aria-hidden="true" />
             {LANE_STATUS_LABEL[row.status]}
           </span>
+          {/*
+           * `contracts/activity-indicator.ts`, LANE_ROW_MOUNT: the `.meta`
+           * line, adjacent to the status word, `size="bar"`, active on
+           * `'running'` and nothing else. A done, orphaned or stopped lane
+           * renders no indicator, which is what makes the presence of one mean
+           * something.
+           *
+           * The element is `aria-hidden` and adds no accessible text — it is
+           * the third carrier, after the word above and the swatch beside it.
+           * It schedules nothing: the motion is a CSS `@keyframes` rule in the
+           * component's own stylesheet, so this row still holds no clock.
+           */}
+          <WorkingIndicator active={row.status === 'running'} size="bar" />
           <span>
             <span className={styles.srOnly}>Elapsed </span>
             {formatElapsed(row.elapsedMs)}

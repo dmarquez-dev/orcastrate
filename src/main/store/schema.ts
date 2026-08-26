@@ -44,7 +44,23 @@ export const POD_STATUSES = [
   'waiting',
   'beached',
 ] as const satisfies readonly PodStatus[];
-export const LANE_STATUSES = ['running', 'done', 'orphaned'] as const satisfies readonly LaneStatus[];
+/**
+ * The lane statuses the CURRENT schema head admits. Widened to four by
+ * migration 4.
+ *
+ * This constant tracks the contract union and therefore CHANGES over time. It
+ * is NOT interpolated into any migration any more — see
+ * `MIGRATION_1_LANE_STATUSES` and `MIGRATION_4_LANE_STATUSES`, which are pinned
+ * per migration precisely so that widening this array cannot rewrite DDL that
+ * has already been applied to a user's database. Migration 1 used to
+ * interpolate it, which was the latent bug that appending `'stopped'` exposed.
+ */
+export const LANE_STATUSES = [
+  'running',
+  'done',
+  'orphaned',
+  'stopped',
+] as const satisfies readonly LaneStatus[];
 export const LANE_KINDS = ['matriarch', 'calf'] as const satisfies readonly LaneKind[];
 /**
  * The permission modes the CURRENT schema head admits. Widened to four by
@@ -151,6 +167,37 @@ const MIGRATION_1_PERMISSION_MODES = ['default', 'plan', 'bypassPermissions'] as
 const MIGRATION_1_POD_STATUSES = ['idle', 'running', 'waiting', 'beached'] as const;
 
 /**
+ * FROZEN. The exact lane-status list migration 1 shipped with, in the exact
+ * order it shipped in.
+ *
+ * The third instance of the same story, one enum later. Migration 1
+ * interpolated the live `LANE_STATUSES`, which was harmless only for as long as
+ * nobody widened the union. Appending `'stopped'` rewrote migration 1's TEXT
+ * for every future FRESH database while leaving every already-migrated database
+ * on the old text — two structurally different v1 schemas both claiming
+ * `schema_version = 1`. Pinning the literal is the fix. NEVER edit this array —
+ * a change to the status set is a NEW migration (see
+ * `MIGRATION_4_LANE_STATUSES`).
+ *
+ * It deliberately carries NO `satisfies readonly LaneStatus[]` clause: the
+ * whole point is that it must NOT track the contract union.
+ * `MIGRATION_1_PERMISSION_MODES` and `MIGRATION_1_POD_STATUSES` are bare for
+ * the same reason.
+ *
+ * `tests/unit/store/migration-frozen.test.ts` asserts migration 1's rendered
+ * SQL is byte-identical to the text of the immutable blob that shipped it,
+ * which is what proves this pin is correct. That test was seen FAILING on this
+ * exact clause before the pin landed.
+ *
+ * STILL UNPINNED, and deliberately so: `LANE_KINDS` and `EVENT_TYPES` are also
+ * interpolated into migration 1 and carry the identical latent bug. Pinning
+ * them in the same change would rewrite migration 1's rendered text for a
+ * second reason inside one diff and make a byte-identity failure impossible to
+ * attribute. The backlog carries the item.
+ */
+const MIGRATION_1_LANE_STATUSES = ['running', 'done', 'orphaned'] as const;
+
+/**
  * FROZEN once shipped. The permission-mode list migration 2 widens the CHECK
  * constraint to. Same rule as above: a fifth mode is migration 3, not an edit
  * here.
@@ -232,6 +279,42 @@ type _PodStatusCoveredAtSchemaHead = _AssertNever<
 const _podStatusSchemaHead: _PodStatusCoveredAtSchemaHead[] = [];
 void _podStatusSchemaHead;
 
+/**
+ * FROZEN once shipped. The lane-status list migration 4 rebuilds the `lanes`
+ * table with — the three migration 1 shipped, plus `'stopped'`.
+ *
+ * Unlike `MIGRATION_1_LANE_STATUSES` this one DOES carry
+ * `satisfies readonly LaneStatus[]`, because it is the SCHEMA HEAD and must
+ * stay exhaustive over the contract union. `_LaneStatusCoveredAtSchemaHead`
+ * below is what enforces that. A fifth status is migration 5, not an edit here.
+ */
+const MIGRATION_4_LANE_STATUSES = [
+  'running',
+  'done',
+  'orphaned',
+  'stopped',
+] as const satisfies readonly LaneStatus[];
+
+/**
+ * The same guard for lane status, against migration 4's pinned list, so that a
+ * FIFTH `LaneStatus` breaks the BUILD here and demands migration 5 rather than
+ * failing as a `CHECK constraint failed` on a user's machine. SQLite's CHECK is
+ * the only runtime enforcement of the lane-status set in the entire product
+ * (`rows.ts` casts `row.status as LaneStatus` unchecked), so this is the last
+ * line of defence before shipping.
+ *
+ * It uses the `_AssertNever<T extends never>` spelling above and NOT the
+ * `_UncoveredAtSchemaHead` empty-array-literal spelling, for the reason that
+ * guard's own docblock gives: an empty array literal is assignable to any array
+ * type, so that form is vacuous. This one was verified by experiment — a
+ * temporary fifth `LaneStatus` member fails `typecheck:node` AT THIS LINE.
+ */
+type _LaneStatusCoveredAtSchemaHead = _AssertNever<
+  Exclude<LaneStatus, (typeof MIGRATION_4_LANE_STATUSES)[number]>
+>;
+const _laneStatusSchemaHead: _LaneStatusCoveredAtSchemaHead[] = [];
+void _laneStatusSchemaHead;
+
 // ---------------------------------------------------------------------------
 // Migrations
 // ---------------------------------------------------------------------------
@@ -265,7 +348,7 @@ CREATE TABLE lanes (
   depth          INTEGER NOT NULL CHECK (depth >= 0),
   subagent_type  TEXT,
   description    TEXT,
-  status         TEXT    NOT NULL CHECK (status IN ${sqlIn(LANE_STATUSES)}),
+  status         TEXT    NOT NULL CHECK (status IN ${sqlIn(MIGRATION_1_LANE_STATUSES)}),
   started_at     TEXT    NOT NULL,
   ended_at       TEXT,
   -- A terminal lane always carries an end stamp; a running lane never does.
@@ -435,6 +518,127 @@ ALTER TABLE pods_new RENAME TO pods;
 `;
 
 /**
+ * Migration 4 — widen `lanes.status` from three states to four by adding
+ * `'stopped'`.
+ *
+ * WHY THE STATUS SET GREW. Neither existing terminal state is true of a lane
+ * whose Pod the user stopped on purpose: `'done'` asserts the lane finished ITS
+ * OWN work and returned a `tool_result`, and `'orphaned'` asserts the lane was
+ * FOUND open with no runner — a recovery state that owes the user an
+ * explanation. Closing a Pod is neither. Without a fourth member `closePod`
+ * left the Matriarch lane `'running'` with a null `ended_at`, and the rail kept
+ * showing a duration ticking up on a Pod that has no process.
+ *
+ * WHY A TABLE REBUILD, again. SQLite has no `ALTER TABLE ... ALTER CONSTRAINT`;
+ * a CHECK can only be changed by the 12-step rebuild the SQLite docs prescribe
+ * (create new, copy, drop old, rename).
+ *
+ * WHERE THIS DIFFERS FROM MIGRATIONS 2 AND 3, AND IT IS NOT A DETAIL. Both of
+ * those rebuilt `pods`, and both docblocks say steps 7 and 8 of the rebuild
+ * "reduce to nothing" because `pods` carries no index and no trigger of its
+ * own. THAT IS FALSE OF `lanes`. Every index in the schema hangs off `lanes` or
+ * `events`, and `DROP TABLE lanes` takes four of them with it. They are
+ * recreated below on the renamed table with identical names and definitions:
+ *
+ *   idx_lanes_pod        (pod_id, started_at)
+ *   idx_lanes_tool_use   UNIQUE (pod_id, tool_use_id) WHERE tool_use_id IS NOT NULL
+ *   idx_lanes_matriarch  UNIQUE (pod_id) WHERE kind = 'matriarch'
+ *   idx_lanes_parent     (parent_lane_id) WHERE parent_lane_id IS NOT NULL
+ *
+ * `idx_lanes_tool_use` is not a performance index. Migration 1's own comment
+ * says a second lane claiming one `tool_use_id` is a router bug that must
+ * surface as CONFLICT rather than as a silent ambiguous lookup; dropping it
+ * turns a loud failure into a quiet one. `tests/unit/store/migration-4.test.ts`
+ * compares name, uniqueness and partial predicate out of `sqlite_master` on a
+ * real migrated database, not out of this string.
+ *
+ * THE SELF-REFERENCE. `parent_lane_id` is `REFERENCES lanes(id) ON DELETE
+ * CASCADE` — the name the table will have AFTER the rename, NOT `lanes_new`.
+ * With `PRAGMA foreign_keys` OFF, which is the state
+ * `SqliteEventStore.migrate()` establishes, `ALTER TABLE ... RENAME TO` does
+ * not rewrite REFERENCES clauses; that is the same property migrations 2 and 3
+ * rely on to keep `lanes.pod_id` and `events.pod_id` pointing at the rebuilt
+ * `pods`. It is what makes `REFERENCES lanes(id)` correct here and
+ * `REFERENCES lanes_new(id)` a permanently dangling reference.
+ *
+ * THE INBOUND REFERENCE, WHICH IS THE ONE WAY TO LOSE DATA HERE.
+ * `events.lane_id` is `REFERENCES lanes(id) ON DELETE CASCADE`. With FK
+ * enforcement ON, `DROP TABLE lanes` would cascade EVERY EVENT out of the
+ * database and this migration would report SUCCESS on an emptied store.
+ * `SqliteEventStore.migrate()` suspends FK enforcement for the migration
+ * transaction and runs `PRAGMA foreign_key_check` before committing, so
+ * migration 4 inherits that protection — but the test suite PROVES it with row
+ * counts rather than inheriting the assumption, because "the runner already
+ * handles it" is exactly the assumption that loses a user's transcripts.
+ *
+ * THE TERMINALITY CHECK IS CARRIED FORWARD VERBATIM.
+ * `CHECK ((status = 'running') = (ended_at IS NULL))` means a `'stopped'` row
+ * MUST arrive with a non-null `ended_at` or the write fails as a CHECK
+ * violation. `setLaneStatus` already stamps `endedAt ?? now()` for any status
+ * other than `'running'`, so it needs no change.
+ *
+ * IT BACKFILLS NOTHING. This migration widens a constraint and changes no row's
+ * status or `ended_at`; every existing lane keeps the values it had, and the
+ * boot sweep still orphans what it orphans. Shape changes and data changes stay
+ * in separate migrations so a failure is possible to isolate.
+ *
+ * NOT REVERSIBLE. Consistent with the file docblock, there is no `down` path; a
+ * downgrade discards the database file. A row already carrying `'stopped'`
+ * could not satisfy migration 1's constraint anyway.
+ *
+ * The lane-kind list is written out LITERALLY rather than interpolating the
+ * live `LANE_KINDS`, exactly as migration 2 wrote out its `status` CHECK: this
+ * SQL must keep rendering what it shipped with whatever the live constant does
+ * later.
+ */
+const MIGRATION_4 = `
+CREATE TABLE lanes_new (
+  id             TEXT    PRIMARY KEY,
+  pod_id         TEXT    NOT NULL REFERENCES pods(id) ON DELETE CASCADE,
+  kind           TEXT    NOT NULL CHECK (kind IN ('matriarch', 'calf')),
+  tool_use_id    TEXT,
+  agent_id       TEXT,
+  parent_lane_id TEXT    REFERENCES lanes(id) ON DELETE CASCADE,
+  depth          INTEGER NOT NULL CHECK (depth >= 0),
+  subagent_type  TEXT,
+  description    TEXT,
+  status         TEXT    NOT NULL CHECK (status IN ${sqlIn(MIGRATION_4_LANE_STATUSES)}),
+  started_at     TEXT    NOT NULL,
+  ended_at       TEXT,
+  -- A terminal lane always carries an end stamp; a running lane never does.
+  CHECK ((status = 'running') = (ended_at IS NULL))
+) STRICT;
+
+INSERT INTO lanes_new (id, pod_id, kind, tool_use_id, agent_id, parent_lane_id, depth,
+                       subagent_type, description, status, started_at, ended_at)
+  SELECT id, pod_id, kind, tool_use_id, agent_id, parent_lane_id, depth,
+         subagent_type, description, status, started_at, ended_at
+  FROM lanes;
+
+DROP TABLE lanes;
+
+ALTER TABLE lanes_new RENAME TO lanes;
+
+-- Steps 7-8 of the rebuild, which did NOT reduce to nothing this time: all four
+-- indexes went with DROP TABLE lanes and are restored here verbatim.
+
+-- listLanes(): Matriarch first, then Calves by started_at.
+CREATE INDEX idx_lanes_pod ON lanes (pod_id, started_at);
+
+-- getLaneByToolUseId(): the hot path for spec 4.3 routing. UNIQUE because one
+-- Task dispatch opens exactly one Calf; a second lane claiming the same
+-- correlation id is a router bug and must surface as CONFLICT, not as a silent
+-- ambiguous lookup.
+CREATE UNIQUE INDEX idx_lanes_tool_use ON lanes (pod_id, tool_use_id)
+  WHERE tool_use_id IS NOT NULL;
+
+-- getMatriarchLane(): exactly one Matriarch per Pod.
+CREATE UNIQUE INDEX idx_lanes_matriarch ON lanes (pod_id) WHERE kind = 'matriarch';
+
+CREATE INDEX idx_lanes_parent ON lanes (parent_lane_id) WHERE parent_lane_id IS NOT NULL;
+`;
+
+/**
  * Ordered, forward-only. Append new entries; never edit a shipped one.
  * `CURRENT_SCHEMA_VERSION` is the highest version this build understands.
  */
@@ -442,6 +646,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 1, sql: MIGRATION_1 },
   { version: 2, sql: MIGRATION_2 },
   { version: 3, sql: MIGRATION_3 },
+  { version: 4, sql: MIGRATION_4 },
 ];
 
 export const CURRENT_SCHEMA_VERSION: number = MIGRATIONS.reduce(

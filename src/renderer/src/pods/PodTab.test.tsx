@@ -21,6 +21,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import { WORKING_INDICATOR_TEST_ID } from '../activity';
 import { statusToken } from '../shell/contract-runtime';
 import {
   PodTab,
@@ -304,4 +305,67 @@ describe('the run control names the verb and, for a beached Pod, the cause', () 
     expect(document.activeElement).toBe(elsewhere);
     elsewhere.remove();
   });
+});
+/**
+ * The status word each non-running state puts in the tab's screen-reader
+ * sentence. Duplicated from `PodTab`'s own `STATUS_LABEL` on purpose: a test
+ * that imported the map would pass even if the map itself went blank.
+ */
+const STATUS_WORD = {
+  idle: 'Idle',
+  waiting: 'Waiting on you',
+  closed: 'Closed',
+  beached: 'Beached, process stopped',
+} as const;
+
+describe('the working indicator on a Pod tab', () => {
+  /*
+   * MOUNTED PER `contracts/activity-indicator.ts` POD_TAB_MOUNT: inside the tab
+   * BUTTON, adjacent to the status dot, `size="dot"`, active for `'running'`
+   * and nothing else.
+   *
+   * NOT for `'waiting'`, which is the opposite state — the Pod is blocked on the
+   * USER. It already carries the busiest dot shape in the set plus the
+   * permission badge, and animating there would tell the user to wait for a
+   * machine that is waiting for them.
+   *
+   * The indicator is `aria-hidden` and contributes no accessible text, so it is
+   * the THIRD carrier. Every case below asserts the status WORD in the same
+   * render, because a mount site may only place it where the state is already
+   * in text.
+   */
+  const RUNNING: TabOverrides = { id: 'a', title: 'Alpha', status: 'running', opened: true };
+
+  it('mounts the indicator inside the tab button for a running Pod', () => {
+    const { container } = renderTab(RUNNING);
+    const indicator = screen.getByTestId(WORKING_INDICATOR_TEST_ID);
+
+    expect(screen.getByTestId('pod-tab:a').contains(indicator)).toBe(true);
+    expect(indicator.getAttribute('data-size')).toBe('dot');
+    expect(indicator.getAttribute('aria-hidden')).toBe('true');
+    // Motion is never the only carrier of the state.
+    expect(container.textContent).toContain('Running');
+  });
+
+  it('places it adjacent to the status dot, not at the far end of the tab', () => {
+    renderTab(RUNNING);
+    const dot = screen.getByTestId('pod-tab:a').querySelector('[data-status]');
+    expect(dot?.nextElementSibling).toBe(screen.getByTestId(WORKING_INDICATOR_TEST_ID));
+  });
+
+  it.each(['idle', 'waiting', 'closed', 'beached'] as const)(
+    'renders NO indicator for a %s Pod',
+    (status) => {
+      const { container } = renderTab({
+        id: 'a',
+        title: 'Alpha',
+        status,
+        opened: status === 'idle' || status === 'waiting',
+      });
+      // Present-first: the absence below cannot be satisfied by an empty render.
+      expect(screen.getByTestId('pod-tab:a')).toBeDefined();
+      expect(container.textContent).toContain(STATUS_WORD[status]);
+      expect(screen.queryByTestId(WORKING_INDICATOR_TEST_ID)).toBeNull();
+    },
+  );
 });

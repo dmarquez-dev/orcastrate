@@ -1,0 +1,55 @@
+/*
+ * The working/thinking affordance. CSS drives EVERY frame of this — the
+ * contract (`activity-indicator.ts` section 2) forbids JS from driving any, so
+ * that a row holding a finished lane schedules nothing and the last lane
+ * ending leaves nothing running.
+ *
+ * Every colour, length and radius is a `var(--oc-…)` from the frozen TOKENS
+ * map, and only from the part of it that exists today.
+ */
+
+.indicator {
+  display: inline-block;
+  flex: none;
+  background: var(--oc-status-running);
+  border-radius: var(--oc-radius-sm);
+  opacity: 1;
+  animation: ocWorkingPulse 1.4s ease-in-out infinite;
+}
+
+/* Compact form, for a dense surface (a Pod tab beside its status dot). */
+.dot {
+  width: var(--oc-space-2);
+  height: var(--oc-space-2);
+  border-radius: 50%;
+}
+
+/* Wider form, for a surface with room (a lane rail row's meta line). */
+.bar {
+  width: var(--oc-space-6);
+  height: var(--oc-space-1);
+}
+
+@keyframes ocWorkingPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * A stated system preference wins over the motion — but NOT over the signal.
+ * The mark keeps its size and its status colour at full opacity; only the
+ * animation stops. An indicator that vanished here would take the affordance
+ * away from exactly the users most likely to need it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .indicator {
+    animation: none;
+    opacity: 1;
+  }
+}

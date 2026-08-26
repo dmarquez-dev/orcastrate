@@ -75,7 +75,7 @@ const CONTRACT_STATE = `${RENDERER_ROOT}/src/contracts/renderer-state.ts`;
 const MAIN_ROOT = `${ROOT}/src/main`;
 
 /**
- * THE ONE FILE ALLOWED TO REACH MAIN, AND WHY IT IS ALLOWED.
+ * THE FILES ALLOWED TO REACH MAIN, AND WHY EACH ONE IS ALLOWED.
  *
  * `relaunch.e2e.test.tsx` reproduces a DISAGREEMENT between main and the
  * renderer about what `status: 'idle'` means across a process restart. A stub
@@ -85,15 +85,32 @@ const MAIN_ROOT = `${ROOT}/src/main`;
  * correctly. So that suite runs a real `EventStore`, a real `PodManager` and
  * its real `reconcileStartup()`, and its own header says so at length.
  *
- * IT IS NAMED HERE RATHER THAN TOLERATED SILENTLY, which is the whole point of
- * this rule. Before it existed the ban on reaching main was STATED in
+ * `pod-stop.e2e.test.tsx` is here on the same argument made about a different
+ * defect. It proves END TO END what stopping a Pod does: that the stopped Pod's
+ * Matriarch row reads `Stopped`, and that the duration beside it no longer
+ * ticks. What it guards against is a DISAGREEMENT as well — between what main
+ * persisted when the Pod stopped and what the renderer went on displaying for
+ * it — and a disagreement is exactly what a stub cannot stage. A fixture seeded
+ * with `status: 'stopped'` would prove only that the fixture was typed
+ * correctly, and would keep passing through any change to what main actually
+ * writes. So this suite drives the real `PodManager` over a real store too.
+ *
+ * THEY ARE NAMED HERE RATHER THAN TOLERATED SILENTLY, which is the whole point
+ * of this rule. Before it existed the ban on reaching main was STATED in
  * `transcript/startup-reconciliation.test.tsx` and enforced nowhere: the
  * criterion-11 import rule below exempts every relative specifier, so a
  * `../../../../src/main/...` import passed it without being seen. A rule that
  * is stated and not enforced teaches a later reader to trust a line that is
  * not held, and the exception it hid was a deliberate one nobody had recorded.
+ *
+ * THE EXTENSION POINT IS THIS LIST, AND NOTHING ELSE. A further exception is
+ * added by naming the file and writing down the argument for it, never by
+ * relaxing the rule to a glob or a `*.e2e.` pattern — a pattern would exempt
+ * every suite written afterwards without anyone deciding to, which is the
+ * silently-tolerated state described in the paragraph above, restored.
  */
 const MAIN_REACHING_FILES: readonly string[] = [
+  'src/renderer/src/__tests__/pod-stop.e2e.test.tsx',
   'src/renderer/src/__tests__/relaunch.e2e.test.tsx',
 ];
 
@@ -390,7 +407,7 @@ describe('status token values in tokens.css', () => {
       declared.set(name, value.trim().toLowerCase());
     }
 
-    // Both status unions, exhaustively: Pod plus Lane, seven names.
+    // Both status unions, exhaustively: Pod plus Lane, eight names.
     expect([...declared.keys()].sort()).toEqual([
       'beached',
       'closed',
@@ -398,6 +415,7 @@ describe('status token values in tokens.css', () => {
       'idle',
       'orphaned',
       'running',
+      'stopped',
       'waiting',
     ]);
 
@@ -406,6 +424,12 @@ describe('status token values in tokens.css', () => {
     // Named on its own, because aliasing idle is the specific shortcut the
     // widening had available and did not take.
     expect(declared.get('closed')).not.toBe(declared.get('idle'));
+    // `stopped` is the fourth LaneStatus and sits nearest the two quiet
+    // neutrals. Named for the same reason `closed` is: aliasing either of them
+    // was the shortcut available, and the distinctness assertion above was NOT
+    // relaxed to make room.
+    expect(declared.get('stopped')).not.toBe(declared.get('idle'));
+    expect(declared.get('stopped')).not.toBe(declared.get('closed'));
   });
 
   /**
@@ -432,9 +456,10 @@ describe('status token values in tokens.css', () => {
     expect([...unionMembers(declared ?? '')].sort()).toEqual(
       [...unionMembers(implemented ?? '')].sort(),
     );
-    // Both must actually carry the fifth PodStatus, or the pair agrees by
-    // being equally wrong.
+    // Both must actually carry the fifth PodStatus and the fourth LaneStatus,
+    // or the pair agrees by being equally wrong.
     expect(unionMembers(declared ?? '')).toContain('closed');
+    expect(unionMembers(declared ?? '')).toContain('stopped');
   });
 });
 

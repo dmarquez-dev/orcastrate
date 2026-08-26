@@ -24,15 +24,46 @@
   overflow-x: auto;
 }
 
+/*
+ * The tab as a WHOLE: the `<li>` enclosing the tab button, the run/stop
+ * control, and the delete control when there is one.
+ *
+ * `padding-inline-end` is the TRAILING INSET, and it lives here rather than on
+ * either control because the delete control unmounts the moment the Pod opens.
+ * An inset declared on a control would disappear with it and the tab would
+ * change shape at its trailing edge as a Pod starts; declared on the item it is
+ * carried by both states.
+ */
 .tabItem {
   display: flex;
   min-width: 0;
   align-items: center;
+  padding-inline-end: var(--oc-space-1);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
 }
 
 .tabItemActive {
+  background: var(--oc-bg-selected);
+}
+
+/*
+ * THE WHOLE TAB IS THE HOVER TARGET, not just the name. The highlight is
+ * declared on the ITEM, so the gaps between the name and the controls — and
+ * the trailing inset above — light up with everything else; hovering anywhere
+ * over the tab tells the user what the pointer is on.
+ *
+ * It sets `background` only. It does not draw a border, an outline or an inset
+ * shadow, so it cannot sit on top of a focused control's focus ring.
+ */
+.tabItem:hover {
+  background: var(--oc-bg-hover);
+}
+
+/* A selected tab stays reading as selected while the pointer is over it —
+   `bg-hover` is a step BELOW `bg-selected`, so without this rule hovering the
+   active tab would dim it. */
+.tabItemActive:hover {
   background: var(--oc-bg-selected);
 }
 
@@ -67,10 +98,6 @@
    cannot see the dimming. */
 .tabClosed {
   opacity: 0.65;
-}
-
-.tab:hover {
-  background: var(--oc-bg-hover);
 }
 
 .title {
@@ -174,9 +201,20 @@
 }
 
 /*
- * The run/stop control, in both modes: PLAY when the Pod has no process, PAUSE
- * when it has one. Neutral chrome — this control is never the dangerous one,
- * so it does not compete with the delete control for attention.
+ * The run/stop control — ONE element in TWO MODES: PLAY when the Pod has no
+ * process, PAUSE when it has one. Rendering it as one button is what keeps a
+ * keyboard user's focus in place when the Pod starts or stops under them, so
+ * the MODE selects the colour rather than a second element carrying it.
+ *
+ * `data-verb` is the mode. It is already on the button and `PodTab.test.tsx`
+ * already asserts its three values (`open`, `reconnect`, `stop`), so keying
+ * the colour to it adds no attribute and cannot drift from what the accessible
+ * name says.
+ *
+ * COLOUR IS THE THIRD CARRIER, exactly as it is for delete below. Green and
+ * yellow are redundant with the accessible name ("Open <title>" / "Reconnect
+ * <title>, stopped with an error" / "Stop <title>") and with the glyph SHAPE
+ * (`data-icon` play / pause). Nothing here is distinguished by hue alone.
  */
 .runControl {
   display: flex;
@@ -186,13 +224,24 @@
   border: 1px solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
-  color: var(--oc-fg-primary);
+  color: var(--oc-action-run);
   cursor: pointer;
-  font-size: var(--oc-text-xs);
+  font-size: var(--oc-text-sm);
 }
 
 .runControl:hover {
-  background: var(--oc-bg-hover);
+  background: var(--oc-action-run-bg);
+}
+
+/* STOP mode. Yellow: it interrupts, but it destroys nothing — the Pod row and
+   its transcript survive — so it must not read as the danger red the delete
+   control owns. */
+.runControl[data-verb='stop'] {
+  color: var(--oc-action-stop);
+}
+
+.runControl[data-verb='stop']:hover {
+  background: var(--oc-action-stop-bg);
 }
 
 /*
@@ -200,10 +249,14 @@
  * control has its own glyph shape (an x, against the run control's triangle or
  * bars) and its own accessible name ("Delete <title>"), and it is absent
  * entirely for a Pod with a live process.
+ *
+ * `margin-inline-start` separates it from the run/stop control; the tab item's
+ * own `padding-inline-end` separates it from the tab's trailing edge.
  */
 .deleteControl {
   display: flex;
   align-items: center;
+  margin-inline-start: var(--oc-space-1);
   padding-inline: var(--oc-space-1);
   border: 0;
   border-radius: var(--oc-radius-sm);
@@ -215,6 +268,32 @@
 
 .deleteControl:hover {
   background: var(--oc-danger-bg);
+}
+
+/*
+ * GLYPH SIZE PARITY, in ONE rule so the two cannot drift.
+ *
+ * These are TEXT GLYPHS, not SVG — `▶`, `❚❚` and `×` — and per-character
+ * metrics differ wildly at one `font-size`: `×` is a small centred mark, `▶` a
+ * full-height triangle, `❚❚` two heavy bars. An equal `font-size` alone
+ * therefore does NOT produce equal-looking controls. Each glyph gets the same
+ * explicit square box and is centred in it, so the two controls occupy the same
+ * area whatever the font resolves the characters to.
+ *
+ * Hooked onto `data-icon` rather than a class of its own: that attribute is
+ * what carries the icon SHAPE, it is on both spans already, and
+ * `PodTab.test.tsx` asserts it inside each control — so the link this rule
+ * depends on is covered by assertions that predate this rule.
+ */
+.runControl [data-icon],
+.deleteControl [data-icon] {
+  display: inline-flex;
+  width: var(--oc-space-3);
+  height: var(--oc-space-3);
+  align-items: center;
+  justify-content: center;
+  font-size: var(--oc-text-sm);
+  line-height: var(--oc-space-3);
 }
 
 .newPod {

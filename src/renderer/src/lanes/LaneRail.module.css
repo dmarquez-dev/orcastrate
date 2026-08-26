@@ -66,12 +66,24 @@
   font-size: var(--oc-text-sm);
 }
 
+/*
+ * THE SWIMLANE. This `<li>` encloses the select button AND the sibling Steer
+ * action, so it — and not `.rowMain` — is where a selection background belongs:
+ * a background on the inner button stops at that button's own box and leaves
+ * Steer sitting outside the highlight in a gap.
+ *
+ * It therefore carries NO horizontal padding and NO horizontal margin. Either
+ * would pull the highlighted area in from the rail's edges and give back the
+ * inset look the highlight is here to remove. The breathing room lives on the
+ * children instead (`.rowMain`'s padding, `.rowAction`'s margin), inside the
+ * highlight rather than outside it.
+ */
 .row {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: start;
   gap: var(--oc-space-1);
-  padding: 0 var(--oc-space-2);
+  padding: 0;
   border-bottom: 1px solid var(--oc-border);
 }
 
@@ -80,17 +92,46 @@
   background: var(--oc-bg-raised);
 }
 
+/*
+ * SELECTION, on the container, over the FULL row width. The set of rows that
+ * highlight is exactly the set that carries `aria-current` in `LaneRow.tsx`
+ * (primary pane OR follower pane), so the visual state and the announced state
+ * name the same rows rather than disagreeing about which lane is on screen.
+ *
+ * `--oc-bg-selected` is the Calf's surface. It is lighter than the Matriarch's
+ * below, and lighter than the rail's own `--oc-bg-panel`, so a selected Calf
+ * separates from both.
+ */
 .row[data-in-primary-pane='true'] {
   background: var(--oc-bg-selected);
 }
 
 /*
- * A lane in a follower pane. The rail marks the pane a click would overwrite
- * with a stronger edge than the pane merely being open — but the pin icon's
- * `aria-pressed` is the carrier of the state, never this edge alone.
+ * A lane in a follower pane. Same background as the primary pane — that is what
+ * makes it agree with `aria-current` — plus a stronger edge, which is the part
+ * that distinguishes a follower from the primary pane visually. The row's
+ * accessible name still says "(shown in the second pane)" in words; this edge
+ * is never the sole carrier.
  */
 .row[data-in-follower-pane='true'] {
+  background: var(--oc-bg-selected);
   box-shadow: inset var(--oc-space-1) 0 0 0 var(--oc-border-strong);
+}
+
+/*
+ * THE MATRIARCH'S HIGHLIGHT IS DARKER THAN A CALF'S. Three distinct surfaces,
+ * all from the frozen `TOKENS` map: `--oc-bg-panel` unselected, `--oc-bg-hover`
+ * for a selected Matriarch, `--oc-bg-selected` for a selected Calf. The
+ * Matriarch already sits on `--oc-bg-raised` unselected, so it darkens rather
+ * than brightening on selection and keeps reading as the trunk of the list
+ * instead of competing with the Calf that was just clicked.
+ */
+.row[data-matriarch='true'][data-in-primary-pane='true'] {
+  background: var(--oc-bg-hover);
+}
+
+.row[data-matriarch='true'][data-in-follower-pane='true'] {
+  background: var(--oc-bg-hover);
 }
 
 .row[data-focused-follower='true'] {
@@ -102,7 +143,7 @@
   grid-template-columns: 1fr auto;
   gap: 0 var(--oc-space-2);
   width: 100%;
-  padding: var(--oc-space-2) var(--oc-space-1);
+  padding: var(--oc-space-2);
   border: 0;
   border-radius: var(--oc-radius-sm);
   background: transparent;
@@ -183,6 +224,15 @@
   background: var(--oc-status-orphaned);
 }
 
+/*
+ * The Pod that owns this lane was stopped deliberately. Quiet on purpose — a
+ * routine resting state must not compete with `waiting`, which needs a human.
+ * The `Stopped` word beside it is what actually carries the state.
+ */
+.status[data-status='stopped'] .dot {
+  background: var(--oc-status-stopped);
+}
+
 .awaiting {
   display: inline-flex;
   align-items: center;
@@ -197,8 +247,17 @@
   background: var(--oc-status-waiting);
 }
 
+/*
+ * Steer stays DARKER than either selection surface — `--oc-bg-raised` against
+ * `--oc-bg-hover` and `--oc-bg-selected` — so the control keeps reading as a
+ * control on a highlighted row. Because the highlight is on the `<li>`, the
+ * highlighted area runs behind and AROUND this button rather than stopping at
+ * its edge; the trailing margin is what keeps that continuous strip visible on
+ * the far side of it.
+ */
 .rowAction {
   align-self: center;
+  margin-inline-end: var(--oc-space-2);
   padding: var(--oc-space-1) var(--oc-space-2);
   border: 1px solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);

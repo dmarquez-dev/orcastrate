@@ -12,4 +12,13 @@ export const LANE_STATUS_LABEL: Readonly<Record<LaneStatus, string>> = {
   running: 'Running',
   done: 'Done',
   orphaned: 'Orphaned',
+  /**
+   * The fourth `LaneStatus` (`contracts/lane-stopped-status.ts`). The Pod that
+   * owns this lane was stopped deliberately — terminal, carrying an `endedAt`,
+   * and unlike `Orphaned` not a recovery state that needs explaining.
+   *
+   * One word, and it is the whole accessibility story: the `--oc-status-stopped`
+   * swatch beside it is the third carrier, never the first.
+   */
+  stopped: 'Stopped',
 };

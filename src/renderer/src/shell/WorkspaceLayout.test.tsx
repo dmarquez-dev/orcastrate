@@ -179,8 +179,10 @@ describe('contract-runtime', () => {
   });
 
   it('maps every status in both status unions to its own token', () => {
-    // `closed` is the fifth PodStatus. The DISTINCTNESS assertion below is
-    // unchanged and is why `--oc-status-closed` cannot alias `--oc-status-idle`.
+    // `closed` is the fifth PodStatus, `stopped` the fourth LaneStatus. The
+    // DISTINCTNESS assertion below is unchanged and is why neither
+    // `--oc-status-closed` nor `--oc-status-stopped` can alias
+    // `--oc-status-idle`.
     const statuses = [
       'idle',
       'running',
@@ -189,10 +191,12 @@ describe('contract-runtime', () => {
       'closed',
       'done',
       'orphaned',
+      'stopped',
     ] as const;
     const tokens = statuses.map((status) => statusToken(status));
     expect(new Set(tokens).size).toBe(statuses.length);
     expect(statusToken('waiting')).toBe('--oc-status-waiting');
     expect(statusToken('closed')).toBe('--oc-status-closed');
+    expect(statusToken('stopped')).toBe('--oc-status-stopped');
   });
 });

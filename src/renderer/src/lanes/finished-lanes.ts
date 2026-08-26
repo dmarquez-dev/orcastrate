@@ -12,7 +12,15 @@ import type { Lane, LaneStatus } from '@shared/contracts/events';
  * is a pure function of the rows the rail was handed, and whether the
  * disclosure is open is component-local view state in `LaneRail`.
  */
-export const FINISHED_LANE_STATUSES: readonly LaneStatus[] = ['done', 'orphaned'];
+/**
+ * WIDENED for the fourth `LaneStatus` (`contracts/lane-stopped-status.ts`
+ * section 6). A lane whose Pod the user stopped is finished for the purpose of
+ * this disclosure, exactly as a `done` or `orphaned` one is — and rule 1 of
+ * `isCollapsibleFinishedLane` below is what keeps a STOPPED MATRIARCH on the
+ * rail, which is the case that matters: it is index 0 forever and it is the
+ * lane the composer talks to.
+ */
+export const FINISHED_LANE_STATUSES: readonly LaneStatus[] = ['done', 'orphaned', 'stopped'];
 
 /** The slice of `LaneRowVm` the partition reads. Not a new view model. */
 export interface LaneRowLike {
