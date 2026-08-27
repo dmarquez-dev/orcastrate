@@ -233,6 +233,53 @@
   background: var(--oc-status-stopped);
 }
 
+/*
+ * THE RUNNING DOT PULSES (`contracts/status-dot-motion.ts`). The lane row used
+ * to draw a status dot AND a separate working indicator on the same line; the
+ * dot absorbed the motion and the indicator left, so a running lane shows one
+ * mark rather than two.
+ *
+ * Motion rides `data-status` on the enclosing `.status`, the attribute the hue
+ * rules above already key off — no new markup, no new class, no new test id.
+ * It is a rule of its own so the four hue rules stay exactly as they were, and
+ * the BASE `.dot` deliberately declares no `animation`: only the running
+ * selector animates, so a non-running dot inherits no motion to cancel.
+ *
+ * The `@keyframes` is declared HERE, in the same module that references it.
+ * Vite hashes an animation name used inside a `*.module.css` even when no local
+ * `@keyframes` of that name exists, so a module pointing at a keyframe defined
+ * in another file names something that does not exist and the animation
+ * silently never runs. jsdom applies no stylesheet, so no suite here can see
+ * that; `LaneRail.styles.test.ts` asserts the declarations and the build is
+ * what proves the emitted name resolves.
+ */
+.status[data-status='running'] .dot {
+  animation: ocStatusPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes ocStatusPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * A stated system preference wins over the MOTION but never over the SIGNAL.
+ * The dot keeps its size, its shape and its status hue; only the animation
+ * stops. A dot that vanished here would take the affordance away from exactly
+ * the users most likely to need it.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .status[data-status='running'] .dot {
+    animation: none;
+  }
+}
+
 .awaiting {
   display: inline-flex;
   align-items: center;
