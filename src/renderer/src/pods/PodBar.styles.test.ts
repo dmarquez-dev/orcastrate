@@ -47,6 +47,24 @@ function selectorsSharingRuleWith(selector: string): string[] {
   return [];
 }
 
+/**
+ * Every selector whose rule body declares `property`, deduplicated.
+ *
+ * The innermost-braces walk `ruleFor` uses reaches INSIDE an `@media` block —
+ * the outer `@media (...) { ... }` never matches, because its body contains
+ * braces, so the nested rule is what the scan sees. That is exactly what is
+ * wanted here: a selector that animates only inside a media query still counts
+ * as a selector that animates.
+ */
+function selectorsDeclaring(property: RegExp): string[] {
+  const found = new Set<string>();
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!property.test(match[2] as string)) continue;
+    for (const one of (match[1] as string).split(',')) found.add(one.trim());
+  }
+  return [...found];
+}
+
 describe('PodBar.module.css', () => {
   it('was read as text, not as a class-name proxy', () => {
     expect(typeof podBarCss).toBe('string');
@@ -171,5 +189,137 @@ describe('the WHOLE tab highlights on hover, not just the name', () => {
 
   it('keeps a selected tab reading as selected while hovered', () => {
     expect(ruleFor('.tabItemActive:hover')).toMatch(/background:\s*var\(--oc-bg-selected\)/);
+  });
+});
+
+/**
+ * The collapsed status dot's motion, pinned by `contracts/status-dot-motion.ts`.
+ *
+ * WHY THE KEYFRAMES LIVE IN THIS FILE and not in `styles/global.css`: Vite
+ * hashes an animation NAME used inside a `*.module.css` even when no local
+ * `@keyframes` of that name exists, so a module referencing a global keyframe
+ * points at a name that does not exist and the animation SILENTLY NEVER RUNS.
+ * The contract therefore mandates per-module keyframes, and T3's drift guard
+ * stands in for the shared file that cannot exist.
+ *
+ * These are DECLARATION-LEVEL proofs, and they are all this suite can be. Under
+ * Vitest `*.module.css` resolves to a blanked module and jsdom applies no
+ * stylesheet, so no assertion here — and none in `PodTab.test.tsx` — can
+ * observe motion. That the emitted animation name RESOLVES is proved by the
+ * build, against `out/renderer/assets/`, which is T3's criterion.
+ */
+describe('the status dot carries the motion itself', () => {
+  const RUNNING_DOT = ".statusDot[data-status='running']";
+
+  it('declares the pulse keyframes in THIS module, under the contract name', () => {
+    // A `@keyframes` in any other file would emit a hashed name this module
+    // cannot reach.
+    expect(css).toMatch(/@keyframes\s+ocStatusPulse\b/);
+  });
+
+  it('pins the keyframe body to the one the retired indicator used', () => {
+    const block = /@keyframes\s+ocStatusPulse\s*\{([\s\S]*?\n\})\s*\n/.exec(css);
+    expect(block).not.toBeNull();
+    const normalise = (text: string): string => text.replace(/\s+/g, ' ').trim();
+    expect(normalise(block?.[1] as string)).toBe(
+      normalise(`
+        0%,
+        100% {
+          opacity: 0.35;
+        }
+
+        50% {
+          opacity: 1;
+        }
+      }`),
+    );
+  });
+
+  it('applies the animation to the running dot, at the pinned duration and easing', () => {
+    expect(ruleFor(RUNNING_DOT)).toMatch(
+      /animation:\s*ocStatusPulse\s+1\.4s\s+ease-in-out\s+infinite/,
+    );
+  });
+
+  it('animates that selector and no other, so nothing else moves', () => {
+    // The reduced-motion copy of the same selector is the only other hit, and
+    // `selectorsDeclaring` deduplicates it away.
+    expect(selectorsDeclaring(/animation:/)).toEqual([RUNNING_DOT]);
+  });
+
+  it('leaves the base dot rule unanimated, so a non-running dot has none to cancel', () => {
+    expect(ruleFor('.statusDot')).not.toMatch(/animation/);
+  });
+});
+
+/**
+ * RE-HOMED from `activity/WorkingIndicator.styles.test.ts`, per
+ * `contracts/activity-module-retirement.ts` section 4. A stated system
+ * preference wins over the MOTION but never over the SIGNAL: a dot that
+ * vanished here would take the affordance away from exactly the users most
+ * likely to need it.
+ */
+describe('reduced motion stops the pulse and keeps the dot', () => {
+  const RUNNING_DOT = ".statusDot[data-status='running']";
+  const at = css.search(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+  const tail = at >= 0 ? css.slice(at) : '';
+
+  it('carries a prefers-reduced-motion: reduce query', () => {
+    expect(at).toBeGreaterThanOrEqual(0);
+  });
+
+  it('sets animation: none inside that query, on the same selector that animates', () => {
+    expect(tail).toMatch(/animation:\s*none/);
+    // ...and the `animation: none` belongs to the query, not to some later rule
+    // that happens to sit below it.
+    const nextQuery = tail.indexOf('@media', 1);
+    expect(tail.indexOf('animation: none')).toBeLessThan(
+      nextQuery === -1 ? tail.length : nextQuery,
+    );
+    expect(tail).toContain(RUNNING_DOT);
+  });
+
+  it('hides nothing: the dot keeps its size, its shape and its hue', () => {
+    expect(tail).not.toMatch(/display:\s*none/);
+    expect(tail).not.toMatch(/visibility:\s*hidden/);
+    expect(tail).not.toMatch(/opacity:\s*0\s*;/);
+  });
+});
+
+/**
+ * The five dot SHAPES. Colour is never the only carrier, so each status is told
+ * apart in greyscale as well as in hue — and the hue itself always arrives as
+ * `--pod-status-color`, set inline from `statusToken(status)`, never as a token
+ * named in this stylesheet.
+ */
+describe('each status has its own dot shape', () => {
+  it('sharpens idle into a hollow ring, thick enough to read at 8px', () => {
+    const body = ruleFor(".statusDot[data-status='idle']");
+    expect(body).toMatch(/background:\s*transparent/);
+    expect(body).toMatch(/border-width:\s*var\(--oc-border-thick\)/);
+  });
+
+  it('takes the idle hue from the inline custom property, naming no status token', () => {
+    // `statusToken('idle')` already resolves to `--oc-status-idle`. Naming it
+    // here would be a second source of truth for the same hue.
+    expect(ruleFor(".statusDot[data-status='idle']")).not.toMatch(/--oc-status-/);
+    expect(ruleFor('.statusDot')).toMatch(/background:\s*var\(--pod-status-color\)/);
+  });
+
+  it('leaves the waiting halo as it is', () => {
+    expect(ruleFor(".statusDot[data-status='waiting']")).toMatch(
+      /box-shadow:\s*0 0 0 2px var\(--oc-bg-panel\), 0 0 0 3px var\(--pod-status-color\)/,
+    );
+  });
+
+  it('leaves the beached square as it is', () => {
+    expect(ruleFor(".statusDot[data-status='beached']")).toMatch(/border-radius:\s*0/);
+  });
+
+  it('leaves the closed flat bar as it is', () => {
+    const body = ruleFor(".statusDot[data-status='closed']");
+    expect(body).toMatch(/height:\s*var\(--oc-border-thick\)/);
+    expect(body).toMatch(/align-self:\s*center/);
+    expect(body).toMatch(/border-radius:\s*0/);
   });
 });
