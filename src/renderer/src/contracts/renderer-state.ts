@@ -317,6 +317,42 @@ export interface LaneRowVm {
   description: string | null;
   status: LaneStatus;
   /**
+   * The POD's status, when this row reports it INSTEAD OF its lane's — `null`
+   * otherwise.
+   *
+   * `null` is not "unknown". It means: THIS ROW REPORTS ITS LANE STATUS. It is
+   * the DEFAULT for every row, and that default is the whole of the
+   * pre-amendment behaviour, preserved.
+   *
+   * THE FOUR RULES (`contracts/lane-row-pod-status.ts` section 2):
+   *   1. `null` is the default. Every row for which the state layer has not
+   *      decided otherwise carries it, and renders `status` above.
+   *   2. Non-null ONLY for the Matriarch, and only while `lane.endedAt === null`.
+   *   3. Every Calf row is `null` UNCONDITIONALLY, whatever the Pod is doing. A
+   *      Calf is created when dispatched and ends when its subagent finishes,
+   *      and a subagent never waits on user input, so a `running` Calf genuinely
+   *      is working.
+   *   4. Once the Matriarch's lane has ENDED, the terminal `LaneStatus` WINS:
+   *      `Stopped` / `Done` / `Orphaned` keep today's word, hue and frozen
+   *      `elapsedMs`. A terminal lane state is a real fact with an `endedAt`
+   *      behind it, and must not be overwritten by the Pod's status.
+   *
+   * WHY A DISTINCT FIELD AND NOT A WIDENED `status: LaneStatus | PodStatus`.
+   * The two unions COLLIDE on the literal `'running'` — the one value where they
+   * disagree about what they mean. `LaneStatus.running` is a LIFETIME flag (a
+   * lane is `running` iff it has not ended); `PodStatus.running` is an ACTIVITY
+   * flag (the Pod is streaming a turn). `status` is carried into the
+   * `data-status` HTML attribute, which is consumed by CSS selectors
+   * (`LaneRail.module.css` `.status[data-status='running'] .dot`) and by
+   * `row.querySelector('[data-status]')` in three suites (`LaneRail.test.tsx`,
+   * `stopped-lane.test.tsx`, `orphaned-lane.test.tsx`). A widened union would put
+   * both vocabularies into that one attribute, so the pulse rule would match a
+   * streaming Pod and a merely-unended lane alike — which is this defect itself,
+   * re-encoded in CSS. A distinct field makes the collision impossible by
+   * construction and leaves every existing rule and query untouched.
+   */
+  podStatus: PodStatus | null;
+  /**
    * Milliseconds from `lane.startedAt` to `lane.endedAt`, or to now while the
    * lane is running. Recomputed on a timer owned by the state layer, NOT by
    * each row — a running lane's row re-renders about once a second, and a
