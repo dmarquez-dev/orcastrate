@@ -2,7 +2,6 @@ import { useEffect, useRef, type CSSProperties, type DragEvent, type JSX, type K
 
 import type { PodStatus } from '@shared/contracts/events';
 import type { PodTabVm } from '../contracts/renderer-state';
-import { WorkingIndicator } from '../activity';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken, testId } from '../shell/contract-runtime';
 import a11y from '../shell/a11y.module.css';
@@ -225,21 +224,30 @@ export function PodTab({
         ref={tabRef}
         type="button"
       >
-        <span className={styles.statusDot} data-status={status} style={dotStyle} />
         {/*
-          The liveness affordance, per `contracts/activity-indicator.ts`
-          POD_TAB_MOUNT: adjacent to the status dot, `size="dot"`, and active
-          for `'running'` ALONE — a turn is streaming.
+          ONE MARK, NOT TWO. This dot used to have a separate working indicator
+          beside it, mounted for `'running'` alone. Two adjacent marks for one
+          state read as two states, so the dot absorbed the motion: the pulse is
+          a `@keyframes` in `PodBar.module.css` keyed to
+          `.statusDot[data-status='running']`, and it rides the attribute this
+          element ALREADY carries.
 
-          NOT for `'waiting'`. That means the Pod is blocked on the USER; it
-          already carries the busiest dot shape in the set plus the permission
-          badge, and animating there would tell the user to wait for a machine
-          that is waiting for them.
+          Nothing is added here to drive it — no prop, no class read from
+          script, no test id, no accessible name, no text. The component stays
+          presentational: it takes data and nothing else, and the stylesheet
+          derives the motion from the status the tab was already telling it.
 
-          It is `aria-hidden` and adds no text, so it is the third carrier: the
-          `srOnly` sentence below still opens with `STATUS_LABEL[status]`.
+          The motion stays the THIRD carrier of meaning, after the status word
+          and the dot's SHAPE: the `srOnly` sentence below still opens with
+          `STATUS_LABEL[status]`, and `prefers-reduced-motion: reduce` stops the
+          pulse without taking the dot away.
+
+          `'running'` alone animates, and NOT `'waiting'`. That state means the
+          Pod is blocked on the USER; it already carries the busiest dot shape
+          in the set plus the permission badge, and animating there would tell
+          the user to wait for a machine that is waiting for them.
         */}
-        <WorkingIndicator active={status === 'running'} size="dot" />
+        <span className={styles.statusDot} data-status={status} style={dotStyle} />
         <span className={a11y.srOnly}>
           {`${STATUS_LABEL[status]}.${opened ? '' : ' Not opened.'} Pod ${index + 1} of ${total}.`}
         </span>

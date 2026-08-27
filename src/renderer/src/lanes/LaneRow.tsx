@@ -2,7 +2,6 @@ import { memo } from 'react';
 
 import type { LaneId } from '@shared/contracts/events';
 
-import { WorkingIndicator } from '../activity';
 import type { LaneRowVm } from '../contracts/renderer-state';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
@@ -110,23 +109,23 @@ function LaneRowImpl({ row, onSelect, onSteer }: LaneRowProps) {
         </span>
 
         <span className={styles.meta}>
+          {/*
+           * ONE MARK (`contracts/status-dot-motion.ts`). The dot below used to
+           * sit beside a separate working indicator, so a running lane drew two
+           * marks for one fact. The dot absorbed the pulse and the indicator
+           * left the row.
+           *
+           * The markup is unchanged and takes no new prop: the motion is a CSS
+           * rule keyed off the `data-status` this span already carries, in the
+           * row's own stylesheet, so this row still holds no clock and this
+           * component still takes data and nothing else. The dot stays
+           * `aria-hidden` and textless — the word beside it is what carries the
+           * status; hue is the second carrier and the pulse the third.
+           */}
           <span className={styles.status} data-status={row.status}>
             <span className={styles.dot} aria-hidden="true" />
             {LANE_STATUS_LABEL[row.status]}
           </span>
-          {/*
-           * `contracts/activity-indicator.ts`, LANE_ROW_MOUNT: the `.meta`
-           * line, adjacent to the status word, `size="bar"`, active on
-           * `'running'` and nothing else. A done, orphaned or stopped lane
-           * renders no indicator, which is what makes the presence of one mean
-           * something.
-           *
-           * The element is `aria-hidden` and adds no accessible text — it is
-           * the third carrier, after the word above and the swatch beside it.
-           * It schedules nothing: the motion is a CSS `@keyframes` rule in the
-           * component's own stylesheet, so this row still holds no clock.
-           */}
-          <WorkingIndicator active={row.status === 'running'} size="bar" />
           <span>
             <span className={styles.srOnly}>Elapsed </span>
             {formatElapsed(row.elapsedMs)}

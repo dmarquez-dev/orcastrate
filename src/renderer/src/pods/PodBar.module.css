@@ -123,8 +123,33 @@
   background: var(--pod-status-color);
 }
 
-/* idle — hollow ring. */
+/*
+ * running — the dot itself pulses. This is the working indicator, collapsed
+ * into the mark it used to sit beside: two adjacent marks for one state read as
+ * two states.
+ *
+ * The `@keyframes` is declared in THIS file, below, and that is not a style
+ * choice. Vite hashes an animation NAME used inside a `*.module.css` even when
+ * no local `@keyframes` of that name exists, so a module referencing a keyframe
+ * declared in `global.css` points at a name that does not exist and the
+ * animation silently never runs. `contracts/status-dot-motion.ts` records the
+ * measurement. The lane rail carries its own identical copy for the same
+ * reason, and a drift guard keeps the two honest.
+ *
+ * Declared on the RUNNING selector only, never on the base rule, so a
+ * non-running dot inherits no motion it would then have to cancel.
+ */
+.statusDot[data-status='running'] {
+  animation: ocStatusPulse 1.4s ease-in-out infinite;
+}
+
+/* idle — a hollow ring at the idle hue, and a THICK one: at `--oc-space-2`
+   across, a hairline ring reads as a smudge rather than as a shape. The hue
+   still arrives as `--pod-status-color`, which `statusToken('idle')` resolves
+   to `--oc-status-idle`; naming that token here would be a second source of
+   truth for one colour. */
 .statusDot[data-status='idle'] {
+  border-width: var(--oc-border-thick);
   background: transparent;
 }
 
@@ -310,4 +335,39 @@
 
 .newPod:hover {
   background: var(--oc-bg-hover);
+}
+
+/*
+ * The pulse the retired working indicator used to draw, carried forward
+ * unchanged so the collapse changed WHERE the motion is drawn and nothing about
+ * HOW it moves. Opacity only — no transform, no scale, no colour — so it can
+ * never override the dot's hue or its shape.
+ *
+ * The lane rail declares an identical copy in its own module, because a
+ * cross-file reference provably does not resolve; the two are pinned to the
+ * same text by `contracts/status-dot-motion.ts` and kept in step by a drift
+ * guard.
+ */
+@keyframes ocStatusPulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+/*
+ * A stated system preference wins over the MOTION but never over the SIGNAL.
+ * The dot keeps its size, its shape and its status hue; only the animation
+ * stops. A dot that vanished here would take the affordance away from exactly
+ * the users most likely to need it, which is why this block sets `animation`
+ * and nothing else.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .statusDot[data-status='running'] {
+    animation: none;
+  }
 }

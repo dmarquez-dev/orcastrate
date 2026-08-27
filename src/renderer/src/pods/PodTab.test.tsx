@@ -21,7 +21,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
-import { WORKING_INDICATOR_TEST_ID } from '../activity';
 import { statusToken } from '../shell/contract-runtime';
 import {
   PodTab,
@@ -307,65 +306,104 @@ describe('the run control names the verb and, for a beached Pod, the cause', () 
   });
 });
 /**
- * The status word each non-running state puts in the tab's screen-reader
- * sentence. Duplicated from `PodTab`'s own `STATUS_LABEL` on purpose: a test
- * that imported the map would pass even if the map itself went blank.
+ * The status word each state puts in the tab's screen-reader sentence.
+ * Duplicated from `PodTab`'s own `STATUS_LABEL` on purpose: a test that
+ * imported the map would pass even if the map itself went blank.
+ *
+ * `running` joined the map when the working indicator was collapsed into the
+ * status dot: motion is now the only thing that distinguishes a running dot
+ * from an idle one visually, so the word behind it is asserted in the same
+ * render as every dot assertion below.
  */
 const STATUS_WORD = {
   idle: 'Idle',
+  running: 'Running',
   waiting: 'Waiting on you',
   closed: 'Closed',
   beached: 'Beached, process stopped',
 } as const;
 
-describe('the working indicator on a Pod tab', () => {
+describe('the status dot is the only mark on a Pod tab', () => {
   /*
-   * MOUNTED PER `contracts/activity-indicator.ts` POD_TAB_MOUNT: inside the tab
-   * BUTTON, adjacent to the status dot, `size="dot"`, active for `'running'`
-   * and nothing else.
+   * The working indicator that used to sit beside the dot is gone: ONE mark
+   * carries the state, and the dot absorbs the motion the indicator used to
+   * carry. The motion itself is a `@keyframes` in `PodBar.module.css` keyed to
+   * `.statusDot[data-status='running']` — Vitest blanks `*.module.css` and
+   * jsdom applies no stylesheet, so NOTHING here can observe it. What this
+   * suite proves is the MARKUP the stylesheet hangs off: exactly one
+   * `[data-status]` element, carrying the status and the hue, with nothing
+   * beside it. `PodBar.styles.test.ts` proves the declarations.
    *
-   * NOT for `'waiting'`, which is the opposite state — the Pod is blocked on the
-   * USER. It already carries the busiest dot shape in the set plus the
-   * permission badge, and animating there would tell the user to wait for a
-   * machine that is waiting for them.
-   *
-   * The indicator is `aria-hidden` and contributes no accessible text, so it is
-   * the THIRD carrier. Every case below asserts the status WORD in the same
-   * render, because a mount site may only place it where the state is already
-   * in text.
+   * Motion is the THIRD carrier of meaning, after the status word and the
+   * status shape, so every case below asserts the status WORD in the same
+   * render.
    */
   const RUNNING: TabOverrides = { id: 'a', title: 'Alpha', status: 'running', opened: true };
 
-  it('mounts the indicator inside the tab button for a running Pod', () => {
-    const { container } = renderTab(RUNNING);
-    const indicator = screen.getByTestId(WORKING_INDICATOR_TEST_ID);
+  /**
+   * Every presentational mark inside the tab button: an element whose only job
+   * is to be looked at, i.e. one hidden from assistive technology or carrying
+   * the status attribute. Before the collapse there were two of these on a
+   * running tab; there is now exactly one.
+   */
+  function marksInTab(): Element[] {
+    const tab = screen.getByTestId('pod-tab:a');
+    return [...tab.querySelectorAll('*')].filter(
+      (el) => el.getAttribute('aria-hidden') === 'true' || el.hasAttribute('data-status'),
+    );
+  }
 
-    expect(screen.getByTestId('pod-tab:a').contains(indicator)).toBe(true);
-    expect(indicator.getAttribute('data-size')).toBe('dot');
-    expect(indicator.getAttribute('aria-hidden')).toBe('true');
+  it('draws one dot, and no second mark beside it, for a running Pod', () => {
+    const { container } = renderTab(RUNNING);
+    const tab = screen.getByTestId('pod-tab:a');
+    const dots = tab.querySelectorAll('[data-status]');
+
+    expect(dots).toHaveLength(1);
+    const dot = dots[0] as HTMLElement;
+    expect(dot.getAttribute('data-status')).toBe('running');
+    expect(dot.style.getPropertyValue('--pod-status-color')).toBe(`var(${statusToken('running')})`);
+    // The dot is the ONLY thing in the tab that exists to be looked at.
+    expect(marksInTab()).toEqual([dot]);
     // Motion is never the only carrier of the state.
     expect(container.textContent).toContain('Running');
   });
 
-  it('places it adjacent to the status dot, not at the far end of the tab', () => {
+  it('puts the status sentence immediately after the dot, with nothing in between', () => {
+    // This is where the working indicator used to sit. Nothing took its place.
     renderTab(RUNNING);
     const dot = screen.getByTestId('pod-tab:a').querySelector('[data-status]');
-    expect(dot?.nextElementSibling).toBe(screen.getByTestId(WORKING_INDICATOR_TEST_ID));
+    expect(dot?.nextElementSibling?.textContent).toContain('Running');
   });
 
-  it.each(['idle', 'waiting', 'closed', 'beached'] as const)(
-    'renders NO indicator for a %s Pod',
+  it('adds no accessible name, no text and no test id to the dot', () => {
+    // The dot stays a pure mark: the state is spoken by the `srOnly` sentence,
+    // not by the element the animation runs on.
+    renderTab(RUNNING);
+    const dot = screen.getByTestId('pod-tab:a').querySelector('[data-status]') as HTMLElement;
+    expect(dot.textContent).toBe('');
+    expect(dot.getAttribute('aria-label')).toBeNull();
+    expect(dot.getAttribute('data-testid')).toBeNull();
+  });
+
+  it.each(['idle', 'running', 'waiting', 'closed', 'beached'] as const)(
+    'renders exactly one status dot, in the %s state, and no second mark beside it',
     (status) => {
       const { container } = renderTab({
         id: 'a',
         title: 'Alpha',
         status,
-        opened: status === 'idle' || status === 'waiting',
+        opened: status === 'idle' || status === 'waiting' || status === 'running',
       });
-      // Present-first: the absence below cannot be satisfied by an empty render.
-      expect(screen.getByTestId('pod-tab:a')).toBeDefined();
+      // Present-first: the counts below cannot be satisfied by an empty render.
+      const tab = screen.getByTestId('pod-tab:a');
+      expect(tab).toBeDefined();
+
+      const dots = tab.querySelectorAll('[data-status]');
+      expect(dots).toHaveLength(1);
+      expect((dots[0] as HTMLElement).getAttribute('data-status')).toBe(status);
+      expect(marksInTab()).toEqual([dots[0]]);
+      // Colour and motion are never the only carriers.
       expect(container.textContent).toContain(STATUS_WORD[status]);
-      expect(screen.queryByTestId(WORKING_INDICATOR_TEST_ID)).toBeNull();
     },
   );
 });

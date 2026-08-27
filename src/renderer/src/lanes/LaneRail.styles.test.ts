@@ -199,3 +199,121 @@ describe('the Steer action against the highlight (criterion 5)', () => {
     );
   });
 });
+
+/**
+ * The collapsed status dot's motion (`contracts/status-dot-motion.ts`).
+ *
+ * The working indicator left the row; the dot absorbed its pulse. The keyframe
+ * is declared IN THIS FILE and referenced from this file, because Vite hashes
+ * an animation name used inside a `*.module.css` even when no local
+ * `@keyframes` of that name exists — a module referencing a keyframe declared
+ * elsewhere points at a name that does not exist and the animation silently
+ * never runs. That failure is invisible to jsdom, which applies no stylesheet,
+ * so the declaration is asserted here as text and the RESOLUTION of the emitted
+ * name is proved by the build in T3.
+ */
+const PULSE_KEYFRAME_NAME = 'ocStatusPulse';
+const PULSE_SELECTOR = ".status[data-status='running'] .dot";
+const norm = (source: string): string => source.replace(/\s+/g, ' ').trim();
+
+/** The body pinned verbatim by `status-dot-motion.ts` section 2. */
+const PINNED_KEYFRAME_BODY = norm(`
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 1;
+  }
+`);
+
+/** The brace-balanced body of the at-rule whose prelude matches `prelude`. */
+function atRule(prelude: RegExp): { body: string; start: number; end: number } {
+  const at = css.search(prelude);
+  if (at < 0) throw new Error(`no at-rule matching ${String(prelude)} in LaneRail.module.css`);
+  const open = css.indexOf('{', at);
+  let depth = 0;
+  for (let i = open; i < css.length; i += 1) {
+    if (css[i] === '{') depth += 1;
+    else if (css[i] === '}') {
+      depth -= 1;
+      if (depth === 0) return { body: css.slice(open + 1, i), start: at, end: i };
+    }
+  }
+  throw new Error(`unbalanced braces after ${String(prelude)} in LaneRail.module.css`);
+}
+
+/** Every selector whose own declaration body matches `prop`. */
+function selectorsDeclaring(source: string, prop: RegExp): string[] {
+  return [...source.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter((m) => prop.test(m[2] as string))
+    .map((m) => norm(m[1] as string));
+}
+
+describe('the status dot carries the pulse (contract status-dot-motion)', () => {
+  it('declares the keyframe locally, under the contract name, exactly once', () => {
+    const declared = [...css.matchAll(/@keyframes\s+([\w-]+)/g)].map((m) => m[1] as string);
+    expect(declared).toEqual([PULSE_KEYFRAME_NAME]);
+  });
+
+  it('pins the keyframe body to the text the contract froze', () => {
+    const { body } = atRule(new RegExp(`@keyframes\\s+${PULSE_KEYFRAME_NAME}\\b`));
+    expect(norm(body)).toBe(PINNED_KEYFRAME_BODY);
+  });
+
+  it('applies the animation on the running dot selector and on no other', () => {
+    const reduced = atRule(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+    const outsideReducedMotion = css.slice(0, reduced.start) + css.slice(reduced.end + 1);
+
+    expect(outsideReducedMotion).toMatch(
+      /\.status\[data-status='running'\]\s+\.dot\s*\{[^}]*animation:\s*ocStatusPulse 1\.4s ease-in-out infinite;/,
+    );
+    expect(selectorsDeclaring(outsideReducedMotion, /animation:/)).toEqual([PULSE_SELECTOR]);
+  });
+
+  it('leaves the base .dot rule with no animation to cancel', () => {
+    expect(block('.dot')).not.toContain('animation');
+  });
+
+  it('leaves all four status hue rules unchanged', () => {
+    for (const status of ['running', 'done', 'orphaned', 'stopped'] as const) {
+      expect(css).toMatch(
+        new RegExp(
+          `\\.status\\[data-status='${status}'\\]\\s+\\.dot\\s*\\{\\s*background:\\s*var\\(--oc-status-${status}\\);\\s*\\}`,
+        ),
+      );
+    }
+  });
+});
+
+/**
+ * The reduced-motion guard, re-homed from the deleted
+ * `activity/WorkingIndicator.styles.test.ts` (`activity-module-retirement.ts`
+ * section 4). A stated system preference wins over the MOTION but never over
+ * the SIGNAL: the dot keeps its size, its shape and its status hue, and only
+ * the animation stops.
+ */
+describe('reduced motion stops the pulse and keeps the dot (contract section 5)', () => {
+  it('turns the animation off inside the query, not in some later rule', () => {
+    const reduced = atRule(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+    expect(reduced.body).toMatch(/animation:\s*none/);
+    expect(selectorsDeclaring(reduced.body, /animation:\s*none/)).toEqual([PULSE_SELECTOR]);
+    // ...and nowhere outside it, which is what "inside the query" means.
+    const outside = css.slice(0, reduced.start) + css.slice(reduced.end + 1);
+    expect(outside).not.toMatch(/animation:\s*none/);
+  });
+
+  it('hides nothing in the reduced-motion branch', () => {
+    const reduced = atRule(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+    expect(reduced.body).not.toMatch(/display:\s*none/);
+    expect(reduced.body).not.toMatch(/visibility:\s*hidden/);
+    expect(reduced.body).not.toMatch(/opacity:\s*0\s*[;}]/);
+  });
+
+  it('changes nothing else — animation is the only property it touches', () => {
+    const reduced = atRule(/@media\s*\(\s*prefers-reduced-motion:\s*reduce\s*\)/);
+    const properties = [...reduced.body.matchAll(/([-\w]+)\s*:/g)].map((m) => m[1] as string);
+    expect(properties).toEqual(['animation']);
+  });
+});

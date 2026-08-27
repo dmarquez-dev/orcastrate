@@ -3,7 +3,6 @@ import { Profiler, StrictMode } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { WORKING_INDICATOR_TEST_ID } from '../activity';
 import { testId } from '../shell/contract-runtime';
 import { LaneRail } from './LaneRail';
 import { LANE_ROW_SELECT_TEST_ID } from './LaneRow';
@@ -454,43 +453,77 @@ describe('formatElapsed', () => {
 });
 
 /**
- * `contracts/activity-indicator.ts` section 4, `LANE_ROW_MOUNT`.
+ * ONE MARK PER ROW (`contracts/status-dot-motion.ts`,
+ * `contracts/activity-module-retirement.ts`).
  *
- * The indicator is `aria-hidden` and contributes no accessible text, so it is
- * the THIRD carrier of liveness, after the status word and the status shape.
- * That makes its ABSENCE the assertion that matters: an indicator drawn on a
- * finished lane would mean nothing at all.
+ * The row used to draw its status dot AND a separate working indicator on the
+ * same `.meta` line, so a running lane carried two marks for one fact. The dot
+ * absorbed the motion and the indicator left. What these cases assert is that
+ * the `.meta` line holds exactly ONE aria-hidden mark, and that the status WORD
+ * is beside it in the same render — colour and motion are the second and third
+ * carriers of the status, never the first.
+ *
+ * They cannot assert the motion itself. Vitest resolves `*.module.css` to a
+ * blanked module and jsdom applies no stylesheet, so the pulse is invisible
+ * here; `LaneRail.styles.test.ts` asserts the declarations and the build proves
+ * the emitted animation name resolves.
  */
-describe('LaneRail — the working indicator (contract LANE_ROW_MOUNT)', () => {
-  it("mounts the indicator on a running lane, in the meta line beside the status word", () => {
+describe('LaneRail — the status dot is the row’s only mark', () => {
+  /**
+   * The `.meta` line that encloses the status span, and every aria-hidden mark
+   * on it. `.meta` is reached through the status span rather than by class:
+   * CSS Module class names do not survive into jsdom, which is why every dot
+   * assertion in this suite goes through `[data-status]`.
+   */
+  function metaOf(row: HTMLElement): { status: HTMLElement; marks: Element[] } {
+    const status = row.querySelector('[data-status]');
+    expect(status).not.toBeNull();
+    const meta = (status as HTMLElement).parentElement;
+    expect(meta).not.toBeNull();
+    return {
+      status: status as HTMLElement,
+      marks: [...(meta as HTMLElement).querySelectorAll('[aria-hidden="true"]')],
+    };
+  }
+
+  it('draws the status dot, the status word and no second mark on a running lane', () => {
     renderRail({ rows: [makeRow(makeLane({ status: 'running' }), { status: 'running' })] });
 
     const row = screen.getByTestId('lane-row:lane-matriarch');
-    const indicator = within(row).getByTestId(WORKING_INDICATOR_TEST_ID);
+    const { status, marks } = metaOf(row);
 
-    // `size="bar"`, the wider form for a surface with room.
-    expect(indicator.getAttribute('data-size')).toBe('bar');
-    // It carries nothing by itself.
-    expect(indicator.getAttribute('aria-hidden')).toBe('true');
-    // ADJACENT TO THE STATUS WORD: same `.meta` line, and the word is still
-    // there, which is the condition the contract puts on any mount site.
-    const status = row.querySelector('[data-status]');
-    expect(status).not.toBeNull();
-    expect(indicator.parentElement).toBe(status?.parentElement);
-    expect(row.textContent).toContain('Running');
+    expect(status.getAttribute('data-status')).toBe('running');
+    // Exactly one mark on the meta line, and it is the dot inside `.status`.
+    expect(marks).toHaveLength(1);
+    const dot = marks[0] as HTMLElement;
+    expect(dot.parentElement).toBe(status);
+    // The dot carries nothing by itself: no text, no children, no test id.
+    expect(dot.tagName).toBe('SPAN');
+    expect(dot.textContent).toBe('');
+    expect(dot.children).toHaveLength(0);
+    expect(dot.getAttribute('data-testid')).toBeNull();
+    // Nothing anywhere in the row is a mounted indicator any more.
+    expect(row.querySelector('[data-testid*="indicator"]')).toBeNull();
+    // Colour is never the only carrier: the word is in the SAME render.
+    expect(row.textContent).toContain(LANE_STATUS_LABEL.running);
   });
 
   it.each(['done', 'orphaned', 'stopped'] as const)(
-    'mounts NO indicator on a %s lane',
+    'draws the same single dot and its word on a %s lane, with nothing added',
     (status) => {
       // The Matriarch is never collapsed, whatever its status, so the row is
-      // demonstrably rendered and the absence below is the indicator's.
+      // demonstrably rendered and the count below is this row's.
       renderRail({ rows: [makeRow(makeLane({ status }), { status })] });
 
       const row = screen.getByTestId('lane-row:lane-matriarch');
-      expect(row.querySelector('[data-status]')?.getAttribute('data-status')).toBe(status);
+      const { status: statusEl, marks } = metaOf(row);
+
+      expect(statusEl.getAttribute('data-status')).toBe(status);
+      expect(marks).toHaveLength(1);
+      expect((marks[0] as HTMLElement).parentElement).toBe(statusEl);
+      expect((marks[0] as HTMLElement).textContent).toBe('');
+      expect(row.querySelector('[data-testid*="indicator"]')).toBeNull();
       expect(row.textContent).toContain(LANE_STATUS_LABEL[status]);
-      expect(within(row).queryByTestId(WORKING_INDICATOR_TEST_ID)).toBeNull();
     },
   );
 });
