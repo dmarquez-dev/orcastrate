@@ -163,3 +163,58 @@ Two things the run established that the session had not:
 - **Narrowness was NOT hand-tested.** The live database holds four `lane_closed` events,
   all `stopped`, and no `done` or `orphaned` at all — so there was nothing the filter was
   meant to hide. That constraint still rests on tests alone.
+
+## 2026-08-27 — 2026-08-27-orcastrate-indicator-collapse
+
+Merged `f2862ee` (`--no-ff`). Three tasks, three commits: `2cc0bea` (Pod tab),
+`595247d` (lane rail), `0dd8468` (retire `activity/`). 19 files, +790/−485.
+
+**What shipped.** Each of the two surfaces drew two adjacent marks — a status dot plus a
+separate pulsing `WorkingIndicator`. Each now draws one: the status dot itself carries
+the motion, derived from the `data-status` attribute both surfaces already had, so no
+new prop, class, or test id was threaded to either. `idle` on the Pod tab is sharpened
+to a `--oc-border-thick` hollow ring. `LANE_STATUS_LABEL` is untouched and no
+`Active`/`Waiting` vocabulary was introduced — the lane already renders a word for each
+of its four statuses. `src/renderer/src/activity/` is retired, all seven files.
+
+**31/31 acceptance criteria met, 0 blocking findings, 0 revision rounds, 0 escalations,
+3 user interactions.** Post-merge on a quiescent `main`: `npm run typecheck` exit 0,
+`npm test` 2041/2041.
+
+**The design decision was made by measurement, and the obvious answer was wrong.** The
+approved brief said to put `@keyframes` in `global.css` and reference it from both CSS
+modules. Probed before decomposition: `global.css` emitted `@keyframes ocProbePulse`
+while the module emitted `animation: _ocProbePulse_ijqny_1`. **Vite hashes an animation
+name inside a `*.module.css` even when no local keyframe of that name exists**, so the
+reference resolves to nothing and the animation silently never runs — and jsdom applies
+no stylesheet, so no suite in this repository could have caught it. The shape shipped
+instead is per-module keyframes plus a drift guard, and T3's build-level proof reads the
+emitted bundle for the pair `@keyframes _ocStatusPulse_<hash>` / `animation:
+_ocStatusPulse_<hash>` in each module scope independently.
+
+**The architect found a coupling the brief missed.** `activity/raw.d.ts` declared
+`*.tsx?raw`, which `lanes/LaneRow.source.test.ts:23` depends on. Deleting `activity/`
+would have failed `typecheck:web` in files the deleting task did not own — and **only**
+under `tsc`, never under Vitest, since Vite resolves the import at runtime regardless.
+T3 owned both halves of the move.
+
+**Demonstrations were reproduced, not read.** Every reviewer was told to reproduce and
+each did. T3's reviewer ran the co-drift test the criteria demanded — the same drift
+injected into both stylesheets at once — and the guard still went red, proving it
+re-types its expectation rather than deriving it from one file. Two implementers
+volunteered honesty that cost them: T1 disclosed that its "exactly one `[data-status]`
+element" assertion could not have gone red (the retired indicator carried `data-size`,
+not `data-status`) and added a helper to cover the real gap; T2 found four of its new
+assertions green before implementation and proved each non-vacuous by mutation instead
+of banking them.
+
+**One defect escaped all three reviews and was caught at Gate 3** — a docblock in
+`PodTab.source.test.ts` describing T3's move in the future tense and naming the
+now-deleted `activity/raw.d.ts`. Ownership-scoped review is what makes concurrency safe,
+and it is also why no reviewer could see both halves of a cross-task move. Deferred to
+the backlog.
+
+**The worktree traps did not occur, because the worktree was placed inside the
+repository** at the already-gitignored `.claude-worktrees/<slug>`. Verified before
+dispatch rather than assumed; nine agents ran with zero resolution failures. See the
+backlog entry.

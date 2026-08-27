@@ -1,0 +1,39 @@
+{
+  "session": "2026-08-27-orcastrate-indicator-collapse",
+  "updatedAt": "2026-08-27T14:45:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-27-orcastrate-indicator-collapse",
+  "branch": "dir/2026-08-27-orcastrate-indicator-collapse",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "f042fc32be8dd97b85aeac91cff3b8c5e0b28c80",
+      "commit": "2cc0beafb46ab4594d9803cf6c591072a3b7a4f4"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "f042fc32be8dd97b85aeac91cff3b8c5e0b28c80",
+      "commit": "595247dbfe294b26526f41ce22aca5919e324830"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "595247dbfe294b26526f41ce22aca5919e324830",
+      "commit": "0dd8468e15fce7570c5a78d52d6a30409126f5cd"
+    }
+  ],
+  "escalations": [],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}

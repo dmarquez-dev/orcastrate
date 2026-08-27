@@ -1086,3 +1086,41 @@ Two observations from that run, neither a defect, both worth recording:
   against the `done` fixtures, and T3's `KEPT_POD` assertion. **A future hand-run that
   wants to test it needs a Pod with a lane that finished normally**, which is a
   different scenario to set up and did not arise here.
+
+## 2026-08-27 — 2026-08-27-orcastrate-indicator-collapse
+
+Deferred at Gate 3 by explicit user decision. Both are advisory; neither blocked the
+merge. Full per-criterion verdicts and every finding's text are in that session's
+`reviews/T1.md`–`T3.md`.
+
+- **`src/renderer/src/pods/PodTab.source.test.ts:25-26` describes finished work in the
+  future tense and names a deleted file.** The docblock reads "`activity/raw.d.ts`
+  declares the form today; T3 moves that declaration to `styles/raw.d.ts`". It was
+  accurate when T1 wrote it and went stale the moment T3 landed in the same session.
+  One-line fix whenever someone next touches that file. **Found by the orchestrator at
+  Gate 3, not by any of the three reviewers** — each reviewed only its own task's
+  ownership-scoped diff, and no single diff contained both halves of the move. Worth
+  noting as a structural limit of ownership-scoped review, not a reviewer failure: this
+  is recurring pattern #1 ("prose no longer true of the code") reaching the one place
+  the session's own review design could not see it.
+
+- **The three session commits do not read as the series they are.** `595247d` took a
+  `test(renderer):` prefix for a change whose substance is renderer behaviour, where its
+  sibling `2cc0bea` used `fix(renderer):` and `0dd8468` used `refactor(renderer):`. Not
+  rewritten — DIR never rewrites history, and a rewrite would have swept in commits from
+  a concurrently running task. Recorded so a later reader of the log is not misled about
+  which commit changed behaviour.
+
+### Not deferred — recorded because it changes how future sessions should be set up
+
+- **The worktree module-resolution traps are an artefact of worktree PLACEMENT, and this
+  session dissolved them.** Prior sessions placed the worktree in a sibling directory
+  (`Repos\orcastrate-worktrees\<slug>`), which is outside the main repository, so Node's
+  ancestor resolution never reached `node_modules` — costing seven agents independent
+  rediscovery in the previous session and requiring per-suite `NODE_PATH` and scratch
+  vitest configs. This session placed the worktree at `.claude-worktrees/<slug>`, a path
+  **already listed in `.gitignore`** and a descendant of the repository. Verified before
+  any agent was dispatched: a jsdom/JSX suite ran with the plain command and no
+  `NODE_PATH` and no scratch config, and `tsc --noEmit -p tsconfig.web.json` exited 0
+  from inside the worktree — the check that was previously believed impossible there.
+  Nine agents ran without one resolution failure between them. **Use this layout.**
