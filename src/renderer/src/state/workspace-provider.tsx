@@ -195,7 +195,7 @@ function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | u
 
   return {
     podId,
-    lanes: deriveLaneRail(runtime, nowMs),
+    lanes: deriveLaneRail(runtime, nowMs, pod?.status ?? 'closed'),
     primaryLaneId: runtime.primaryLaneId,
     followerLaneIds: runtime.followerLaneIds,
     focusedFollowerIndex: runtime.focusedFollowerIndex,
@@ -218,8 +218,25 @@ function deriveSession(state: WorkspaceState, nowMs: number): PodSessionView | u
  *   - 'inline' routing mode opens no follower at all — now `showLane` step 0.
  * Both are properties of the ACTION surface, so `jumpToLane` inherits them by
  * delegating, which a view-model field could never have given it.
+ *
+ * THE MATRIARCH ROW REPORTS THE POD'S STATUS, and this is the one place that
+ * decides it (`contracts/lane-row-pod-status.ts` section 2). `PodStatus` and
+ * `LaneStatus` both spell `running`, but the first is an ACTIVITY flag and the
+ * second a LIFETIME flag the database enforces — and the Matriarch's lane is
+ * open for the Pod's whole life, so `status` alone can never rest. `podStatus`
+ * is the second field that breaks the collision; `status` keeps its exact type
+ * and meaning. `null` is not "unknown": it means THIS ROW REPORTS ITS LANE
+ * STATUS, which is every row's behaviour today, preserved.
+ *
+ * @param podStatus The active Pod's status, `'closed'` when the state layer
+ *   holds no row for it — the same fallback `deriveComposer` takes, because a
+ *   Pod that cannot be found is not open.
  */
-function deriveLaneRail(runtime: PodRuntimeState, nowMs: number): Loadable<LaneRowVm[]> {
+function deriveLaneRail(
+  runtime: PodRuntimeState,
+  nowMs: number,
+  podStatus: PodStatus,
+): Loadable<LaneRowVm[]> {
   const followers = runtime.followerLaneIds;
   const focusedIndex = runtime.focusedFollowerIndex;
   const focusedLaneId =
@@ -238,6 +255,11 @@ function deriveLaneRail(runtime: PodRuntimeState, nowMs: number): Loadable<LaneR
       agentType: lane.subagentType ?? 'matriarch',
       description: isMatriarch ? null : lane.description,
       status: lane.status,
+      // `endedAt === null` rather than `status === 'running'`: the schema
+      // `CHECK ((status = 'running') = (ended_at IS NULL))`
+      // (`main/store/schema.ts:355`) makes them the same predicate, and
+      // `endedAt` is the one that says WHY.
+      podStatus: isMatriarch && lane.endedAt === null ? podStatus : null,
       elapsedMs: elapsedMsOf(lane, nowMs),
       // Zero for any lane that is ON SCREEN, in either pane, at all times.
       unreadEventCount:
