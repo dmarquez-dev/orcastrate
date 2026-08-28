@@ -218,3 +218,56 @@ the backlog.
 repository** at the already-gitignored `.claude-worktrees/<slug>`. Verified before
 dispatch rather than assumed; nine agents ran with zero resolution failures. See the
 backlog entry.
+
+## 2026-08-27 — 2026-08-27-orcastrate-matriarch-pod-status
+
+Five tasks, five commits: `1d031f9` (contract), `2c778b7` (label extraction), `a797952`
+(derivation), `2bd2b58` (the row), `52a69cc` (joined e2e + repairs). 14 files, +1278/−39.
+**55/55 acceptance criteria met, 0 blocking findings outstanding, 0 revision rounds,
+2 escalations, 3 user interactions.** Post-merge on a quiescent `main`: `npm run typecheck`
+exit 0, `npm test` 2096/2096.
+
+**What shipped.** The Matriarch lane row now reports the owning **Pod's** status while its
+lane is open — the Pod's word from `POD_STATUS_LABEL`, its hue via `statusToken`, and the
+Pod tab's own dot shapes — so the rail and the tab agree about whether Claude Code is
+working. Once the lane has ended, terminal `LaneStatus` wins and `Stopped`/`Done`/`Orphaned`
+render exactly as before with their frozen durations. Calf rows are untouched by design.
+
+**The defect, and it was not a regression.** A hand-run found the Matriarch's dot pulsing
+continuously, never resting between turns. Root cause: `PodStatus.running` is an ACTIVITY
+flag (`pod-runner.ts:426` sets it on `send()`, `:272` clears it at turn end) while
+`LaneStatus.running` is a LIFETIME flag the database enforces (`schema.ts:355`,
+`CHECK ((status = 'running') = (ended_at IS NULL))`), and the Matriarch's lane is open for
+the Pod's whole life. **The retired `WorkingIndicator` bar carried the identical condition**
+(`git show 595247d^:…/LaneRow.tsx` line 129) — collapsing the indicator into the status dot
+made a pre-existing defect visible by moving the motion onto the element the user reads for
+status.
+
+**The shape was the user's call, and the evidence was concrete.** `LaneRowVm` gained a
+distinct `podStatus: PodStatus | null` on a `data-pod-status` attribute mutually exclusive
+with `data-status`, rather than widening `status` to both unions. Both unions spell
+`running`, so a widened field would have made `LaneRail.module.css:256`'s
+`.status[data-status='running'] .dot` match a streaming Pod and a merely-unended lane alike
+— **this defect, re-encoded in CSS**.
+
+**Two vacuity traps were found by the agents that hit them, not by the criteria.** T3's
+terminal case passes against an implementation with no `podStatus` field at all, because
+`undefined ?? 'null'` renders `null`; it made its red step the clause-less mutation instead
+and said so. T5 measured that `POD_STATUS_LABEL.running` and `LANE_STATUS_LABEL.running` are
+both the literal `'Running'`, so a text-only assertion would have read identically before and
+after the entire change — its red-step diff shows `railWord: "Running"` on both sides. Both
+were reconstructed and confirmed by reviewers rather than accepted.
+
+**One blocking finding, and it was nobody's to fix.** T4's correct change broke three
+assertions in `__tests__/`, which no task owned — ownership-scoped review is what makes two
+implementers safe in one worktree, and it is also why no single diff contained both halves.
+Escalation E2 widened T5's ownership with the user's approval. The repair could easily have
+shipped a weakened suite: `pod-stop:473` carried a comment stating its assertion existed so
+the test "could not tell 'the fix works' from 'the row never said Running'", and
+`relaunch:501` was a negative that went trivially true. Both were replaced with positives
+that were then **seen failing under injected defects**. The real surface was four assertions,
+not the three the manifest named — `:523` was masked behind `:476`.
+
+**The architect caught a criterion that would have failed T5 for doing the approved work.**
+When E2 widened T5's ownership, its frozen c10 still said "must not edit any existing file
+under `__tests__/`" — jointly unsatisfiable with the amendment. Rewritten before dispatch.

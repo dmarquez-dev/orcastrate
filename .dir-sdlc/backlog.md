@@ -1124,3 +1124,55 @@ merge. Full per-criterion verdicts and every finding's text are in that session'
   `NODE_PATH` and no scratch config, and `tsc --noEmit -p tsconfig.web.json` exited 0
   from inside the worktree — the check that was previously believed impossible there.
   Nine agents ran without one resolution failure between them. **Use this layout.**
+
+## 2026-08-27 — 2026-08-27-orcastrate-matriarch-pod-status
+
+Deferred at Gate 3 by explicit user decision. Both advisory; neither blocked the merge.
+Full per-criterion verdicts and every finding's text are in that session's
+`reviews/T1.md`–`T5.md`.
+
+- **One stale-prose defect in THREE places, and fixing any one alone leaves it
+  half-repaired.** All three name a symbol or a state that no longer exists:
+  `pods/PodTab.tsx:229` still says the `srOnly` sentence "opens with
+  `STATUS_LABEL[status]`", a symbol T2's extraction removed; `pods/PodTab.test.tsx:310`
+  still says "Duplicated from `PodTab`'s own `STATUS_LABEL` on purpose"; and
+  `__tests__/pod-stop.e2e.test.tsx:472` is still named "turns the Matriarch row from
+  Running to Stopped" when the row now reads `Idle` before the stop. Each was frozen
+  out of the task that would naturally have fixed it — the first two by T2's c2/c5
+  hunk-count and ownership limits, the third by T5's c16 prohibition on renaming any
+  `it`. **Every one was surfaced by the agent that hit it rather than silently
+  resolved**, and the reviewer ruled in both cases that deferring was correct: an
+  implementer relaxing a frozen criterion on purpose-reasoning is what makes frozen
+  criteria stop meaning anything. Suggested rename for the third:
+  `turns the Matriarch row from its live Pod word to Stopped and freezes its duration
+  across two advances of the clock`.
+
+- **`lanes/LaneRail.module.css:208` lacks `flex: none`** where `pods/PodBar.module.css:120`
+  has it. Confirmed **pre-existing** — `git show 2c778b7` shows the identical rule
+  untouched by this session — but the exposure changed: the Matriarch dot now sits
+  beside Pod words that are much longer than the lane vocabulary's (`Waiting on you`,
+  `Beached, process stopped` against `Running`/`Done`/`Stopped`), so a narrow rail can
+  squeeze it where it previously could not. Adding `flex: none` to the shared `.dot`
+  base would also change the lane branch, which is why T4 correctly declined it.
+
+### Not deferred — recorded because it changes what a future session should check
+
+- **A criterion can be vacuous in the direction nobody checks, and this session found
+  two.** T3's terminal-Matriarch case passes against an implementation with **no
+  `podStatus` field at all**, because `undefined ?? 'null'` renders `null` — exactly what
+  the case asserts. T5's repairs would have been vacuous for a different reason:
+  `POD_STATUS_LABEL.running` and `LANE_STATUS_LABEL.running` are **both the literal
+  string `'Running'`**, so a text-only assertion cannot say which vocabulary a row is
+  reporting and would read identically before and after the entire session's change —
+  measured, not argued, in T5's red-step diff where `railWord` is `"Running"` on both
+  sides. **Both were caught by the implementer and confirmed by a reviewer that
+  reconstructed them.** When a criterion's assertion could be satisfied by absence,
+  demand the mutation rather than the red run, and when two label maps can collide,
+  assert on the attribute as well as the word.
+
+- **An ownership-scoped diff cannot see a cross-task move, and a criterion's
+  enumeration can undercount.** T4's change broke three assertions in files no task
+  owned; the manifest named three and the real surface was four, with `pod-stop:523`
+  masked behind `:476` in the same test and only visible once the first was repaired.
+  Both were caught at Gate 3 and by a reviewer running rather than reading. Prefer
+  per-assertion criteria over per-line ones for this reason.

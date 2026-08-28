@@ -1,0 +1,133 @@
+{
+  "session": "2026-08-27-orcastrate-matriarch-pod-status",
+  "updatedAt": "2026-08-27T19:25:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-27-orcastrate-matriarch-pod-status",
+  "branch": "dir/2026-08-27-orcastrate-matriarch-pod-status",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a048aec4983442e5ba0d30cebe4def162bd11407",
+      "commit": "1d031f93e45dc95054dc396b0b31ffef50f8d6c9"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a048aec4983442e5ba0d30cebe4def162bd11407",
+      "commit": "2c778b7"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "1d031f93e45dc95054dc396b0b31ffef50f8d6c9",
+      "commit": "a7979527c93ad9c158da2754eabc9e77b6dc9586"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 1,
+      "startRef": "2c778b7",
+      "commit": "2bd2b58429674c8d0941869613f5d4988f7c8dad",
+      "note": "All 15 acceptance criteria met. Its one blocking finding — three tests broken in src/renderer/src/__tests__/, which T4 was forbidden to touch — was NOT resolved by a revision round and is not open: escalation E2 reassigned the repair to T5 with the user approving a manifest amendment. revisionRounds stays 0 because T4 had nothing of its own to redo. redispatches is 1, from a reviewer that died on an API session limit before reading anything."
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "2bd2b58429674c8d0941869613f5d4988f7c8dad",
+      "commit": "52a69cc5f7782b7c072d39fb1a361608c497e67a"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "What shape should LaneRowVm take to carry the Pod status? renderer-state.ts is a frozen contract and this session changes it.",
+      "reason": "external-contract",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "A distinct nullable field podStatus: PodStatus | null, on a data-pod-status attribute mutually exclusive with data-status.",
+          "rationale": "status: LaneStatus keeps its exact type; the two vocabularies never share an attribute, so no existing CSS rule and no existing querySelector(\"[data-status]\") needs an edit.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/lanes/LaneRail.module.css:256",
+              "src/renderer/src/lanes/LaneRail.test.tsx:479",
+              "src/renderer/src/lanes/stopped-lane.test.tsx:129",
+              "src/renderer/src/lanes/orphaned-lane.test.tsx:110"
+            ]
+          }
+        },
+        {
+          "summary": "Widen status to LaneStatus | PodStatus — one field, one attribute.",
+          "rationale": "Smaller interface, but both unions contain running and disagree about its meaning, so the selector would match a streaming Pod and a merely-unended lane alike. Disambiguating needs a second field anyway.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "A pre-resolved presentation field carrying vocabulary, value and label text.",
+          "rationale": "Leaves the row purely mechanical, but puts label TEXT into the view model, which no other field in renderer-state.ts does — a new pattern introduced by a bugfix.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Distinct nullable field: podStatus: PodStatus | null, rendered on a data-pod-status attribute mutually exclusive with data-status. The user chose it over widening status, on the evidence that both unions contain running and would collide in the existing CSS selector."
+    },
+    {
+      "id": "E2",
+      "taskId": "T4",
+      "question": "T4 breaks three passing tests in src/renderer/src/__tests__/ that no task owns. Who fixes them, and what do the replacements assert? manifest.json is frozen, so widening any ownership set needs sign-off.",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Widen T5 to own the two existing e2e files; update the three assertions to the Pod vocabulary keeping a positive pre-state anchor.",
+          "rationale": "T5 is already the joined rail-and-tab e2e task and already depends on T3 and T4, so the files belong to its concern. Keeping a positive anchor is required because pod-stop.e2e.test.tsx:473-474 exists so the test cannot confuse the fix working with the row never having said Running, and relaunch.e2e.test.tsx:501 not.toContain(Running) becomes trivially true for free.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/__tests__/pod-stop.e2e.test.tsx:473",
+              "src/renderer/src/__tests__/relaunch.e2e.test.tsx:501"
+            ]
+          }
+        },
+        {
+          "summary": "Add a new T6 owning only those two files, leaving T5 as decomposed.",
+          "rationale": "Keeps every frozen ownership set intact and makes the repair its own reviewable unit, at the cost of one more task and one more review cycle.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Assert the data attribute rather than the visible word at the three sites.",
+          "rationale": "More stable against future label changes and matches stopped-lane.test.tsx:129, but drops the user-visible-text check these e2e suites are built on.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/lanes/stopped-lane.test.tsx:129",
+              "src/renderer/src/lanes/orphaned-lane.test.tsx:110"
+            ]
+          }
+        }
+      ],
+      "answer": "Widen T5 to own pod-stop.e2e.test.tsx and relaunch.e2e.test.tsx, and repair the assertions in the Pod vocabulary while keeping a positive pre-state anchor rather than deleting the failing lines. Amendment authored by dir-architect, not hand-patched."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  }
+}
