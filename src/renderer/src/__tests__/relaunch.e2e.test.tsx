@@ -67,6 +67,10 @@ import { createPushes, PodManager, ROUTING_MODE } from '../../../../src/main/pod
 import { openEventStore } from '../../../../src/main/store';
 
 import { TEST_IDS } from '../contracts/renderer-view';
+// The Pod vocabulary. An OPEN Matriarch row reports its POD's status, so the
+// live word this file asserts on comes from the map the Pod tab uses rather
+// than being re-typed here.
+import { POD_STATUS_LABEL } from '../pods/pod-status';
 import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from '../pods/PodTab';
 import { testId } from '../shell/contract-runtime';
 import { stubOrcastrateApi, type StubOrcastrateApi } from '../test-utils';
@@ -498,7 +502,23 @@ describe('relaunching over a Pod the previous process left open', () => {
     });
     const railText = laneRow(relaunchedLaneId).textContent ?? '';
     expect(railText).toContain(FROZEN_DURATION);
-    expect(railText).not.toContain('Running');
+    /*
+     * AND IT SPEAKS THE LANE VOCABULARY. `not.toContain('Running')` used to
+     * stand here. Once an OPEN Matriarch reports its POD's status instead of
+     * its lane's, no row on this screen can say `Running` at all, so that
+     * negative held for nothing — and a negative that cannot fail is not a
+     * guard.
+     *
+     * The positive that replaces it names what the reconciled row ACTUALLY
+     * reads, on the attribute that carries it. It fails if the reconcile ever
+     * stops stamping `ended_at`: the lane would then be open, the row would be
+     * Pod-governed, and it would carry `data-pod-status="closed"` reading
+     * `Closed` with no `data-status` at all.
+     */
+    const reconciled = laneRow(relaunchedLaneId).querySelector('[data-status]');
+    expect(reconciled?.getAttribute('data-status')).toBe('orphaned');
+    expect(reconciled?.textContent).toContain('Orphaned');
+    expect(laneRow(relaunchedLaneId).querySelector('[data-pod-status]')).toBeNull();
     expect(railText).not.toContain(LIVE_DURATION);
 
     // SYMPTOM 2 — the composer is disabled with the sentence that names the way
@@ -551,12 +571,20 @@ describe('relaunching over a Pod the previous process left open', () => {
       expect(laneRow(relaunchedLaneId).textContent).toContain(FROZEN_DURATION);
     });
 
-    // The other Pod's Matriarch was revived by `openPod` and is genuinely
-    // running, so its row counts to NOW from the same `started_at`. Two
-    // different durations from one clock is what makes "frozen" falsifiable.
+    // The other Pod's Matriarch was revived by `openPod` and its lane is still
+    // OPEN, so its row counts to NOW from the same `started_at`. Two different
+    // durations from one clock is what makes "frozen" falsifiable.
+    //
+    // An open Matriarch reports its POD's status, so the live word here is
+    // `Idle` on `data-pod-status` — the state main holds between turns — and
+    // not a lane word. Asserted on the attribute as well as the word, because
+    // `POD_STATUS_LABEL.running` and `LANE_STATUS_LABEL.running` are the same
+    // literal and text alone cannot say which vocabulary a row is speaking.
     await selectPod(user, KEPT_ID, keptLaneId);
     const keptText = laneRow(keptLaneId).textContent ?? '';
-    expect(keptText).toContain('Running');
+    const keptStatus = laneRow(keptLaneId).querySelector('[data-pod-status]');
+    expect(keptStatus?.getAttribute('data-pod-status')).toBe('idle');
+    expect(keptStatus?.textContent).toContain(POD_STATUS_LABEL.idle);
     expect(keptText).toContain(LIVE_DURATION);
 
     // Moving the clock an hour on does not move the reconciled row, because

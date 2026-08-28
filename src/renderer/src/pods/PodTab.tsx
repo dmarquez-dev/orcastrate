@@ -1,10 +1,10 @@
 import { useEffect, useRef, type CSSProperties, type DragEvent, type JSX, type KeyboardEvent } from 'react';
 
-import type { PodStatus } from '@shared/contracts/events';
 import type { PodTabVm } from '../contracts/renderer-state';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken, testId } from '../shell/contract-runtime';
 import a11y from '../shell/a11y.module.css';
+import { POD_STATUS_LABEL } from './pod-status';
 import { runControlFor } from './run-control';
 import styles from './PodBar.module.css';
 
@@ -19,19 +19,6 @@ import styles from './PodBar.module.css';
 const PLAY = '▶';
 const PAUSE = '❚❚';
 const CROSS = '×';
-
-/** Status in words. Colour is never the only carrier of meaning. */
-const STATUS_LABEL: Readonly<Record<PodStatus, string>> = {
-  idle: 'Idle',
-  running: 'Running',
-  waiting: 'Waiting on you',
-  beached: 'Beached, process stopped',
-  // Literal, per design §2: a routine steady state is not themed. It reads
-  // correctly beside `Idle` — `Idle` is open and between turns, `Closed` is
-  // no process at all — and it is what makes the dot's colour a secondary
-  // signal rather than the message.
-  closed: 'Closed',
-};
 
 /**
  * The RUN mode of the run/stop control, suffixed with the PodId:
@@ -249,7 +236,7 @@ export function PodTab({
         */}
         <span className={styles.statusDot} data-status={status} style={dotStyle} />
         <span className={a11y.srOnly}>
-          {`${STATUS_LABEL[status]}.${opened ? '' : ' Not opened.'} Pod ${index + 1} of ${total}.`}
+          {`${POD_STATUS_LABEL[status]}.${opened ? '' : ' Not opened.'} Pod ${index + 1} of ${total}.`}
         </span>
         <span className={styles.title}>{pod.title}</span>
 

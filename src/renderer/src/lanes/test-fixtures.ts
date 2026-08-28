@@ -54,6 +54,13 @@ export function makeRow(lane: Lane, overrides: Partial<LaneRowVm> = {}): LaneRow
     agentType: lane.subagentType ?? 'matriarch',
     description: lane.description,
     status: lane.status,
+    // `null` is not "unknown": it means THIS ROW REPORTS ITS LANE STATUS
+    // (`contracts/lane-row-pod-status.ts` section 1), which is every row's
+    // behaviour today. Defaulting here — in the base literal, BEFORE the
+    // spread, so the concrete type is `PodStatus | null` and not the optional
+    // `?:` the overrides type surfaces — is what keeps every existing suite
+    // compiling and green unedited and makes the Pod branch opt-in per test.
+    podStatus: null,
     elapsedMs: 0,
     unreadEventCount: 0,
     awaitingPermission: false,

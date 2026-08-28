@@ -856,3 +856,155 @@ describe('openness is derived from status (renderer-lifecycle section 6)', () =>
     expect(api.calls.podOpen).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The Matriarch row reports the POD's status
+// (`contracts/lane-row-pod-status.ts` section 2)
+//
+// `PodStatus.running` is an ACTIVITY flag; `LaneStatus.running` is a LIFETIME
+// flag the database enforces with `CHECK ((status = 'running') = (ended_at IS
+// NULL))`. The Matriarch's lane is open for the Pod's whole life, so it reads
+// `running` throughout — which is why the row needs a SECOND field rather than
+// a widened `status`. Every probe below prints BOTH, so a derivation that
+// disturbed `status` while adding `podStatus` fails here.
+// ---------------------------------------------------------------------------
+
+/** Every row as `laneId/status/podStatus`, with `null` spelled out. */
+function PodStatusRowsProbe(): ReactNode {
+  const rail = useLaneRail();
+  return (
+    <div data-testid="pod-status">
+      {rail.value
+        .map((row) => [row.lane.id, row.status, row.podStatus ?? 'null'].join('/'))
+        .join(',')}
+    </div>
+  );
+}
+
+function podStatusText(): string {
+  return screen.getByTestId('pod-status').textContent ?? '';
+}
+
+/** The whole `PodStatus` union, so no value can be silently unhandled. */
+const POD_STATUSES: PodStatus[] = ['closed', 'idle', 'running', 'waiting', 'beached'];
+
+describe('the Pod governs the open Matriarch row (lane-row-pod-status section 2)', () => {
+  it('reports every one of the five PodStatus values on an OPEN Matriarch', async () => {
+    const api = podsApi([makeStubPod({ id: POD })]);
+    await act(async () => {
+      renderWithWorkspace(<PodStatusRowsProbe />, { api });
+    });
+    act(() => {
+      api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH] });
+    });
+
+    for (const status of POD_STATUSES) {
+      act(() => {
+        api.emit.podStatus(
+          status === 'beached'
+            ? { podId: POD, status, exitCode: 1 }
+            : { podId: POD, status },
+        );
+      });
+      // The lane's OWN status never moves off `running` — it has not ended —
+      // and that is exactly the collision the second field exists to break.
+      expect(podStatusText()).toBe(`lane-matriarch/running/${status}`);
+    }
+  });
+
+  it('leaves a TERMINAL Matriarch on its own lane status while the Pod runs', async () => {
+    // The rule the user settled explicitly at Gate 1, and the one most likely
+    // to be lost in a later refactor, so it gets its own case: a terminal lane
+    // state is a real fact with an `endedAt` behind it and is never overwritten
+    // by the Pod's status.
+    const api = podsApi([makeStubPod({ id: POD })]);
+    await act(async () => {
+      renderWithWorkspace(<PodStatusRowsProbe />, { api });
+    });
+    act(() => {
+      api.emit.podStatus({ podId: POD, status: 'running' });
+    });
+
+    for (const status of ['stopped', 'done', 'orphaned'] as const) {
+      act(() => {
+        api.emit.laneChanged({
+          podId: POD,
+          lanes: [
+            makeStubLane({
+              id: 'lane-matriarch',
+              podId: POD,
+              status,
+              endedAt: '2026-01-01T00:00:05.000Z',
+            }),
+          ],
+        });
+      });
+      expect(podStatusText()).toBe(`lane-matriarch/${status}/null`);
+    }
+  });
+
+  it('leaves EVERY Calf row on its own lane status while the Pod runs', async () => {
+    // A Calf is created when dispatched and ends when its subagent finishes,
+    // and a subagent never waits on user input, so a `running` Calf genuinely
+    // IS working. Asserted over all Calf rows, not over one.
+    const api = podsApi([makeStubPod({ id: POD })]);
+    const OPEN_CALF: Lane = makeStubLane({
+      id: 'lane-open-calf',
+      podId: POD,
+      kind: 'calf',
+      subagentType: 'explorer',
+      description: 'still going',
+      agentId: 'agent-8',
+      startedAt: '2026-01-01T00:00:01.000Z',
+      endedAt: null,
+      status: 'running',
+    });
+    await act(async () => {
+      renderWithWorkspace(<PodStatusRowsProbe />, { api });
+    });
+    act(() => {
+      // CALF is the ENDED one (`done`, non-null `endedAt`); OPEN_CALF is open.
+      api.emit.laneChanged({ podId: POD, lanes: [MATRIARCH, OPEN_CALF, CALF] });
+      api.emit.podStatus({ podId: POD, status: 'running' });
+    });
+
+    const rows = podStatusText().split(',');
+    expect(rows).toHaveLength(3);
+    // Not vacuous: the Matriarch in the same rail IS governed by the Pod.
+    expect(rows[0]).toBe('lane-matriarch/running/running');
+    const calfRows = rows.slice(1);
+    expect(calfRows).toHaveLength(2);
+    expect(new Set(calfRows)).toEqual(
+      new Set(['lane-a/done/null', 'lane-open-calf/running/null']),
+    );
+  });
+
+  it("falls back to 'closed' when state.pods has no row for the active Pod", async () => {
+    // The same fallback `deriveComposer` already takes: a Pod the state layer
+    // cannot find is not open. Named as its own case so the fallback is a
+    // decision on record rather than an accident of `??`.
+    const api = podsApi([makeStubPod({ id: POD })]);
+    let actions: Contract.WorkspaceActions | null = null;
+    function Probe(): ReactNode {
+      actions = useWorkspaceActions();
+      return <PodStatusRowsProbe />;
+    }
+    await act(async () => {
+      renderWithWorkspace(<Probe />, { api });
+    });
+    // 'ghost' has a runtime record but no Pod row, and `onPodStatus` ignores a
+    // push for a Pod it cannot find — so nothing can supply a status here.
+    await act(async () => {
+      actions?.setActivePod('ghost');
+    });
+    act(() => {
+      api.emit.laneChanged({
+        podId: 'ghost',
+        lanes: [makeStubLane({ id: 'lane-matriarch', podId: 'ghost' })],
+      });
+      api.emit.podStatus({ podId: 'ghost', status: 'running' });
+    });
+
+    expect(podStatusText()).toBe('lane-matriarch/running/closed');
+  });
+});

@@ -64,6 +64,10 @@ import { openEventStore } from '../../../../src/main/store';
 
 import { TEST_IDS, TRANSCRIPT_FILTER_TEST_IDS } from '../contracts/renderer-view';
 import { LANE_STATUS_LABEL } from '../lanes/lane-status';
+// The Pod vocabulary. An OPEN Matriarch row reports its POD's status, so the
+// words this file asserts before a stop come from the map the Pod tab uses
+// rather than being re-typed here.
+import { POD_STATUS_LABEL } from '../pods/pod-status';
 import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from '../pods/PodTab';
 import { testId } from '../shell/contract-runtime';
 import { PLUMBING_EVENT_TYPES } from '../transcript/transcript-filter';
@@ -470,10 +474,20 @@ describe('stopping a running Pod from its tab', () => {
     });
     expect(world.calls.podList).toBe(1);
 
-    // BEFORE THE STOP the row really does read Running. Without this the test
-    // could not tell "the fix works" from "the row never said Running".
+    // BEFORE THE STOP the row really does read a LIVE-Pod word — `Idle`, the
+    // status the real `PodManager` holds for an opened Pod between turns —
+    // carried on `data-pod-status`, the attribute an OPEN Matriarch now uses.
+    // Without this the test could not tell "the fix works" from "the row never
+    // said anything but Stopped".
+    //
+    // ASSERTED ON THE ATTRIBUTE AS WELL AS THE WORD, because the two status
+    // vocabularies collide: `POD_STATUS_LABEL.running` and
+    // `LANE_STATUS_LABEL.running` are both the literal `'Running'`, so a
+    // text-only assertion cannot say WHICH status a row is reporting.
     await waitFor(() => {
-      expect(laneRow(stoppedLaneId).textContent).toContain(LANE_STATUS_LABEL.running);
+      const live = laneRow(stoppedLaneId).querySelector('[data-pod-status]');
+      expect(live?.getAttribute('data-pod-status')).toBe('idle');
+      expect(live?.textContent).toContain(POD_STATUS_LABEL.idle);
     });
     expect(stopControl(stoppedPod)).not.toBeNull();
 
@@ -487,7 +501,16 @@ describe('stopping a running Pod from its tab', () => {
     await waitFor(() => {
       expect(laneRow(stoppedLaneId).textContent).toContain(LANE_STATUS_LABEL.stopped);
     });
-    expect(laneRow(stoppedLaneId).textContent).not.toContain(LANE_STATUS_LABEL.running);
+    // …and the row TURNED OVER into the lane vocabulary. `not.toContain(
+    // LANE_STATUS_LABEL.running)` used to stand here; once an open Matriarch
+    // reports the POD, no row on this screen can say `Running` and the negative
+    // held for nothing. The positive that replaces it fails if the sweep leaves
+    // `ended_at` NULL, because the row would then still be Pod-governed and
+    // would read `Closed` on `data-pod-status`.
+    const stoppedStatus = laneRow(stoppedLaneId).querySelector('[data-status]');
+    expect(stoppedStatus?.getAttribute('data-status')).toBe('stopped');
+    expect(stoppedStatus?.textContent).toContain(LANE_STATUS_LABEL.stopped);
+    expect(laneRow(stoppedLaneId).querySelector('[data-pod-status]')).toBeNull();
     expect(world.calls.podList).toBe(1);
     expect(world.calls.podClose).toEqual([stoppedPod]);
 
@@ -518,9 +541,13 @@ describe('stopping a running Pod from its tab', () => {
       },
       { timeout: 4000 },
     );
-    // And the still-running control still says Running, at the same moment the
-    // stopped one says Stopped — so neither word can be a constant.
-    expect(laneRow(keptLaneId).textContent).toContain(LANE_STATUS_LABEL.running);
+    // And the control Pod's Matriarch — still open, so still governed by its
+    // POD — reads `Idle` on `data-pod-status`, at the same moment the stopped
+    // one reads `Stopped` on `data-status`. Two different words, from two
+    // different attributes, in one render: neither can be a constant.
+    const keptStatus = laneRow(keptLaneId).querySelector('[data-pod-status]');
+    expect(keptStatus?.getAttribute('data-pod-status')).toBe('idle');
+    expect(keptStatus?.textContent).toContain(POD_STATUS_LABEL.idle);
 
     await selectPod(user, stoppedPod, stoppedLaneId);
     expect(elapsedText(stoppedLaneId)).toBe(frozen);
@@ -780,8 +807,13 @@ describe('the stop notice in the default transcript', () => {
     expect(persistedEvents(world, keptPod).filter((e) => e.type === 'lane_closed')).toEqual([]);
     await selectPod(user, keptPod, keptLaneId);
     const keptPrimary = await primaryTranscript();
+    // Its Matriarch is still open, so it is still governed by its POD and reads
+    // `Idle` on `data-pod-status` — a live word, not a terminal one, which is
+    // what says this Pod's lanes were not swept.
     await waitFor(() => {
-      expect(laneRow(keptLaneId).textContent).toContain(LANE_STATUS_LABEL.running);
+      const untouched = laneRow(keptLaneId).querySelector('[data-pod-status]');
+      expect(untouched?.getAttribute('data-pod-status')).toBe('idle');
+      expect(untouched?.textContent).toContain(POD_STATUS_LABEL.idle);
     });
     expect(laneClosedRows(keptPrimary)).toEqual([]);
 
