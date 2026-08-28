@@ -271,3 +271,27 @@ not the three the manifest named — `:523` was masked behind `:476`.
 **The architect caught a criterion that would have failed T5 for doing the approved work.**
 When E2 widened T5's ownership, its frozen c10 still said "must not edit any existing file
 under `__tests__/`" — jointly unsatisfiable with the amendment. Rewritten before dispatch.
+
+## 2026-08-27 — fifth hand-run (no session), post-merge
+
+The Matriarch-Pod-status change was driven against a real Electron window immediately
+after `2e5c310` merged. **Behaviour was clean and every enumerated scenario passed.**
+
+- The Matriarch row's dot **rests between turns**: pulsing blue while a turn streams, a
+  grey hollow ring reading `Idle` once it ends. This is the defect the fourth hand-run
+  reported, and it is fixed.
+- **The rail and the Pod tab agree.** The icons matched between the Matriarch lane row
+  and the Pod tab across the scenarios driven — which is the session's whole claim, and
+  the one that only a joined render could have shown.
+- **Calf lanes were unaffected**, showing their own `Running` / `Done` lane statuses
+  beside a Matriarch reporting the Pod. The deliberate decision to leave Calves on the
+  lane vocabulary reads correctly in practice: a running Calf genuinely is working.
+- No finding of any kind. **Nothing in this hand-run became backlog**, which is the first
+  time that has happened in this project — the previous four each produced the next
+  session's work.
+
+Worth recording for the rhythm's sake: the defect this session fixed was **found by a
+hand-run and confirmed fixed by a hand-run**, with the diagnosis done by reading the code
+before any session opened. The `PodStatus`/`LaneStatus` split was established from
+`pod-runner.ts:426`, `:272` and the schema `CHECK` at `schema.ts:355` — not guessed — and
+that diagnosis was handed to every agent at dispatch so none re-derived it.
