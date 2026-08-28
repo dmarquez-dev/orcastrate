@@ -257,6 +257,75 @@
   animation: ocStatusPulse 1.4s ease-in-out infinite;
 }
 
+/*
+ * THE MATRIARCH ROW REPORTS THE POD (`contracts/lane-row-pod-status.ts`
+ * section 3). A row whose `podStatus` is non-null carries `data-pod-status`
+ * INSTEAD OF `data-status`, never both, so the two vocabularies can never
+ * cascade onto one dot — they collide on the literal `running`, which is the
+ * one word where a Pod's ACTIVITY flag and a lane's LIFETIME flag disagree.
+ *
+ * The hue is REUSED, not duplicated: it arrives as `--pod-status-color`, set
+ * inline on the span from `statusToken(podStatus)`, which resolves to the same
+ * `--oc-status-*` token the Pod tab paints with. Naming a status token here
+ * would be a second source of truth for one colour.
+ *
+ * The five SHAPES below are `PodBar.module.css`'s, value for value, because
+ * colour is never the only carrier of meaning and the same state must read the
+ * same way on both surfaces.
+ */
+.status[data-pod-status] .dot {
+  border: 1px solid var(--pod-status-color);
+  background: var(--pod-status-color);
+}
+
+/*
+ * running — the POD IS STREAMING. This is the condition the row was missing:
+ * `data-status='running'` above only means the lane has not ended, so the
+ * Matriarch's dot pulsed for the Pod's whole life. Here it rests between turns.
+ *
+ * The `@keyframes` referenced is the one THIS FILE already declares, below. No
+ * second one is added: Vite hashes an animation name used inside a
+ * `*.module.css` even when no local keyframe of that name exists, so a
+ * cross-file reference silently never runs.
+ *
+ * `waiting` deliberately does NOT animate: it means the Pod is blocked on the
+ * USER, it already carries the busiest shape in the set, and animating there
+ * would tell the user to wait for a machine that is waiting for them. The base
+ * rule above declares no `animation`, so a non-running dot inherits no motion
+ * it would have to cancel.
+ */
+.status[data-pod-status='running'] .dot {
+  animation: ocStatusPulse 1.4s ease-in-out infinite;
+}
+
+/* idle — a hollow ring, and a THICK one: at `--oc-space-2` across, a hairline
+   ring reads as a smudge rather than as a shape. */
+.status[data-pod-status='idle'] .dot {
+  border-width: var(--oc-border-thick);
+  background: transparent;
+}
+
+/* waiting — filled with a halo, the busiest shape for the state that needs a
+   human. */
+.status[data-pod-status='waiting'] .dot {
+  box-shadow: 0 0 0 2px var(--oc-bg-panel), 0 0 0 3px var(--pod-status-color);
+}
+
+/* beached — a square, unmistakable against every round state. */
+.status[data-pod-status='beached'] .dot {
+  border-radius: 0;
+}
+
+/* closed — a flat bar. Without a rule here a closed Pod's dot falls through to
+   the base rule and reads as a filled circle, i.e. as running. The bar is the
+   quietest shape in the set and shares nothing with `idle`'s hollow ring, so
+   the two stay apart in greyscale as well as in hue. */
+.status[data-pod-status='closed'] .dot {
+  height: var(--oc-border-thick);
+  align-self: center;
+  border-radius: 0;
+}
+
 @keyframes ocStatusPulse {
   0%,
   100% {
@@ -276,6 +345,10 @@
  */
 @media (prefers-reduced-motion: reduce) {
   .status[data-status='running'] .dot {
+    animation: none;
+  }
+
+  .status[data-pod-status='running'] .dot {
     animation: none;
   }
 }

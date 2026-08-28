@@ -1,10 +1,12 @@
 import { memo } from 'react';
+import type { CSSProperties } from 'react';
 
 import type { LaneId } from '@shared/contracts/events';
 
 import type { LaneRowVm } from '../contracts/renderer-state';
 import { TEST_IDS } from '../contracts/renderer-view';
-import { testId } from '../shell/contract-runtime';
+import { POD_STATUS_LABEL } from '../pods/pod-status';
+import { statusToken, testId } from '../shell/contract-runtime';
 import { formatElapsed } from './format-elapsed';
 import { LANE_STATUS_LABEL } from './lane-status';
 import styles from './LaneRail.module.css';
@@ -121,11 +123,40 @@ function LaneRowImpl({ row, onSelect, onSteer }: LaneRowProps) {
            * component still takes data and nothing else. The dot stays
            * `aria-hidden` and textless — the word beside it is what carries the
            * status; hue is the second carrier and the pulse the third.
+           *
+           * WHICH VOCABULARY (`contracts/lane-row-pod-status.ts` section 3).
+           * ONE span, carrying EXACTLY ONE of two attributes — never both,
+           * never neither. The Matriarch's lane is `running` for the Pod's
+           * whole life, because `LaneStatus.running` is a LIFETIME flag the
+           * schema enforces, so a row keyed off it pulsed forever. When the
+           * state layer hands down a `podStatus`, the row reports THAT — the
+           * Pod's `running` is an ACTIVITY flag that clears at turn end.
+           *
+           * The attributes stay mutually exclusive because the two unions
+           * collide on the literal `running`, the one word where they
+           * disagree. `[data-status]` therefore still selects exactly one
+           * element per row and still holds only `LaneStatus` values, so every
+           * existing query and every existing hue rule keeps working unedited.
            */}
-          <span className={styles.status} data-status={row.status}>
-            <span className={styles.dot} aria-hidden="true" />
-            {LANE_STATUS_LABEL[row.status]}
-          </span>
+          {row.podStatus === null ? (
+            <span className={styles.status} data-status={row.status}>
+              <span className={styles.dot} aria-hidden="true" />
+              {LANE_STATUS_LABEL[row.status]}
+            </span>
+          ) : (
+            <span
+              className={styles.status}
+              data-pod-status={row.podStatus}
+              // The hue is REUSED, not duplicated: the same inline custom
+              // property the Pod tab already sets, resolving to the same
+              // `--oc-status-*` token. No token is recoloured and no new one
+              // is introduced.
+              style={{ '--pod-status-color': `var(${statusToken(row.podStatus)})` } as CSSProperties}
+            >
+              <span className={styles.dot} aria-hidden="true" />
+              {POD_STATUS_LABEL[row.podStatus]}
+            </span>
+          )}
           <span>
             <span className={styles.srOnly}>Elapsed </span>
             {formatElapsed(row.elapsedMs)}
