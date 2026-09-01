@@ -109,8 +109,16 @@ export const COPY = {
   conflictLead: 'The file changed since Helm loaded it, so nothing was written to',
   /** Unreachable today — a conflict always has a scope — but a whole sentence. */
   conflictUnnamedFile: 'the settings file that was open',
+  /**
+   * AMENDED by session 2026-08-31-orcastrate-helm-draft-safety. The old
+   * sentence pointed at Reload alone — the one action documented as discarding
+   * the draft — so a user following the banner's own advice lost the edits the
+   * banner had just told them were safe. It now names the comparison first and
+   * keeps Reload as the explicit discard-my-edit path, which is exactly the
+   * split the amended `HELM_CONFLICT_CODE` docblock describes.
+   */
   conflictAdvice:
-    'Your edits are still here and still editable. Reload from disk to take the current contents, then make the change again — a second save is the override, and you make it after seeing what you would replace.',
+    'Your edits are still here and still editable. Compare with the file on disk to see the current contents beside them — comparing fetches, it never discards. Reload from disk does take the current contents, and drops your edits to do it. Either way, a second save is the override, and you make it after seeing what you would replace.',
   staleHeading: 'This file changed on disk',
   staleBody:
     'Something else wrote to this file after Helm loaded it. Saving still re-reads and compares first, so this is a heads-up, not a block. Reload from disk to see the current contents.',
@@ -123,4 +131,45 @@ export const COPY = {
   issuesHeading: 'Other problems',
   severityError: 'Error',
   severityWarning: 'Warning',
+
+  // --- the comparison (session 2026-08-31-orcastrate-helm-draft-safety) ----
+
+  compare: 'Compare with the file on disk',
+  comparing: 'Comparing…',
+  comparisonHeading: 'The file on disk, beside your edit',
+  /**
+   * The two column headings. They are DIFFERENT WORDS from anything else on
+   * the panel on purpose: "Saved"/"Draft" would collide with the save banner
+   * and with the word the close confirmation uses, and a `getByText` that
+   * matched two places is a test that cannot say which one it read.
+   */
+  comparisonDiskColumn: 'On disk now',
+  comparisonDraftColumn: 'Your edit',
+  comparisonFieldColumn: 'Setting',
+  comparisonLoading: 'Reading the current contents…',
+  comparisonEmpty:
+    'No comparison yet. Compare with the file on disk to fetch its current contents beside your edit — nothing you have typed is touched.',
+  /** A field the file does not set at all, as against one it sets to nothing. */
+  comparisonAbsent: 'Not set',
+  comparisonEmptyList: 'None',
+  comparisonSame: 'Unchanged',
+  comparisonDiffers: 'Differs',
+
+  // --- the close confirmation ---------------------------------------------
+
+  closeConfirmHeading: 'You have unsaved changes',
+  closeConfirmBody:
+    'Closing Helm now throws away every edit you have not saved. Nothing has been written to the settings file.',
+  closeConfirmKeep: 'Keep editing',
+  closeConfirmDiscard: 'Discard changes and close',
 } as const;
+
+/** The label beside each row of the comparison, in the order the form uses. */
+export const COMPARISON_FIELD_LABELS: Readonly<Record<string, string>> = {
+  model: 'Model',
+  permissionsAllow: 'Permissions to allow',
+  permissionsDeny: 'Permissions to deny',
+  env: 'Environment variables',
+  crossSessionInbound: 'Messages from another session',
+  hooksJson: 'Hooks, as JSON',
+};

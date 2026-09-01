@@ -25,6 +25,9 @@ import type { CrossSessionInbound } from '@shared/contracts/helm';
 import type { HelmView } from '../contracts/renderer-panels';
 import { CROSS_SESSION_HOLD_CAVEAT, PANEL_TEST_IDS } from '../contracts/renderer-panels';
 
+import { COMPARISON_FIELDS } from './comparison';
+import { HELM_SAFETY_TEST_IDS, comparisonCellId } from './test-ids';
+
 /**
  * What a property can ask for. `view` is merged over a ready fixture; the
  * other two reach into the DOCUMENT, which the caller then reseeds the draft
@@ -36,7 +39,30 @@ export interface MountOptions {
   parseError?: string;
   /** Sets `managed.crossSessionInbound` on both document and draft. */
   crossSessionInbound?: CrossSessionInbound | null;
+  /**
+   * Sets `view.incoming` to the ready document with THIS model and nothing
+   * else changed. Left out, `incoming` stays null. A property asks for it
+   * rather than assembling a document, for the same reason `parseError` is a
+   * string here: how a fixture is built is the caller's business.
+   */
+  incomingModel?: string;
+  /**
+   * Presses the compare affordance after mounting and lets the panel settle,
+   * so the property sees the panel in the state a user reaches by ASKING for a
+   * comparison. The caller does the pressing because it is the one holding a
+   * test library; nothing in this module dispatches an event.
+   */
+  requestComparison?: boolean;
 }
+
+/** The model a property plants in `incoming`, so the disk column is nameable. */
+export const DISK_MODEL = 'claude-model-read-from-disk';
+
+/** The message a failed comparison carries, verbatim, in the property below. */
+export const COMPARE_FAILURE = 'EACCES: permission denied';
+
+/** A conflict message, so the banner that carries the affordance is on screen. */
+export const CONFLICT_MESSAGE = 'The settings file changed on disk. Nothing was written.';
 
 /** Renders the panel under test and returns the container it went into. */
 export type Mount = (options: MountOptions) => HTMLElement;
@@ -250,6 +276,158 @@ export const PANEL_PROPERTIES: readonly PanelProperty[] = [
         .map((control) => `unnamed: ${control.outerHTML.slice(0, 120)}`);
     },
   },
+
+  // -------------------------------------------------------------------------
+  // Session 2026-08-31-orcastrate-helm-draft-safety
+  // -------------------------------------------------------------------------
+
+  {
+    /**
+     * The conflict banner used to point at Reload and nothing else — the one
+     * action documented as discarding the draft. A user following the banner's
+     * own advice lost the edits the banner had just called safe. This is that
+     * defect, written as a property.
+     */
+    name: 'a conflict offers a way to look without discarding, and only a conflict does',
+    failures(mount) {
+      const out: string[] = [];
+      const root = mount({
+        view: { conflict: CONFLICT_MESSAGE, actionError: CONFLICT_MESSAGE, dirty: true },
+      });
+
+      const offered = [
+        ...root.querySelectorAll<HTMLElement>(
+          `[data-testid="${HELM_SAFETY_TEST_IDS.compare}"]`,
+        ),
+      ];
+      if (offered.length !== 1) {
+        out.push(`the comparison is offered ${String(offered.length)} times, not once`);
+      }
+
+      const button = offered[0];
+      if (button !== undefined) {
+        const banner = byTestId(root, PANEL_TEST_IDS.helmConflict);
+        if (banner === null) out.push('no conflict banner to carry the affordance');
+        else if (!banner.contains(button)) out.push('the affordance is not on the conflict banner');
+        if (button.tagName !== 'BUTTON') out.push('the affordance is not a button');
+        if (button instanceof HTMLButtonElement && button.disabled) {
+          out.push('the affordance is offered but dead');
+        }
+        if (!hasAccessibleName(root, button)) out.push('the affordance has no accessible name');
+      }
+
+      // The other direction. Without it a panel that offered the comparison
+      // unconditionally would satisfy the half above and say nothing about the
+      // case the amended docblock is actually written for.
+      const calm = mount({});
+      const uncalled = calm.querySelectorAll(
+        `[data-testid="${HELM_SAFETY_TEST_IDS.compare}"]`,
+      ).length;
+      if (uncalled !== 0) out.push(`the comparison is offered ${String(uncalled)} times with no conflict`);
+      return out;
+    },
+  },
+
+  {
+    /**
+     * The side-by-side `helm.ts` has promised since it froze: the file's
+     * current contents BESIDE the pending edit, not instead of it. The draft
+     * half is read out of the model input rather than out of a fixture, so the
+     * property is comparing what is on screen with what is on screen.
+     */
+    name: 'the comparison puts the file on disk beside the pending edit, field by field',
+    failures(mount) {
+      const out: string[] = [];
+      const root = mount({ incomingModel: DISK_MODEL });
+
+      if (byTestId(root, HELM_SAFETY_TEST_IDS.comparisonTable) === null) {
+        return ['no side-by-side was rendered for a fetched document'];
+      }
+
+      for (const field of COMPARISON_FIELDS) {
+        const disk = byTestId(root, comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDisk, field));
+        const edit = byTestId(root, comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDraft, field));
+        if (disk === null) out.push(`no on-disk value for ${field}`);
+        if (edit === null) out.push(`no pending-edit value for ${field}`);
+      }
+
+      const diskModel = byTestId(
+        root,
+        comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDisk, 'model'),
+      );
+      const editModel = byTestId(
+        root,
+        comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDraft, 'model'),
+      );
+      const typed = (byTestId(root, PANEL_TEST_IDS.helmModel) as HTMLInputElement | null)?.value;
+
+      if (diskModel !== null && !(diskModel.textContent ?? '').includes(DISK_MODEL)) {
+        out.push('the on-disk column does not carry what was read from disk');
+      }
+      if (typed === undefined || typed === '') out.push('the draft has no model to be compared');
+      else if (editModel !== null && !(editModel.textContent ?? '').includes(typed)) {
+        out.push('the pending-edit column does not carry what the form holds');
+      } else if (typed === DISK_MODEL) {
+        out.push('the fixture cannot tell the two columns apart');
+      }
+
+      // And no side-by-side when nothing has been fetched, or "beside" would
+      // be satisfied by a table that is always there showing the draft twice.
+      if (byTestId(mount({}), HELM_SAFETY_TEST_IDS.comparisonTable) !== null) {
+        out.push('a side-by-side was rendered with nothing to compare against');
+      }
+      return out;
+    },
+  },
+
+  {
+    /**
+     * The frontend discipline: "a component that renders only the success path
+     * is unfinished". All four states, each exclusive of the others.
+     */
+    name: 'the comparison declares loading, error and empty states, not just the table',
+    failures(mount) {
+      const out: string[] = [];
+
+      const shown = (root: HTMLElement): string[] =>
+        [
+          HELM_SAFETY_TEST_IDS.comparisonLoading,
+          HELM_SAFETY_TEST_IDS.comparisonError,
+          HELM_SAFETY_TEST_IDS.comparisonEmpty,
+          HELM_SAFETY_TEST_IDS.comparisonTable,
+        ].filter((id) => byTestId(root, id) !== null);
+
+      const loading = shown(mount({ view: { comparing: true } }));
+      if (loading.join() !== HELM_SAFETY_TEST_IDS.comparisonLoading) {
+        out.push(`an in-flight comparison showed ${JSON.stringify(loading)}`);
+      }
+
+      const empty = shown(mount({}));
+      if (empty.join() !== HELM_SAFETY_TEST_IDS.comparisonEmpty) {
+        out.push(`an unasked comparison showed ${JSON.stringify(empty)}`);
+      }
+
+      const errored = mount({
+        requestComparison: true,
+        view: { conflict: CONFLICT_MESSAGE, actionError: COMPARE_FAILURE, dirty: true },
+      });
+      const failure = shown(errored);
+      if (failure.join() !== HELM_SAFETY_TEST_IDS.comparisonError) {
+        out.push(`a failed comparison showed ${JSON.stringify(failure)}`);
+      } else {
+        const text = byTestId(errored, HELM_SAFETY_TEST_IDS.comparisonError)?.textContent ?? '';
+        if (!text.includes(COMPARE_FAILURE)) {
+          out.push('the failure was reworded instead of printed verbatim');
+        }
+      }
+
+      const ready = shown(mount({ incomingModel: DISK_MODEL }));
+      if (ready.join() !== HELM_SAFETY_TEST_IDS.comparisonTable) {
+        out.push(`a fetched comparison showed ${JSON.stringify(ready)}`);
+      }
+      return out;
+    },
+  },
 ];
 
 /**
@@ -281,3 +459,134 @@ export function hasAccessibleName(root: HTMLElement, control: HTMLElement): bool
   if (control.tagName === 'BUTTON') return (control.textContent ?? '').trim() !== '';
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// The close confirmation (session 2026-08-31-orcastrate-helm-draft-safety)
+// ---------------------------------------------------------------------------
+
+/**
+ * WHY THESE ARE A SECOND FAMILY rather than more `PANEL_PROPERTIES`.
+ *
+ * A `PanelProperty` is handed a `mount` it can call as often as it likes,
+ * synchronously. The confirmation cannot be reached that way: it exists only
+ * once the shell has ASKED to close, the asking is a promise, and whether a
+ * clean draft was let through is only knowable after that promise settles. So
+ * the caller does the asking and the awaiting, and hands both settled scenes
+ * in.
+ *
+ * Everything else is the same bargain as above: no test library is imported
+ * here, the properties are plain functions over DOM nodes, and every one of
+ * them is run against a deliberately broken scene in `discrimination.test.tsx`
+ * and has to notice.
+ */
+
+export interface ConfirmScene {
+  /** The container the panel and its guard rendered into. */
+  root: HTMLElement;
+  /** The control that asked to close, and that held focus when it did. */
+  opener: HTMLElement;
+  /** What the guard resolved, or `null` while it has not answered. */
+  outcome: boolean | null;
+  /**
+   * `document.activeElement` AT THE MOMENT THIS SCENE WAS CAPTURED, not read
+   * live. Two scenes share one document and a document has one focus, so the
+   * second one mounted would otherwise appear to have stolen focus from the
+   * first. The caller records this after applying any injected defect, which
+   * is what lets a defect move focus and be noticed.
+   */
+  focused: Element | null;
+}
+
+export interface ConfirmScenes {
+  /** A CLEAN draft was asked about, and the request has settled. */
+  clean: ConfirmScene;
+  /** A DIRTY draft was asked about, and nothing has been answered yet. */
+  dirty: ConfirmScene;
+}
+
+export interface ConfirmProperty {
+  name: string;
+  failures(scenes: ConfirmScenes): string[];
+}
+
+function confirmDialog(scene: ConfirmScene): HTMLElement | null {
+  return byTestId(scene.root, HELM_SAFETY_TEST_IDS.closeConfirm);
+}
+
+export const CLOSE_CONFIRM_PROPERTIES: readonly ConfirmProperty[] = [
+  {
+    /**
+     * BOTH HALVES MATTER. A panel that always confirmed would satisfy "a dirty
+     * draft is protected" and would make every clean close a dialog to
+     * dismiss; a panel that never confirmed would satisfy "a clean panel is
+     * unchanged" and would be the bug this session exists to fix.
+     */
+    name: 'a clean panel closes as it always did, and a dirty one asks first',
+    failures({ clean, dirty }) {
+      const out: string[] = [];
+
+      if (confirmDialog(clean) !== null) out.push('a clean panel raised a confirmation');
+      if (clean.outcome !== true) {
+        out.push(`a clean panel answered ${JSON.stringify(clean.outcome)} instead of letting go`);
+      }
+
+      if (confirmDialog(dirty) === null) out.push('a dirty panel was closed with no confirmation');
+      if (dirty.outcome !== null) {
+        out.push(`a dirty panel answered ${JSON.stringify(dirty.outcome)} before the user did`);
+      }
+      return out;
+    },
+  },
+
+  {
+    name: 'the confirmation names itself and offers both ways out, each operable by keyboard',
+    failures({ dirty }) {
+      const dialog = confirmDialog(dirty);
+      if (dialog === null) return ['no confirmation to inspect'];
+
+      const out: string[] = [];
+      if (dialog.getAttribute('role') !== 'dialog') out.push('the confirmation is not a dialog');
+      if (!hasAccessibleName(dirty.root, dialog)) out.push('the confirmation has no accessible name');
+
+      for (const id of [
+        HELM_SAFETY_TEST_IDS.closeConfirmKeep,
+        HELM_SAFETY_TEST_IDS.closeConfirmDiscard,
+      ]) {
+        const control = byTestId(dirty.root, id);
+        if (control === null) {
+          out.push(`no ${id}`);
+          continue;
+        }
+        // A real button needs no key handling of its own to be operable, and
+        // cannot be skipped by Tab unless someone takes it out of the order.
+        if (control.tagName !== 'BUTTON') out.push(`${id} is not a button`);
+        if (control instanceof HTMLButtonElement && control.disabled) out.push(`${id} is dead`);
+        if (control.tabIndex < 0) out.push(`${id} is out of the tab order`);
+        if (!hasAccessibleName(dirty.root, control)) out.push(`${id} has no accessible name`);
+      }
+      return out;
+    },
+  },
+
+  {
+    name: 'focus moves into the confirmation when it opens, and stays put when none opens',
+    failures({ clean, dirty }) {
+      const out: string[] = [];
+
+      const dialog = confirmDialog(dirty);
+      if (dialog === null) return ['no confirmation to move focus into'];
+      const landed = dirty.focused;
+      if (!(landed instanceof HTMLElement) || !dialog.contains(landed)) {
+        out.push('focus never entered the confirmation');
+      }
+
+      // The other direction: a close with nothing to confirm must not move
+      // focus anywhere, or "focus moved" would be satisfied by a panel that
+      // throws focus around on every close.
+      if (clean.focused !== clean.opener) {
+        out.push('a clean close moved focus off the control that asked');
+      }
+      return out;
+    },
+  },
+];

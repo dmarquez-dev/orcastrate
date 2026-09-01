@@ -1296,10 +1296,16 @@ describe('the Helm panel says what went wrong and keeps what the user typed', ()
     const error = screen.getByTestId(PANEL_TEST_IDS.helmError);
     expect(within(error).getByText('EACCES: permission denied, open')).toBeDefined();
 
-    // THERE IS NO DRAFT TO KEEP: `panel-store.ts` clears `document` and `draft`
-    // on a failed load, deliberately, so the form can never show one scope's
-    // values under another scope's name. What must survive is the way out —
-    // the picker stays live, and a retry is one change of the select away.
+    // THERE IS NO DRAFT TO KEEP *HERE*, AND THE REASON IS THE SCOPE CHANGE,
+    // NOT THE FAILURE. Since session 2026-08-31-orcastrate-helm-draft-safety
+    // `panel-store.ts` splits the failed-load branch in two: a load that was
+    // CHANGING SCOPE clears `document` and `draft` — which is this call, `null`
+    // to `user` — so the form can never show one scope's values under another
+    // scope's name; a load of the SAME scope KEEPS BOTH, because a failed read
+    // wrote nothing for the draft to be stale against. The second half of this
+    // test exercises that other branch. What must survive either way is the way
+    // out — the picker stays live, and a retry is one change of the select
+    // away.
     expect(screen.getByTestId(PANEL_TEST_IDS.helmPanel)).toBeDefined();
     expect((screen.getByTestId(PANEL_TEST_IDS.helmScopeSelect) as HTMLSelectElement).disabled).toBe(
       false,
@@ -1307,6 +1313,25 @@ describe('the Helm panel says what went wrong and keeps what the user typed', ()
     api.clearInvokeFailure('helmLoad');
     await chooseScope(user, 'project:pod-1');
     expect(screen.getByTestId(PANEL_TEST_IDS.helmModel)).toBeDefined();
+
+    // THE SAME-SCOPE HALF. A `reload()` requests the scope already selected, so
+    // a failure on it retains the draft. Typed first, so there is something to
+    // lose: an assertion made against a freshly seeded draft would pass whether
+    // the branch retained or re-seeded, and would test nothing.
+    const model = screen.getByTestId(PANEL_TEST_IDS.helmModel) as HTMLInputElement;
+    await user.clear(model);
+    await user.type(model, 'claude-opus-4-9');
+    await flushPendingWork();
+
+    api.failInvoke('helmLoad', ipcError('IO', 'EIO: i/o error, read'));
+    await user.click(screen.getByTestId(PANEL_TEST_IDS.helmReload));
+    await flushPendingWork();
+
+    const retryError = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    expect(within(retryError).getByText('EIO: i/o error, read')).toBeDefined();
+    expect((screen.getByTestId(PANEL_TEST_IDS.helmModel) as HTMLInputElement).value).toBe(
+      'claude-opus-4-9',
+    );
   });
 
   it('shows the helm.save failure at helmError without losing a single typed character', async () => {

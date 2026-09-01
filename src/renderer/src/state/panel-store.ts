@@ -116,6 +116,16 @@ export interface HelmPanelState {
   conflict: string | null;
   lastSave: HelmSaveResult | null;
   actionError: string | null;
+  /**
+   * The freshest on-disk document, fetched by `compare()` and NEVER seeded into
+   * `draft`. One writer: this store. Cleared by exactly four events — entering
+   * `loadDocument` (which is `selectScope` and `reload` both), `discard`, and a
+   * SUCCESSFUL `save`. A FAILED save leaves it alone: a conflict is the case
+   * the comparison exists for.
+   */
+  incoming: HelmDocument | null;
+  /** True while a `compare()` is in flight. Mirrors `loadingDocument`. */
+  comparing: boolean;
 }
 
 export interface PanelState {
@@ -151,6 +161,8 @@ function newHelmState(error: IpcError | null): HelmPanelState {
     conflict: null,
     lastSave: null,
     actionError: error === null ? null : error.message,
+    incoming: null,
+    comparing: false,
   };
 }
 
@@ -557,6 +569,14 @@ export class PanelStateStore {
     const api = this.api;
     if (api === null) return this.failClosed<HelmDocument>();
 
+    // CAPTURED BEFORE THE PRE-AWAIT PATCH. That patch overwrites
+    // `selectedScopeId` with `scopeId`, so a comparison made in the failure
+    // branch below against `state.helm.selectedScopeId` would report "same
+    // scope" every single time — including across a real scope change, where
+    // retaining the draft would show scope A's typed values under scope B's
+    // name.
+    const previousScopeId = this.state.helm.selectedScopeId;
+
     this.patchHelm((current) => ({
       ...current,
       selectedScopeId: scopeId,
@@ -564,16 +584,23 @@ export class PanelStateStore {
       // A fresh load answers the stale banner and the conflict banner both.
       stale: false,
       conflict: null,
+      // Both entry points into this method — `selectScope` and `reload` — are
+      // clearing events for the comparison, success or failure alike.
+      incoming: null,
       actionError: null,
     }));
 
     const result = await safeInvoke(() => api.helm.load(scopeId));
     if (!result.ok) {
+      // SAME SCOPE (`reload`, or re-selecting the current scope): the read
+      // wrote nothing, so the draft is not stale against anything and BOTH
+      // `document` and `draft` are retained. A SCOPE CHANGE still clears both.
+      const retainDraft = previousScopeId === scopeId;
       this.patchHelm((current) => ({
         ...current,
         loadingDocument: false,
-        document: null,
-        draft: null,
+        document: retainDraft ? current.document : null,
+        draft: retainDraft ? current.draft : null,
         actionError: result.error.message,
       }));
       return result;
@@ -605,6 +632,43 @@ export class PanelStateStore {
       },
 
       /**
+       * Re-reads the selected scope WITHOUT touching `document` or `draft` on
+       * any path. The result lands in `incoming`, the "current contents" half
+       * of the side-by-side; `draft` is the "pending edit" half.
+       *
+       * NOT de-duplicated and takes no in-flight lock beyond `comparing`: last
+       * write wins. Unlike `refreshScopes`, no mount effect reaches this — it
+       * is called only from an explicit user action.
+       */
+      async compare(): Promise<ActionResult<HelmDocument>> {
+        const api = store.api;
+        if (api === null) return store.failClosed<HelmDocument>();
+        const scopeId = store.state.helm.selectedScopeId;
+        if (scopeId === null) return store.reportHelmRefusal<HelmDocument>(NO_SCOPE_MESSAGE);
+
+        store.patchHelm((current) => ({ ...current, comparing: true, actionError: null }));
+        const result = await safeInvoke(() => api.helm.load(scopeId));
+        if (!result.ok) {
+          // `incoming` is NOT left holding an earlier read: a comparison
+          // against contents no longer known to be current is worse than none.
+          store.patchHelm((current) => ({
+            ...current,
+            comparing: false,
+            incoming: null,
+            actionError: result.error.message,
+          }));
+          return result;
+        }
+        store.patchHelm((current) => ({
+          ...current,
+          comparing: false,
+          incoming: result.value,
+          actionError: null,
+        }));
+        return result;
+      },
+
+      /**
        * The draft is the working copy; `document` is what was LOADED and does
        * not move until a reload or a successful save. Keeping them apart is
        * what makes `dirty` answerable at all.
@@ -622,8 +686,17 @@ export class PanelStateStore {
 
       discard(): void {
         store.patchHelm((current) => {
-          if (current.document === null) return current;
-          return { ...current, draft: seedDraft(current.document), conflict: null };
+          // The pending edit is gone either way, so the comparison it was half
+          // of is meaningless either way.
+          if (current.document === null) {
+            return current.incoming === null ? current : { ...current, incoming: null };
+          }
+          return {
+            ...current,
+            draft: seedDraft(current.document),
+            conflict: null,
+            incoming: null,
+          };
         });
       },
 
@@ -680,6 +753,10 @@ export class PanelStateStore {
           conflict: null,
           lastSave: result.value,
           actionError: null,
+          // The write resolved the divergence; the returned document is the
+          // new truth. (The FAILED branch above deliberately leaves `incoming`
+          // alone — a conflict is when the comparison matters most.)
+          incoming: null,
         }));
         return result;
       },

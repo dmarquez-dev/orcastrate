@@ -63,6 +63,25 @@
  * WHICH PANEL IS OPEN IS CLIENT INTERACTION STATE, not server data, so per the
  * frontend discipline it lives in `App.tsx` local state and NOT in the workspace
  * store. Nothing outside the shell needs to know.
+ *
+ * ===========================================================================
+ * PROVENANCE
+ * ===========================================================================
+ *
+ * Frozen 2026-08-19 by sub-session 3. AMENDED by session
+ * `2026-08-31-orcastrate-helm-draft-safety` (approved at its Gate 2), because
+ * this file was frozen carrying a promise it could not keep: the `HelmDraft`
+ * docblock below says keeping `document` and `draft` apart is what makes "what
+ * will the conflict banner compare against?" answerable, but the frozen
+ * `HelmActions` offered only `reload()`, which discards the draft it would be
+ * compared against. No action could fetch the fresh document without destroying
+ * the other half of the comparison.
+ *
+ * The amendment adds `HelmActions.compare()` with `HelmView.incoming` and
+ * `HelmView.comparing`, and adds `PanelCloseGuard`,
+ * `useRegisterPanelCloseGuard` and `PanelCloseController` so a dirty draft is
+ * not silently discarded when the panel is closed or switched away from.
+ * Everything else here is unchanged from the 2026-08-19 freeze.
  */
 
 import type { ReactNode } from 'react';
@@ -111,6 +130,145 @@ export const PANEL_DESCRIPTIONS: Readonly<Record<PanelKey, string>> = {
   beachcomber: "Review and clear Claude Code's on-disk state.",
   helm: 'Edit Claude Code settings for this machine and for each Pod.',
 };
+
+// ---------------------------------------------------------------------------
+// The panel close guard
+// ADDED by session `2026-08-31-orcastrate-helm-draft-safety`
+// ---------------------------------------------------------------------------
+
+/**
+ * THE INVARIANT THIS MUST NOT BREAK, quoted from `App.tsx`:
+ *
+ *   "Mounting the connected panel is also what issues its first fetch — the
+ *    hooks' own mount effects do that — so nothing here fetches, and neither
+ *    panel's hook is mounted while its panel is closed."
+ *
+ * `App` cannot ask "is the draft dirty?" without calling `useHelm()`, whose
+ * mount effect issues the scope fetch — making the shell a data fetcher and
+ * fetching Helm's scopes even when the Helm panel is shut. ANY IMPLEMENTATION
+ * THAT PUTS `useHelm()` OR `useHelmActions()` INTO `App.tsx` IS WRONG AND WILL
+ * BE REJECTED AT REVIEW.
+ *
+ * The shapes below invert the dependency. The shell knows only that SOME panel
+ * may object to being closed. The panel — already mounted, and already knowing
+ * whether it is dirty — is the one that objects. The shell never learns what
+ * "dirty" means, and Beachcomber never registers anything.
+ *
+ * Registered by whichever panel is currently mounted. At most one is registered
+ * at a time, because at most one panel is open at a time (`openPanel` is a
+ * single nullable `PanelKey`).
+ */
+export interface PanelCloseGuard {
+  /**
+   * Asked once per close request, before the panel is unmounted.
+   *
+   * Resolves `true` to let the close proceed, `false` to cancel it. NEVER
+   * rejects and never throws: a guard that threw would strand the panel open
+   * with no way out, which is a worse failure than the draft loss it exists to
+   * prevent. An implementation that could throw wraps itself and resolves
+   * `true` on the unexpected path — failing OPEN, because refusing to close is
+   * the more trapping failure.
+   *
+   * THE GUARD OWNS ITS CONFIRMATION UI. The panel is what knows the word
+   * "draft", so the panel renders the dialog and resolves this promise from the
+   * dialog's outcome. The shell renders nothing and shows nothing.
+   *
+   * A guard with nothing to object to — the Helm draft is not dirty — resolves
+   * `true` immediately, showing nothing.
+   */
+  beforeClose(): Promise<boolean>;
+}
+
+/**
+ * The registration side, consumed by the panel.
+ *
+ * Passing a guard registers it; passing `null` clears the registration. The
+ * hook MUST clear the registration on unmount, so a panel that unmounted for
+ * any other reason cannot veto a later close of a different panel.
+ *
+ * THIS HOOK FETCHES NOTHING and subscribes to no store. That is what lets the
+ * shell host its provider without becoming a data fetcher: it is `useHelm()`'s
+ * mount effect, not registration, that the invariant above is about.
+ */
+export declare function useRegisterPanelCloseGuard(guard: PanelCloseGuard | null): void;
+
+/**
+ * The asking side, consumed by the shell (`App.tsx`).
+ *
+ * A dirty draft must survive a panel SWITCH, not only a close. Both entry
+ * points below are the same operation with a different destination — a switch
+ * IS a close plus an open, and the draft has to survive the close half of it.
+ *
+ * Both are implemented over ONE private guarded transition. They do not each
+ * carry their own copy of the guard logic and their own in-flight flag; a
+ * second flag is a second way to be wrong.
+ */
+export interface PanelCloseController {
+  /** Destination `null`. Clears the open panel if the guard permits. */
+  requestClose(): Promise<void>;
+  /**
+   * Destination `next`. Replaces the open panel if the guard permits.
+   *
+   * When `next` is ALREADY the open panel this is a no-op and the guard is NOT
+   * asked — re-clicking the open panel's own button must not raise a dialog.
+   */
+  requestOpen(next: PanelKey): Promise<void>;
+}
+
+/**
+ * The rules governing that single transition. They apply identically to
+ * `requestClose()` and `requestOpen()`; wherever "the transition" appears
+ * below, both are meant.
+ *
+ * GUARD DECLINED (`beforeClose()` resolved `false`): `openPanel` is left
+ * EXACTLY as it was. For a close that means the panel stays open; FOR A SWITCH
+ * THAT MEANS THE SWITCH DOES NOT HAPPEN AND THE ORIGINAL PANEL STAYS OPEN — the
+ * shell does not close the old panel and then decline to open the new one,
+ * which would discard the draft while also failing to honour the click. The
+ * panel stays mounted and its draft is untouched.
+ *
+ * WITH NO GUARD REGISTERED the transition proceeds unconditionally and WITHOUT
+ * an awaited turn inserted before `openPanel` moves. This is what keeps
+ * Beachcomber bit-for-bit unchanged: it registers nothing, so every existing
+ * `PanelBar` and `PanelRegion` test that opens, switches or closes it still
+ * observes a synchronous transition.
+ *
+ * RE-ENTRANCY, now that the transition is reachable from three affordances
+ * (close button, Escape, and the panel-switch buttons):
+ *
+ *   - AT MOST ONE transition is in flight at a time, across BOTH methods. The
+ *     in-flight state is shared, not per-method.
+ *   - While one is pending, ANY further `requestClose()` or `requestOpen()` is
+ *     DROPPED. It resolves without asking the guard again and without changing
+ *     the pending destination.
+ *   - When the pending guard resolves `true`, the destination applied is THE
+ *     PENDING REQUEST'S, never a later one. This is the whole reason later
+ *     requests are dropped rather than queued or latest-wins: the user answered
+ *     a dialog about leaving Helm, and the answer must land on the destination
+ *     that dialog was raised for. Applying a destination they clicked while the
+ *     dialog was up would honour a click with the consent of a different one.
+ *   - THE GUARD IS THEREFORE ASKED EXACTLY ONCE PER TRANSITION, whatever the
+ *     user clicks while it is pending.
+ *
+ * This is a distinct case from a guard that THROWS, which fails open (see
+ * `PanelCloseGuard.beforeClose`). A dropped request is not a failure; nothing
+ * went wrong and nothing is reported.
+ *
+ * ROUTING: every shell affordance that moves `openPanel` goes through the
+ * controller — `PanelBar`'s close button and `PanelRegion`'s `onClose`
+ * (including its Escape handler) call `requestClose()`; `PanelBar`'s
+ * panel-switch buttons reach `requestOpen()`. `setOpenPanel` is called from
+ * exactly one place, the controller's own resolution path.
+ *
+ * `PanelBarProps.onOpen` KEEPS ITS SYNCHRONOUS SIGNATURE, `(key: PanelKey) =>
+ * void`, and is NOT widened to return a promise. `App` discards the
+ * controller's promise explicitly at the call site — `(key) => { void
+ * controller.requestOpen(key); }` — rather than handing a promise-returning
+ * function to a void-returning prop. `PanelBar` has no use for the promise, and
+ * the existing synchronous `onOpen` call sites in `PanelBar.test.tsx` must keep
+ * compiling and passing UNCHANGED.
+ */
+export type PanelTransitionRules = never;
 
 // ---------------------------------------------------------------------------
 // Beachcomber view models (T5 produces, T6 renders)
@@ -238,12 +396,75 @@ export interface HelmView extends Loadable<HelmScope[]> {
    * `actionError` for action failures and inherited `error` for load failures.
    */
   actionError: string | null;
+  /**
+   * ADDED by session `2026-08-31-orcastrate-helm-draft-safety`.
+   *
+   * The freshest on-disk document, fetched by `compare()` and NOT seeded into
+   * `draft`. It is the "current contents" half of the side-by-side that
+   * `helm.ts`'s `HELM_CONFLICT_CODE` docblock promises; `draft` is the "pending
+   * edit" half. `null` means no comparison is available — none was requested,
+   * or the last request failed, or one of the clearing events below fired.
+   *
+   * ONE WRITER: the store. Not derived, and not duplicated anywhere else.
+   *
+   * CLEARED TO NULL by every event that makes a comparison meaningless. This
+   * list is EXHAUSTIVE — an event not named here leaves `incoming` alone:
+   *
+   *   - `selectScope()` — on entering the load, success or failure alike. The
+   *     comparison belonged to the previously selected scope.
+   *   - `reload()` — on entering the load, success or failure alike.
+   *   - `discard()` — the pending edit is gone, so there is nothing to compare.
+   *   - a SUCCESSFUL `save()` — the write resolved the divergence, and
+   *     `HelmSaveResult.document` is the new truth.
+   *
+   * A FAILED `save()` DOES NOT CLEAR IT. A CONFLICT is exactly when the
+   * comparison matters most: the draft survives — `save()`'s docblock
+   * guarantees that — and a `compare()` the user then triggers is the entire
+   * point of the feature.
+   */
+  incoming: HelmDocument | null;
+  /**
+   * ADDED by session `2026-08-31-orcastrate-helm-draft-safety`. True while a
+   * `compare()` is in flight. Mirrors `loadingDocument`. One writer: the store.
+   */
+  comparing: boolean;
 }
 
 export interface HelmActions {
   selectScope(scopeId: HelmScopeId): Promise<ActionResult<HelmDocument>>;
   /** Re-reads from disk, discarding the draft. The answer to a stale banner. */
   reload(): Promise<ActionResult<HelmDocument>>;
+  /**
+   * ADDED by session `2026-08-31-orcastrate-helm-draft-safety`.
+   *
+   * Re-reads the selected scope from disk WITHOUT touching `document` or
+   * `draft`. The result lands in `HelmView.incoming`. This is the ONLY action
+   * that reads the file without replacing the working copy — `reload()` keeps
+   * its documented meaning of re-read-and-discard, and its docblock above is
+   * not amended.
+   *
+   * NEVER REJECTS, and NEVER touches `document` or `draft` ON ANY PATH,
+   * success or failure. All three error cases surface as `{ ok: false }`:
+   *
+   *   - NO SCOPE SELECTED: refuses via the store's existing
+   *     `reportHelmRefusal` with the existing `NO_SCOPE_MESSAGE`, exactly as
+   *     `reload()` does. `incoming` is left unchanged.
+   *   - PRELOAD API ABSENT: the store's existing `failClosed` path. `incoming`
+   *     is left unchanged.
+   *   - THE IPC LOAD FAILED (`EACCES`, `ENOENT`, anything else):
+   *     `actionError` is set to the verbatim message AND `incoming` is set to
+   *     `null`. It is not left holding an earlier read — a comparison against
+   *     contents no longer known to be current is worse than no comparison.
+   *
+   * In every case `comparing` returns to `false`.
+   *
+   * CONCURRENCY: not de-duplicated, and it takes no in-flight lock beyond the
+   * `comparing` flag. A second call while one is in flight is allowed; last
+   * write wins. This differs deliberately from `refreshScopes`, which de-dupes
+   * because a mount effect reaches it; `compare()` is reached only from an
+   * explicit user action.
+   */
+  compare(): Promise<ActionResult<HelmDocument>>;
   edit(patch: Partial<HelmDraft>): void;
   discard(): void;
   /**

@@ -49,6 +49,11 @@ export function helmView(overrides: Partial<HelmView> = {}): HelmView {
     conflict: null,
     lastSave: null,
     actionError: null,
+    // Added by session 2026-08-31-orcastrate-helm-draft-safety, alongside
+    // `HelmActions.compare()`. The default is the state a panel is in before
+    // anyone asks for a comparison: nothing fetched, nothing in flight.
+    incoming: null,
+    comparing: false,
     ...overrides,
   };
 }
@@ -57,6 +62,10 @@ export function helmActions(overrides: Partial<HelmActions> = {}): HelmActions {
   return {
     selectScope: vi.fn(async () => ({ ok: true as const, value: makeStubHelmDocument('user') })),
     reload: vi.fn(async () => ({ ok: true as const, value: makeStubHelmDocument('user') })),
+    // `compare()` resolves the SAME shape as `reload()` but, unlike it, must
+    // never be taken as having touched `document` or `draft` — a fixture that
+    // returns a document is not a fixture that reseeds one.
+    compare: vi.fn(async () => ({ ok: true as const, value: makeStubHelmDocument('user') })),
     edit: vi.fn(),
     discard: vi.fn(),
     save: vi.fn(async () => ({

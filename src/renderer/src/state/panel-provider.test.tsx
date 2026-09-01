@@ -531,3 +531,86 @@ describe('re-rendering fetches nothing (criterion 14)', () => {
     for (const actions of seen.helmActions) expect(actions).toBe(seen.helmActions[0]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// `incoming` and `comparing` reach React from the store, and only from there
+// ---------------------------------------------------------------------------
+
+describe('the comparison fields are passed through, never re-derived', () => {
+  it('starts null and false, and shows what compare() put in the store', async () => {
+    const api = stubOrcastrateApi();
+    let probe: { seen: Seen; unmount: () => void } | null = null;
+    await act(async () => {
+      probe = mountProbe(api);
+    });
+    const seen = probe!.seen;
+
+    expect(latest(seen.helm).incoming).toBeNull();
+    expect(latest(seen.helm).comparing).toBe(false);
+
+    await act(async () => {
+      await latest(seen.helmActions).selectScope('user');
+    });
+    await act(async () => {
+      await latest(seen.helmActions).compare();
+    });
+
+    const view = latest(seen.helm);
+    expect(view.incoming?.scope.id).toBe('user');
+    expect(view.comparing).toBe(false);
+    // NOT seeded into the working copy: the two halves of the comparison stay
+    // apart.
+    expect(view.draft).not.toBe(view.incoming);
+  });
+
+  it('does not cache them across a render that changed nothing', async () => {
+    const api = stubOrcastrateApi();
+    let probe: { seen: Seen; unmount: () => void } | null = null;
+    await act(async () => {
+      probe = mountProbe(api);
+    });
+    const seen = probe!.seen;
+
+    await act(async () => {
+      await latest(seen.helmActions).selectScope('user');
+    });
+    await act(async () => {
+      await latest(seen.helmActions).compare();
+    });
+    expect(latest(seen.helm).incoming).not.toBeNull();
+
+    // A clearing event in the store must be visible on the next render; a
+    // value cached at this layer would go stale silently.
+    await act(async () => {
+      latest(seen.helmActions).discard();
+    });
+    await act(async () => {
+      seen.rerender();
+    });
+
+    expect(latest(seen.helm).incoming).toBeNull();
+  });
+
+  it('reaches compare() only from an explicit action, never from mount or render', async () => {
+    const api = stubOrcastrateApi();
+    let probe: { seen: Seen; unmount: () => void } | null = null;
+    await act(async () => {
+      probe = mountProbe(api);
+    });
+    const seen = probe!.seen;
+
+    await act(async () => {
+      await latest(seen.helmActions).selectScope('user');
+    });
+    const loadsAfterSelect = api.calls.helmLoad.length;
+
+    for (let i = 0; i < 3; i += 1) {
+      await act(async () => {
+        seen.rerender();
+      });
+    }
+
+    expect(api.calls.helmLoad).toHaveLength(loadsAfterSelect);
+    expect(latest(seen.helm).incoming).toBeNull();
+  });
+});

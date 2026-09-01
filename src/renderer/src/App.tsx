@@ -20,6 +20,7 @@ import { ConnectedHelmPanel } from './helm';
 import { EmptyWorkspace, LoadingWorkspace } from './shell/EmptyWorkspace';
 import { PanelBar } from './shell/PanelBar';
 import { PanelRegion } from './shell/PanelRegion';
+import { PanelCloseGuardProvider, usePanelCloseGuardHost } from './shell/panel-close-guard';
 import { WorkspaceLayout } from './shell/WorkspaceLayout';
 
 /**
@@ -39,6 +40,11 @@ export function App(): JSX.Element {
   // other side, and its suite asserts the store has no such field. Nothing
   // outside this file needs to know: the strip is told, the region is told.
   const [openPanel, setOpenPanel] = useState<PanelKey | null>(null);
+
+  // EVERY MOVE OF `openPanel` GOES THROUGH THE CONTROLLER, and the setter above
+  // is handed to it and called nowhere else in this file — see the invariant
+  // note below the panel for why the shell asks rather than checks.
+  const panelGuard = usePanelCloseGuardHost(openPanel, setOpenPanel);
 
   const { activePodId, session, routingMode, actions } = useWorkspace();
   const rail = useLaneRail();
@@ -76,17 +82,36 @@ export function App(): JSX.Element {
     />
   );
 
+  // THE TWO CLOSE AFFORDANCES AND THE SWITCH ALL ROUTE THROUGH THE CONTROLLER.
+  // The promise is discarded explicitly at each call site: `PanelBarProps`
+  // keeps its synchronous `onOpen(key): void` / `onClose(): void` signatures,
+  // and handing a promise-returning function to a void-returning prop is the
+  // floating promise `no-misused-promises` exists to catch.
   const closePanel = (): void => {
-    setOpenPanel(null);
+    void panelGuard.controller.requestClose();
   };
 
-  const panelBar = <PanelBar onClose={closePanel} onOpen={setOpenPanel} open={openPanel} />;
+  const openPanelRequest = (key: PanelKey): void => {
+    void panelGuard.controller.requestOpen(key);
+  };
+
+  const panelBar = <PanelBar onClose={closePanel} onOpen={openPanelRequest} open={openPanel} />;
 
   // PANELS DO NOT REQUIRE A POD, so this is decided before `empty` is and
   // independently of it. Cleanup and settings are precisely what a user with
   // no Pods reaches for. Mounting the connected panel is also what issues its
   // first fetch — the hooks' own mount effects do that — so nothing here
-  // fetches, and neither panel's hook is mounted while its panel is closed.
+  // fetches, and NEITHER PANEL'S HOOK IS MOUNTED WHILE ITS PANEL IS CLOSED.
+  //
+  // THE CLOSE GUARD PRESERVES THAT, and is why closing no longer discards a
+  // Helm draft. Knowing whether a draft is dirty would mean mounting Helm's own
+  // state hook here, and that hook's mount effect issues the scope fetch — the
+  // shell would become a data fetcher and would fetch Helm's scopes with the
+  // Helm panel shut. So the shell does not check: it ASKS, and this file names
+  // no Helm hook at all. `panel-close-guard.tsx` fetches nothing and subscribes
+  // to nothing; the mounted panel registers a guard, and THE PANEL OBJECTS —
+  // the shell only asks, and never learns what "dirty" means. Beachcomber
+  // registers nothing and closes exactly as it always did.
   const panel: ReactNode =
     openPanel === null ? null : (
       <PanelRegion onClose={closePanel} panelKey={openPanel}>
@@ -200,15 +225,17 @@ export function App(): JSX.Element {
   }
 
   return (
-    <WorkspaceLayout
-      composer={composerNode}
-      empty={empty}
-      laneRail={laneRail}
-      panel={panel}
-      panelBar={panelBar}
-      podBar={podBar}
-      primary={primary}
-      split={split}
-    />
+    <PanelCloseGuardProvider host={panelGuard}>
+      <WorkspaceLayout
+        composer={composerNode}
+        empty={empty}
+        laneRail={laneRail}
+        panel={panel}
+        panelBar={panelBar}
+        podBar={podBar}
+        primary={primary}
+        split={split}
+      />
+    </PanelCloseGuardProvider>
   );
 }

@@ -67,6 +67,22 @@
  * coalesces on others. T3's acceptance criteria require the conflict path to be
  * proven WITH THE WATCHER DISABLED, so a passing watcher can never be what
  * makes the safety test green.
+ *
+ * ===========================================================================
+ * PROVENANCE
+ * ===========================================================================
+ *
+ * Frozen 2026-08-19 by sub-session 3. AMENDED by session
+ * `2026-08-31-orcastrate-helm-draft-safety` (approved at its Gate 2), because
+ * this file was frozen carrying a promise it could not keep: the
+ * `HELM_CONFLICT_CODE` docblock promised the panel would show "the current
+ * contents beside the pending edit", while the only action that re-read the
+ * file — `reload()` — destroyed the draft it would have been compared against.
+ * The amendment adds `compare()` (declared in
+ * `src/renderer/src/contracts/renderer-panels.ts`) rather than retracting the
+ * promise, and corrects `HelmValidationIssue.field`, which documented five of
+ * the seven names the shipped validators emit. Everything else here is
+ * unchanged from the 2026-08-19 freeze.
  */
 
 import type { PodId, Timestamp } from './events';
@@ -204,7 +220,26 @@ export interface HelmDocument {
 export type HelmValidationSeverity = 'error' | 'warning';
 
 export interface HelmValidationIssue {
-  /** `'model' | 'permissionsAllow' | 'env' | 'crossSessionInbound' | 'hooksJson'` */
+  /**
+   * The field the issue is about. Exactly these SEVEN names are emitted by the
+   * shipped validators, verified against them 2026-08-31:
+   *
+   *   `'model'`, `'permissionsAllow'`, `'permissionsDeny'`, `'env'`,
+   *   `'crossSessionInbound'`, `'hooksJson'`, `'parseError'`
+   *
+   * `'parseError'` is emitted ONLY by the renderer's `validateDraft`
+   * (`src/renderer/src/state/panel-store.ts`). The main-process validator
+   * (`src/main/helm/validate.ts`) never emits it — main reports an unparseable
+   * file as `HelmDocument.parseError` instead — so a reader of the main
+   * validator alone must not conclude the name is wrong. The other six come
+   * from both producers.
+   *
+   * THE TYPE STAYS `string` AND MUST NOT BE NARROWED to a union or a const
+   * array. A validator that later emits an eighth name has to remain legal
+   * rather than becoming a compile error; the catch-all in
+   * `src/renderer/src/helm/issues.ts` is the defence, and it only stays in
+   * place while this type stays open.
+   */
   field: string;
   severity: HelmValidationSeverity;
   message: string;
@@ -245,8 +280,13 @@ export interface HelmSaveResult {
  * The file changed between load and save.
  *
  * Delivered as `IpcResult` failure with `code: 'CONFLICT'` and a message that
- * says WHICH file and that nothing was written. The panel then re-loads and
- * shows the current contents beside the pending edit. There is no "save
+ * says WHICH file and that nothing was written. The draft SURVIVES the
+ * conflict; the panel then offers `compare()` (declared on `HelmActions` in
+ * `src/renderer/src/contracts/renderer-panels.ts`), the action that fetches the
+ * current contents alongside the surviving draft without replacing it, so the
+ * side-by-side has both halves. `reload()` remains the discard-my-edit path —
+ * it re-reads and throws the draft away, and is the answer only when the user
+ * does not want their edit. There is no "save
  * anyway" that skips step 3 — a second save against the FRESH revision is the
  * override, and it is an override the user made after seeing what they were
  * about to overwrite.

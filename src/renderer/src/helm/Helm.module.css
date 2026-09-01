@@ -325,3 +325,122 @@
 .actionsSpacer {
   margin-left: auto;
 }
+
+/* --- the side-by-side ---------------------------------------------------- */
+
+.comparison {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-2);
+  padding: var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-border);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-raised);
+}
+
+.comparisonHeading {
+  margin: 0;
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-bold);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+  color: var(--oc-fg-muted);
+}
+
+.comparisonError {
+  color: var(--oc-danger);
+}
+
+.comparisonTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: var(--oc-text-sm);
+}
+
+.comparisonHead {
+  padding: var(--oc-space-1);
+  text-align: left;
+  font-weight: var(--oc-weight-medium);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+  font-size: var(--oc-text-xs);
+  color: var(--oc-fg-muted);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
+}
+
+.comparisonRow {
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
+}
+
+.comparisonChanged {
+  background: var(--oc-bg-selected);
+}
+
+.comparisonRowHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-1);
+  padding: var(--oc-space-1);
+  text-align: left;
+  vertical-align: top;
+}
+
+.comparisonLabel {
+  font-weight: var(--oc-weight-medium);
+  color: var(--oc-fg-primary);
+}
+
+.comparisonVerdict {
+  font-size: var(--oc-text-xs);
+  letter-spacing: var(--oc-tracking-wide);
+  text-transform: uppercase;
+  color: var(--oc-fg-muted);
+}
+
+.comparisonCell {
+  padding: var(--oc-space-1);
+  vertical-align: top;
+  font-family: var(--oc-font-mono);
+  font-weight: var(--oc-weight-regular);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--oc-fg-primary);
+}
+
+/* --- the close confirmation ---------------------------------------------- */
+
+.confirmScrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: var(--oc-space-4);
+  background: var(--oc-bg-app);
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oc-space-3);
+  width: 100%;
+  max-width: var(--oc-panel-max-width);
+  padding: var(--oc-space-4);
+  border: var(--oc-border-thick) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+}
+
+.confirmHeading {
+  margin: 0;
+  font-size: var(--oc-text-md);
+  font-weight: var(--oc-weight-bold);
+}
+
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--oc-space-2);
+}

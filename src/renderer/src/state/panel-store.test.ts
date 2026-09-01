@@ -23,6 +23,7 @@ import {
 
 import {
   NO_PREVIEW_MESSAGE,
+  NO_SCOPE_MESSAGE,
   PanelStateStore,
   isDirty,
   validateDraft,
@@ -54,9 +55,11 @@ function helm(store: PanelStateStore) {
 // ---------------------------------------------------------------------------
 
 /**
- * All twelve entry points on the two frozen action interfaces. The three that
- * are declared `void` are here too: "never throws" is the guarantee, and a
- * synchronous throw white-screens a renderer just as thoroughly as a rejection.
+ * All THIRTEEN entry points on the two frozen action interfaces — twelve, plus
+ * `compare()`, added to `HelmActions` by session
+ * `2026-08-31-orcastrate-helm-draft-safety`. The three that are declared `void`
+ * are here too: "never throws" is the guarantee, and a synchronous throw
+ * white-screens a renderer just as thoroughly as a rejection.
  */
 const EVERY_ACTION: { name: string; run: (store: PanelStateStore) => unknown }[] = [
   { name: 'rescan', run: (s) => s.beachcomberActions.rescan() },
@@ -68,6 +71,7 @@ const EVERY_ACTION: { name: string; run: (store: PanelStateStore) => unknown }[]
   { name: 'trashPreviewed', run: (s) => s.beachcomberActions.trashPreviewed() },
   { name: 'selectScope', run: (s) => s.helmActions.selectScope('user') },
   { name: 'reload', run: (s) => s.helmActions.reload() },
+  { name: 'compare', run: (s) => s.helmActions.compare() },
   { name: 'edit', run: (s) => s.helmActions.edit({ hooksJson: '{}' }) },
   { name: 'discard', run: (s) => s.helmActions.discard() },
   { name: 'save', run: (s) => s.helmActions.save() },
@@ -805,5 +809,210 @@ describe('the panel store touches only the panel channels', () => {
       if (panelChannels.has(key)) expect(calls.length).toBeGreaterThan(0);
       else expect(calls).toHaveLength(0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A failed load must not discard a draft it did not replace (item 1)
+// ---------------------------------------------------------------------------
+
+describe('a failed load keeps the draft when the scope did not change (item 1)', () => {
+  it('retains document and draft, verbatim, when a reload of the SAME scope fails', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    store.helmActions.edit({ hooksJson: '{"PreToolUse":[]}' });
+    const editedDraft = helm(store).draft;
+    const loadedDocument = helm(store).document;
+
+    api.failInvoke('helmLoad', ipcError('IO', 'EACCES: permission denied'));
+    const result = await store.helmActions.reload();
+
+    expect(result.ok).toBe(false);
+    const state = helm(store);
+    // The read wrote nothing, so there is nothing for the draft to be stale
+    // against — losing it here would be pure data loss.
+    expect(state.draft).toEqual(editedDraft);
+    expect(state.document).toEqual(loadedDocument);
+    expect(state.actionError).toBe('EACCES: permission denied');
+    expect(state.loadingDocument).toBe(false);
+  });
+
+  it('still clears document and draft when the FAILED load targets a different scope', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    store.helmActions.edit({ hooksJson: '{"PreToolUse":[]}' });
+
+    api.failInvoke('helmLoad', ipcError('IO', 'EACCES: permission denied'));
+    const result = await store.helmActions.selectScope('project:pod-1');
+
+    expect(result.ok).toBe(false);
+    const state = helm(store);
+    // Showing the user scope's typed values under the project scope's name is
+    // worse than losing them.
+    expect(state.document).toBeNull();
+    expect(state.draft).toBeNull();
+    expect(state.selectedScopeId).toBe('project:pod-1');
+    expect(state.actionError).toBe('EACCES: permission denied');
+    expect(state.loadingDocument).toBe(false);
+  });
+
+  it('leaves the success path alone: a later successful reload still re-seeds the draft', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    store.helmActions.edit({ managed: { ...helm(store).draft!.managed, model: 'claude-opus-5' } });
+
+    api.failInvoke('helmLoad', ipcError('IO', 'EACCES: permission denied'));
+    await store.helmActions.reload();
+    api.clearInvokeFailure('helmLoad');
+    await store.helmActions.reload();
+
+    expect(helm(store).draft?.managed.model).toBe('claude-sonnet-4-6');
+    expect(isDirty(helm(store).document, helm(store).draft)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// compare(): the comparison-capable read (item 2)
+// ---------------------------------------------------------------------------
+
+describe('compare fetches the current contents without touching the working copy (item 2)', () => {
+  it('lands the fresh document in incoming and leaves document and draft untouched', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    store.helmActions.edit({ managed: { ...helm(store).draft!.managed, model: 'claude-opus-5' } });
+    const editedDraft = helm(store).draft;
+    const loadedDocument = helm(store).document;
+
+    const result = await store.helmActions.compare();
+
+    expect(result.ok).toBe(true);
+    const state = helm(store);
+    expect(state.incoming?.scope.id).toBe('user');
+    expect(state.comparing).toBe(false);
+    expect(state.draft).toBe(editedDraft);
+    expect(state.document).toBe(loadedDocument);
+    expect(isDirty(state.document, state.draft)).toBe(true);
+  });
+
+  it('clears incoming to null when the read fails, and reports the verbatim message', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    await store.helmActions.compare();
+    expect(helm(store).incoming).not.toBeNull();
+    const loadedDocument = helm(store).document;
+    const draft = helm(store).draft;
+
+    api.failInvoke('helmLoad', ipcError('IO', 'EACCES: permission denied'));
+    const result = await store.helmActions.compare();
+
+    expect(result.ok).toBe(false);
+    const state = helm(store);
+    // A comparison against contents no longer known to be current is worse
+    // than no comparison at all.
+    expect(state.incoming).toBeNull();
+    expect(state.comparing).toBe(false);
+    expect(state.actionError).toBe('EACCES: permission denied');
+    expect(state.document).toBe(loadedDocument);
+    expect(state.draft).toBe(draft);
+  });
+
+  it('refuses with NO_SCOPE_MESSAGE and never reaches the bridge when no scope is selected', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+
+    const result = await store.helmActions.compare();
+
+    expect(result.ok).toBe(false);
+    expect(api.calls.helmLoad).toHaveLength(0);
+    const state = helm(store);
+    expect(state.actionError).toBe(NO_SCOPE_MESSAGE);
+    expect(state.incoming).toBeNull();
+    expect(state.comparing).toBe(false);
+  });
+
+  it('fails closed with no bridge, without throwing', async () => {
+    const store = makeStore(null);
+
+    const result = await store.helmActions.compare();
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error.code).toBe('INTERNAL');
+    expect(helm(store).incoming).toBeNull();
+    expect(helm(store).comparing).toBe(false);
+  });
+});
+
+describe('incoming is cleared by exactly the four events that make it meaningless', () => {
+  async function withComparison(api: StubOrcastrateApi): Promise<PanelStateStore> {
+    const store = makeStore(api);
+    await store.helmActions.selectScope('user');
+    store.helmActions.edit({ managed: { ...helm(store).draft!.managed, model: 'claude-opus-5' } });
+    await store.helmActions.compare();
+    expect(helm(store).incoming).not.toBeNull();
+    return store;
+  }
+
+  it('selectScope clears it', async () => {
+    const store = await withComparison(stubOrcastrateApi());
+    await store.helmActions.selectScope('project:pod-1');
+    expect(helm(store).incoming).toBeNull();
+  });
+
+  it('reload clears it', async () => {
+    const store = await withComparison(stubOrcastrateApi());
+    await store.helmActions.reload();
+    expect(helm(store).incoming).toBeNull();
+  });
+
+  it('discard clears it', async () => {
+    const store = await withComparison(stubOrcastrateApi());
+    store.helmActions.discard();
+    expect(helm(store).incoming).toBeNull();
+  });
+
+  it('a successful save clears it', async () => {
+    const store = await withComparison(stubOrcastrateApi());
+    const result = await store.helmActions.save();
+    expect(result.ok).toBe(true);
+    expect(helm(store).incoming).toBeNull();
+  });
+
+  it('a FAILED save leaves it intact, because a conflict is what it exists for', async () => {
+    const api = stubOrcastrateApi();
+    const store = await withComparison(api);
+    const compared = helm(store).incoming;
+
+    api.failInvoke(
+      'helmSave',
+      ipcError('CONFLICT', '~/.claude/settings.json changed on disk. Nothing was written.'),
+    );
+    const result = await store.helmActions.save();
+
+    expect(result.ok).toBe(false);
+    expect(helm(store).incoming).toBe(compared);
+    expect(helm(store).draft?.managed.model).toBe('claude-opus-5');
+  });
+
+  it('an edit and a helmChanged push both leave it alone', async () => {
+    const api = stubOrcastrateApi();
+    const store = await withComparison(api);
+    store.start();
+    const compared = helm(store).incoming;
+
+    store.helmActions.edit({ hooksJson: '{"PreToolUse":[]}' });
+    api.emit.helmChanged({
+      scopeId: 'user',
+      displayPath: '~/.claude/settings.json',
+      changedAt: '2026-01-03T00:00:00.000Z',
+    });
+    store.stop();
+
+    expect(helm(store).incoming).toBe(compared);
+    expect(helm(store).stale).toBe(true);
   });
 });
