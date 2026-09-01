@@ -256,5 +256,10 @@ export function deriveHelm(state: HelmPanelState): HelmView {
     conflict: state.conflict,
     lastSave: state.lastSave,
     actionError: state.actionError,
+    // PASSED THROUGH, never recomputed or cached here. The store is the single
+    // writer of both; a second copy computed at this layer would go stale
+    // silently.
+    incoming: state.incoming,
+    comparing: state.comparing,
   };
 }
