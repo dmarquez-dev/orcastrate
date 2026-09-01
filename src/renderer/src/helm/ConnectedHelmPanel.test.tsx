@@ -4,6 +4,13 @@
  * REAL provider over a stub bridge, proving the seam the other suites take on
  * trust.
  *
+ * IT IS WRAPPED IN THE SHELL'S CLOSE-GUARD PROVIDER because, since session
+ * 2026-08-31-orcastrate-helm-draft-safety, mounting the connected panel also
+ * REGISTERS Helm's close guard — and `useRegisterPanelCloseGuard` throws
+ * outside its provider by design, so that a panel cannot silently fail to
+ * register and lose a draft. The wrapper is the smallest possible stand-in for
+ * `App`: it owns `openPanel` and nothing else.
+ *
  * It is deliberately thin. Everything about what the form does is asserted in
  * `HelmPanel.test.tsx` against props, which is faster and does not depend on
  * the state layer's internals. What only this test can show is that mounting
@@ -11,11 +18,17 @@
  * to a backup path on screen.
  */
 
+import { useState, type JSX, type ReactNode } from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
+import type { PanelKey } from '../contracts/renderer-panels';
+import {
+  PanelCloseGuardProvider,
+  usePanelCloseGuardHost,
+} from '../shell/panel-close-guard';
 import { WorkspaceProvider } from '../state/workspace-provider';
 import {
   ipcError,
@@ -30,9 +43,23 @@ beforeAll(() => {
   registerWorkspaceProvider(WorkspaceProvider);
 });
 
+function GuardHost({ children }: { children: ReactNode }): JSX.Element {
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>('helm');
+  const host = usePanelCloseGuardHost(openPanel, setOpenPanel);
+  return <PanelCloseGuardProvider host={host}>{children}</PanelCloseGuardProvider>;
+}
+
+function panel(): JSX.Element {
+  return (
+    <GuardHost>
+      <ConnectedHelmPanel />
+    </GuardHost>
+  );
+}
+
 describe('ConnectedHelmPanel', () => {
   it('fetches the scope list from its own mount, not from a render', async () => {
-    const { api } = renderWithWorkspace(<ConnectedHelmPanel />);
+    const { api } = renderWithWorkspace(panel());
 
     await waitFor(() => {
       expect(screen.getByTestId(`${PANEL_TEST_IDS.helmScopeOption}:user`)).not.toBeNull();
@@ -42,7 +69,7 @@ describe('ConnectedHelmPanel', () => {
 
   it('loads a chosen scope, saves an edit, and shows where the backup went', async () => {
     const user = userEvent.setup();
-    const { api } = renderWithWorkspace(<ConnectedHelmPanel />);
+    const { api } = renderWithWorkspace(panel());
 
     await waitFor(() => {
       expect(screen.getByTestId(`${PANEL_TEST_IDS.helmScopeOption}:user`)).not.toBeNull();
@@ -70,7 +97,7 @@ describe('ConnectedHelmPanel', () => {
     // and the panel's error path is the one under test.
     const api = stubOrcastrateApi();
     api.failInvoke('helmScopes', ipcError('INTERNAL', 'EACCES: permission denied'));
-    renderWithWorkspace(<ConnectedHelmPanel />, { api });
+    renderWithWorkspace(panel(), { api });
 
     await waitFor(() => {
       expect(screen.getByTestId(PANEL_TEST_IDS.helmError).textContent).toContain(

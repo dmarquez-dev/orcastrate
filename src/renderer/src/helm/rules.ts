@@ -96,6 +96,10 @@ const PATH_HELPERS = [
   'relativ' + 'e(',
 ];
 
+/** The three hooks that run something the user did not just ask for. */
+const EFFECT_HOOKS = /use(?:Effect|LayoutEffect|Memo)\(/;
+const COMPARE_CALL = /\bcompare\(\)/;
+
 const DISPLAY_PATH_BOUND = /\b(?:default)?[Vv]alue=\{[^}]*displayPath/;
 const MARKUP_INPUT = /<(?:input|textarea)\b/;
 const BARE_IDENTIFIER = /^[A-Za-z_$][\w$]*$/;
@@ -141,6 +145,31 @@ export const SOURCE_RULES: readonly TextRule[] = [
     violates: (text) => PATH_HELPERS.some((helper) => text.includes(helper)),
     violation: `const p = ${PATH_HELPERS[0] ?? ''}a, b);`,
     clean: 'const classes = parts.join(" ");',
+  },
+  {
+    /**
+     * ADDED by session 2026-08-31-orcastrate-helm-draft-safety.
+     *
+     * `HelmActions.compare()` reads the settings file. Its frozen docblock says
+     * it "is reached only from an explicit user action", and says so as the
+     * reason it takes no de-duplication lock: a call from a render or a mount
+     * effect would be a re-entrant read nothing stops.
+     *
+     * DELIBERATELY CONSERVATIVE, and this is the whole design of the rule. It
+     * does not try to parse where in a file the call sits — every attempt at
+     * that either mis-reads `() =>` inside `useEffect(() => …)` as proof the
+     * call is in a handler, or needs a parser. It forbids the two from sharing
+     * a FILE instead. That is stronger than the property it enforces, and it
+     * costs nothing here: the compare affordance lives on the conflict banner,
+     * in a component with no lifecycle of its own, and the files that do run
+     * effects (`useRowFocus.ts`, `HelmCloseConfirm.tsx`) have no reason to
+     * name an action. A file that ever needs both is a file that has become
+     * two components, which the discipline says already.
+     */
+    name: 'names compare() in a file that also runs a React effect',
+    violates: (text) => COMPARE_CALL.test(text) && EFFECT_HOOKS.test(text),
+    violation: 'useEffect(() => { void actions.compare(); }, []);',
+    clean: 'onCompare={() => { void actions.compare(); }}',
   },
 ];
 

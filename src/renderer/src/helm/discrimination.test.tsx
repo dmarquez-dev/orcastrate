@@ -34,17 +34,31 @@
  * anything notice? — with no second implementation to maintain.
  */
 
-import type { ReactNode } from 'react';
-import { cleanup, render } from '@testing-library/react';
+import { useState, type JSX, type ReactNode } from 'react';
+import { cleanup, fireEvent, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
-import type { HelmPanelProps } from '../contracts/renderer-panels';
+import type { HelmPanelProps, PanelKey } from '../contracts/renderer-panels';
+import {
+  PanelCloseGuardProvider,
+  usePanelCloseGuardHost,
+} from '../shell/panel-close-guard';
 import { makeStubHelmDocument } from '../test-utils';
 
+import { HelmCloseGuard } from './HelmCloseGuard';
 import { HelmPanel } from './HelmPanel';
-import { PANEL_PROPERTIES, type Mount, type MountOptions } from './probes';
+import {
+  CLOSE_CONFIRM_PROPERTIES,
+  DISK_MODEL,
+  PANEL_PROPERTIES,
+  type ConfirmScene,
+  type ConfirmScenes,
+  type Mount,
+  type MountOptions,
+} from './probes';
 import { SOURCE_RULES, STYLE_RULES } from './rules';
+import { HELM_SAFETY_TEST_IDS } from './test-ids';
 import { helmActions, helmView } from './test-fixtures';
 
 // `globals: false` means RTL installs no auto-cleanup of its own, and every
@@ -110,11 +124,29 @@ function mountWith(Panel: PanelComponent, defect?: Defect): Mount {
         : { managed: { ...base.managed, crossSessionInbound: options.crossSessionInbound } }),
     });
 
+    // `incoming` is a SEPARATE document from the one the draft is seeded from,
+    // which is the whole point: the two columns must be able to disagree.
+    const incoming =
+      options.incomingModel === undefined
+        ? null
+        : makeStubHelmDocument('user', {
+            managed: { ...base.managed, model: options.incomingModel },
+          });
+
     const { container } = render(
-      <Panel actions={helmActions()} view={helmView({ document, ...options.view })} />,
+      <Panel actions={helmActions()} view={helmView({ document, incoming, ...options.view })} />,
     );
+
+    // The one thing a property cannot do for itself: press a button. It is
+    // done BEFORE the defect so the defect applies to the tree the property
+    // will actually read.
+    if (options.requestComparison === true) {
+      const asked = container.querySelector(`[data-testid="${HELM_SAFETY_TEST_IDS.compare}"]`);
+      if (asked !== null) fireEvent.click(asked);
+    }
+
     // After commit, so React does not overwrite it. Every mount here renders
-    // once and never updates, so the mutation stays put.
+    // once and never updates after the press above, so the mutation stays put.
     defect?.(container);
     return container;
   };
@@ -136,6 +168,9 @@ describe('the real panel satisfies every load-bearing property', () => {
       'the scope picker offers no way to type a path',
       'a conflict names the file, says nothing was written, and keeps the draft',
       'every control in the panel has an accessible name',
+      'a conflict offers a way to look without discarding, and only a conflict does',
+      'the comparison puts the file on disk beside the pending edit, field by field',
+      'the comparison declares loading, error and empty states, not just the table',
     ]);
   });
 
@@ -257,6 +292,68 @@ const DEFECTS: readonly { defect: string; breaks: string; apply: Defect }[] = [
       root.querySelector('label[for="helm-model-input"]')?.remove();
     },
   },
+
+  // --- session 2026-08-31-orcastrate-helm-draft-safety ---------------------
+
+  {
+    defect: 'the conflict banner points at Reload and nothing else, as it used to',
+    breaks: 'a conflict offers a way to look without discarding, and only a conflict does',
+    apply: (root) => {
+      testIdOf(root, HELM_SAFETY_TEST_IDS.compare)?.remove();
+    },
+  },
+  {
+    defect: 'the comparison is offered everywhere, so offering it means nothing',
+    breaks: 'a conflict offers a way to look without discarding, and only a conflict does',
+    apply: (root) => {
+      const planted = root.ownerDocument.createElement('button');
+      planted.type = 'button';
+      planted.dataset.testid = HELM_SAFETY_TEST_IDS.compare;
+      planted.textContent = 'Compare';
+      root.appendChild(planted);
+    },
+  },
+  {
+    defect: 'the side-by-side loses the half that came off disk',
+    breaks: 'the comparison puts the file on disk beside the pending edit, field by field',
+    apply: (root) => {
+      for (const cell of root.querySelectorAll(
+        `[data-testid^="${HELM_SAFETY_TEST_IDS.comparisonDisk}:"]`,
+      )) {
+        cell.remove();
+      }
+    },
+  },
+  {
+    defect: 'both columns show the draft, so the file is never actually shown',
+    breaks: 'the comparison puts the file on disk beside the pending edit, field by field',
+    apply: (root) => {
+      const disk = testIdOf(root, `${HELM_SAFETY_TEST_IDS.comparisonDisk}:model`);
+      const edit = testIdOf(root, `${HELM_SAFETY_TEST_IDS.comparisonDraft}:model`);
+      if (disk !== null && edit !== null) disk.textContent = edit.textContent;
+    },
+  },
+  {
+    defect: 'an in-flight comparison shows nothing at all',
+    breaks: 'the comparison declares loading, error and empty states, not just the table',
+    apply: (root) => {
+      testIdOf(root, HELM_SAFETY_TEST_IDS.comparisonLoading)?.remove();
+    },
+  },
+  {
+    defect: 'a comparison nobody has asked for looks the same as one with no answer',
+    breaks: 'the comparison declares loading, error and empty states, not just the table',
+    apply: (root) => {
+      testIdOf(root, HELM_SAFETY_TEST_IDS.comparisonEmpty)?.remove();
+    },
+  },
+  {
+    defect: 'a failed comparison fails silently',
+    breaks: 'the comparison declares loading, error and empty states, not just the table',
+    apply: (root) => {
+      testIdOf(root, HELM_SAFETY_TEST_IDS.comparisonError)?.remove();
+    },
+  },
 ];
 
 describe('each property catches the defect it exists for', () => {
@@ -294,5 +391,224 @@ describe('each property catches the defect it exists for', () => {
     expect(PANEL_PROPERTIES.map((property) => property.name).filter((name) => !covered.has(name))).toEqual(
       [],
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 3. The close confirmation tells a protected draft from a lost one
+// ---------------------------------------------------------------------------
+
+/**
+ * The shell, in miniature: one control that asks to close, and the real
+ * `usePanelCloseGuardHost` behind it. Nothing here is a stand-in for the guard
+ * itself — `HelmCloseGuard` is the shipped component, registering through the
+ * shipped hook. What the harness replaces is only `App`'s `openPanel` state,
+ * because rendering `App` would drag in every other panel and the store.
+ *
+ * IT REPORTS THE TRANSITION rather than the guard's answer, because the answer
+ * is not public: `requestClose()` resolves `void`. Settled-and-closed IS the
+ * guard having said yes, and settled-and-still-open is it having said no,
+ * which is exactly what a user would observe.
+ */
+function ConfirmHarness({ dirty }: { dirty: boolean }): JSX.Element {
+  const [openPanel, setOpenPanel] = useState<PanelKey | null>('helm');
+  const [settled, setSettled] = useState(false);
+  const host = usePanelCloseGuardHost(openPanel, setOpenPanel);
+
+  return (
+    <PanelCloseGuardProvider host={host}>
+      <button
+        data-testid="confirm-opener"
+        onClick={() => {
+          void host.controller.requestClose().then(() => {
+            setSettled(true);
+          });
+        }}
+        type="button"
+      >
+        Close the panel
+      </button>
+      <div
+        data-open={String(openPanel !== null)}
+        data-settled={String(settled)}
+        data-testid="confirm-record"
+      />
+      {openPanel === 'helm' ? <HelmCloseGuard dirty={dirty} /> : null}
+    </PanelCloseGuardProvider>
+  );
+}
+
+type ConfirmDefect = (scene: ConfirmScene) => void;
+
+function confirmSelector(id: string): string {
+  return `[data-testid="${id}"]`;
+}
+
+/**
+ * Mounts the harness, presses Close, waits for the transition to reach its
+ * resting state, applies the defect, and only THEN records focus and outcome —
+ * so a defect that moves focus is visible, and so two scenes sharing one
+ * document cannot appear to steal focus from each other.
+ */
+async function confirmScene(dirty: boolean, defect?: ConfirmDefect): Promise<ConfirmScene> {
+  const { container } = render(<ConfirmHarness dirty={dirty} />);
+  const opener = container.querySelector<HTMLElement>(confirmSelector('confirm-opener'));
+  expect(opener).not.toBeNull();
+  const raised = opener as HTMLElement;
+
+  raised.focus();
+  fireEvent.click(raised);
+
+  const record = (): HTMLElement => {
+    const node = container.querySelector<HTMLElement>(confirmSelector('confirm-record'));
+    expect(node).not.toBeNull();
+    return node as HTMLElement;
+  };
+
+  if (dirty) {
+    await waitFor(() => {
+      expect(
+        container.querySelector(confirmSelector(HELM_SAFETY_TEST_IDS.closeConfirm)),
+      ).not.toBeNull();
+    });
+  } else {
+    await waitFor(() => {
+      expect(record().dataset.settled).toBe('true');
+    });
+  }
+
+  const scene: ConfirmScene = {
+    root: container,
+    opener: raised,
+    outcome: null,
+    focused: null,
+  };
+  defect?.(scene);
+
+  const settled = record().dataset.settled === 'true';
+  const open = record().dataset.open === 'true';
+  return {
+    ...scene,
+    outcome: settled ? !open : null,
+    focused: container.ownerDocument.activeElement,
+  };
+}
+
+async function confirmScenes(defect?: ConfirmDefect): Promise<ConfirmScenes> {
+  // Clean first, and captured before the dirty one mounts: the dirty scene
+  // moves focus into its dialog, and one document has one focus.
+  const clean = await confirmScene(false, defect);
+  const dirty = await confirmScene(true, defect);
+  return { clean, dirty };
+}
+
+describe('the real close guard satisfies every confirmation property', () => {
+  it('covers the properties whose failure would lose a draft', () => {
+    expect(CLOSE_CONFIRM_PROPERTIES.map((property) => property.name)).toEqual([
+      'a clean panel closes as it always did, and a dirty one asks first',
+      'the confirmation names itself and offers both ways out, each operable by keyboard',
+      'focus moves into the confirmation when it opens, and stays put when none opens',
+    ]);
+  });
+
+  for (const property of CLOSE_CONFIRM_PROPERTIES) {
+    it(`holds: ${property.name}`, async () => {
+      expect(property.failures(await confirmScenes())).toEqual([]);
+    });
+  }
+});
+
+const CONFIRM_DEFECTS: readonly { defect: string; breaks: string; apply: ConfirmDefect }[] = [
+  {
+    defect: 'a dirty draft is closed over with no confirmation — the bug this session is about',
+    breaks: 'a clean panel closes as it always did, and a dirty one asks first',
+    apply: (scene) => {
+      scene.root.querySelector(confirmSelector(HELM_SAFETY_TEST_IDS.closeConfirm))?.remove();
+    },
+  },
+  {
+    defect: 'every close is confirmed, even one that would lose nothing',
+    breaks: 'a clean panel closes as it always did, and a dirty one asks first',
+    apply: (scene) => {
+      const already = scene.root.querySelector(
+        confirmSelector(HELM_SAFETY_TEST_IDS.closeConfirm),
+      );
+      if (already !== null) return;
+      const planted = scene.root.ownerDocument.createElement('div');
+      planted.dataset.testid = HELM_SAFETY_TEST_IDS.closeConfirm;
+      scene.root.appendChild(planted);
+    },
+  },
+  {
+    defect: 'the confirmation is announced as an unnamed dialog',
+    breaks: 'the confirmation names itself and offers both ways out, each operable by keyboard',
+    apply: (scene) => {
+      scene.root
+        .querySelector(confirmSelector(HELM_SAFETY_TEST_IDS.closeConfirm))
+        ?.removeAttribute('aria-labelledby');
+    },
+  },
+  {
+    defect: 'both ways out are dead controls',
+    breaks: 'the confirmation names itself and offers both ways out, each operable by keyboard',
+    apply: (scene) => {
+      for (const id of [
+        HELM_SAFETY_TEST_IDS.closeConfirmKeep,
+        HELM_SAFETY_TEST_IDS.closeConfirmDiscard,
+      ]) {
+        scene.root.querySelector(confirmSelector(id))?.setAttribute('disabled', '');
+      }
+    },
+  },
+  {
+    defect: 'the discard button leaves the tab order, so keyboard has only one way out',
+    breaks: 'the confirmation names itself and offers both ways out, each operable by keyboard',
+    apply: (scene) => {
+      scene.root
+        .querySelector(confirmSelector(HELM_SAFETY_TEST_IDS.closeConfirmDiscard))
+        ?.setAttribute('tabindex', '-1');
+    },
+  },
+  {
+    defect: 'the dialog opens behind the focus, which never leaves the control that asked',
+    breaks: 'focus moves into the confirmation when it opens, and stays put when none opens',
+    apply: (scene) => {
+      scene.opener.focus();
+    },
+  },
+];
+
+describe('each confirmation property catches the defect it exists for', () => {
+  for (const { defect, breaks, apply } of CONFIRM_DEFECTS) {
+    it(`notices that ${defect}`, async () => {
+      const property = CLOSE_CONFIRM_PROPERTIES.find((candidate) => candidate.name === breaks);
+      expect(property, `no property named ${breaks}`).toBeDefined();
+      expect(property?.failures(await confirmScenes(apply))).not.toEqual([]);
+    });
+  }
+
+  it('reports nothing when the injected defect does nothing', async () => {
+    const noop: ConfirmDefect = () => {
+      // deliberately empty
+    };
+    const scenes = await confirmScenes(noop);
+    const stillHolding = CLOSE_CONFIRM_PROPERTIES.filter(
+      (property) => property.failures(scenes).length > 0,
+    );
+    expect(stillHolding.map((property) => property.name)).toEqual([]);
+  });
+
+  it('leaves no confirmation property without a defect to catch', () => {
+    const covered = new Set(CONFIRM_DEFECTS.map((entry) => entry.breaks));
+    expect(
+      CLOSE_CONFIRM_PROPERTIES.map((property) => property.name).filter(
+        (name) => !covered.has(name),
+      ),
+    ).toEqual([]);
+  });
+
+  it('aims every confirmation defect at a property that exists', () => {
+    const names = new Set(CLOSE_CONFIRM_PROPERTIES.map((property) => property.name));
+    expect(CONFIRM_DEFECTS.filter((entry) => !names.has(entry.breaks))).toEqual([]);
   });
 });

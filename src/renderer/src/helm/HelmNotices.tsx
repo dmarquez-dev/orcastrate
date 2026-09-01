@@ -23,6 +23,7 @@ import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
 import { COPY } from './copy';
 import { IssueList } from './IssueList';
 import { Notice } from './Notice';
+import { HELM_SAFETY_TEST_IDS } from './test-ids';
 import styles from './Helm.module.css';
 
 export interface HelmNoticesProps {
@@ -40,6 +41,20 @@ export interface HelmNoticesProps {
   warnings: readonly HelmValidationIssue[];
   /** Issues no control claimed. Whatever their `field`, they surface here. */
   unplaced: readonly HelmValidationIssue[];
+  /**
+   * True while a `compare()` is in flight. The button stays live — `compare()`
+   * takes no in-flight lock beyond this flag and a second call is allowed —
+   * and only says what it is doing.
+   */
+  comparing: boolean;
+  /**
+   * Reaches `actions.compare()`. It is offered HERE, on the conflict banner,
+   * because a conflict is the case the amended `HELM_CONFLICT_CODE` docblock
+   * describes: the draft survived, and the whole point of the feature is
+   * seeing what it would have replaced. Following the banner's advice now
+   * leads somewhere that does not destroy the draft.
+   */
+  onCompare(): void;
 }
 
 export function HelmNotices({
@@ -52,6 +67,8 @@ export function HelmNotices({
   backupDisplayPath,
   warnings,
   unplaced,
+  comparing,
+  onCompare,
 }: HelmNoticesProps): JSX.Element {
   const redundant = actionError !== null && actionError === conflict;
   const showError = loadError !== null || (actionError !== null && !redundant);
@@ -103,6 +120,14 @@ export function HelmNotices({
           </p>
           <p className={styles.noticeText}>{conflict}</p>
           <p className={styles.noticeText}>{COPY.conflictAdvice}</p>
+          <button
+            className={styles.button}
+            data-testid={HELM_SAFETY_TEST_IDS.compare}
+            onClick={onCompare}
+            type="button"
+          >
+            {comparing ? COPY.comparing : COPY.compare}
+          </button>
         </Notice>
       )}
 

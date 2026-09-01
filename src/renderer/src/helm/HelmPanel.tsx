@@ -13,7 +13,7 @@
  * exists), and the ready form.
  */
 
-import type { JSX } from 'react';
+import { useState, type JSX } from 'react';
 
 import type { HelmManagedFields } from '@shared/contracts/helm';
 import type { HelmPanelProps } from '../contracts/renderer-panels';
@@ -21,6 +21,7 @@ import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
 
 import { COPY } from './copy';
 import { HelmActionBar } from './HelmActionBar';
+import { HelmComparison } from './HelmComparison';
 import { HelmNotices } from './HelmNotices';
 import { HelmScopePicker } from './HelmScopePicker';
 import { HelmSettingsForm } from './HelmSettingsForm';
@@ -44,6 +45,23 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
     actions.edit({ managed });
   };
 
+  // CLIENT INTERACTION STATE, and the only state this file holds: has the user
+  // asked for a comparison at all? `actionError` has one writer and many
+  // causes — a refused save sets it too — so without this the comparison
+  // surface would report an unrelated `EROFS` as a failed comparison. It is
+  // set from the click, never from a render.
+  const [compareRequested, setCompareRequested] = useState(false);
+  const onCompare = (): void => {
+    setCompareRequested(true);
+    void actions.compare();
+  };
+
+  // ONE MESSAGE, ONE PLACE, the same rule the conflict banner already follows:
+  // when the comparison surface is the one showing this message, the generic
+  // error banner stays out of the way.
+  const compareError =
+    compareRequested && !view.comparing && view.incoming === null ? view.actionError : null;
+
   return (
     <section
       aria-label={COPY.panelLabel}
@@ -51,13 +69,15 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
       data-testid={PANEL_TEST_IDS.helmPanel}
     >
       <HelmNotices
-        actionError={view.actionError}
+        actionError={compareError === null ? view.actionError : null}
         backupDisplayPath={savedHere?.backupDisplayPath ?? null}
         conflict={view.conflict}
         conflictDisplayPath={selectedScope?.displayPath ?? null}
         loadError={view.error?.message ?? null}
         parseError={parseError}
         stale={view.stale}
+        comparing={view.comparing}
+        onCompare={onCompare}
         unplaced={unplacedIssues(view.issues, readOnly)}
         warnings={savedHere?.warnings ?? []}
       />
@@ -82,6 +102,22 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
           {COPY.loadingDocument}
         </p>
       ) : null}
+
+      {/*
+        The comparison rides with the draft: it is about a file that is open,
+        and before a scope is chosen there is neither a pending edit to put
+        beside the file nor a file to fetch. With a draft on screen it is
+        always present, and it declares its own loading, error and empty
+        states rather than appearing only once it has something to show.
+      */}
+      {draft === null ? null : (
+        <HelmComparison
+          comparing={view.comparing}
+          draft={draft}
+          error={compareError}
+          incoming={view.incoming}
+        />
+      )}
 
       {draft === null ? (
         <p className={styles.empty}>{COPY.scopeUnchosen}</p>

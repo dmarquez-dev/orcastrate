@@ -19,6 +19,7 @@ import type { HelmActions, HelmView } from '../contracts/renderer-panels';
 import { ipcError, makeStubHelmDocument, makeStubHelmScopes } from '../test-utils';
 
 import { COPY } from './copy';
+import { comparisonCellId, HELM_SAFETY_TEST_IDS } from './test-ids';
 import { HelmPanel } from './HelmPanel';
 import { hasAccessibleName } from './probes';
 import { helmActions, helmView } from './test-fixtures';
@@ -436,5 +437,89 @@ describe('an issue with an unexpected field name', () => {
     const shown = screen.getAllByText(parseError);
     expect(shown.length).toBe(1);
     expect(within(screen.getByTestId(PANEL_TEST_IDS.helmReadOnly)).getByText(parseError)).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The comparison — session 2026-08-31-orcastrate-helm-draft-safety
+// ---------------------------------------------------------------------------
+
+describe('the comparison', () => {
+  const CONFLICT = 'The settings file changed on disk. Nothing was written.';
+
+  it('is never fetched from a render, a mount, or a hook body', () => {
+    // The frozen `compare()` docblock takes no de-duplication lock BECAUSE it
+    // is reached only from an explicit user action. If a render could reach
+    // it, that reasoning would be wrong and a conflict would start a read
+    // storm.
+    const { actions } = renderPanel({ conflict: CONFLICT, actionError: CONFLICT, dirty: true });
+
+    expect(actions.compare).not.toHaveBeenCalled();
+  });
+
+  it('is offered on the conflict banner, and fetches once when pressed', () => {
+    const { actions } = renderPanel({ conflict: CONFLICT, actionError: CONFLICT, dirty: true });
+
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmConflict);
+    const affordance = screen.getByTestId(HELM_SAFETY_TEST_IDS.compare);
+    expect(banner.contains(affordance)).toBe(true);
+
+    fireEvent.click(affordance);
+
+    expect(actions.compare).toHaveBeenCalledTimes(1);
+    // And it reached the action that KEEPS the draft, not either of the two
+    // that throw it away. This is the whole point of the affordance.
+    expect(actions.reload).not.toHaveBeenCalled();
+    expect(actions.discard).not.toHaveBeenCalled();
+  });
+
+  it('shows the file on disk beside the pending edit, and does not seed the form from it', () => {
+    const draftModel = 'claude-sonnet-4-6';
+    const incoming = makeStubHelmDocument('user', {
+      managed: { ...makeStubHelmDocument('user').managed, model: 'claude-model-on-disk' },
+    });
+    renderPanel({ incoming, dirty: true });
+
+    const disk = screen.getByTestId(
+      comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDisk, 'model'),
+    );
+    const edit = screen.getByTestId(
+      comparisonCellId(HELM_SAFETY_TEST_IDS.comparisonDraft, 'model'),
+    );
+    expect(disk.textContent).toBe('claude-model-on-disk');
+    expect(edit.textContent).toBe(draftModel);
+
+    // The form is untouched — `incoming` is NOT seeded into the draft.
+    expect((screen.getByTestId(PANEL_TEST_IDS.helmModel) as HTMLInputElement).value).toBe(
+      draftModel,
+    );
+  });
+
+  it('says it is reading while a comparison is in flight', () => {
+    renderPanel({ comparing: true });
+
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonLoading).textContent).toContain(
+      COPY.comparisonLoading,
+    );
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonTable)).toBeNull();
+  });
+
+  it('says there is nothing to compare before anyone has asked', () => {
+    renderPanel();
+
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonEmpty)).not.toBeNull();
+  });
+
+  it('prints a failed comparison verbatim, in the surface that failed', () => {
+    const failure = 'EACCES: permission denied';
+    renderPanel({ conflict: CONFLICT, actionError: failure, dirty: true });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+
+    const surfaced = screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError);
+    expect(surfaced.textContent).toBe(failure);
+    // ONE MESSAGE, ONE PLACE — the same rule the conflict banner follows. The
+    // generic error banner stands down while the comparison is carrying it.
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
   });
 });
