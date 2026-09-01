@@ -1176,3 +1176,59 @@ Full per-criterion verdicts and every finding's text are in that session's
   masked behind `:476` in the same test and only visible once the first was repaired.
   Both were caught at Gate 3 and by a reviewer running rather than reading. Prefer
   per-assertion criteria over per-line ones for this reason.
+
+## 2026-09-01 — 2026-08-31-orcastrate-helm-draft-safety
+
+Sub-session C1 of the Large routing over the 2026-08-20 block. All 66 acceptance
+criteria met, no blocking findings, no revision rounds. Eight advisory findings
+carried forward by user decision at Gate 3. `HelmNotices.tsx`'s duplicate-sentence
+defect is NOT repeated here — it is already in the 2026-08-20 block above.
+
+### Contract gaps
+
+- **`panel-store.ts:329-332` — a fifth site nulls `incoming`.** `resetHelmForReopen`
+  replaces the whole Helm state via `newHelmState(null)` when the panel closes, so
+  `incoming` goes null with `document` and `draft`. Correct behaviour, but the frozen
+  contract's clearing list names "exactly four events" and this is not one of them. A
+  future reader auditing that list will find it and cannot tell whether it is a bug.
+  Fix is to name the whole-state reset in the contract, not to change the code.
+- **`HelmPanel.tsx:113` — the comparison surface does not exist before a scope is
+  chosen.** Criterion 6 required a declared empty state; with `draft === null` no
+  surface renders at all. Judged met at review, because the reviewer traced the store
+  and established that `draft === null && incoming !== null` is unreachable, so the
+  gating never hides a comparison that has data. The criterion's letter admits the
+  other reading; a future session should decide which it meant.
+- **`Helm.module.css` `.confirmScrim` is opaque.** It uses `background: var(--oc-bg-app)`
+  because `renderer-theme.ts`'s `TOKENS` has no overlay, opacity or alpha token, and the
+  stylesheet rule forbids literal colours. So the panel behind the confirmation is hidden
+  rather than dimmed. **Same shape as the gap that produced `ADDED_TOKENS` in
+  sub-session 3** — fixing it needs a token added to the frozen theme contract.
+- **`panel-close-guard.tsx` — criterion 2's literal form was unsatisfiable.** It asked
+  for `setOpenPanel(null)` in exactly one place, but the contract requires `requestClose`
+  and `requestOpen` to share one guarded transition, so the setter arrives as a parameter
+  named `apply` and the identifier cannot appear. The intent — one owner of the state
+  move — was met and grep-verified. Phrase such criteria against the behaviour, not the
+  identifier.
+
+### Correctness risks
+
+- **`HelmPanel.tsx:53,62-63` — `compareRequested` never resets.** After a compare that
+  failed, `incoming` stays null; a subsequent *different* failure (a failed save, say)
+  then satisfies `compareRequested && !comparing && incoming === null` and prints its
+  message inside the comparison surface instead of the error banner. Narrow — it needs a
+  failed compare followed by an unrelated failure — and it is the mirror of the bug the
+  flag exists to prevent. Clearing the flag when `actionError` transitions closes it.
+- **`helm/copy.ts` `COPY.comparisonEmpty` names an affordance that may not be on screen.**
+  It says "Compare with the file on disk to fetch its current contents", but that button
+  exists only on the conflict banner (`HelmNotices.tsx:104`). With a draft and no conflict,
+  the surface advertises an action the user cannot reach.
+- **`PanelBar.tsx` — three close routes became two.** The per-panel button no longer
+  toggles the open panel closed; it always requests an open, which the controller no-ops.
+  This was compelled by the frozen contract ("re-clicking the open panel's own button must
+  not raise a dialog") and is not a defect, but it removes a gesture users had. The strip
+  close button and Escape both survive and are test-covered, so nothing is trapped.
+- **`PanelBar.tsx:78` — `aria-pressed` announces a toggle that cannot be un-pressed.**
+  The attribute still truthfully reports open state, but the button it sits on can no
+  longer un-press itself. Changing it means editing `PanelBar.test.tsx:50-59`, which the
+  session's own criterion 11 protected. Decide between keeping `aria-pressed` as a state
+  indicator and moving to `aria-current`.

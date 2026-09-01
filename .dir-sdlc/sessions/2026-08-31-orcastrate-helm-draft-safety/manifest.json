@@ -1,0 +1,160 @@
+{
+  "session": "2026-08-31-orcastrate-helm-draft-safety",
+  "createdAt": "2026-08-31",
+  "track": "large",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/helm-draft-safety.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Amend the two frozen contract files: compare(), the close guard, and the seven validation field names",
+      "agent": "dir-architect",
+      "domain": "architecture",
+      "owns": [
+        "src/shared/contracts/helm.ts",
+        "src/renderer/src/contracts/renderer-panels.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "In src/shared/contracts/helm.ts, the HELM_CONFLICT_CODE docblock no longer promises a side-by-side that no action can supply. It names compare() as the action that fetches the current contents alongside the surviving draft, and states that reload() remains the discard-my-edit path. The existing sentence ruling out a 'save anyway' that skips the fresh revision is left word-for-word unchanged.",
+        "In src/shared/contracts/helm.ts, the HelmValidationIssue.field doc comment lists exactly these seven names: model, permissionsAllow, permissionsDeny, env, crossSessionInbound, hooksJson, parseError. It states that parseError is emitted only by the renderer's validateDraft and never by the main-process validator, so a reader of src/main/helm/validate.ts alone does not conclude the name is wrong.",
+        "The declared type of HelmValidationIssue.field is still `string` after this task. No union type, no const array, and no narrowing is introduced into shipped source: a validator that later emits an eighth name must not become a compile error, because the catch-all in src/renderer/src/helm/issues.ts is the defence and it depends on the type staying open.",
+        "In src/renderer/src/contracts/renderer-panels.ts, HelmActions declares compare(): Promise<ActionResult<HelmDocument>>, with a docblock giving all three error cases from section 2 of contracts/helm-draft-safety.ts (no scope selected, preload API absent, IPC load failed) and stating that compare() never touches document or draft on any path and never rejects. The existing reload() docblock is unchanged.",
+        "In the same file, HelmView declares incoming: HelmDocument | null and comparing: boolean, carrying the exhaustive clearing-event list from section 2 of the contract and the explicit statement that a FAILED save does not clear incoming.",
+        "In the same file, PanelCloseGuard, useRegisterPanelCloseGuard and PanelCloseController are declared exactly as section 3 of contracts/helm-draft-safety.ts specifies, including both controller methods (requestClose and requestOpen), that beforeClose never rejects, that the guard owns its own confirmation UI and the shell renders none, that an unregistered panel transitions with no awaited turn inserted, and that concurrent close-or-switch requests ask the guard exactly once.",
+        "Both amended files carry a short provenance note recording that they were frozen 2026-08-19 by sub-session 3 and amended by session 2026-08-31-orcastrate-helm-draft-safety, naming the promise that could not be kept. A later reader must be able to tell an approved amendment from drift.",
+        "Running `npx tsc -p tsconfig.web.json --noEmit` from the worktree root produces no error whose file path is src/shared/contracts/helm.ts or src/renderer/src/contracts/renderer-panels.ts. Errors in panel-store.ts, panel-provider.tsx and the Helm panel are EXPECTED at this point, because T2 and T4 have not yet implemented the new members; the report lists them so the orchestrator can confirm they are exactly the ones the later tasks close.",
+        "No file outside this task's two owned paths is created or modified."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Panel store: retain the draft on a same-scope failed load, and implement compare()/incoming",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/state/panel-store.ts",
+        "src/renderer/src/state/panel-provider.tsx",
+        "src/renderer/src/state/panel-store.test.ts",
+        "src/renderer/src/state/panel-provider.test.tsx"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "loadDocument captures the previously selected scope id BEFORE its pre-await patch sets selectedScopeId, and its failure branch compares against that captured value. Reading state.helm.selectedScopeId inside the failure branch is wrong and fails this criterion: the pre-await patch has already overwritten it, so the comparison would report 'same scope' every time and would wrongly retain a draft across a scope change.",
+        "On a failed load whose requested scope equals the captured previous scope, document and draft are left unchanged. On a failed load whose requested scope differs, both are cleared to null, exactly as before this task.",
+        "On both failure branches, loadingDocument returns to false and actionError holds the verbatim failure message, unchanged from today. The success path of loadDocument is unchanged in both branches: it still replaces document and re-seeds draft.",
+        "A test in panel-store.test.ts asserts that after edit() sets a draft and a reload() of the SAME scope fails, draft still deep-equals the edited value and actionError holds the failure message. Its name states the condition and the expected outcome. The report names the exact command run and quotes the assertion failure observed with the fix reverted -- a test never seen failing does not satisfy this criterion.",
+        "A second test asserts the scope-change branch is untouched: a failed selectScope() targeting a DIFFERENT scope still clears document and draft to null. It too is shown able to fail.",
+        "compare() is implemented per section 2 of contracts/helm-draft-safety.ts and never mutates document or draft on any path. On success incoming holds the freshly loaded document; on IPC failure incoming is set to null and actionError holds the verbatim message; with no scope selected it refuses through the existing reportHelmRefusal with the existing NO_SCOPE_MESSAGE; with a null api it goes through the existing failClosed. comparing returns to false on every one of those four paths, and each of the four has a test.",
+        "incoming is cleared to null by exactly the four events the contract lists (selectScope, reload, discard, successful save) and by nothing else. A test asserts that a FAILED save leaves incoming intact, since a conflict is the case the comparison exists for.",
+        "incoming and comparing have exactly one writer, the panel store. panel-provider.tsx does not recompute, cache or re-derive either one, and neither is stored anywhere that a computed value would serve -- a stored derivation goes stale silently.",
+        "compare() is reached only from an explicit user-triggered action. It is not called from a render, from a mount effect, or from the provider. A grep of panel-provider.tsx and panel-store.ts shows no useEffect or render path invoking it.",
+        "`npx vitest run src/renderer/src/state/panel-store.test.ts src/renderer/src/state/panel-provider.test.tsx` passes from the worktree root, and the report names that command with its pass count. Do not run a repo-wide `npm test`: peers are working in this same worktree and their half-finished files would be picked up.",
+        "Every pre-existing test in the two owned test files still passes. Where this task's behaviour change made an existing assertion or comment untrue, the edit is called out in the report with the reason -- silently rewriting a test that pinned the old behaviour is not acceptable.",
+        "No file outside this task's four owned paths is created or modified."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Panel close guard: the registration mechanism, and the shell routing that awaits it on both close and panel switch",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/shell/panel-close-guard.tsx",
+        "src/renderer/src/shell/panel-close-guard.test.tsx",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/shell/PanelBar.tsx",
+        "src/renderer/src/shell/PanelRegion.tsx",
+        "src/renderer/src/shell/PanelBar.test.tsx",
+        "src/renderer/src/shell/App.smoke.test.tsx"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "A new module src/renderer/src/shell/panel-close-guard.tsx exports useRegisterPanelCloseGuard and a provider supplying a PanelCloseController, matching the declarations T1 landed in renderer-panels.ts. The module fetches nothing and subscribes to no store.",
+        "App.tsx routes both close affordances -- PanelBar's close button and PanelRegion's onClose, including its Escape handler -- through requestClose(). After this task, setOpenPanel(null) appears in exactly one place, inside the controller's own resolution path.",
+        "App.tsx imports neither useHelm nor useHelmActions. A grep for both identifiers in src/renderer/src/App.tsx returns no match, and the report quotes that command and its empty output. This is the invariant T9 declined this work to protect: a useHelm() call in the shell would issue Helm's scope fetch while the panel is shut.",
+        "The invariant comment at App.tsx:85-90 is updated rather than deleted. It still states that neither panel's hook is mounted while its panel is closed, and now also explains how the guard registration preserves that -- the panel objects, the shell only asks.",
+        "Registration is cleared on unmount. A test proves a panel that has unmounted cannot veto a later close of a different panel.",
+        "With no guard registered, the panel closes and openPanel becomes null with no awaited turn inserted. A test drives Beachcomber -- which registers nothing -- and asserts it closes within a single act() with no intervening microtask, so its existing behaviour is bit-for-bit unchanged.",
+        "A guard resolving false leaves openPanel exactly as it was and the panel mounted; a guard resolving true closes it. Both have tests.",
+        "Re-entrancy: two requestClose() calls made while a guard is still pending consult the guard exactly once. The test asserts the guard's call count is 1, so a double-click cannot raise two dialogs.",
+        "A guard whose beforeClose throws or rejects is treated as having resolved true, so the panel closes rather than stranding the user with no way out. A test injects a throwing guard and asserts the panel closed.",
+        "PanelRegion's Escape path is guarded too: a test asserts that pressing Escape while a vetoing guard is registered leaves the panel open and leaves focus inside the panel region, so the user is not left with focus on a control that no longer explains itself.",
+        "Every pre-existing test in PanelBar.test.tsx and App.smoke.test.tsx passes. Any that required an edit is named in the report with the reason.",
+        "`npx vitest run src/renderer/src/shell` passes from the worktree root and the report names that command with its pass count. Do not run a repo-wide `npm test`.",
+        "No file outside this task's seven owned paths is created or modified.",
+        "PanelBar's panel-switch buttons route through the controller: App passes an onOpen handler that reaches requestOpen(next) rather than calling setOpenPanel directly. A switch is a close plus an open, so the guard must be honoured on the close half of it -- clicking Beachcomber while Helm holds a dirty draft must not discard that draft.",
+        "When the guard declines a switch, openPanel is left exactly as it was: the original panel stays open and stays mounted, and the new panel is NOT opened. An implementation that closes the old panel and then declines to open the new one fails this criterion -- it would discard the draft AND fail to honour the click. A test asserts Helm is still on screen with its typed values intact after a declined switch.",
+        "Re-opening the panel that is already open is a no-op and does NOT ask the guard. Re-clicking Helm's own PanelBar button while Helm is dirty must not raise a confirmation.",
+        "PanelBar's onOpen keeps its synchronous signature, (key: PanelKey) => void. It is NOT widened to return a promise; App discards the controller's promise at the call site instead, as `(key) => { void controller.requestOpen(key); }`. Every existing synchronous onOpen call site in PanelBar.test.tsx -- including the one at line 64 -- still compiles and passes UNMODIFIED. Making those tests async to accommodate a widened prop fails this criterion: they pin behaviour this session does not change, and a floating promise handed to a void prop is what no-misused-promises exists to catch.",
+        "Re-entrancy is shared across both controller methods, not tracked per method: at most one transition is in flight at a time. While one is pending, any further requestClose() or requestOpen() is dropped, resolves without asking the guard again, and does not change the pending destination; when the pending guard resolves true, the destination applied is the PENDING request's, never a later one. A test starts a guarded switch to Beachcomber, clicks close while the guard is pending, and asserts the guard was called exactly once and that resolving true lands on Beachcomber rather than on the close.",
+        "With no guard registered, a panel SWITCH still happens with no awaited turn inserted, exactly as a close does. Beachcomber registers nothing, so the existing open/switch/close tests in PanelBar.test.tsx and App.smoke.test.tsx observe unchanged synchronous behaviour."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Helm panel: register the dirty-draft close guard and render the incoming-versus-draft comparison",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/**"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "acceptance": [
+        "The Helm panel registers a PanelCloseGuard through useRegisterPanelCloseGuard. When view.dirty is false its beforeClose resolves true immediately and renders nothing, so a clean panel closes exactly as it does today.",
+        "When view.dirty is true, beforeClose renders a confirmation owned by the Helm panel offering keep-editing and discard-and-close, resolving false and true respectively. The shell renders no dialog and is never given the word 'draft'.",
+        "The confirmation meets the accessibility floor: every control is reachable and operable by keyboard alone, every control has a programmatically associated label, focus moves into the confirmation when it opens and returns to the close affordance when it is dismissed, and no meaning in it is carried by colour alone.",
+        "When view.incoming is non-null the panel renders the incoming document's values beside the corresponding draft values -- this is the side-by-side src/shared/contracts/helm.ts has promised since it was frozen, and it is the criterion that closes that gap.",
+        "The panel offers an affordance that calls actions.compare(), and it is offered on the conflict banner, which is the case the HELM_CONFLICT_CODE docblock describes. Following the banner's own advice must now lead somewhere that does not destroy the draft.",
+        "The comparison surface renders a declared loading state while view.comparing is true, a declared error state from view.actionError when a compare fails, and a declared empty state when view.incoming is null. A surface that renders only the success path fails this criterion.",
+        "actions.compare() is invoked only from a user event. It is not called from a render, from a mount effect, or from a hook body. The report quotes the grep showing every call site.",
+        "The mutation matrix in src/renderer/src/helm/discrimination.test.tsx is extended so that every source rule and panel probe this task adds is shown able to fail, and src/renderer/src/helm/probes.ts gains whatever probes the new UI needs. A probe that cannot fail asserts nothing.",
+        "src/renderer/src/helm/issues.ts is NOT modified. Item 4 is a doc correction landed by T1, and issues.ts already handles every unlisted field through its unplacedIssues catch-all -- its own header already names both omissions.",
+        "Any presentation component added takes its data and callbacks as props and does not reach into the store directly, so it can be rendered in a test without a provider.",
+        "`npx vitest run src/renderer/src/helm` passes from the worktree root and the report names that command with its pass count. Do not run a repo-wide `npm test`.",
+        "No file outside src/renderer/src/helm/ is created or modified.",
+        "src/renderer/src/helm/test-fixtures.ts is updated so its helmActions() factory supplies compare and its helmView() factory supplies incoming and comparing, matching the members T1 added to the frozen contracts. The two TS2322 errors currently reported at test-fixtures.ts(36,3) and (57,3) are gone. Added by escalation E1, user-approved 2026-08-31: the file was owned by this task but no criterion required touching it, and vitest transpiles without typechecking, so every scoped run passed while the errors stood."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Joined end-to-end proof of the three draft-safety behaviours, and correction of the comment pinning the old one",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx",
+        "src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "acceptance": [
+        "The comment at src/renderer/src/__tests__/failure-paths.e2e.test.tsx:1299-1302 -- 'THERE IS NO DRAFT TO KEEP: panel-store.ts clears document and draft on a failed load, deliberately' -- is corrected to state the behaviour that now ships: a same-scope failed load KEEPS the draft, and clearing survives only for a scope change. This comment is the only place the old behaviour was written down, so leaving it would make the file lie about the code beneath it.",
+        "Any assertion in that file resting on the old belief is updated, and the enclosing test 'shows the helm.load failure at helmError and leaves the picker live to try again' still passes, now additionally asserting the draft survived where the scope did not change.",
+        "A new suite src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx drives the real panel store, provider, shell and Helm panel together -- not stubs of them -- and proves in one flow that a user types a draft, triggers a reload that fails, and still sees their typed values on screen.",
+        "The same suite proves that a save rejected with CONFLICT keeps the draft, and that invoking compare() from the conflict banner then shows the incoming values beside the draft values.",
+        "The same suite proves that closing the panel with a dirty draft raises the Helm panel's own confirmation; that keep-editing leaves the panel open with the typed values intact; and that discard-and-close closes it.",
+        "The same suite proves that closing with a clean draft closes immediately with no confirmation shown, so the guard costs the common case nothing.",
+        "The same suite proves the panel-switch path: with a dirty Helm draft, clicking through to Beachcomber raises the Helm panel's confirmation; keep-editing leaves Helm open with the typed values intact and Beachcomber unopened; discard-and-close completes the switch and lands on Beachcomber. This is the adjacency that closing alone does not cover -- a user who navigates away rather than closing must not lose the draft either.",
+        "Every test name states its condition and its expected outcome and claims no more than its assertions check. A name containing 'works' or 'is correct' fails this criterion.",
+        "Every test in the new suite is shown able to fail. For each, the report names the command run and the failure observed -- either with the relevant implementation reverted or with the defect injected. 'Verified by inspection' does not satisfy this criterion.",
+        "The tests share no mutable state, pass in any order, and each cleans up after itself. None sleeps, none reads the wall clock or the ambient time zone, and none binds a fixed port; waits are on a condition with a timeout.",
+        "`npx vitest run src/renderer/src/__tests__` passes from the worktree root and the report names that command with its pass count. Do not run a repo-wide `npm test`: peers share this worktree.",
+        "No file outside this task's two owned paths is created or modified.",
+        "`npx tsc -p tsconfig.web.json --noEmit` run from the worktree root reports ZERO errors other than the pre-existing TS6307 family (src/main/** files absent from tsconfig.web.json's include, 24 of them at session start). The report names the command, the total error count, and the TS6307 count, each with the command that produced it. T5 is the last task and runs on a quiescent tree, so this is the session's one repo-wide typecheck gate. Added by escalation E1, user-approved 2026-08-31: no task previously typechecked the repo, in a session whose entire product is a contract amendment."
+      ]
+    }
+  ]
+}

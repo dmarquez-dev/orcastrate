@@ -295,3 +295,28 @@ hand-run and confirmed fixed by a hand-run**, with the diagnosis done by reading
 before any session opened. The `PodStatus`/`LaneStatus` split was established from
 `pod-runner.ts:426`, `:272` and the schema `CHECK` at `schema.ts:355` — not guessed — and
 that diagnosis was handed to every agent at dispatch so none re-derived it.
+
+## 2026-09-01 — 2026-08-31-orcastrate-helm-draft-safety
+
+Sub-session C1 of the Large routing over the 2026-08-20 deferral block. Closed the Helm
+draft-safety cluster: a failed same-scope reload now keeps the draft, `compare()` makes the
+side-by-side the contract promised on 2026-08-19 actually buildable and it is built, closing
+or switching away from a dirty Helm panel raises the panel's own confirmation, and
+`HelmValidationIssue.field` documents all seven names it emits.
+
+Five tasks, 66 acceptance criteria, all met. **Zero blocking findings, zero revision rounds,
+zero re-dispatches** — 29 files, 3493 insertions, range `95436c3..c4665be`.
+
+One escalation. E1: `helm/test-fixtures.ts` needed the new contract members, but although T4
+owned the file no criterion required touching it, and no task typechecked the repo — every
+scoped `vitest` run passes regardless, because vitest transpiles without typechecking. The
+user chose to fix it *and* gate it, adding a repo-wide `tsc` criterion to T5. That gate came
+back 24 total / 24 TS6307 / 0 other, so the contract amendment typechecks against the whole
+tree. **This session had no repo-wide typecheck until the user added one at an escalation.**
+
+Two decisions at Gate 2 beyond the spec: the side-by-side was built rather than the promise
+retracted, and the unguarded `PanelBar.onOpen` row the architect refused to close was folded
+into T3 rather than backlogged — which turned out to matter, since switching panels ate drafts
+by exactly the same path closing did.
+
+Eight advisory findings carried to the backlog. Two are real defects this session introduced.

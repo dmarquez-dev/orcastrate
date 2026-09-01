@@ -1,0 +1,80 @@
+{
+  "session": "2026-08-31-orcastrate-helm-draft-safety",
+  "updatedAt": "2026-09-01T00:00:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-08-31-orcastrate-helm-draft-safety",
+  "branch": "dir/2026-08-31-orcastrate-helm-draft-safety",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "95436c3425679c898a578f251e81cf64a16dd2f8",
+      "commit": "c3d90cc"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "c3d90cc",
+      "commit": "57e02bd"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "c3d90cc",
+      "commit": "d27f88d966ae418fc71fa6a8c8a0c42c11c1d148"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "d27f88d966ae418fc71fa6a8c8a0c42c11c1d148",
+      "commit": "b6dc61457ed8b70c678530ef27aa4c22ce0513a5"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "b6dc61457ed8b70c678530ef27aa4c22ce0513a5",
+      "commit": "c4665beb32c7111ddf0a036f9816259358f83bae"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "src/renderer/src/helm/test-fixtures.ts must gain `compare` on its helmActions() factory and `incoming`/`comparing` on its helmView() factory, or T1's contract amendment leaves two TS2322 errors standing at the end of the session. T4 OWNS the file (src/renderer/src/helm/** covers it) but no criterion on any task requires the fixtures be updated, and no task carries a repo-wide typecheck criterion. Every per-task vitest run passes regardless, because vitest transpiles without typechecking. Amend T4's frozen criteria to require it?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend both. T4 gains a criterion requiring its test-fixtures factories to carry compare/incoming/comparing; T5 gains a repo-wide `npx tsc` gate that must come back clean apart from the pre-existing TS6307 family. Fix it and gate it.",
+      "options": [
+        {
+          "summary": "Amend T4 and T5: fix the fixtures and add a repo-wide tsc gate",
+          "rationale": "T4 already owns test-fixtures.ts; T5 runs last on a quiescent tree, which is the only safe place for a repo-wide gate. Fixes this instance and catches the next.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Amend T4 only",
+          "rationale": "Smallest manifest change, but nothing verifies the repo typechecks at the end, so the same class of gap recurs unnoticed.",
+          "evidence": "repo"
+        },
+        {
+          "summary": "Leave it; backlog for C2",
+          "rationale": "No amendment. C1 ships with two known TS2322 errors; every test still passes because vitest transpiles without typechecking, which is why it would be easy to forget.",
+          "evidence": "judgment"
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 1,
+    "reviewRounds": 0
+  }
+}
