@@ -31,6 +31,14 @@ import { testId } from './contract-runtime';
  * OPEN STATE IS NOT CARRIED BY COLOUR. `aria-pressed` says it, and
  * `PanelBar.module.css` paints from that attribute.
  *
+ * A PANEL BUTTON ONLY EVER OPENS. It used to toggle — clicking the open
+ * panel's own button closed it — and that gesture now reaches `onOpen` with the
+ * key already open, which the shell's close controller treats as a no-op
+ * WITHOUT asking the panel's close guard. A dirty Helm draft must not raise a
+ * confirmation dialog because the user re-clicked the button of the panel they
+ * are already looking at. Closing has its own affordance: the close button at
+ * the end of the strip, and Escape.
+ *
  * FOCUS RETURNS HERE ON CLOSE. Whatever closed the panel — this strip's close
  * button, the Escape key inside the region — `open` becomes null, and the
  * effect below puts focus back on the button that opened it. Focus after an
@@ -76,10 +84,12 @@ export function PanelBar({ open, onOpen, onClose }: PanelBarProps): JSX.Element 
             className={styles.button}
             data-testid={testId(PANEL_TEST_IDS.panelBarOpen, key)}
             onClick={() => {
-              if (open === key) {
-                onClose();
-                return;
-              }
+              // ALWAYS `onOpen`, INCLUDING FOR THE PANEL ALREADY OPEN. The
+              // shell's controller treats re-opening the open panel as a no-op
+              // and does NOT ask the close guard, which is the point:
+              // re-clicking Helm's own button while its draft is dirty must not
+              // raise a confirmation dialog. Closing is the close affordance's
+              // job — the button at the end of this strip, and Escape.
               onOpen(key);
             }}
             ref={(node) => {
