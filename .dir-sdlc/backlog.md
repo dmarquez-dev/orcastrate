@@ -106,6 +106,24 @@ Sub-session 3 shipped Beachcomber and Helm, closing MVP items 6 and 7. Deferred
 at its Gate 3 by explicit user decision. Full per-criterion verdicts and each
 finding's full text are in that session's `reviews/T1.md`–`T10.md`.
 
+**FOUR ITEMS IN THIS BLOCK WERE CLOSED 2026-09-01 by session
+`2026-08-31-orcastrate-helm-draft-safety` (sub-session C1), merged as `818b833`.** Do not
+re-scope them:
+
+- Escalation-derived — *a failed Helm `reload` discards the draft* — **closed**. A failed
+  load whose scope equals the previously selected one now keeps `document` and `draft`; a
+  failed load for a *different* scope still clears both.
+- Contract gaps — *`helm.ts:251` promises a side-by-side that cannot be built* — **closed**.
+  `HelmActions.compare()` and `HelmView.incoming`/`comparing` were added and the Helm panel
+  renders the side-by-side on the conflict banner.
+- Contract gaps — *`helm.ts:208` lists five `field` names* — **closed**. It documents all
+  seven; the declared type stays `string` on purpose.
+- Correctness risks — *closing the Helm panel discards an unsaved draft* — **closed**, and
+  widened: closing **and switching panels** both route through a guard the Helm panel owns.
+
+Everything else in this block is still open. See the `2026-09-01` block at the end of this
+file for the eight findings C1 itself produced.
+
 ### Escalation-derived
 
 - **A failed Helm `reload` discards the draft it could not replace.**
