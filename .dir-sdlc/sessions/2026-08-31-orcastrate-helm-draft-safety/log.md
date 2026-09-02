@@ -139,3 +139,7 @@
   already in the 2026-08-20 block, and a second entry for one defect is the archaeology the
   backlog exists to end. Session approved and merged as 818b833 (`--no-ff`, matching this
   project's convention across sessions 2e5c310 / f2862ee / f7008ae). Phase → merged.
+- 2026-09-02 — Correction: `metrics.userInteractions` raised from 4 to 5. The count was written
+  to `state.json` before the push question was asked, and the framework counts that question as
+  an interaction. The five were Gate 1, Gate 2, escalation E1, Gate 3, and the push/cleanup
+  question. `escalationsRaised: 1` and `reviewRounds: 0` were correct and are unchanged.
