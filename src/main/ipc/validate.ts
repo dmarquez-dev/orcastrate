@@ -33,7 +33,9 @@ import type {
 } from '../../shared/contracts/ipc';
 import { isAllowedPermissionMode } from '../pod';
 
-import { invalidArgument } from './errors';
+// From the leaf, not `./errors`: this module only RAISES failures, it never
+// classifies one, and `./errors.ts` would pull `../pod` and `../store` in.
+import { invalidArgument } from './failure';
 
 /** Contract: `ReadEventsRequest.limit` is "clamped to 5000 by main". */
 export const MAX_READ_LIMIT = 5000;
