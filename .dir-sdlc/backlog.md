@@ -1250,3 +1250,101 @@ defect is NOT repeated here — it is already in the 2026-08-20 block above.
   longer un-press itself. Changing it means editing `PanelBar.test.tsx:50-59`, which the
   session's own criterion 11 protected. Decide between keeping `aria-pressed` as a state
   indicator and moving to `aria-current`.
+
+## 2026-09-30 — 2026-09-04-orcastrate-correctness-sweep
+
+Sub-session C2 of the Large routing over the 2026-08-20 block. **All nine items it
+was scoped for are CLOSED** — see the CLOSED list at the end of this block. 90
+acceptance criteria, all met; one revision round; zero escalations. Full
+per-criterion verdicts and each finding's full text are in that session's
+`reviews/T1.md`–`T6.md`. Full suite on the merged branch: **2222 passing** (was
+2178). Everything below is carried forward by explicit user decision at Gate 3.
+
+### Correctness risks
+
+- **`BackupSequence` is per-`Helm`-instance state.** `helm-service.ts:79-83`. Two
+  `Helm` services constructed in one process against the same settings file would
+  each start at ordinal 0 and could still collide inside one millisecond. Contract
+  section 1 scopes out a second *process*; the in-process multi-instance case is
+  contemplated by no criterion. Not a defect today — nothing constructs two.
+- **The empty-serialization acknowledgement has no regression pin.**
+  `helm-service.ts:231` is unconditionally `sha256Of(content)`, which is correct,
+  but `tests/unit/helm/watcher.test.ts:249` pins only the watcher's treatment of
+  `sha256Of('')` vs `null` and never calls `save`. Reintroducing a
+  `content === '' ? null : sha256Of(content)` branch would turn nothing red.
+- **Two unreachable holes in the "a failure renders on exactly one surface"
+  invariant.** `HelmPanel.tsx:84,126`. If `draft` became null while a compare error
+  stood, no comparison would render while the banner was still suppressed — the
+  message would vanish. If `refreshScopes` failed while the latch was `'compare'`,
+  `loadError` and `actionError` take the same sentence and it would print in both
+  surfaces. **Both verified unreachable today** — only `loadDocument` nulls `draft`
+  and both its entry points set the latch to `'other'` first; `refreshScopes` runs
+  only at mount when the latch is still `null`. The invariant rests on that
+  reachability argument rather than on the code's own shape.
+- **`blockedBy` can name a different Pod than before, in a multi-Pod case.**
+  `paths.ts:117-120`. Both comparisons run per-pod inside one loop, so where pod A
+  matches by encoding and a later pod B matches by normalized path, the old code
+  reported B and the new reports A. **Blocked-ness is unchanged** — that is the
+  safety property, and it holds — only the identity shown in the banner differs.
+
+### Disciplines
+
+- **The frontend discipline says nothing about indexing under
+  `noUncheckedIndexedAccess`.** `tsconfig.web.json:24` sets it, so destructuring or
+  indexing a `querySelectorAll`/`map` result yields `T | undefined`. This is the one
+  finding that would have prevented **this session's only revision round**: the
+  destructure that failed to compile looked idiomatic when written. A line requiring
+  an explicit guard — one that makes an absent node a named test failure rather than
+  letting `-1` compare cleanly — would prevent recurrence. **No task could have
+  fixed this: disciplines sit outside every task's `owns` globs.**
+
+### Test and CI concerns
+
+- **The leaf scan's import regex misses bare side-effect imports.**
+  `tests/unit/ipc/failure-leaf.test.ts:41-47` uses
+  `/^import[\s\S]*?from\s*'[^']*';/gm`, which requires a `from` clause, single
+  quotes and a trailing semicolon. `import '../pod';` would not be matched at all
+  and the scan would report zero imports and pass. Double-quoted or semicolon-less
+  specifiers evade it the same way.
+- **No test pins the orphan marker's position relative to the path.**
+  `BeachcomberRow.tsx:44-45`. Close to untestable as written, since `unverified`
+  (`decoded-name`) and `orphan` (`session-record`) are mutually exclusive by
+  construction.
+- **`absentControlLabels` resolves to a single entry.**
+  `correctness-sweep.e2e.test.tsx:263`. `COPY.compare` is the only absent control in
+  that scenario, so the loop is effectively one assertion. The
+  `expect(...).toContain(COPY.compare)` guard prevents a vacuous pass today, but if
+  Helm later stops rendering Save, Discard or Reload the test silently broadens.
+
+### Cosmetics
+
+- `src/main/beachcomber/paths.ts:52-57` — the `decodeDirectoryName` docblock is now
+  orphaned: `PodBlockingSubject` and `podBlockerFor` were inserted between it and the
+  function at `:122`, so it reads as documentation for the interface that follows it.
+- `src/renderer/src/helm/HelmPanel.tsx:73` — `lastAction` is three-valued but only
+  `'compare'` is ever tested; `'other'` and `null` are behaviourally identical.
+- T2's report under-named its test-file edits (`watcher.test.ts`'s import block was
+  rewritten) and mis-stated why it could not reach an empty serialization — it said
+  the file was unowned, but `src/main/helm/document.ts` **is** inside its globs. The
+  real reason is scope: widening `serializeSettings`' output floor is a behaviour
+  change no criterion asked for. Conclusion right, justification wrong.
+
+### CLOSED by this session — do not re-scope
+
+From the **2026-08-20** block: `beachcomber.ts:213` `refused`/`NOT_FOUND` contradiction;
+same-millisecond Helm backup overwrite; Pod blocking against a `displayPath` guess;
+`acknowledgeOwnWrite` swallowing one genuine external change; `HelmNotices.tsx`
+duplicate error sentence (**the `toHaveLength(2)` pin at `failure-paths.e2e.test.tsx`
+is now `toHaveLength(1)` and its REPORTED DEFECT comment is deleted — that was the
+authorised outcome, not a weakened test**); `BeachcomberRow.tsx:77` path-above-caveat;
+and the leaf error module, so `IpcFailure` no longer transitively pulls `src/main/pod`
+and `src/main/store`.
+
+From the **2026-09-01** block: `HelmPanel.tsx` `compareRequested` never resetting, and
+`helm/copy.ts` `COPY.comparisonEmpty` naming a conflict-banner-only affordance — both
+defects C1 introduced.
+
+**Still open from the 2026-08-20 block, deferred to C3:** `font-weight: 600` has no
+token; the four unconsumed tokens; the opaque `.confirmScrim`; and every remaining
+2026-09-01 item (the `PanelBar` pair, `resetHelmForReopen` as an unnamed fifth
+clearing site, the two criterion-phrasing gaps).

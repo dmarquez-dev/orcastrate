@@ -1,0 +1,191 @@
+{
+  "session": "2026-09-04-orcastrate-correctness-sweep",
+  "createdAt": "2026-09-04",
+  "track": "large",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/correctness-sweep.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "The leaf failure module, its two owned consumers, and the refused-array comment amendment",
+      "agent": "dir-architect",
+      "domain": "architecture",
+      "owns": [
+        "src/main/ipc/**",
+        "src/main/pod-manager/pod-manager.ts",
+        "src/shared/contracts/beachcomber.ts",
+        "tests/unit/ipc/**",
+        "tests/unit/pod-manager/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "A new module src/main/ipc/failure.ts exports IpcFailure, invalidArgument, notFound, cwdMissing and IPC_ERROR_CODES, per section 9 X1 of contracts/correctness-sweep.ts. Its only import is an `import type` from the shared IPC contract. It imports no value from anywhere and reaches neither ../pod, ../store, electron nor any node: builtin. A test in tests/unit/ipc scans the module's source and asserts this, and the scan is shown able to fail by temporarily adding a value import and observing the assertion break; the report names the command and quotes the failure.",
+        "There is exactly ONE IpcFailure class in the process. src/main/ipc/errors.ts re-exports the five names from the leaf module rather than declaring anything parallel, so every existing `instanceof IpcFailure` still classifies. A test constructs an IpcFailure through the leaf module's export and asserts that toIpcError, imported from errors.ts, returns that instance's own code rather than INTERNAL. That assertion fails if a second class is ever introduced, which is the failure mode this criterion exists for.",
+        "No behaviour changes anywhere in errors.ts. toIpcError, ok, fail, the store and runner code maps, and the RangeError and InvalidPermissionAnswerError branches are unmodified, and every member of IPC_ERROR_CODES is unchanged in value and in order. The report names the command that ran the existing tests/unit/ipc suite and states that no pre-existing assertion in it was edited.",
+        "src/main/ipc/validate.ts and src/main/pod-manager/pod-manager.ts import their failure constructors from src/main/ipc/failure.ts, not from src/main/ipc/errors.ts. This is the point of the item: a re-export does not isolate an importer, because importing errors.ts still loads ../pod and ../store. src/main/ipc/handlers.ts is left importing from ./errors, because it needs fail and ok, which stay there.",
+        "src/main/ipc/index.ts re-exports the same five names it exports today, so no consumer of the barrel changes and no import path outside this task's owned files is broken by this task. The report states which of this task's owned files changed an import and which did not.",
+        "The docblock at src/main/pod-manager/pod-manager.ts line ~36, which names ../ipc/errors.ts as where classification lives, is updated to say what now lives where: the classifier in errors.ts, the failure type and its constructors in failure.ts, and why this file imports the leaf. A comment naming a path that no longer explains the import is how the next reader is misled.",
+        "In src/shared/contracts/beachcomber.ts, the BeachcomberPreview.refused doc comment no longer claims the array covers ids unknown to this scan. It states that refused carries entries this scan holds but will not act on -- today, blocked by a Pod -- and that an id or scanId the service did not mint, or no longer holds, is a thrown NOT_FOUND from preview and trash and never an entry here. A reader of that comment and a reader of the BeachcomberService docblock below it arrive at the same behaviour.",
+        "Nothing in src/shared/contracts/beachcomber.ts changes except comment text. No type, field, name, signature, union member or constant changes. Comparing the file before and after with all comment lines stripped yields no difference, and the report names the command that showed it. Anything more is a contract-change escalation and stops this task.",
+        "src/shared/contracts/beachcomber.ts carries a short provenance note recording that it was frozen 2026-08-19 and amended by session 2026-09-04-orcastrate-correctness-sweep, naming what the old comment claimed and why it was wrong. The pointer at src/main/ipc/errors.ts in its service docblock is updated to name the module the thrown type now lives in. A later reader must be able to tell an approved amendment from drift.",
+        "`npx vitest run tests/unit/ipc tests/unit/pod-manager` passes from the worktree root and the report names that command with the passing count it observed. Do not run a repo-wide `npm test`: peers are working in this same worktree and their half-finished files would be read as failures.",
+        "`npm run typecheck:node` run from the worktree root reports ZERO errors. That config covers src/main/**, src/preload/**, src/shared/** and tests/**, and its baseline at session start was zero errors -- measured at Gate 2 by running it on the untouched worktree. Any error is this task's. The report names the command and the count.",
+        "No file outside this task's five owned globs is created or modified. In particular src/main/helm/helm-service.ts, src/main/beachcomber/service.ts and tests/unit/helm/helpers.ts are NOT touched here: they belong to T2 and T3, which swap their own imports, and an ownership set is not shared."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Helm main process: distinct backups within one millisecond, and acknowledging the bytes Helm actually wrote",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/helm/**",
+        "tests/unit/helm/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "Two successful saves of the same scope whose injected clock returns the SAME millisecond produce two DISTINCT backup files, neither overwriting the other. Both are readable afterwards, and each holds the content that was on disk immediately before its own write. A test drives the service twice without advancing the clock and asserts both paths and both contents. Contract section 1, property P1.",
+        "backupPathFor keeps its exported name and its two-parameter (targetPath, now) signature and keeps returning exactly the string it returns today -- the FIRST backup taken at that stamp. The three existing sites that recompute it and compare, at tests/unit/helm/write-safety.test.ts lines 49, 87 and 136, still pass UNMODIFIED. If any of them had to be edited, this criterion fails: the file's docblock makes determinism-in-`now` a property tests depend on, and it is preserved in the narrowed form the contract states, not retired. Contract section 1, property P2.",
+        "Rule 7 is not routed around. With a directory occupying the path backupPathFor(targetPath, now) names, the save still ABORTS: the target file is left byte-identical, no backup and no temp file is created, and the caller receives the OS message verbatim as an IO failure. The existing test 'aborts the write when the backup cannot be taken' still passes UNMODIFIED. This rules out a blind COPYFILE_EXCL retry and a probe-for-a-free-name loop -- neither can tell an earlier backup from an obstruction, so both would step past the obstruction onto a suffixed name and let the write proceed, silently weakening the one rule this module exists for. Contract section 1, property P3.",
+        "A test proves the abort above is still an abort AFTER the collision-avoidance exists -- that is, it is shown able to fail. The report names the command and quotes the failure observed when the collision-avoidance is temporarily allowed to skip the obstruction. 'Verified by inspection' does not satisfy this criterion.",
+        "The backup still happens BEFORE writeAtomic, and a throw from it still means writeAtomic never runs. The success path is otherwise unchanged: a missing target still produces no backup file and a null backup path, tempPathFor is unchanged, and writeAtomic's orphaned-temp cleanup is unchanged. Contract section 1, property P4.",
+        "The docblock at the head of src/main/helm/atomic-write.ts is updated to state the narrowed determinism property rather than the old absolute one, and to say why distinctness is needed. Leaving it claiming both names are deterministic in `now` would make the file lie about the code beneath it.",
+        "src/main/helm/atomic-write.ts still reaches no node:fs API directly. Every syscall it makes goes through the helmFs record in fs-ops.ts, which is the seam tests/unit/helm/hygiene.test.ts scans for and the seam a spy replaces. If the chosen mechanism needs a new member or a new constant, it is added to fs-ops.ts and reached from there. The hygiene scan passes unmodified.",
+        "After a successful save, the sha handed to the watcher is the sha of the content Helm serialized and wrote, not a sha read back off the disk after the rename. A test lands a foreign write between the rename and the acknowledgement -- through the beforeRename hook, a spy on the fs seam, or an equivalent injection -- and asserts that the watcher subsequently EMITS a change for that file. Before the fix that push is swallowed, because the watcher adopts the foreign bytes as Helm's own. Contract section 3.",
+        "That test is shown able to fail: the report names the command and quotes the assertion failure observed with the post-rename re-read restored. A test never seen failing has not been shown to test anything.",
+        "The post-rename `readSnapshot` in save is removed rather than left computing a value nobody reads. Everything that depended on it is checked and unchanged: HelmSaveResult.document still comes from its own `await this.load(req.scopeId)`, backupDisplayPath still comes from the backup, and warnings still come from the validation computed before the write. A test asserts a successful save still returns a document reflecting what was written and the correct backup path.",
+        "A save whose serialized content is the empty string acknowledges the sha of the empty string, not null. Absence and emptiness are different identities to revisionsMatch, and conflating them would manufacture a conflict a user cannot explain.",
+        "src/main/helm/helm-service.ts imports IpcFailure from src/main/ipc/failure.ts, the leaf module T1 landed, and its docblock at line ~28 -- which today argues the import is harmless because nothing about it reaches Electron or the renderer -- is updated to say that the argument is now true of the module graph as well as of the type. tests/unit/helm/helpers.ts imports IpcFailure from the same leaf module.",
+        "Every failure in this module still crosses the boundary in the transport's vocabulary and with the OS message untouched: an ErrnoException is still re-raised as IpcFailure('IO', ...) carrying err.message character for character with the original as cause, and no catch introduced by this task swallows an error to keep a path quiet. Any catch that genuinely ignores something says why at the catch site.",
+        "`npx vitest run tests/unit/helm` passes from the worktree root and the report names that command with the passing count it observed. Do not run a repo-wide `npm test`: peers share this worktree.",
+        "Every pre-existing test under tests/unit/helm still passes. Any that required an edit is named in the report with the reason -- silently rewriting a test that pinned the old behaviour is not acceptable. Editing any of the three backupPathFor recomputation sites named above fails an earlier criterion outright.",
+        "No file outside src/main/helm/ and tests/unit/helm/ is created or modified."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Beachcomber: block a Pod by encoding its cwd, instead of comparing against a decoded guess",
+      "agent": "dir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/beachcomber/**",
+        "tests/unit/beachcomber/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "A projects entry whose directory holds no cwd-bearing transcript is BLOCKED when a Pod's cwd encodes to that entry's on-disk directory name, compared case-insensitively. A test builds a projects directory name from a Pod cwd using the shipped encoder, gives the entry no transcript so its pathSource is decoded-name, and asserts the entry comes back blocked with blockedBy naming that Pod. Before the fix it comes back unblocked, because the decoded guess did not match the true cwd. Contract section 2, rule R2.",
+        "That test is shown able to fail. The report names the command run and quotes the assertion failure observed with the encoding comparison removed. A cwd whose decoded round trip happens to equal the original would make the test vacuous, so the fixture cwd is one the decoding demonstrably gets wrong -- a path containing a literal hyphen, or a dot, is the case decodeDirectoryName's own docblock names as ambiguous. The report states which fixture was used and why it is not a round trip.",
+        "The encoding comparison is applied ONLY when the entry's root is 'projects' AND its pathSource is 'decoded-name', both halves. buildEntry gives every non-projects entry pathSource 'decoded-name' with an absolute path under the Claude home as its displayPath, so keying on pathSource alone would encode a Pod cwd and compare it against a shell-snapshot file name. A test asserts that an entry under shellSnapshots, fileHistory or pasteCache is not blocked by a Pod whose cwd happens to encode to that entry's name. Contract section 2, rule R4.",
+        "Recorded paths are unchanged. An entry whose pathSource is 'session-record' is compared exactly as today, by normalizeForCompare against the Pod's cwd. A test covers a recorded entry blocked by a Pod and a recorded entry not blocked, and both behave as they do before this task. Contract section 2, rule R1.",
+        "The two comparisons are a UNION for a decoded projects entry: it is blocked if EITHER the existing normalized comparison OR the encoding comparison matches. No entry that is blocked before this task becomes unblocked by it. A test asserts a decoded entry whose decoded guess DOES match a Pod cwd is still blocked. Contract section 2, rule R3.",
+        "The comparison is a pure function of the entry's root, name, pathSource and displayPath and the Pod list, reachable and asserted from a unit test without constructing the whole service or touching the filesystem. A rule buried inside an async scan is a rule that can only be tested through a directory tree.",
+        "The encoding rule is NOT re-implemented inside src/main/beachcomber/. encodeCwdForProjects is imported from the src/main/pod-session barrel, which is its declared public surface. A second copy of the encoding would drift from the one that names the directories, and the two-functions-are-inverses argument this fix rests on depends on there being exactly one encoder. Contract section 2, rule R6.",
+        "src/main/beachcomber/** still contains no filesystem mutation call and still imports neither electron nor pod-manager. tests/unit/beachcomber/no-destructive-api.test.ts passes UNMODIFIED, including its assertion that the only way the module can make something disappear is the single injected trashItem call site.",
+        "Nothing else about an entry moves. blocked, blockedBy, pathSource, orphan, displayPath, name and the refusal sentence are unchanged in shape and in value for every case not covered by R2, and the 'only a recorded path may ever be called missing' invariant on orphan is unchanged. A test asserts a decoded entry newly blocked by R2 still reports orphan false and still carries its decoded displayPath. Contract section 2, rule R5.",
+        "src/main/beachcomber/service.ts imports IpcFailure from src/main/ipc/failure.ts, the leaf module T1 landed.",
+        "The reasoning for choosing the exact comparison over a conservative blanket refusal is written into the code at the comparison site, in this repository's own style: what the two directions are, why only one of them is a function, and why case is folded. This is the item where a reviewer most needs to see the argument, because both a conservative and an exact fix would pass a behavioural test.",
+        "`npx vitest run tests/unit/beachcomber` passes from the worktree root and the report names that command with the passing count it observed. Do not run a repo-wide `npm test`: peers share this worktree.",
+        "Every pre-existing test under tests/unit/beachcomber still passes. Any that required an edit is named in the report with the reason.",
+        "No file outside src/main/beachcomber/ and tests/unit/beachcomber/ is created or modified. src/main/pod-session/ is IMPORTED FROM, never edited -- it belongs to no task in this session."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Helm panel: route each failure to exactly one surface, stop advertising an unreachable button, and stop saying the same sentence twice",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/**",
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "EXACTLY ONE SURFACE, ALWAYS. While an action error is present and is not suppressed as the conflict duplicate, its text appears in exactly one of the comparison surface and the helmError banner -- never both, never neither. A test asserts the count of elements carrying that sentence across the whole panel is one, for each of the four situations below. This single invariant is what item 4 is about. Contract section 4, property Q1.",
+        "A comparison that fails renders its message in the comparison surface and NOT in helmError. Unchanged from today; a test pins it so the fix cannot cost it. Contract section 4, property Q2.",
+        "After a failed comparison, a SUBSEQUENT failure of a different action -- a failed save is the reported case -- renders in helmError and NOT in the comparison surface. This is the defect: today the comparison surface claims that message because the compare-requested flag never resets. A test drives compare-fails-then-save-fails in one flow and asserts where the second message landed. Contract section 4, property Q3.",
+        "That test is shown able to fail. The report names the command run and quotes the assertion failure observed with the fix reverted. This is a defect session 2026-08-31-orcastrate-helm-draft-safety introduced, and a bug fix arrives with the test that reproduces it.",
+        "With no comparison ever requested, no failure renders in the comparison surface and the comparison surface shows its empty state. Unchanged from today, and tested. Contract section 4, property Q4.",
+        "The comparison surface still renders all four of its declared states: a loading state while a comparison is in flight, an error state, an empty state, and the table. A surface that renders only the success path is unfinished. HelmComparison remains a presentation component that takes data and callbacks and reaches for no hook, so it can be rendered in a test without a provider.",
+        "No derived value is stored. Whatever replaces the current sticky flag holds only what cannot be computed -- the user's own interaction, that a comparison was asked for -- and everything derivable from view state is computed at render. A stored derivation goes stale silently, which is precisely how this defect arose. The report states what the retained state is and why it is not derivable.",
+        "compare() is still invoked only from a user event: not from a render, not from a mount effect, not from a hook body. The report quotes the grep showing every call site.",
+        "COPY.comparisonEmpty no longer instructs the user to press something that is not on the surface it appears on. The words 'Compare with the file on disk' name a button that exists only on the conflict banner, while the comparison surface renders whenever there is a draft -- so with a draft and no conflict the empty state advertises an affordance the user cannot reach. Contract section 5.",
+        "The replacement string is complete sentences, KEEPS the reassurance that comparing never touches what the user typed, and contains no path separator. The reassurance is the reason the sentence exists -- a user burned by reload() needs it -- and dropping it trades one defect for another. src/renderer/src/helm/no-paths.test.ts passes. Contract section 5, properties S1 to S4.",
+        "The string is changed in src/renderer/src/helm/copy.ts and nowhere else, per that file's own stated convention, and the test id HELM_SAFETY_TEST_IDS.comparisonEmpty does NOT change. No test pins the current text -- checked at Gate 2 by grep across src/ and tests/, whose only hits outside copy.ts are on the id -- so no assertion elsewhere should need editing. If one does, name it in the report.",
+        "When the scope-list error and the action error are both present and EQUAL, the helmError banner renders that sentence EXACTLY ONCE. A failed helm:scopes sets both to the same string, and today both print, which reads as two separate failures. The precedent followed is src/renderer/src/beachcomber/BeachcomberError.tsx lines 22 to 27, which dedupes exactly this shape and whose own comment names it. Contract section 6, property U1.",
+        "When the two messages DIFFER, both render, each once, in the order scope-list error then action error -- unchanged from today. When exactly one is present it renders once -- unchanged. Contract section 6, properties U2 and U3.",
+        "The existing conflict suppression survives: an action error equal to the conflict message is still kept out of helmError entirely, because the conflict banner is its surface. Contract section 6, property U4.",
+        "When every message is suppressed or absent, the helmError notice is NOT RENDERED AT ALL -- no empty banner carrying a heading and no body. A test asserts the notice is absent in that case. Contract section 6, property U5.",
+        "The banner still prints the message main wrote, verbatim: no rewriting, no summarising, pre-wrap intact. An EACCES a user can paste into a search is worth more than a sentence Helm invented about it. Contract section 6, property U6.",
+        "MANDATORY, AND IT IS NOT A REGRESSION. The assertion at src/renderer/src/__tests__/failure-paths.e2e.test.tsx:1283 pins the current duplication as toHaveLength(2), and the REPORTED DEFECT comment directly above it says in so many words that fixing the defect should make that assertion fail and the comment get deleted. This task rewrites that assertion to require exactly one occurrence and DELETES that comment. The task owns the file so both land in one change. A reviewer seeing that pin change must not read it as a break: the test's own comment authorises it, and this criterion is the record that it was intended.",
+        "Every other test in failure-paths.e2e.test.tsx still passes, including the helm.load failure test and every Pod, Beachcomber and permissions path in the file. Any further edit to that file is named in the report with its reason.",
+        "The accessibility floor holds for everything this task touches: every interactive element reachable and operable by keyboard alone, every control with a programmatically associated label, no meaning carried by colour alone, and focus visible and moving predictably. The error banner keeps its alert live region and the comparison surface keeps its status semantics.",
+        "Every test added or rewritten by this task names its condition and its expected outcome and claims no more than its assertions check. A name containing 'works' or 'is correct' fails this criterion.",
+        "`npx vitest run src/renderer/src/helm src/renderer/src/__tests__/failure-paths.e2e.test.tsx` passes from the worktree root and the report names that command with the passing count it observed. Do not run a repo-wide `npm test`: peers share this worktree.",
+        "The mutation matrix in src/renderer/src/helm/discrimination.test.tsx still passes, and any probe in src/renderer/src/helm/probes.ts whose subject this task changed is updated so it can still fail. A probe that cannot fail asserts nothing.",
+        "No file outside src/renderer/src/helm/ and src/renderer/src/__tests__/failure-paths.e2e.test.tsx is created or modified. In particular src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx belongs to T6."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Beachcomber row: say the path is a guess before showing the guess",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/beachcomber/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "For a row whose entry.pathSource is 'decoded-name', the element carrying PANEL_TEST_IDS.beachcomberRowUnverified PRECEDES the element holding entry.displayPath in document order. A test asserts the ordering by comparing the two nodes' positions in the rendered row -- not by reading the source. Today the guess is presented as a fact and the caveat arrives afterwards, which next to a delete button is the wrong way round. Contract section 7, rule V1.",
+        "That test is shown able to fail. The report names the command run and quotes the assertion failure observed with the two elements in their original order.",
+        "THE COPY IS FROZEN AND RENDERS VERBATIM. UNVERIFIED_PATH_NOTICE is still imported from the contract and never re-typed, COPY.unverifiedHeading is unchanged, and the notice element's textContent is still EXACTLY UNVERIFIED_PATH_NOTICE with no prefix and no suffix. The existing assertion at src/renderer/src/beachcomber/BeachcomberRow.test.tsx:103 passes UNMODIFIED. This item is DOM order, not wording. Contract section 7, rule V2.",
+        "ARIA is unchanged. aria-describedby still names the blocked notice and the unverified notice by their existing ids, the checkbox still carries the real disabled attribute when the row is blocked, and the row still carries aria-disabled. The described-by id list is the same set it is today and is not reordered to chase the DOM. A test asserts the checkbox's aria-describedby still resolves to both notices for a row that is blocked and unverified. Contract section 7, rule V3.",
+        "A row whose pathSource is 'session-record' renders the same DOM it does today: no unverified notice, and no reordering of anything. A test covers it. Contract section 7, rule V4.",
+        "Everything else keeps its order relative to the path: select-and-name, the facts line, the blocked marker and the orphan marker. Only the unverified notice moves, and it moves to above the path. Contract section 7, rule V4.",
+        "No meaning is newly carried by colour. The notice remains text, reachable by a screen reader in the order it now appears. Contract section 7, rule V5.",
+        "BeachcomberRow remains a presentation component that takes its data and callbacks as props and reaches into no store, so it renders in a test without a provider. The component is not made to scroll to be understood by this change.",
+        "The row's own style module is edited only if the reorder demands it, and if it is, the change carries no hardcoded border width, letter-spacing or font weight -- src/renderer/src/beachcomber/Beachcomber.styles.test.ts scans for exactly that and must keep passing. If no style change is needed, the report says so.",
+        "`npx vitest run src/renderer/src/beachcomber` passes from the worktree root and the report names that command with the passing count it observed. Do not run a repo-wide `npm test`: peers share this worktree.",
+        "Every pre-existing test under src/renderer/src/beachcomber/ still passes. Any that required an edit is named in the report with the reason.",
+        "No file outside src/renderer/src/beachcomber/ is created or modified. There is no order assertion for this row anywhere else -- checked at Gate 2 by grep for rowUnverified, beachcomberRowUnverified and rowPath across src/ and tests/ -- so if this task finds itself wanting to edit another directory, it stops and escalates."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Joined proof of the renderer corrections, and the session's repo-wide typecheck and test gates",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx",
+        "src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5"
+      ],
+      "acceptance": [
+        "A new suite src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx drives the real panel store, provider, shell and panels together -- not stubs of them -- and proves in one flow that a user asks for a comparison that fails, then triggers a save that fails, and sees the SECOND message in the error banner rather than inside the comparison surface, with the sentence appearing exactly once anywhere on the panel.",
+        "The same suite proves that a failed helm:scopes puts its sentence on screen EXACTLY ONCE, where today it appears twice.",
+        "The same suite proves that with a draft on screen and no conflict, the comparison surface's empty state does not instruct the user to press a control that is not rendered anywhere in the panel at that moment. The assertion is on what is on screen, not on the text of a constant.",
+        "The same suite proves that a Beachcomber row for a directory whose path could not be verified presents the 'path not verified' notice BEFORE the path itself, in the order a screen reader would encounter them.",
+        "Every test in the new suite is shown able to fail. For each, the report names the command run and the failure observed -- either with the relevant implementation reverted or with the defect injected. 'Verified by inspection' does not satisfy this criterion, and neither does a test that would still pass with the implementation deleted.",
+        "Every test name states its condition and its expected outcome and claims no more than its assertions check. A name containing 'works' or 'is correct' fails this criterion.",
+        "The tests share no mutable state, pass in any order, and each cleans up after itself. None sleeps, none reads the wall clock or the ambient time zone, and none binds a fixed port; waits are on a condition with a timeout.",
+        "src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx still passes. If any assertion in it rested on a behaviour this session changed, it is updated and the edit is named in the report with the reason -- silently rewriting a test that pinned the old behaviour is not acceptable. If it needed no edit, the report says so explicitly.",
+        "`npx vitest run src/renderer/src/__tests__` passes from the worktree root and the report names that command with the passing count it observed.",
+        "REPO-WIDE TYPECHECK, WEB. `npx tsc -p tsconfig.web.json --noEmit` run from the worktree root reports ZERO errors other than the pre-existing TS6307 family -- src/main/** files absent from that config's include, 24 of them, measured at Gate 2 by running that command on the untouched worktree and counting `error TS` and `error TS6307` occurrences, both of which came back 24. The report names the command, the total error count and the TS6307 count, each with the command that produced it. This is not optional: per-task vitest gates are scoped to one directory and vitest transpiles without typechecking, so type errors survive every green run -- which is exactly what happened in sub-session C1, where two TS2322 errors in helm/test-fixtures.ts survived four consecutive tasks.",
+        "REPO-WIDE TYPECHECK, NODE. `npm run typecheck:node` run from the worktree root reports ZERO errors. Its baseline at session start was zero, measured at Gate 2 the same way. This gate matters more than the web one for this session: five of the nine items are main-process, and tsconfig.web.json does not include src/main/** or tests/** at all, so nothing else in the session typechecks the code T1, T2 and T3 wrote.",
+        "REPO-WIDE TEST RUN. `npm test` passes from the worktree root with zero failures. T6 is the last task in the DAG and runs on a quiescent tree, so this is the one point in the session where a repo-wide run reads finished work rather than a peer's half-finished files. The report names the command and the passing count it observed -- a count nobody ran is a claim, not a measurement.",
+        "No file outside this task's two owned paths is created or modified. If the repo-wide gates surface a failure in a file this task does not own, it is reported as a blocking finding naming the file, the command and the output, and is NOT fixed here."
+      ]
+    }
+  ]
+}

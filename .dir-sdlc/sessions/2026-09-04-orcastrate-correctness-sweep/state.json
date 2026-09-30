@@ -1,0 +1,63 @@
+{
+  "session": "2026-09-04-orcastrate-correctness-sweep",
+  "updatedAt": "2026-09-30T00:00:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-09-04-orcastrate-correctness-sweep",
+  "branch": "dir/2026-09-04-orcastrate-correctness-sweep",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "d9d95cb74d2a6ef389702d6da46a612ac41343a3",
+      "commit": "3eaae3d29b61f6eac7c7e54da49a01b8c3e6df7d"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "3eaae3d29b61f6eac7c7e54da49a01b8c3e6df7d",
+      "commit": "b4499f15e2d831e45c95a88f22c147e9614ff0ef"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "3eaae3d29b61f6eac7c7e54da49a01b8c3e6df7d",
+      "commit": "f82d8cea870505fde330f646ae0a752a26712168"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "d9d95cb74d2a6ef389702d6da46a612ac41343a3",
+      "commit": "0b2d54f2545d05ada66c1aaab650b1bd597bf855"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "startRef": "d9d95cb74d2a6ef389702d6da46a612ac41343a3",
+      "commit": "17111343ac4ccdaf3a1e84d714e1ad03280d7538"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "0b2d54f2545d05ada66c1aaab650b1bd597bf855",
+      "commit": "f8b241050148700135c80a7a0f8b441fa3bfefb2"
+    }
+  ],
+  "escalations": [],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 0,
+    "reviewRounds": 1
+  }
+}
