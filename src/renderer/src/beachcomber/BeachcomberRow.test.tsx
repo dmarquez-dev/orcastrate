@@ -168,6 +168,19 @@ describe('the notice that the path is a guess arrives before the guess (T5)', ()
     return nodes.map((node) => all.indexOf(node));
   }
 
+  /**
+   * Position of one node in document order within `root`. Throws rather than
+   * returning a sentinel: a node that is not rendered is a test failure, not a
+   * comparison against -1 or `undefined`.
+   */
+  function positionOf(root: HTMLElement, node: Element, label: string): number {
+    const at = positions(root, [node])[0];
+    if (at === undefined || at < 0) {
+      throw new Error(`${label} is not rendered inside the row, so document order cannot be read`);
+    }
+    return at;
+  }
+
   function rowElement(id: string): HTMLElement {
     return screen.getByTestId(testId(PANEL_TEST_IDS.beachcomberRow, id));
   }
@@ -184,8 +197,8 @@ describe('the notice that the path is a guess arrives before the guess (T5)', ()
       notice.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
-    const [noticeAt, pathAt] = positions(element, [notice, path]);
-    expect(noticeAt).toBeGreaterThanOrEqual(0);
+    const noticeAt = positionOf(element, notice, 'the unverified notice');
+    const pathAt = positionOf(element, path, 'the display path');
     expect(pathAt).toBeGreaterThan(noticeAt);
   });
 
