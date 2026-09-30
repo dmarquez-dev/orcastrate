@@ -17,7 +17,7 @@ import { dirname, relative } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { backupPathFor, tempPathFor, writeAtomic } from '../../../src/main/helm';
+import { backupPathFor, backupPathForSequence, tempPathFor, writeAtomic } from '../../../src/main/helm';
 
 import {
   catchIpcFailure,
@@ -127,6 +127,91 @@ describe('backup', () => {
     expect(JSON.parse(readText(second.backupDisplayPath))).toEqual({ model: 'opus' });
   });
 
+  it('keeps two backups apart when both saves land in the SAME millisecond', async () => {
+    const h = makeHarness();
+    const original = writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
+
+    // The clock is never advanced between these two saves, so both derive the
+    // same stamp. Before the sequence suffix existed the second `copyFileSync`
+    // clobbered the first backup and the 'sonnet' content was gone.
+    const first = await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'opus' },
+      }),
+    );
+    const second = await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'haiku' },
+      }),
+    );
+
+    // The first keeps the deterministic name; only the second is suffixed.
+    expect(first.backupDisplayPath).toBe(backupPathFor(h.userSettingsPath, h.clock()));
+    expect(second.backupDisplayPath).toBe(
+      backupPathForSequence(h.userSettingsPath, h.clock(), 1),
+    );
+    expect(second.backupDisplayPath).not.toBe(first.backupDisplayPath);
+
+    // Both survive, and each holds what was on disk immediately before its own
+    // write — which is the whole point of keeping them apart.
+    expect(readText(first.backupDisplayPath)).toBe(original);
+    expect(JSON.parse(readText(second.backupDisplayPath))).toEqual({ model: 'opus' });
+    expect(JSON.parse(readText(h.userSettingsPath))).toEqual({ model: 'haiku' });
+
+    // The success path is otherwise untouched: the result still carries a
+    // document reflecting what was written.
+    expect(first.document.managed.model).toBe('opus');
+    expect(second.document.managed.model).toBe('haiku');
+  });
+
+  it('takes the deterministic first name again once the clock moves on', async () => {
+    const h = makeHarness();
+    writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
+
+    await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'opus' },
+      }),
+    );
+    await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'haiku' },
+      }),
+    );
+
+    h.clock.advance(1);
+
+    // A new stamp is a new count. Nothing accumulates across milliseconds, and
+    // the ordinary case keeps the ordinary name.
+    const third = await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'sonnet' },
+      }),
+    );
+    expect(third.backupDisplayPath).toBe(backupPathFor(h.userSettingsPath, h.clock()));
+  });
+
+  it('gives the deterministic first name to the first save that actually backs up', async () => {
+    const h = makeHarness();
+
+    // No file yet: nothing to lose, so no backup file and a null backup path.
+    // That save must NOT consume the deterministic name.
+    const created = await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'opus' },
+      }),
+    );
+    expect(created.backupDisplayPath).toBe('');
+    expect(listFiles(h.root)).toEqual([relative(h.root, h.userSettingsPath)]);
+
+    const second = await h.service.save(
+      draftFrom('user', await h.service.load('user'), {
+        managed: { ...(await h.service.load('user')).managed, model: 'haiku' },
+      }),
+    );
+    expect(second.backupDisplayPath).toBe(backupPathFor(h.userSettingsPath, h.clock()));
+  });
+
   it('aborts the write when the backup cannot be taken', async () => {
     const h = makeHarness();
     const original = writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
@@ -154,6 +239,29 @@ describe('backup', () => {
     expect(expected).not.toBe('');
     expect(failure.message).toBe(expected);
     expect(failure.code).toBe('IO');
+  });
+
+  it('does not step past an obstruction onto a suffixed name', async () => {
+    const h = makeHarness();
+    const original = writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
+    const before = listFiles(h.root);
+
+    // Same obstruction as above, asserted against the ONE thing the sequence
+    // suffix could have broken: an implementation that probed the disk would
+    // see the directory, call the name taken, move to `.1.bak` and let the
+    // write proceed — rule 7 silently gone. The count lives in memory and is
+    // zero here, so the obstructed name is the only name tried.
+    mkdirSync(backupPathFor(h.userSettingsPath, h.clock()));
+
+    const doc = await h.service.load('user');
+    await catchIpcFailure(() =>
+      h.service.save(draftFrom('user', doc, { managed: { ...doc.managed, model: 'opus' } })),
+    );
+
+    expect(readText(h.userSettingsPath)).toBe(original);
+    // No `.1.bak`, no temp file, nothing new at all beyond the directory the
+    // test itself planted.
+    expect(listFiles(h.root)).toEqual(before);
   });
 });
 

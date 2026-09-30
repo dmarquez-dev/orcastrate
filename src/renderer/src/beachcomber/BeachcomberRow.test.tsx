@@ -155,3 +155,102 @@ describe('what a row shows about its entry', () => {
     expect(element.textContent).not.toContain('session');
   });
 });
+
+/**
+ * DOM ORDER, NOT WORDING (T5, contract section 7). A caveat that arrives after
+ * the thing it qualifies has already been read is not a caveat. These tests
+ * compare rendered node positions, never the source text.
+ */
+describe('the notice that the path is a guess arrives before the guess (T5)', () => {
+  /** Positions of the given nodes in document order within `root`. */
+  function positions(root: HTMLElement, nodes: readonly Element[]): number[] {
+    const all = [...root.querySelectorAll('*')];
+    return nodes.map((node) => all.indexOf(node));
+  }
+
+  /**
+   * Position of one node in document order within `root`. Throws rather than
+   * returning a sentinel: a node that is not rendered is a test failure, not a
+   * comparison against -1 or `undefined`.
+   */
+  function positionOf(root: HTMLElement, node: Element, label: string): number {
+    const at = positions(root, [node])[0];
+    if (at === undefined || at < 0) {
+      throw new Error(`${label} is not rendered inside the row, so document order cannot be read`);
+    }
+    return at;
+  }
+
+  function rowElement(id: string): HTMLElement {
+    return screen.getByTestId(testId(PANEL_TEST_IDS.beachcomberRow, id));
+  }
+
+  it('renders the unverified notice ahead of the display path (V1)', () => {
+    const row = makeUnverifiedRow();
+    renderRow(row);
+
+    const element = rowElement('entry-unverified');
+    const notice = within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowUnverified);
+    const path = within(element).getByText(row.entry.displayPath);
+
+    expect(
+      notice.compareDocumentPosition(path) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const noticeAt = positionOf(element, notice, 'the unverified notice');
+    const pathAt = positionOf(element, path, 'the display path');
+    expect(pathAt).toBeGreaterThan(noticeAt);
+  });
+
+  it('moves only the notice: everything else keeps its order around the path (V4)', () => {
+    const row = makeBlockedRow({ pathSource: 'decoded-name', orphan: false });
+    renderRow(row);
+
+    const element = rowElement('entry-blocked');
+    const ordered = positions(element, [
+      within(element).getByTestId<HTMLInputElement>(PANEL_TEST_IDS.beachcomberRowSelect),
+      within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowUnverified),
+      within(element).getByText(row.entry.displayPath),
+      within(element).getByText(/modified 2026-08-18/),
+      within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowBlocked),
+    ]);
+
+    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
+    expect(ordered.filter((at) => at < 0)).toEqual([]);
+  });
+
+  it('keeps the checkbox described by both notices when blocked and unverified (V3)', () => {
+    renderRow(makeBlockedRow({ pathSource: 'decoded-name' }));
+
+    const element = rowElement('entry-blocked');
+    const checkbox = within(element).getByTestId<HTMLInputElement>(
+      PANEL_TEST_IDS.beachcomberRowSelect,
+    );
+    expect(checkbox.disabled).toBe(true);
+    expect(element.getAttribute('aria-disabled')).toBe('true');
+
+    const ids = (checkbox.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean);
+    expect(ids).toHaveLength(2);
+    const described = ids.map((id) => element.querySelector(`#${CSS.escape(id)}`));
+    expect(described).toEqual([
+      within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowBlocked),
+      within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowUnverified),
+    ]);
+  });
+
+  it('leaves a session-record row exactly as it was: no notice, nothing reordered (V4)', () => {
+    const row = makeRow(makeEntry({ id: 'verified', pathSource: 'session-record' }));
+    renderRow(row);
+
+    const element = rowElement('verified');
+    expect(within(element).queryByTestId(PANEL_TEST_IDS.beachcomberRowUnverified)).toBeNull();
+
+    const ordered = positions(element, [
+      within(element).getByTestId<HTMLInputElement>(PANEL_TEST_IDS.beachcomberRowSelect),
+      within(element).getByText(row.entry.displayPath),
+      within(element).getByText(/modified 2026-08-18/),
+    ]);
+    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
+    expect(ordered.filter((at) => at < 0)).toEqual([]);
+  });
+});

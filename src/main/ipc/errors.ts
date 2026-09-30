@@ -21,45 +21,23 @@ import type { IpcError, IpcErrorCode, IpcResult } from '../../shared/contracts/i
 import { PodRunnerError } from '../pod';
 import { EventStoreError } from '../store';
 
-/** Every code `toIpcError` may produce. Enumerated so a test can assert on it. */
-export const IPC_ERROR_CODES: readonly IpcErrorCode[] = [
-  'NOT_FOUND',
-  'CONFLICT',
-  'INVALID_ARGUMENT',
-  'CWD_MISSING',
-  'SPAWN_FAILED',
-  'NOT_RUNNING',
-  'IO',
-  'UNSUPPORTED',
-  'INTERNAL',
-];
+import { IpcFailure } from './failure';
 
 /**
- * A failure raised deliberately by main with the code it should cross the
- * bridge as. Everything else is classified by `toIpcError`.
+ * RE-EXPORTED, NOT REDECLARED. `IpcFailure`, its constructors and
+ * `IPC_ERROR_CODES` moved to `./failure.ts`, which imports no value from
+ * anywhere, so a module that only RAISES a failure need not pull `../pod` and
+ * `../store` in behind it. There is still exactly one `IpcFailure` class in the
+ * process — a parallel declaration here would silently break every
+ * `instanceof IpcFailure` reached through the other path.
+ *
+ * A re-export does not isolate an IMPORTER: `import { IpcFailure } from
+ * './errors'` still loads this module and therefore both subsystems. Consumers
+ * that need only the failure type import from `./failure` directly. This
+ * re-export exists so `./index.ts` and every existing consumer of the barrel
+ * keep working unchanged.
  */
-export class IpcFailure extends Error {
-  readonly code: IpcErrorCode;
-
-  constructor(code: IpcErrorCode, message: string, options?: { cause?: unknown }) {
-    super(message, options);
-    this.name = 'IpcFailure';
-    this.code = code;
-    Object.setPrototypeOf(this, new.target.prototype);
-  }
-}
-
-export function invalidArgument(message: string): IpcFailure {
-  return new IpcFailure('INVALID_ARGUMENT', message);
-}
-
-export function notFound(message: string): IpcFailure {
-  return new IpcFailure('NOT_FOUND', message);
-}
-
-export function cwdMissing(message: string): IpcFailure {
-  return new IpcFailure('CWD_MISSING', message);
-}
+export { IPC_ERROR_CODES, IpcFailure, invalidArgument, notFound, cwdMissing } from './failure';
 
 /**
  * `SCHEMA_MISMATCH` means the database on disk was written by a NEWER build

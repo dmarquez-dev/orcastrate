@@ -70,8 +70,20 @@ export function HelmNotices({
   comparing,
   onCompare,
 }: HelmNoticesProps): JSX.Element {
-  const redundant = actionError !== null && actionError === conflict;
-  const showError = loadError !== null || (actionError !== null && !redundant);
+  // ONE FAILURE READS AS ONE FAILURE. The same shape as
+  // `beachcomber/BeachcomberError.tsx`: build the list, drop a repeat, render
+  // one paragraph per surviving message, and render no banner at all when
+  // nothing survives. Two pairs collapse here, and they are different pairs.
+  // A REJECTED SAVE sets `conflict` and `actionError` to the same sentence,
+  // and the conflict banner is that one's surface, so it is dropped from here
+  // entirely. A FAILED `helm:scopes` sets `Loadable.error` AND `actionError`
+  // to the same sentence, and printing it twice reads as two separate
+  // failures.
+  const messages: string[] = [];
+  if (loadError !== null) messages.push(loadError);
+  if (actionError !== null && actionError !== conflict && actionError !== loadError) {
+    messages.push(actionError);
+  }
 
   return (
     <>
@@ -87,19 +99,21 @@ export function HelmNotices({
         </Notice>
       )}
 
-      {showError ? (
+      {messages.length === 0 ? null : (
         <Notice
           heading={COPY.errorHeading}
           live="alert"
           testId={PANEL_TEST_IDS.helmError}
           tone="danger"
         >
-          {loadError === null ? null : <p className={styles.noticeText}>{loadError}</p>}
-          {actionError === null || redundant ? null : (
-            <p className={styles.noticeText}>{actionError}</p>
-          )}
+          {/* Verbatim, `white-space: pre-wrap` — the message main wrote. */}
+          {messages.map((message) => (
+            <p className={styles.noticeText} key={message}>
+              {message}
+            </p>
+          ))}
         </Notice>
-      ) : null}
+      )}
 
       {conflict === null ? null : (
         <Notice

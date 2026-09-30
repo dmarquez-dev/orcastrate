@@ -5,5 +5,11 @@
  */
 
 export { createHelmService } from './helm-service';
-export { backupPathFor, tempPathFor, writeAtomic, type AtomicWriteHooks } from './atomic-write';
+export {
+  backupPathFor,
+  backupPathForSequence,
+  tempPathFor,
+  writeAtomic,
+  type AtomicWriteHooks,
+} from './atomic-write';
 export { HOLD_WARNING_MESSAGE, OBSERVED_CLI_VERSION } from './validate';

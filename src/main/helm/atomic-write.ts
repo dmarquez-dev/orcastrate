@@ -17,9 +17,26 @@
  * reaches the user through `toIpcError`. The one `catch` here is the best-effort
  * removal of an orphaned temp file, and it says why at the catch site.
  *
- * Both names are DETERMINISTIC in `now`, which `HelmServiceDeps.now` injects:
- * no test depends on the wall clock, and a test can compute either path and
- * block it to prove the abort.
+ * NAMES AND THE CLOCK. `tempPathFor` is DETERMINISTIC in `now`. `backupPathFor`
+ * is deterministic in `now` too, in the narrowed form that is all the rule
+ * needs: it names the FIRST backup taken at that stamp. A test computes it from
+ * the injected clock and compares, or blocks it to prove the abort, exactly as
+ * before.
+ *
+ * WHY ONLY THE FIRST. `deps.now()` has millisecond resolution and two saves of
+ * the same scope can land inside one millisecond. When both backups carried the
+ * one name, `copyFileSync` clobbered — the second save destroyed the first
+ * save's backup, which is the content rule 2 exists to preserve. So a backup
+ * beyond the first at a given (path, stamp) carries a sequence suffix and the
+ * two are distinct files.
+ *
+ * THE SEQUENCE IS HELD IN MEMORY AND THE DISK IS NEVER CONSULTED TO CHOOSE A
+ * NAME (`BackupSequence` below). That is not an optimisation, it is rule 2: an
+ * entry already sitting at the backup path cannot be told apart from an
+ * obstruction — a directory, an `EACCES` — so anything that probed disk and
+ * stepped onto the next free name would step past an obstruction too, and let
+ * the write proceed without its backup. Counting in memory means an obstruction
+ * can only ever produce the abort.
  */
 
 import { dirname, join } from 'node:path';
@@ -31,9 +48,55 @@ export function backupStamp(now: Date): string {
   return now.toISOString().replace(/[:.]/g, '-');
 }
 
-/** `settings.json` -> `settings.json.2026-08-19T14-03-05-123Z.bak`, beside the file. */
+/**
+ * `settings.json` -> `settings.json.2026-08-19T14-03-05-123Z.bak`, beside the
+ * file. The FIRST backup taken at this stamp; see `backupPathForSequence`.
+ */
 export function backupPathFor(targetPath: string, now: Date): string {
-  return `${targetPath}.${backupStamp(now)}.bak`;
+  return backupPathForSequence(targetPath, now, 0);
+}
+
+/**
+ * Sequence 0 is `backupPathFor`'s string, unchanged. Sequence 1 and up insert
+ * the ordinal before `.bak`, so two backups taken inside one millisecond are
+ * two files: `…-123Z.bak`, `…-123Z.1.bak`, `…-123Z.2.bak`.
+ */
+export function backupPathForSequence(targetPath: string, now: Date, sequence: number): string {
+  const stamp = backupStamp(now);
+  return sequence === 0 ? `${targetPath}.${stamp}.bak` : `${targetPath}.${stamp}.${sequence}.bak`;
+}
+
+/**
+ * How many backups this process has already taken at the CURRENT stamp, per
+ * target path. The ONLY input to the sequence suffix, and it never reads the
+ * filesystem — see the header on why probing disk would weaken rule 2.
+ *
+ * Bounded by construction: the map holds one millisecond's worth of paths and
+ * is cleared the moment the stamp moves, which it does on every save that is
+ * not in a dead heat with the one before it.
+ */
+export class BackupSequence {
+  private stamp: string | null = null;
+  private readonly taken = new Map<string, number>();
+
+  /** The sequence the next backup of `targetPath` at `now` should carry. */
+  next(targetPath: string, now: Date): number {
+    const stamp = backupStamp(now);
+    if (stamp !== this.stamp) {
+      this.stamp = stamp;
+      this.taken.clear();
+    }
+    return this.taken.get(targetPath) ?? 0;
+  }
+
+  /**
+   * Records a backup that WAS WRITTEN. Not called when the target was absent
+   * (no file was created, so the deterministic name is still free) and not
+   * called when the copy threw (the save is aborting and nothing was written).
+   */
+  record(targetPath: string, sequence: number): void {
+    this.taken.set(targetPath, sequence + 1);
+  }
 }
 
 /**
@@ -52,10 +115,21 @@ export function tempPathFor(targetPath: string, now: Date): string {
  * empty backup would tell the user a lie about what was there.
  *
  * THROWS on a failed copy. The caller must not write.
+ *
+ * `sequence` supplies the name (and records the one it used on success), so two
+ * saves inside one millisecond do not land on the same path. It is NOT consulted
+ * about whether the copy may proceed: the destination is chosen before the
+ * syscall and whatever the syscall says about it is final.
  */
-export function backupBeforeWrite(targetPath: string, now: Date): string | null {
+export function backupBeforeWrite(
+  targetPath: string,
+  now: Date,
+  sequence: BackupSequence,
+): string | null {
+  const ordinal = sequence.next(targetPath, now);
+  const backupPath = backupPathForSequence(targetPath, now, ordinal);
   try {
-    helmFs.copyFileSync(targetPath, backupPathFor(targetPath, now));
+    helmFs.copyFileSync(targetPath, backupPath);
   } catch (err) {
     // Only "the file was not there" is benign: the target is being created, so
     // there is no prior content a backup could hold. Anything else — EACCES,
@@ -64,7 +138,8 @@ export function backupBeforeWrite(targetPath: string, now: Date): string | null 
     if (isNotFoundError(err)) return null;
     throw err;
   }
-  return backupPathFor(targetPath, now);
+  sequence.record(targetPath, ordinal);
+  return backupPath;
 }
 
 export interface AtomicWriteHooks {

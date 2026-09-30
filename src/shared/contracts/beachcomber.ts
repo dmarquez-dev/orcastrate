@@ -70,6 +70,30 @@
  * `pathSource === 'session-record'`. A decoded-name row is never called an
  * orphan, because "this path does not exist" is unfalsifiable when the path
  * itself is a guess.
+ *
+ * ===========================================================================
+ * PROVENANCE — one approved amendment since the freeze
+ * ===========================================================================
+ *
+ * Frozen 2026-08-19. AMENDED by session `2026-09-04-orcastrate-correctness-sweep`
+ * (section 8 of its contract), comment text only — no type, field, name,
+ * signature, union member or constant changed.
+ *
+ * WHAT CHANGED AND WHY. `BeachcomberPreview.refused`'s docblock said the array
+ * carried "Ids main will not act on: blocked by a Pod, OR UNKNOWN TO THIS
+ * SCAN." The second half was false and had always been false: `resolveRequest`
+ * throws `IpcFailure('NOT_FOUND', ...)` for a stale `scanId` and for an id the
+ * live namespace does not hold, and the `BeachcomberService` docblock below
+ * REQUIRES it to. A consumer coding to the old comment would poll `refused` for
+ * an entry that can never appear, while a rejected promise it never handled
+ * went past it. Making the service refuse unknown ids instead would delete the
+ * scan-scoped id's whole point — a stale id must never be rematched onto
+ * whatever directory has since taken its place — and would contradict the
+ * header above. So the prose was the thing that was wrong, and the prose is the
+ * thing that changed.
+ *
+ * Anything beyond comment text in this file remains a contract-change
+ * escalation.
  */
 
 import type { Timestamp } from './events';
@@ -210,9 +234,16 @@ export interface BeachcomberPreviewRefusal {
 export interface BeachcomberPreview {
   items: BeachcomberPreviewItem[];
   /**
-   * Ids main will not act on: blocked by a Pod, or unknown to this scan. A
-   * refusal here is not an error — the preview's whole job is to say no BEFORE
-   * the confirm button, so `trash` never has to surprise anyone.
+   * Entries THIS SCAN HOLDS but main will not act on — today, exactly one
+   * cause: blocked by a Pod. A refusal here is not an error — the preview's
+   * whole job is to say no BEFORE the confirm button, so `trash` never has to
+   * surprise anyone.
+   *
+   * AN UNKNOWN ID IS NOT REFUSED, IT IS THROWN. An id or `scanId` this service
+   * did not mint, or no longer holds, is a `NOT_FOUND` `IpcFailure` raised out
+   * of `preview` and `trash` — never an entry here. A caller waiting on
+   * `refused` for a stale id waits forever; it must handle the rejection. See
+   * the `BeachcomberService` docblock below, which says the same thing.
    */
   refused: BeachcomberPreviewRefusal[];
   totalBytes: number;
@@ -298,9 +329,11 @@ export interface BeachcomberServiceDeps {
 }
 
 /**
- * Throws `IpcFailure` (see `src/main/ipc/errors.ts`) for the two conditions the
- * renderer must be able to branch on:
- *   - `NOT_FOUND`        an id or scanId this service did not mint
+ * Throws `IpcFailure` (declared in `src/main/ipc/failure.ts`; classified by
+ * `toIpcError` in `src/main/ipc/errors.ts`) for the two conditions the renderer
+ * must be able to branch on:
+ *   - `NOT_FOUND`        an id or scanId this service did not mint, or no
+ *                        longer holds. THROWN, never a `refused` entry.
  *   - `IO`               `~/.claude` itself is unreadable
  * Everything else is a value on the result types above.
  */

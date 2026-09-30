@@ -64,9 +64,9 @@ import type {
 } from '../../shared/contracts/beachcomber';
 import { BEACHCOMBER_ROOTS } from '../../shared/contracts/beachcomber';
 import type { PodDirectory } from '../../shared/contracts/panel-host';
-import { IpcFailure } from '../ipc/errors';
+import { IpcFailure } from '../ipc/failure';
 
-import { decodeDirectoryName, normalizeForCompare } from './paths';
+import { decodeDirectoryName, podBlockerFor } from './paths';
 import { readFirstCwd, sessionFileNames } from './session-record';
 import { measureTree, sampleFileNames } from './walk';
 
@@ -140,17 +140,6 @@ export function createBeachcomberService(deps: BeachcomberServiceDeps): Beachcom
     }
   }
 
-  function blockerFor(
-    displayPath: string,
-    podDirectories: readonly PodDirectory[],
-  ): PodDirectory | null {
-    const key = normalizeForCompare(displayPath);
-    for (const pod of podDirectories) {
-      if (normalizeForCompare(pod.cwd) === key) return pod;
-    }
-    return null;
-  }
-
   /**
    * Resolves a `projects/<dir>` entry's working directory.
    *
@@ -185,14 +174,27 @@ export function createBeachcomberService(deps: BeachcomberServiceDeps): Beachcom
     // THE INVARIANT: only a recorded path may ever be called missing.
     const orphan = resolved.recorded ? !(await pathExists(resolved.displayPath)) : false;
 
-    const blocker = blockerFor(resolved.displayPath, podDirectories);
+    const pathSource: BeachcomberEntry['pathSource'] = resolved.recorded
+      ? 'session-record'
+      : 'decoded-name';
+
+    // The blocking rule is a pure function of these fields — see
+    // `podBlockerFor` in `./paths`, where the argument for comparing a decoded
+    // `projects` name by ENCODING the Pod's cwd is written out in full.
+    const blocker = podBlockerFor({
+      root,
+      name,
+      pathSource,
+      displayPath: resolved.displayPath,
+      pods: podDirectories,
+    });
 
     const entry: BeachcomberEntry = {
       id: newId(),
       root,
       name,
       displayPath: resolved.displayPath,
-      pathSource: resolved.recorded ? 'session-record' : 'decoded-name',
+      pathSource,
       sizeBytes: measurement.sizeBytes,
       fileCount: measurement.fileCount,
       lastModified: new Date(measurement.lastModifiedMs).toISOString(),

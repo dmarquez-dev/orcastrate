@@ -33,7 +33,15 @@
  * 3. NOT EVERY RUNNER REJECTION HAS `.code`. `setPermissionMode` and the
  *    PodRunner constructor throw a bare `RangeError` for a mode outside the
  *    contract's union. Nothing here reads `.code` off an unproven error; the
- *    classification lives in `../ipc/errors.ts` and covers `RangeError`.
+ *    classification lives in `../ipc/errors.ts`, whose `toIpcError` covers
+ *    `RangeError`. This file never calls it.
+ *
+ *    THE TWO HALVES LIVE IN DIFFERENT MODULES. The classifier is
+ *    `../ipc/errors.ts`; the `IpcFailure` type and its `cwdMissing` /
+ *    `notFound` / `invalidArgument` constructors are `../ipc/failure.ts`, a
+ *    leaf that imports no value from anywhere. This file RAISES failures and
+ *    never classifies one, so it imports the leaf: `../ipc/errors.ts` would
+ *    drag `../pod` and `../store` into the graph of everything that reaches it.
  */
 
 import { statSync } from 'node:fs';
@@ -68,7 +76,7 @@ import type {
   PodRunnerHandlers,
 } from '../../shared/contracts/pod-runner';
 
-import { cwdMissing, IpcFailure, notFound } from '../ipc/errors';
+import { cwdMissing, IpcFailure, notFound } from '../ipc/failure';
 import { createLaneRouter } from '../lane';
 import { PodRunnerError, UNROUTED_LANE_ID } from '../pod';
 

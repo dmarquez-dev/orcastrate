@@ -1,7 +1,7 @@
 /**
  * Path helpers for Beachcomber.
  *
- * Two jobs, both narrow:
+ * Three jobs, all narrow:
  *
  *  1. `decodeDirectoryName` — the design's decoding rule, implemented ONLY as a
  *     labelled fallback. Claude Code encodes a working directory into a
@@ -16,7 +16,18 @@
  *     compare case-insensitively, tolerate either separator, and ignore a
  *     trailing separator, so all three differences must be erased BEFORE the
  *     equality test rather than hoped away.
+ *
+ *  3. `podBlockerFor` — the rule that decides whether a Pod's working directory
+ *     is the directory behind an entry, and therefore whether the entry may be
+ *     moved to the recycle bin at all. It lives here, as a pure function of the
+ *     entry's own fields and the Pod list, rather than inside the scan: a rule
+ *     buried in an async walk can only be exercised by building a directory
+ *     tree, and this is the rule that decides whether state gets deleted.
  */
+
+import type { BeachcomberEntry, BeachcomberRootKey } from '../../shared/contracts/beachcomber';
+import type { PodDirectory } from '../../shared/contracts/panel-host';
+import { encodeCwdForProjects } from '../pod-session';
 
 /**
  * Case-folded, separator-folded, trailing-separator-stripped comparison key.
@@ -45,6 +56,71 @@ export function samePath(a: string, b: string): boolean {
  * `C:\Users\x\Repos\dir-ect` and `C:\Users\x\Repos\dir\ect`, and this returns
  * whichever the heuristic happens to pick. Callers must label the result.
  */
+/**
+ * Everything `podBlockerFor` is allowed to look at. Deliberately the entry's
+ * own fields and nothing else — no absolute path, no filesystem, no service.
+ */
+export interface PodBlockingSubject {
+  root: BeachcomberRootKey;
+  /** The on-disk directory name, `BeachcomberEntry.name`. Never decoded. */
+  name: string;
+  pathSource: BeachcomberEntry['pathSource'];
+  displayPath: string;
+  pods: readonly PodDirectory[];
+}
+
+/**
+ * The Pod that blocks this entry, or `null`.
+ *
+ * TWO COMPARISONS, AND THE SECOND ASKS THE QUESTION IN THE DIRECTION THAT HAS
+ * AN ANSWER.
+ *
+ * Only one of the two directions between a working directory and a
+ * `projects/<dir>` name is a function. `encodeCwdForProjects` (cwd -> name) is
+ * total and deterministic: every character outside `[A-Za-z0-9]` becomes `-`.
+ * `decodeDirectoryName` (name -> cwd) is not a function at all — `:`, `\`, `/`,
+ * `.` and a literal `-` all arrive as the same `-`, so `C--Users-x-Repos-dir-ect`
+ * reads equally well as `…\Repos\dir-ect` and `…\Repos\dir\ect` and the decoder
+ * returns whichever the heuristic picks.
+ *
+ * So when an entry's path is a decoded GUESS, comparing that guess against a
+ * Pod's cwd asks the undecidable direction and answers "not blocked" whenever
+ * the guess went the other way — which is a directory the user still has open
+ * being offered for deletion. Encoding the Pod's cwd and comparing against the
+ * NAME ON DISK asks the decidable one instead, and the answer is exact rather
+ * than conservative: the directory name IS the encoding of the true cwd.
+ *
+ * THE TWO ARE A UNION, NEVER A REPLACEMENT. The normalized comparison still
+ * runs for every entry. Blocking is a refusal, so a second way to refuse can
+ * only ever refuse more; no entry that was blocked before this comparison
+ * existed becomes unblocked by it. (It is load-bearing: a name outside
+ * `[A-Za-z0-9-]`, such as `my_project`, is returned verbatim by the decoder and
+ * matched by the normalized side, while the encoder would have produced
+ * `my-project` and missed it.)
+ *
+ * BOTH HALVES OF THE `projects` CONDITION MATTER. Every non-`projects` entry
+ * also carries `pathSource: 'decoded-name'` — with an absolute path under
+ * `~/.claude` as its `displayPath`, which is not a guess at all. Keying on
+ * `pathSource` alone would encode a Pod's cwd and compare it against a
+ * shell-snapshot file name, which means nothing.
+ *
+ * CASE IS FOLDED, for the reason `normalizeForCompare` above already gives:
+ * this app is Windows-first, and for a guard whose whole purpose is to block a
+ * deletion, over-refusing is the safe direction. Folding case can only block
+ * more entries, never fewer.
+ */
+export function podBlockerFor(subject: PodBlockingSubject): PodDirectory | null {
+  const pathKey = normalizeForCompare(subject.displayPath);
+  const compareByEncoding = subject.root === 'projects' && subject.pathSource === 'decoded-name';
+  const nameKey = subject.name.toLowerCase();
+
+  for (const pod of subject.pods) {
+    if (normalizeForCompare(pod.cwd) === pathKey) return pod;
+    if (compareByEncoding && encodeCwdForProjects(pod.cwd).toLowerCase() === nameKey) return pod;
+  }
+  return null;
+}
+
 export function decodeDirectoryName(name: string): string {
   const windowsDrive = /^([A-Za-z])--(.*)$/.exec(name);
   if (windowsDrive) {

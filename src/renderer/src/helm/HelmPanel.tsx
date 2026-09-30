@@ -45,22 +45,34 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
     actions.edit({ managed });
   };
 
-  // CLIENT INTERACTION STATE, and the only state this file holds: has the user
-  // asked for a comparison at all? `actionError` has one writer and many
-  // causes — a refused save sets it too — so without this the comparison
-  // surface would report an unrelated `EROFS` as a failed comparison. It is
-  // set from the click, never from a render.
-  const [compareRequested, setCompareRequested] = useState(false);
+  // CLIENT INTERACTION STATE, and the only state this file holds: WHICH action
+  // the user asked for most recently. `actionError` has one writer and many
+  // causes — a refused save sets it too — and the view keeps no record of
+  // which cause wrote it, so this cannot be derived from `view`; it is the
+  // user's own interaction and is set only from a click, never from a render.
+  //
+  // IT IS A LATCH THAT RESETS, AND THAT IS THE FIX. Its predecessor was a
+  // one-way `compareRequested` flag: once a comparison had failed, `incoming`
+  // stayed null and the flag stayed true, so every LATER unrelated failure —
+  // a refused save, an `EPERM` on reload — was routed into the comparison
+  // surface. Recording the last action instead means the next action takes the
+  // claim with it. (Defect introduced by session
+  // 2026-08-31-orcastrate-helm-draft-safety, fixed by
+  // 2026-09-04-orcastrate-correctness-sweep.)
+  const [lastAction, setLastAction] = useState<'compare' | 'other' | null>(null);
   const onCompare = (): void => {
-    setCompareRequested(true);
+    setLastAction('compare');
     void actions.compare();
   };
 
   // ONE MESSAGE, ONE PLACE, the same rule the conflict banner already follows:
   // when the comparison surface is the one showing this message, the generic
-  // error banner stays out of the way.
+  // error banner stays out of the way. Derived at render from the latch and
+  // the view, and stored nowhere.
   const compareError =
-    compareRequested && !view.comparing && view.incoming === null ? view.actionError : null;
+    lastAction === 'compare' && !view.comparing && view.incoming === null
+      ? view.actionError
+      : null;
 
   return (
     <section
@@ -91,6 +103,7 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
       <HelmScopePicker
         disabled={view.loadingDocument || view.saving}
         onSelect={(scopeId) => {
+          setLastAction('other');
           void actions.selectScope(scopeId);
         }}
         scopes={view.value}
@@ -133,15 +146,25 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
         />
       )}
 
+      {/*
+        Every other action the panel offers takes the claim off the comparison
+        as it starts, so the failure it is about to produce lands in the error
+        banner rather than in a surface that is about something else.
+      */}
       <HelmActionBar
         blocked={view.blocked}
         canReload={view.selectedScopeId !== null}
         dirty={view.dirty}
-        onDiscard={actions.discard}
+        onDiscard={() => {
+          setLastAction('other');
+          actions.discard();
+        }}
         onReload={() => {
+          setLastAction('other');
           void actions.reload();
         }}
         onSave={() => {
+          setLastAction('other');
           void actions.save();
         }}
         saving={view.saving}
