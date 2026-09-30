@@ -25,7 +25,7 @@ import type {
 } from '../../../src/shared/contracts/helm';
 import type { PodDirectory } from '../../../src/shared/contracts/panel-host';
 import { createHelmService } from '../../../src/main/helm';
-import { IpcFailure } from '../../../src/main/ipc/errors';
+import { IpcFailure } from '../../../src/main/ipc/failure';
 
 const tempRoots: string[] = [];
 const services: HelmService[] = [];

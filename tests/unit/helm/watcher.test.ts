@@ -17,12 +17,23 @@
 
 import type { FSWatcher } from 'node:fs';
 import { rmSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { helmFs } from '../../../src/main/helm/fs-ops';
+import { sha256Of } from '../../../src/main/helm/revision';
+import { HelmWatcher } from '../../../src/main/helm/watcher';
 
-import { cleanupHelm, makeHarness, settle, writeOutOfBand } from './helpers';
+import {
+  cleanupHelm,
+  draftFrom,
+  makeHarness,
+  settle,
+  testClock,
+  tempRoot,
+  writeOutOfBand,
+} from './helpers';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -189,6 +200,73 @@ describe('watch', () => {
     await settle();
 
     expect(h.pushes).toEqual([]);
+  });
+
+  it('still reports a foreign write that lands between the rename and the acknowledgement', async () => {
+    const h = makeHarness({ watchEnabled: true });
+    writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
+
+    h.service.watch('user');
+    await settle();
+
+    // The window the defect lived in. `save` renames its temp file over the
+    // target and then acknowledges; a foreign writer landing in between used to
+    // have its bytes read back and adopted as Helm's own, so the watcher found
+    // the next hash equal to what it had recorded and emitted nothing — the one
+    // push that would have told the user someone else changed their file.
+    const realRename = helmFs.renameSync;
+    vi.spyOn(helmFs, 'renameSync').mockImplementation(((from: string, to: string) => {
+      realRename(from, to);
+      if (to === h.userSettingsPath) writeOutOfBand(h.userSettingsPath, { model: 'haiku' });
+    }) as typeof realRename);
+
+    const doc = await h.service.load('user');
+    await h.service.save(draftFrom('user', doc, { managed: { ...doc.managed, model: 'opus' } }));
+    await settle();
+
+    // Helm acknowledged the bytes it wrote; the disk holds someone else's, so
+    // the disagreement is real and the user hears about it.
+    expect(h.pushes).toHaveLength(1);
+    expect(h.pushes[0]?.scopeId).toBe('user');
+    expect(h.pushes[0]?.displayPath).toBe(h.userSettingsPath);
+  });
+});
+
+describe('acknowledgeOwnWrite identity', () => {
+  /** A watcher pointed at an as-yet-absent `path`, plus the pushes it emits. */
+  function watching(path: string): { watcher: HelmWatcher; path: string; pushes: unknown[] } {
+    const pushes: unknown[] = [];
+    const watcher = new HelmWatcher({
+      now: testClock(),
+      emitChanged: (push) => {
+        pushes.push(push);
+      },
+    });
+    watcher.watch({ scopeId: 'user', path });
+    return { watcher, path, pushes };
+  }
+
+  it('treats the empty string and absence as DIFFERENT identities', async () => {
+    // Criterion: a save whose serialized content is the empty string must
+    // acknowledge `sha256Of('')`, never `null`. `save` does that unconditionally
+    // — it hands `sha256Of(content)` over with no absent-case branch — and this
+    // is the assertion that the two values are not interchangeable to the
+    // watcher, which is why that branch must not come back.
+    const empty = watching(join(tempRoot(), 'settings.json'));
+    empty.watcher.acknowledgeOwnWrite(empty.path, sha256Of(''));
+    writeOutOfBand(empty.path, '');
+    await settle();
+    expect(empty.pushes).toEqual([]);
+    empty.watcher.dispose();
+
+    const absent = watching(join(tempRoot(), 'settings.json'));
+    absent.watcher.acknowledgeOwnWrite(absent.path, null);
+    writeOutOfBand(absent.path, '');
+    await settle();
+    // Same file appearing with the same zero bytes, and this time a push —
+    // because `null` says "there was no file", which an empty file is not.
+    expect(absent.pushes).toHaveLength(1);
+    absent.watcher.dispose();
   });
 });
 

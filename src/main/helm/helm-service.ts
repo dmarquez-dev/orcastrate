@@ -25,12 +25,20 @@
  *                      ticket nobody can answer.
  *
  * Failures are raised as `IpcFailure`, the code the transport already knows how
- * to classify (`src/main/ipc/errors.ts`). That is a deliberate exception to
- * "the domain does not know the transport's vocabulary": the alternative — a
- * `HelmError` with its own code enum — would need `toIpcError` to grow a branch
- * for it, and `src/main/ipc/**` belongs to another task and is frozen against
- * this one. `IpcFailure` is a plain `Error` subclass carrying an
- * `IpcErrorCode`; nothing about importing it reaches Electron or the renderer.
+ * to classify. That is a deliberate exception to "the domain does not know the
+ * transport's vocabulary": the alternative — a `HelmError` with its own code
+ * enum — would need `toIpcError` to grow a branch for it, and `toIpcError`
+ * belongs to another task's files.
+ *
+ * THE EXCEPTION COSTS NOTHING, AND NOW THAT IS TRUE OF THE MODULE GRAPH AS WELL
+ * AS OF THE TYPE. The import is `../ipc/failure`, the leaf: `IpcFailure` is a
+ * plain `Error` subclass carrying an `IpcErrorCode`, and the module it lives in
+ * imports nothing but a type. Importing `../ipc/errors` instead would have
+ * pulled `../pod` and `../store` in behind it — `toIpcError` needs those
+ * constructors for its `instanceof` checks — so the old wording's claim that
+ * "nothing about importing it reaches Electron or the renderer" was true of the
+ * class and false of its module. A re-export would not have fixed that; only
+ * importing the leaf does.
  */
 
 import type {
@@ -44,11 +52,11 @@ import type {
   HelmValidation,
 } from '../../shared/contracts/helm';
 import { HELM_CONFLICT_CODE } from '../../shared/contracts/helm';
-import { IpcFailure } from '../ipc/errors';
+import { IpcFailure } from '../ipc/failure';
 
-import { backupBeforeWrite, ensureDirectory, writeAtomic } from './atomic-write';
+import { BackupSequence, backupBeforeWrite, ensureDirectory, writeAtomic } from './atomic-write';
 import { emptyManaged, parseSettings, serializeSettings } from './document';
-import { fileExists, readSnapshot, revisionsMatch, type FileSnapshot } from './revision';
+import { fileExists, readSnapshot, revisionsMatch, sha256Of, type FileSnapshot } from './revision';
 import { buildScopeTable, toScope, type ScopeEntry } from './scopes';
 import { blockingIssues, validateSaveRequest, warningIssues } from './validate';
 import { HelmWatcher } from './watcher';
@@ -67,6 +75,12 @@ function asIoFailure(err: unknown): unknown {
 
 class Helm implements HelmService {
   private readonly watcher: HelmWatcher;
+
+  /**
+   * Distinctness for two backups of the same file inside one millisecond. Held
+   * per service instance and never read off the disk (`atomic-write.ts`).
+   */
+  private readonly backups = new BackupSequence();
 
   constructor(private readonly deps: HelmServiceDeps) {
     this.watcher = new HelmWatcher({ now: deps.now, emitChanged: deps.emitChanged });
@@ -200,7 +214,7 @@ class Helm implements HelmService {
       ensureDirectory(entry.path);
 
       // ---- rule 2: if this throws, nothing below it runs ------------------
-      backupPath = backupBeforeWrite(entry.path, this.deps.now());
+      backupPath = backupBeforeWrite(entry.path, this.deps.now(), this.backups);
 
       // ---- rule 1 ----------------------------------------------------------
       writeAtomic(entry.path, content, this.deps.now());
@@ -208,8 +222,13 @@ class Helm implements HelmService {
       throw asIoFailure(err);
     }
 
-    const written = readSnapshot(entry.path);
-    this.watcher.acknowledgeOwnWrite(entry.path, written.revision?.sha256 ?? null);
+    // THE SHA OF WHAT HELM WROTE, never a re-read of the disk. A foreign writer
+    // landing between the rename and this line would otherwise have its bytes
+    // adopted as Helm's own, and the one push telling the user someone else
+    // changed their file is exactly the push that would be swallowed. A disk
+    // state differing from `content` does not match, and the watcher pushes —
+    // which is right, because the disk genuinely does not hold what Helm wrote.
+    this.watcher.acknowledgeOwnWrite(entry.path, sha256Of(content));
 
     return {
       document: await this.load(req.scopeId),
