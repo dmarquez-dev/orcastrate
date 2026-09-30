@@ -66,6 +66,7 @@ import { PANEL_TEST_IDS, type PanelKey } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { BEACHCOMBER_LOCAL_TEST_IDS } from '../beachcomber';
+import { HELM_SAFETY_TEST_IDS } from '../helm/test-ids';
 import { DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
 import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
 import {
@@ -1272,17 +1273,64 @@ describe('the Helm panel says what went wrong and keeps what the user typed', ()
     expect(error.textContent).toContain('the settings directory could not be listed');
     expect(screen.getByTestId(PANEL_TEST_IDS.helmPanel)).toBeDefined();
 
-    // REPORTED DEFECT, PINNED RATHER THAN BLESSED. A failed `helm:scopes` sets
-    // `Loadable.error` AND `actionError` to the SAME sentence, and
-    // `HelmNotices` only suppresses the duplicate when it equals `conflict` —
-    // so the banner says it twice. `BeachcomberError` dedupes exactly this
-    // case and Helm does not; the fix belongs in `helm/HelmNotices.tsx`, which
-    // is not this task's file. The count is asserted so that fixing it makes
-    // this assertion fail and this comment get deleted, rather than the
-    // duplication quietly outliving everyone who noticed it.
+    // ONCE, NOT TWICE. A failed `helm:scopes` sets `Loadable.error` AND
+    // `actionError` to the SAME sentence; `HelmNotices` now drops the repeat
+    // the way `BeachcomberError` does, so one failure reads as one failure.
+    // This count was pinned at 2 until session
+    // 2026-09-04-orcastrate-correctness-sweep fixed the duplication.
     expect(within(error).getAllByText('the settings directory could not be listed')).toHaveLength(
-      2,
+      1,
     );
+  });
+
+  it('routes a failed compare to the comparison and the NEXT failed save to the banner', async () => {
+    const user = fastUser();
+    const api = stubOrcastrateApi();
+    const CONFLICT = 'The file changed on disk since Helm read it, so nothing was written.';
+    const COMPARE_FAILURE = 'EACCES: permission denied, open';
+    const SAVE_FAILURE = 'ENOSPC: no space left on device, write';
+
+    await mountWithPanel(user, api, 'helm');
+    await chooseScope(user, 'user');
+    const model = screen.getByTestId(PANEL_TEST_IDS.helmModel) as HTMLInputElement;
+    await user.clear(model);
+    await user.type(model, 'claude-opus-4-9');
+    await flushPendingWork();
+
+    // The compare affordance lives on the conflict banner, so a conflict is
+    // how a user reaches a comparison at all.
+    api.failInvoke('helmSave', ipcError('CONFLICT', CONFLICT));
+    await user.click(screen.getByTestId(PANEL_TEST_IDS.helmSave));
+    await flushPendingWork();
+
+    // A COMPARISON THAT FAILS IS THE COMPARISON'S.
+    api.failInvoke('helmLoad', ipcError('IO', COMPARE_FAILURE));
+    await user.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    await flushPendingWork();
+
+    const panel = screen.getByTestId(PANEL_TEST_IDS.helmPanel);
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+    expect(within(panel).getAllByText(COMPARE_FAILURE)).toHaveLength(1);
+    // The generic banner stands down entirely while the comparison carries it.
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
+
+    // A LATER, UNRELATED FAILURE IS THE BANNER'S. Before this session the
+    // compare-requested flag never reset, so this save's message was printed
+    // inside the comparison surface — the user was told their comparison had
+    // failed when what failed was their save.
+    api.clearInvokeFailure('helmLoad');
+    api.failInvoke('helmSave', ipcError('IO', SAVE_FAILURE));
+    await user.click(screen.getByTestId(PANEL_TEST_IDS.helmSave));
+    await flushPendingWork();
+
+    expect(
+      within(screen.getByTestId(PANEL_TEST_IDS.helmError)).getAllByText(SAVE_FAILURE),
+    ).toHaveLength(1);
+    expect(within(panel).getAllByText(SAVE_FAILURE)).toHaveLength(1);
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonError)).toBeNull();
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonEmpty)).toBeDefined();
   });
 
   it('shows the helm.load failure at helmError and leaves the picker live to try again', async () => {

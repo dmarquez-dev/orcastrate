@@ -147,8 +147,12 @@ export const COPY = {
   comparisonDraftColumn: 'Your edit',
   comparisonFieldColumn: 'Setting',
   comparisonLoading: 'Reading the current contents…',
+  // It names NO affordance: the compare control lives on the conflict banner,
+  // while this surface appears whenever there is a draft, so with a draft and
+  // no conflict an instruction to press it would point at nothing on screen.
+  // The reassurance stays, because it is the reason the sentence exists.
   comparisonEmpty:
-    'No comparison yet. Compare with the file on disk to fetch its current contents beside your edit — nothing you have typed is touched.',
+    'No comparison yet. When one is fetched, the current contents of the file on disk appear here beside your edit — and nothing you have typed is touched.',
   /** A field the file does not set at all, as against one it sets to nothing. */
   comparisonAbsent: 'Not set',
   comparisonEmptyList: 'None',

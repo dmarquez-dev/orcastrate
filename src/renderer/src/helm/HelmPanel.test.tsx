@@ -27,10 +27,23 @@ import { helmActions, helmView } from './test-fixtures';
 function renderPanel(
   view: Partial<HelmView> = {},
   actions: Partial<HelmActions> = {},
-): { actions: HelmActions } {
+): { actions: HelmActions; update: (next: Partial<HelmView>) => void } {
   const resolved = helmActions(actions);
-  render(<HelmPanel actions={resolved} view={helmView(view)} />);
-  return { actions: resolved };
+  // `rerender` is how a test plays the store's next state into the panel
+  // without remounting it — remounting would reset the panel's own
+  // interaction state, which is exactly what the routing tests are about.
+  const { rerender } = render(<HelmPanel actions={resolved} view={helmView(view)} />);
+  return {
+    actions: resolved,
+    update: (next: Partial<HelmView>): void => {
+      rerender(<HelmPanel actions={resolved} view={helmView({ ...view, ...next })} />);
+    },
+  };
+}
+
+/** How many elements in the whole panel carry exactly this sentence. */
+function occurrences(message: string): number {
+  return within(screen.getByTestId(PANEL_TEST_IDS.helmPanel)).queryAllByText(message).length;
 }
 
 function save(): HTMLButtonElement {
@@ -288,6 +301,38 @@ describe('the error surfaces', () => {
 
     expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
   });
+
+  it('prints a scope-list failure once when the action error repeats it word for word', () => {
+    const error = ipcError('IO', 'the settings directory could not be listed');
+    renderPanel({ phase: 'error', value: [], error, actionError: error.message });
+
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    expect(within(banner).getAllByText(error.message)).toHaveLength(1);
+  });
+
+  it('prints both messages, in load-then-action order, when they differ', () => {
+    const error = ipcError('IO', 'the settings directory could not be listed');
+    renderPanel({
+      phase: 'error',
+      value: [],
+      error,
+      actionError: 'EROFS: read-only file system',
+    });
+
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    const printed = within(banner)
+      .getAllByText(/could not be listed|read-only file system/)
+      .map((element) => element.textContent);
+    expect(printed).toEqual([error.message, 'EROFS: read-only file system']);
+  });
+
+  it('renders no empty banner — no heading and no body — when every message is suppressed', () => {
+    const conflict = 'settings.json changed on disk. Nothing was written.';
+    renderPanel({ conflict, actionError: conflict, dirty: true });
+
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
+    expect(screen.queryByText(COPY.errorHeading)).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -521,5 +566,79 @@ describe('the comparison', () => {
     // ONE MESSAGE, ONE PLACE — the same rule the conflict banner follows. The
     // generic error banner stands down while the comparison is carrying it.
     expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Where a failure lands: exactly one surface, always (contract section 4)
+// ---------------------------------------------------------------------------
+
+describe('a failure lands on exactly one surface', () => {
+  const CONFLICT = 'settings.json changed on disk. Nothing was written.';
+  const COMPARE_FAILURE = 'EACCES: permission denied, open';
+  const SAVE_FAILURE = 'ENOSPC: no space left on device, write';
+
+  it('puts a failure with no comparison ever asked for in the banner, leaving the comparison empty', () => {
+    renderPanel({ actionError: SAVE_FAILURE, dirty: true });
+
+    expect(occurrences(SAVE_FAILURE)).toBe(1);
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    expect(within(banner).getAllByText(SAVE_FAILURE)).toHaveLength(1);
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonEmpty)).not.toBeNull();
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonError)).toBeNull();
+  });
+
+  it('puts a failed comparison in the comparison surface and not in the banner', () => {
+    renderPanel({ conflict: CONFLICT, actionError: COMPARE_FAILURE, dirty: true });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+
+    expect(occurrences(COMPARE_FAILURE)).toBe(1);
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
+  });
+
+  it('puts a save that fails after a failed comparison in the banner, not the comparison', () => {
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+
+    // The user now saves, and that save fails with a different message. The
+    // store clears `actionError` when the save starts and writes the save's
+    // own failure when it lands; the panel is handed the result.
+    fireEvent.click(save());
+    update({ actionError: SAVE_FAILURE });
+
+    expect(occurrences(SAVE_FAILURE)).toBe(1);
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    expect(within(banner).getAllByText(SAVE_FAILURE)).toHaveLength(1);
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonError)).toBeNull();
+  });
+
+  it('puts a save that fails after a comparison that SUCCEEDED in the banner, keeping the table', () => {
+    const incoming = makeStubHelmDocument('user');
+    const { update } = renderPanel({ conflict: CONFLICT, dirty: true });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    update({ incoming });
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonTable)).not.toBeNull();
+
+    fireEvent.click(save());
+    update({ incoming, actionError: SAVE_FAILURE });
+
+    expect(occurrences(SAVE_FAILURE)).toBe(1);
+    expect(
+      within(screen.getByTestId(PANEL_TEST_IDS.helmError)).getAllByText(SAVE_FAILURE),
+    ).toHaveLength(1);
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonTable)).not.toBeNull();
   });
 });
