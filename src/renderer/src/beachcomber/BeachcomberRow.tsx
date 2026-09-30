@@ -26,10 +26,12 @@ export interface BeachcomberRowProps {
  *    state layer already refuses the selection; this is so the user is never
  *    invited to try. The state is carried by text and ARIA, never by color.
  *
- * 2. AN UNVERIFIED PATH IS LABELLED A GUESS, in the contract's own words,
- *    verbatim. `~/.claude/projects` directory names are lossy, so a decoded
- *    path IS a guess, and a guess shown as fact next to a delete button is how
- *    someone loses live state.
+ * 2. AN UNVERIFIED PATH IS LABELLED A GUESS BEFORE IT IS SHOWN, in the
+ *    contract's own words, verbatim. `~/.claude/projects` directory names are
+ *    lossy, so a decoded path IS a guess, and a guess shown as fact next to a
+ *    delete button is how someone loses live state. The notice therefore
+ *    renders above the path: a caveat read after the thing it qualifies is not
+ *    a caveat.
  *
  * 3. AN UNVERIFIED ROW IS NEVER CALLED AN ORPHAN. `beachcomber.ts` guarantees
  *    `orphan` is only ever true for `session-record`; the second half of the
@@ -74,6 +76,27 @@ export function BeachcomberRow({ row, onToggle }: BeachcomberRowProps): JSX.Elem
         </label>
       </div>
 
+      {/*
+        THE CAVEAT COMES FIRST. The notice precedes the path it qualifies, so a
+        reader going top to bottom — and a screen reader doing the same — is
+        told the path is a guess before meeting the guess. The wording is the
+        contract's, verbatim; only the position is this component's choice. The
+        marker label is a sibling, not a child, so the element carrying the test
+        id holds the sentence and nothing else.
+      */}
+      {unverified ? (
+        <div className={styles.marker}>
+          <span className={styles.markerLabel}>{COPY.unverifiedHeading}</span>
+          <span
+            className={styles.rowUnverified}
+            data-testid={PANEL_TEST_IDS.beachcomberRowUnverified}
+            id={unverifiedId}
+          >
+            {UNVERIFIED_PATH_NOTICE}
+          </span>
+        </div>
+      ) : null}
+
       <p className={styles.rowPath}>{entry.displayPath}</p>
 
       <p className={styles.rowFacts}>
@@ -90,7 +113,7 @@ export function BeachcomberRow({ row, onToggle }: BeachcomberRowProps): JSX.Elem
       </p>
 
       {/*
-        THE MARKER LABEL IS A SIBLING, NOT A CHILD. The two sentences below are
+        THE MARKER LABEL IS A SIBLING, NOT A CHILD. The sentence below is
         asserted verbatim, so the element carrying the test id holds the
         sentence and nothing else — a prefix inside it would make its
         `textContent` something no contract states.
@@ -104,19 +127,6 @@ export function BeachcomberRow({ row, onToggle }: BeachcomberRowProps): JSX.Elem
             id={blockedId}
           >
             {blockedReason}
-          </span>
-        </div>
-      ) : null}
-
-      {unverified ? (
-        <div className={styles.marker}>
-          <span className={styles.markerLabel}>{COPY.unverifiedHeading}</span>
-          <span
-            className={styles.rowUnverified}
-            data-testid={PANEL_TEST_IDS.beachcomberRowUnverified}
-            id={unverifiedId}
-          >
-            {UNVERIFIED_PATH_NOTICE}
           </span>
         </div>
       ) : null}
