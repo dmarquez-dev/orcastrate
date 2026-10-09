@@ -1587,24 +1587,43 @@ the bad check grepped TypeScript identifiers where only CSS variable names appea
 
 ### Open — tests and guards, with a citation
 
-- **The `startup_reconciliation` marker is duplicated and pinned to nothing** —
+- ~~**The `startup_reconciliation` marker is duplicated and pinned to nothing**~~ —
+  **CLOSED 2026-10-09** by session `2026-10-09-orcastrate-guard-hardening` (`ea06303`). Both constants now live in
+  `src/shared/startup-reconciliation-notice.ts`, which both tsconfig programs
+  include; producer and filter re-export that one binding, and
+  `tests/unit/pod-manager/marker-single-definition.test.ts` fails if a second
+  declaration reappears. **The regression was live, and worse than recorded:**
+  renaming the marker at the producer left **199 renderer tests green across 11
+  files**. Original text:
   `transcript-filter.ts:221` re-declares the literal that
   `pod-manager/startup-reconciliation.ts:28` produces, and the test compares
   against a hard-coded string (`transcript-filter.test.ts:191`). Nothing reads
   the producer. `STARTUP_RECONCILIATION_REASON` lives in three places. Either
   fix (a `tests/**` equality test, or move the literal to `src/shared/`) is cheap.
-- **A vacuous assertion in `tests/unit/ipc/user-prompt.test.ts:398-401`** —
+- ~~**A vacuous assertion in `tests/unit/ipc/user-prompt.test.ts:398-401`**~~ —
+  **CLOSED 2026-10-09** by session `2026-10-09-orcastrate-guard-hardening` (`bbb8a17`). `BASELINE_USER_ROWS` pins each
+  fixture's measured row count before the two survival assertions. Proof it could
+  not fail: under an injection making the replay ingest nothing, the tree at
+  `a186f06` passed **all six** loop iterations. Original text:
   `toHaveLength(baseline.length + 1)` and `toEqual([typed, ...baseline])` both
   hold trivially for any fixture that ingests nothing. No `baseline.length > 0`
   guard exists anywhere in the file. The fix stays one line, and cannot be blanket.
-- **The control-byte hygiene rule still scans `src/` only** —
+- ~~**The control-byte hygiene rule still scans `src/` only**~~ —
+  **CLOSED 2026-10-09** by session `2026-10-09-orcastrate-guard-hardening` (`7410c82`). It now walks `src/`, `tests/` and
+  `probe/`, each root asserting its own measured non-emptiness floor, with the
+  filter widened to `.md`/`.json` (20 previously-skipped files) and `.ndjson`
+  excluded for a recorded reason. Original text:
   `__tests__/hygiene.test.ts:836`, "finds no stray control byte anywhere under
   `src/`". `tests/` and `probe/` carry the same exposure and
   `tests/router/hygiene.test.ts` has no such rule.
 - **`PRE_TOKEN_SHELL_DECLARATIONS` is still a two-sided pin**, relocated to
   `__tests__/hygiene.test.ts:628`, asserted `:710`. The font-weight token work
   must edit it.
-- **`tests/unit/store/errors.test.ts:117` is order-dependent** — "Runs last in
+- ~~**`tests/unit/store/errors.test.ts:117` is order-dependent**~~ —
+  **CLOSED 2026-10-09** by session `2026-10-09-orcastrate-guard-hardening` (`3584295`). The `provoked` Set and its
+  `record()` calls are gone; a `PROVOCATIONS` table keyed by `EventStoreErrorCode`
+  is run by the coverage test itself. Green at four shuffle seeds. Original text:
+  "Runs last in
   this file; `provoked` is filled by the tests above." Fails under shuffle.
 - **`handlers.ts`'s duplicate-registration guard has no direct test** —
   `register` is still an inner function of `registerIpcHandlers` (`:98-102`);
@@ -1623,7 +1642,12 @@ the bad check grepped TypeScript identifiers where only CSS variable names appea
   `hygiene.test.ts:805-833`. It now asserts call-shape *containment*, which is
   closer than when first filed, but still not the surrounding call in the exempt
   file (`lanes/LaneRail.test.tsx:180` holds the real proof).
-- **NEW — `KEPT_POD` is a dead constant.** `__tests__/pod-stop.e2e.test.tsx:271`
+- ~~**NEW — `KEPT_POD` is a dead constant.**~~ **CLOSED 2026-10-09** by session `2026-10-09-orcastrate-guard-hardening`
+  (`4b05532`), together with `STOPPED_POD`, which was dead for the same reason.
+  The kept pane also gained the positive control: **at `a186f06` that pane was
+  always empty**, so `expect(laneClosedRows(keptPrimary)).toEqual([])` was green
+  over nothing in normal operation, not merely under injection. Original text:
+  `__tests__/pod-stop.e2e.test.tsx:271`
   declares it and nothing in the file reads it; the scenario reaches the kept Pod
   through `keptLaneId` instead. Worth a look alongside the standing finding that
   the `KEPT_POD` *rendered* assertion is near-vacuous — the two may be the same
@@ -1709,3 +1733,126 @@ reason they are written down here. The same holds for the manifest-gloss note,
 the two textually identical `podEvent` statements at `pod-manager.ts:567,755`,
 the contract-operation coverage false alarm, the quiescent-tree gate note, and
 the commit-series note.
+
+---
+
+## 2026-10-09 — 2026-10-09-orcastrate-guard-hardening
+
+Five vacuous guards closed, each with a reproduced red step and a confirmation
+that the same injection left `a186f06` green. 37 of 37 acceptance criteria met,
+0 blocking findings, 0 revision rounds, 0 escalations. The five items this
+session closed are annotated in the audit roster above rather than only here —
+which is the structural fix the roster's own header has been asking for since
+`008da4d`.
+
+**One follow-up is already scheduled, not deferred:** the `grep -lP` docblock
+correction below is being done as a Small session immediately after this merge,
+by user decision at Gate 3.
+
+### Correctness risks
+
+- **A shipped docblock records a measurement taken with a command that cannot
+  report a hit.** `src/renderer/src/__tests__/hygiene.test.ts`. T4 corroborated
+  its `.ndjson`-exclusion and clean-tree claims with
+  `grep -lP '[\x00-\x08...]'`, which in this environment fails with
+  `grep: -P supports only unibyte and UTF-8 locales` and **exit 2** — it matches
+  nothing regardless of file contents, confirmed by the reviewer against a
+  positive-control file carrying a literal `0x08`. The *conclusion* is true: the
+  reviewer reproduced it with a Node sweep over 354 files, positive control
+  included. Only the cited evidence was broken, and the docblock sentence
+  recording it should not later be trusted as a measurement that was taken. **This
+  is a fresh instance of the project's recurring pattern #1 — prose no longer true
+  of the code — introduced by the session that was auditing that very pattern.**
+  Being fixed as a Small session directly after this merge.
+
+- **The reconciliation-notice visibility guards no longer protect against marker
+  drift.** `src/renderer/src/transcript/transcript-filter.test.ts:191`.
+  `startup-reconciliation.test.tsx` and `TranscriptPane.filter.test.tsx` retain
+  real content — the notice renders, the row text, filter behaviour — so they are
+  not vacuous. But **with respect to a rename they are now tautological**: both
+  sides read one binding, so producer and filter move together and the notice
+  stays visible. Demonstrated by the criterion-7 run, where renaming the shared
+  const left all 28 of those tests green. The E5 protection now rests entirely on
+  the `:191` value pin and `marker-single-definition.test.ts`. Anyone who later
+  deletes either on the grounds that "the visibility tests cover it" would
+  silently reopen the gap this session closed.
+
+- **The ten `.ndjson` fixtures now have no integrity signal at all.**
+  `tests/fixtures/protocol/`, `probe/evidence/`. Excluding them from the
+  control-byte rule is correct — they are byte-for-byte recordings of another
+  process's stdout, their value is fidelity, and the natural way to answer a false
+  positive would be to edit the fixture, which is the one repair a fixture must not
+  invite. But the residual gap is real: an unintended mutation of a recording is
+  now invisible, and these files are machine-written by exactly the kind of
+  scripted tooling that wrote the original `0x08`. **A checksum or byte-length
+  assertion over the fixture set is the right instrument** — it catches any
+  unintended change, control byte or not, without asking a rule to distinguish
+  defect from data.
+
+- **T5's criterion-4 census is wrong in detail, though no classification changes.**
+  `.dir-sdlc/sessions/2026-10-09-orcastrate-guard-hardening/reviews/T5.md`. The
+  delivered table listed 6 occurrences where the reviewer's own `grep` found 8; it
+  cites `marker-single-definition.test.ts:79` as a category-(iii) occurrence when
+  `:79` carries no literal (the nearest real mention is `:8`); three prose
+  occurrences went unlisted without being scoped out; and **category (iii) turns
+  out to be unused entirely**, because the needle is assembled from fragments so
+  the hygiene rule never carries the literal at all. The substantive property holds
+  under the reviewer's grep — all five code occurrences permitted, none an
+  unpermitted duplicate — but the delivered table should not be cited again as
+  written. The correction is recorded in `reviews/T5.md`.
+
+### Process notes, for whoever runs the next session
+
+- **A criterion can be unsatisfiable because its own premise forbids its
+  conclusion, and this session wrote one.** T5's criterion 7 demanded the
+  reconciliation-notice visibility guards go red *"because producer and filter now
+  read one const"* — but that premise is exactly what makes the conclusion
+  unreachable: once both sides share a binding, a visibility test built from that
+  const is invariant under renaming it. Satisfying the literal observable would have
+  required criteria 2 and 3 to *not* hold. The reviewer ruled it met on the
+  substituted evidence and said so explicitly. **The sting: Gate 2 had already
+  caught this exact self-comparison trap in criterion 5 — deleting two `toBe`
+  reference pins that would have compared a value to itself — and did not propagate
+  the insight three criteria down.** When a decomposition removes a self-comparing
+  assertion, re-read every other criterion in that task for the same shape.
+
+- **"`git diff --stat` shows exactly one changed file" is not satisfiable in a
+  shared worktree.** It appears in T1, T2, T3 and T4 of this manifest, and T2 and
+  T3 each flagged it independently. Peers hold uncommitted work in the same tree by
+  design, so the unscoped command always shows several files. Write it as the
+  path-scoped diff, which is the question it is actually asking: did this task
+  write outside its ownership set.
+
+- **An implementer invoked git, and the ruling was advisory.** T4 ran
+  `git checkout -- <two files>` to revert an injection criterion 4 required it to
+  make. Ruled advisory rather than blocking because the `index.lock` race the
+  orchestrator-only rule exists to prevent was **structurally impossible on the DAG
+  tail** — `ea06303` was both HEAD and the last peer commit — and a working-tree
+  checkout cannot alter index or commit state. It self-reported rather than hiding
+  it. The correct alternative for an append-only injection is `truncate -s -1`
+  (GNU coreutils is present); the general pattern, which also covers in-place
+  injections, is to copy each target into the assigned scratch directory before
+  injecting and copy it back afterward. **Put that in the injection instructions
+  rather than discovering it again.**
+
+- **One commit message is incomplete.** `4b05532` describes T2's positive control
+  fully but says nothing about deleting `KEPT_POD` and `STOPPED_POD` — criterion 1
+  of that task and the three deletions in its diff. Nothing claimed is false, and
+  DIR never rewrites history, so the commit stands. Recorded so a later reader of
+  the log is not misled about where those constants went.
+
+- **`.dir-sdlc/log.md` has the same hole the backlog had.** Found during this
+  session's setup: three merged DIR sessions have no entry of their own —
+  `2026-08-20-orcastrate-workspace-refinement`,
+  `2026-08-21-orcastrate-transcript-readability` (mentioned once in passing inside a
+  hand-run entry), and `2026-09-04-orcastrate-correctness-sweep`, the largest
+  session in the project. The 2026-10-07 driven hand-run and the 2026-10-09 audit
+  are absent too. Same structural cause as the backlog staleness: Gate 3's append
+  obligation getting skipped. **Repairing those five entries is a documentation job
+  worth one Small session**, and it is the last piece of the audit trail that is
+  thinner than it looks.
+
+- **Nothing in this session ran in a real Electron window**, and nothing in it
+  should have — every change is to test and guard code, plus one constant move
+  proven byte-identical by SHA-256. Recorded only so the next hand-run knows this
+  session added no surface for it to exercise.

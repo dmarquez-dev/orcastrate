@@ -1,0 +1,113 @@
+{
+  "session": "2026-10-09-orcastrate-guard-hardening",
+  "createdAt": "2026-10-09",
+  "track": "standard",
+  "baseBranch": "main",
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Measure the per-fixture baseline so no fixture's prompt-survival check can collapse to [typed]",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/ipc/user-prompt.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "The six per-fixture baseline row counts are MEASURED in this session by running the no-send replay, and the measured numbers are written into the suite as a per-fixture expectation the loop asserts BEFORE the two survival assertions at :398-401. The report lists the number for each of the six FIXTURES entries and names the command that produced them. No number is carried forward from a previous run, from a comment, or from the spec.",
+        "For every fixture whose measured baseline is non-zero, the loop asserts that fixture's baseline length against its recorded expectation, so a replay that ingested nothing fails at that assertion instead of satisfying `toHaveLength(baseline.length + 1)` and `toEqual([typed, ...baseline])` trivially. The assertion carries a message naming the fixture, so a failure is legible without opening the file.",
+        "`04-orphaned-calf.ndjson` legitimately replays zero `user_message` rows. Its measured baseline is recorded as zero and is NOT asserted non-zero; a comment states that this fixture therefore carries no survival proof and that its loop iteration proves only that the typed row was appended. A blanket non-zero guard would fail on a correct tree and must not be written.",
+        "INJECTED DEFECT, DEMONSTRATED RED: make the replay ingest nothing (for example have `driveFixture` feed an empty item list) and run `npx vitest run tests/unit/ipc/user-prompt.test.ts`. The per-fixture baseline assertions go red for every fixture with a non-zero measured baseline. The report names the command, quotes the edit and the failure, and confirms by running the SAME injection against the tree at `a186f06` that `:398-401` stayed GREEN under it. Both halves are required: the second is the only evidence the old assertion was vacuous.",
+        "The pre-existing `the corpus really does carry Calf prompt text` test (the total-of-seven measurement at :368) and the `both identical Calf prompts in 01-parallel-dispatch survive the send` test are PRESERVED and still pass. Both are what stop a parser that extracted nothing from making `typed` meaningless. GATE 2 DECISION: the earlier requirement that the total-of-seven assertion run BEFORE the loop is REMOVED. There is no data dependency — the loop calls `calfPromptTexts()`, a pure function over the fixture file — so the ordering was cosmetic, and mandating an execution order in the session that exists to delete order-dependence is self-contradictory. Do not add an ordering assertion.",
+        "No fixture file, helper, or production module is modified. `git diff --stat` against `a186f06` shows exactly one changed file, `tests/unit/ipc/user-prompt.test.ts`; the report quotes that output."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Give the kept transcript pane a positive control, and delete the two dead Pod-id constants",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "BOTH dead constants are deleted: `KEPT_POD` at :271 AND `STOPPED_POD` at :270. At `a186f06` each has exactly one occurrence in the file — its own declaration — so neither is read by anything (`noUnusedLocals` is off in both tsconfigs, which is why `tsc` never said so). Verified by `grep -n 'KEPT_POD\\|STOPPED_POD' src/renderer/src/__tests__/pod-stop.e2e.test.tsx` returning nothing; the report quotes the command and its empty output. If deleting one of them breaks the build or a test, it was read after all: report that rather than reintroducing it.",
+        "The kept transcript pane gets a POSITIVE CONTROL asserted immediately before `expect(laneClosedRows(keptPrimary)).toEqual([])` at :818. It asserts that `keptPrimary` rendered at least one transcript row carrying the kept Pod's OWN content — text the test did not write into the DOM itself, read back from the row — and that none of those rows reads `Lane closed`. The expected row count is a number measured in this session, and the report names the command that measured it.",
+        "INJECTED DEFECT, DEMONSTRATED RED: make the kept Pod's transcript render nothing (for example have the world answer `eventsRead` for the kept Pod id with an empty page) and run `npx vitest run src/renderer/src/__tests__/pod-stop.e2e.test.tsx`. The new positive control goes red. The report names the command, quotes the edit and the failure, AND confirms that under the same injection `expect(laneClosedRows(keptPrimary)).toEqual([])` stayed GREEN. That second half is the vacuity this task exists to close; without it the criterion is unmet.",
+        "Both halves of the existing narrowness proof are PRESERVED unchanged, not replaced: the durable half `expect(persistedEvents(world, keptPod).filter((e) => e.type === 'lane_closed')).toEqual([])` at :807, and the lane-rail `data-pod-status` / `POD_STATUS_LABEL.idle` assertions at :813-817. The pane control is added alongside them. A diff that moves or rewrites either does not satisfy this.",
+        "`npx vitest run src/renderer/src/__tests__/pod-stop.e2e.test.tsx` passes; the report names the command and the passing test count it printed.",
+        "`git diff --stat` against `a186f06` shows exactly one changed file, `src/renderer/src/__tests__/pod-stop.e2e.test.tsx`; the report quotes that output."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Make the error-code coverage check independent of sibling test order",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/store/errors.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "No assertion in the file reads mutable state that another `it` in the file wrote. The `provoked` Set at :42 and the `record(code)` calls inside the six sibling `it` blocks at :48-114 are gone, or `provoked` is no longer read by any assertion. This is the test discipline's isolation rule — tests do not share mutable state and pass in any order — and it is what the fix is for.",
+        "The all-four-codes coverage claim is still MADE and still FALSIFIABLE. The file carries a table from each `EventStoreErrorCode` to a provocation the coverage test runs itself, and one test asserts that the table's keys are exactly `ALL_CODES` (:28) and that every provocation in it really yields its key's code. The six individual `it` blocks keep their own specific assertions; they are not reduced to feeding the table.",
+        "REPRODUCED RED, THEN GREEN: `npx vitest run tests/unit/store/errors.test.ts --sequence.shuffle --sequence.seed=20261009` fails at `a186f06` at `:119` with `provoked` holding fewer than four codes, and passes after the change. The report quotes the before-failure and reports the after-run for at least three distinct seeds, one of which is 20261009. Evidence for that seed, measured this session over the whole repository: `Test Files 1 failed | 139 passed (140)`, `Tests 1 failed | 2227 passed (2228)`, with `expected [] to deeply equal [ 'CONFLICT', 'IO', 'NOT_FOUND', ...(1) ]` at `tests/unit/store/errors.test.ts:119:34`.",
+        "INJECTED DEFECT, DEMONSTRATED RED: remove one code's entry from the table (or make its provocation yield a different code) and observe the coverage test fail naming the missing or wrong code. The report names the command, quotes the edit and the failure. A coverage test that still passes with a code's provocation removed proves nothing, which is the whole defect class this session closes.",
+        "The stale comment at :118, `Runs last in this file; \\`provoked\\` is filled by the tests above`, is DELETED rather than left standing. Shuffle falsifies it, and a stale rationale is what a later reader takes for the current decision.",
+        "`git diff --stat` against `a186f06` shows exactly one changed file, `tests/unit/store/errors.test.ts`; the report quotes that output. Measured this session: at seed 20261009 this file's `:119` was the ONLY order-dependent failure in the whole repository, so no wider fix is in scope and none may be added."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "One definition of the startup-reconciliation marker, read by both tsconfig programs",
+      "agent": "dir-architect",
+      "domain": "architecture",
+      "owns": [
+        "src/shared/startup-reconciliation-notice.ts",
+        "src/main/pod-manager/startup-reconciliation.ts",
+        "src/renderer/src/transcript/**",
+        "tests/unit/pod-manager/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "A new module `src/shared/startup-reconciliation-notice.ts` is the SINGLE definition of `STARTUP_RECONCILIATION_SUBTYPE` (`'startup_reconciliation' as const`) and `STARTUP_RECONCILIATION_REASON` (the existing sentence, byte for byte). It imports nothing, or only `import type` from `src/shared/contracts/**`; it imports nothing from `src/main/**` or `src/renderer/**`, because `src/shared/**` is included by BOTH `tsconfig.node.json` and `tsconfig.web.json` and a reach into either tree would break the other program. No file under `src/shared/contracts/` is edited — those nine files are frozen contracts from earlier sessions. Its docblock states why it lives outside `contracts/`: it is a runtime value, not a contract, and it is the first non-contract module in that tree.",
+        "`src/main/pod-manager/startup-reconciliation.ts` re-exports both names from the new module instead of declaring them at :28 and :38, and its import uses a RELATIVE specifier (`../../shared/startup-reconciliation-notice`), NOT the `@shared` alias. Verified this session: `tsconfig.node.json` declares no `paths`, `@shared` appears nowhere in `tests/`, `probe/`, `src/main/`, `src/preload/` or `src/shared/`, and compiling a file whose only import is `@shared/contracts/events` under the node program's options fails with `error TS2307: Cannot find module '@shared/contracts/events'`. `src/main/pod-manager/index.ts` is NOT edited, so every existing `import { STARTUP_RECONCILIATION_REASON } from '.../src/main/pod-manager'` still resolves to the same value.",
+        "`src/renderer/src/transcript/transcript-filter.ts` re-exports `STARTUP_RECONCILIATION_SUBTYPE` from the new module instead of declaring the duplicate at :221, via the `@shared/...` alias that `tsconfig.web.json` does declare. `src/renderer/src/transcript/index.ts`'s re-export of that name is unchanged, so `isStartupReconciliationNotice` and every consumer keep working. The duplication rationale at `transcript-filter.ts:210-220` — the paragraph explaining that importing the producer would pull main-process code into the renderer program — is DELETED, because the duplication it justifies no longer exists and a standing rationale for a deleted decision is worse than no comment.",
+        "`src/renderer/src/transcript/test-fixtures.ts` stops declaring its own `STARTUP_RECONCILIATION_REASON` at :134 and reads the shared one, and the local `SUBTYPE` literal in `src/renderer/src/transcript/startup-reconciliation.test.tsx` (:44) reads the shared const. After the change, every remaining bare `'startup_reconciliation'` string in the repository is in exactly one of FOUR permitted categories: (i) the new shared module; (ii) a deliberate NEAR-MISS or negative-case assertion (`transcript-filter.test.ts:239`, `:242`, `:254` and the `makeEvent` cases around them); (iii) a needle-assembled hygiene rule; or (iv) A POSITIVE VALUE PIN on the marker, of which `transcript-filter.test.ts:191` is the one instance — GATE 2 DECISION, added because category (iv) did not exist in the first draft and criterion 5 mandates keeping :191, which the three original categories would have required deleting. The report lists every remaining occurrence from a `grep -rn` it ran and classifies each one into (i), (ii), (iii) or (iv).",
+        "The existing literal pin at `transcript-filter.test.ts:191` is KEPT — `expect(STARTUP_RECONCILIATION_SUBTYPE).toBe('startup_reconciliation')`. The marker is written into the durable record, so its value is still worth pinning; it is simply no longer a pin on a copy. GATE 2 DECISION: the two `toBe` REFERENCE PINS this criterion originally required — one per tsconfig program, asserting the producer's and the filter's exported values are the shared one — are REMOVED and must NOT be written. Once criteria 2 and 3 make both sites re-export the shared binding, each pin compares a value to itself and cannot fail on this session's own output; the regression they were meant to catch (a copy reappearing) is caught directly and repository-wide by criterion 6's single-definition scan. Writing an assertion that cannot fail is the defect class this entire session exists to close, and the first draft of this manifest contained two.",
+        "A SINGLE-DEFINITION GUARD lives in a file this task owns under `tests/unit/pod-manager/`. It scans the repository's `.ts`/`.tsx` source for a DECLARATION of the marker literal and asserts there is exactly one declaring module, naming it. Near-miss and negative-case occurrences are carried in a recorded exemption list whose files are each checked to exist and to really carry the literal — the shape `hygiene.test.ts`'s `RETIRED_LITERAL_EXEMPT_FILES` already uses, and for the same reason. The needle is assembled from fragments so the guard is not its own violation, and the scan asserts its own file list is non-empty against a count measured in this session.",
+        "INJECTED DEFECT, DEMONSTRATED RED — THE REGRESSION THIS ITEM EXISTS FOR: change the marker's value in the new shared module to `'startup_reconciliation_v2'` and run the renderer transcript suite and `tests/unit/pod-manager`. The reconciliation-notice visibility guards go red, because producer and filter now read one const. The report names the commands and quotes the failures, AND confirms by running the SAME rename against `a186f06`'s producer (`src/main/pod-manager/startup-reconciliation.ts:28`) that `transcript-filter.test.ts` and every renderer notice test stayed GREEN. Without that second half nothing shows the regression was ever reachable, and it is the reason the E5 exemption exists.",
+        "INJECTED DEFECT, DEMONSTRATED RED — the single-definition guard itself: re-introduce a hard-coded `export const STARTUP_RECONCILIATION_SUBTYPE = 'startup_reconciliation'` in `transcript-filter.ts` and observe the criterion-6 scan fail naming that file. Reverted afterwards, and `git diff` after the revert shows the injection gone.",
+        "NO USER-VISIBLE BEHAVIOUR CHANGES. The marker's value is still `'startup_reconciliation'` and `STARTUP_RECONCILIATION_REASON`'s sentence is identical character for character — shown by a `git diff` in which no line inside the sentence changed, or by an assertion on the full sentence. `StartupReconciliationData.subtypeMarker` still types as `typeof STARTUP_RECONCILIATION_SUBTYPE`.",
+        "`npx vitest run src/renderer/src/transcript tests/unit/pod-manager` passes; the report names the command and the passing test count it printed."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Widen the control-byte rule to every source tree, and run the session's typecheck and suite gate",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/hygiene.test.ts"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3",
+        "T5"
+      ],
+      "acceptance": [
+        "The control-byte rule at :836 walks `src/`, `tests/` AND `probe/`, not `src/` alone. The docblock at :740-760 is amended so its stated scope matches what the rule walks; the paragraph arguing that a rule scoped to where the last incident happened only ever catches the last incident is KEPT and now describes the rule instead of contradicting it one level up. `CONTROL_BYTE` (:762) and `controlByteReport` (:765) keep their current definitions.",
+        "THE EXTENSION FILTER IS DECIDED, NOT INHERITED. Measured this session, `tests/` and `probe/` together hold 67 `.ts`, 10 `.ndjson`, 5 `.md` and 3 `.json` files and no `.tsx`, `.css` or `.html`. The current filter `/\\.(ts|tsx|css|html)$/` therefore covers the 67 `.ts` files and skips 18 others. The task either widens the filter to cover them or records in the docblock which extensions are excluded and WHY — and the reason must be a property of those files, not `the last incident was a .ts file`. The report states the choice, its reason, and re-measures the counts rather than reusing the ones quoted here.",
+        "EACH WALKED ROOT HAS ITS OWN NON-EMPTINESS GUARD, with a threshold measured in this session, so a mistyped or renamed root reports `clean` over zero files instead of having its absence absorbed by the other roots' totals. The single `expect(files.length).toBeGreaterThan(100)` over one merged list does NOT satisfy this: that is the same vacuity shape the rest of the session is closing. The report names the command that produced each root's count.",
+        "INJECTED DEFECT, DEMONSTRATED RED, TWICE. (a) Write a literal 0x08 byte into one file under `tests/` and one under `probe/`, and observe the rule fail naming BOTH offenders with their relative paths and `line N: 0x08`. (b) Point one root at a path that does not exist, and observe THAT ROOT's non-emptiness guard fail rather than the rule reporting clean. Both injections are reverted and `git status` after the revert is clean of them. The report names the commands, quotes both failures, and confirms that injection (a) left the rule at `a186f06` GREEN — which is what makes the widening a fix rather than a restatement.",
+        "The rule reports NO offender on the tree as it stands after every peer task has landed. Measured, not assumed: at `a186f06` zero files under `tests/` and `probe/` carry a control byte, so this arm passes with no cleanup bundled in; if it does not pass, a control byte arrived during this session and that is the finding to report, not to quietly clean. The report states that `git status` showed no other agent's in-flight writes when it was run.",
+        "The sibling retired-test-id rule, `RETIRED_TEST_ID_LITERALS`, `RETIRED_LITERAL_EXEMPT_FILES` and the `catch a synthetic violation of each` test are untouched except where the control-byte walk's shared helper changes force it. If the shared `filesUnder` call is refactored, the retired-id rule keeps walking `src/` only and the report says so explicitly.",
+        "THE SESSION'S TYPECHECK GATE, run last and on a quiescent tree: `npm run typecheck` passes — both `tsc --noEmit -p tsconfig.node.json --composite false` and `-p tsconfig.web.json --composite false`. The report names the command and quotes its output. Vitest transpiles without typechecking, so no scoped suite in this manifest covers this, and T5 moves a module across the two programs' boundary; this project has already lost a session to that exact gap.",
+        "THE SESSION'S SUITE GATE: `npx vitest run` over the whole repository passes, run when no peer task is in flight. The report names the command, the total test-file and test counts it printed, and states that the tree was quiescent when it ran. A suite-wide number taken while a peer was mid-write is not a measurement — this project has seen 8 phantom failures from exactly that. For reference, the whole suite at `a186f06` reported 140 test files and 2228 tests.",
+        "`git diff --stat` for this task's own change shows exactly one changed file, `src/renderer/src/__tests__/hygiene.test.ts`; the report quotes that output."
+      ]
+    }
+  ]
+}

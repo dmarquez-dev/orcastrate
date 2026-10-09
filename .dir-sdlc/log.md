@@ -320,3 +320,66 @@ into T3 rather than backlogged — which turned out to matter, since switching p
 by exactly the same path closing did.
 
 Eight advisory findings carried to the backlog. Two are real defects this session introduced.
+
+## 2026-10-09 — 2026-10-09-orcastrate-guard-hardening
+
+Five guards that could not fail, made falsifiable. Scoped from the 2026-10-09 audit
+roster. `a186f06..7410c82`, five commits, 12 files, +660/−107. 37 of 37 criteria met,
+**0 blocking findings, 0 revision rounds, 0 escalations, 3 user interactions.**
+`npm run typecheck` clean on both programs and `npx vitest run` at 141 files / 2233
+tests, both re-run by T4's reviewer rather than taken on report.
+
+Every one of the five was confirmed **genuinely incapable of failing** beforehand,
+not merely weak — which is the whole evidentiary standard the session was built on:
+
+| Guard | Proof it could not fail at `a186f06` |
+|---|---|
+| Calf prompt survival | an injection making the replay ingest nothing passed **all six** loop iterations |
+| kept-Pod transcript pane | that pane was **always empty**; `toEqual([])` was green over nothing in normal operation |
+| error-code coverage | reproduced failing under `--sequence.shuffle`; the only such failure in 140 files / 2228 tests |
+| control-byte scan | the injected files were **structurally invisible** — one outside its root, one outside root *and* filter |
+| marker desync | renaming at the producer left **199 renderer tests green across 11 files** |
+
+The marker finding is the one that mattered most. The duplication main-to-renderer
+was deliberate and documented, and the documentation was correct — `tsconfig.web.json`
+genuinely cannot see `src/main`. The defect was that nothing in the chain read the
+producer, so escalation E5's regression was live: producer writes `_v2`, filter matches
+the old string, the reconciliation notice silently returns to being filtered out, and
+the entire renderer suite says nothing. Both constants now live in `src/shared/`, which
+both tsconfig programs include. **The architect killed the additive alternative on a
+fact the orchestrator had asserted wrongly** — `tsconfig.node.json` declares no `paths`,
+so a `tests/**` file importing the renderer filter TS2307s; the "touches no shipped
+code" option would have required editing the whole node program's config.
+
+**Two findings about the session's own manifest outweigh the code fixes.** T5's
+criterion 7 was unsatisfiable as written — it demanded the visibility guards go red
+*because* producer and filter share a const, which is the premise that makes the
+conclusion unreachable — and Gate 2 had already caught that identical self-comparison
+shape in criterion 5, deleting two reference pins that would have compared a value to
+itself, without propagating the insight three criteria down. And a T4 verification
+command was itself vacuous: `grep -lP` fails in this environment with exit 2 and matches
+nothing regardless of content, a claim now sitting in a shipped docblock. The reviewer
+caught it with a positive control. **In a session auditing assertions that cannot fail,
+one agent verified its work with a command that could not report a hit** — being fixed
+as a Small session immediately after this merge, by user decision at Gate 3.
+
+Gate 2 resolved three authoring problems before the freeze: the c4/c5 contradiction over
+`transcript-filter.test.ts:191`, the two self-comparing reference pins, and an ordering
+clause in T1 c5 that would have mandated execution order inside the session built to
+delete it. All three were found by the orchestrator's consistency pass, not by the
+architect that wrote them.
+
+Reviewers reproduced rather than read, and it paid: T1's re-derived six baseline counts
+two independent ways; T2's checked criterion 4 against the diff and found the base
+evidence *stronger* than claimed; T3's ran four shuffle seeds and verified the injected
+defect fails under plain `vitest` rather than only under `tsc`; T5's noticed its own
+criterion-7 injection proved only absent-declaration detection and ran the duplicate
+direction itself; T4's re-ran both session gates and swept 354 files with a positive
+control.
+
+Four advisories carried to the backlog, all four in the correctness-risks group. Also
+recorded there: "exactly one changed file" is unsatisfiable in a shared worktree and
+appears in four tasks; T4's self-reported `git checkout` and the `truncate -s -1`
+alternative; `4b05532`'s message omitting the dead-constant deletion; and the discovery
+that `log.md` itself is missing entries for three merged sessions, the 2026-10-07
+hand-run, and the audit.

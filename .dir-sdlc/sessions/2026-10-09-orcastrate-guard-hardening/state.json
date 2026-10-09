@@ -1,0 +1,55 @@
+{
+  "session": "2026-10-09-orcastrate-guard-hardening",
+  "updatedAt": "2026-10-09T15:10:00.000Z",
+  "phase": "awaiting-final",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-09-orcastrate-guard-hardening",
+  "branch": "dir/2026-10-09-orcastrate-guard-hardening",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a186f063088600d8f504d780a6093a27ee64cbe9",
+      "commit": "bbb8a1724a0e20e8ec49b750083f8a8badcfd25f"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a186f063088600d8f504d780a6093a27ee64cbe9",
+      "commit": "4b05532"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a186f063088600d8f504d780a6093a27ee64cbe9",
+      "commit": "3584295"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "a186f063088600d8f504d780a6093a27ee64cbe9",
+      "commit": "ea06303"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "ea06303",
+      "commit": "7410c82"
+    }
+  ],
+  "escalations": [],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}
