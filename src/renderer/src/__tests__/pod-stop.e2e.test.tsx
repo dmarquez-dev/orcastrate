@@ -110,6 +110,23 @@ const LIVE_DURATION_AT_ADVANCE_TWO = '24m 00s';
 /** The same running lane at ADVANCE_ONE. */
 const LIVE_DURATION_AT_ADVANCE_ONE = '3m 00s';
 
+/**
+ * CONTENT THAT BELONGS TO THE KEPT POD AND TO NOTHING ELSE.
+ *
+ * Sent through the real `PodManager.send` — so it is persisted as a real
+ * `user_message` by the real append path, and the renderer reaches it by the
+ * same backfill read every other row in this suite arrives by. Nothing writes
+ * it into the DOM: the test writes it into the STORE, on the far side of the
+ * IPC boundary, and reads it back off a rendered row.
+ *
+ * It exists so that "no `Lane closed` row is in the kept pane" is an assertion
+ * about a pane that RENDERED SOMETHING. `lane_opened` is plumbing and
+ * `'conversation'` hides it, so without this the kept Pod's default transcript
+ * is legitimately empty and the negative holds for a renderer that drew
+ * nothing at all.
+ */
+const KEPT_POD_PROMPT = 'the kept Pod is still being talked to';
+
 // ---------------------------------------------------------------------------
 // The runner double
 // ---------------------------------------------------------------------------
@@ -266,9 +283,6 @@ function makeWorld(): StopWorld {
 // ---------------------------------------------------------------------------
 // The scenario
 // ---------------------------------------------------------------------------
-
-const STOPPED_POD: PodId = 'pod-stopped';
-const KEPT_POD: PodId = 'pod-kept';
 
 interface Scenario {
   world: StopWorld;
@@ -750,6 +764,13 @@ describe('the stop notice in the default transcript', () => {
     const user = userEvent.setup();
     const { world, stoppedLaneId, keptLaneId } = await stopScenario();
     const [stoppedPod, keptPod] = podIds(world);
+
+    // The kept Pod gets CONTENT OF ITS OWN, before the window opens, through
+    // the real manager. See `KEPT_POD_PROMPT`: it is what turns the kept-pane
+    // negative at the end of this test from "nothing says Lane closed" into
+    // "something is on screen and none of it says Lane closed".
+    await world.manager.send(keptPod, KEPT_POD_PROMPT);
+
     mountWorkspace(world.api);
 
     await waitFor(() => {
@@ -815,6 +836,36 @@ describe('the stop notice in the default transcript', () => {
       expect(untouched?.getAttribute('data-pod-status')).toBe('idle');
       expect(untouched?.textContent).toContain(POD_STATUS_LABEL.idle);
     });
+    // THE POSITIVE CONTROL FOR THE PANE, and the reason the negative below is
+    // worth asserting at all.
+    //
+    // `laneClosedRows(keptPrimary)` is `[]` for a pane that rendered NOTHING,
+    // and in `'conversation'` mode an untouched Pod's transcript is exactly
+    // that: `lane_opened` is plumbing and hidden, so before this control the
+    // last line of this test held on a build that drew the kept pane empty —
+    // or did not draw it at all. The `data-pod-status` assertions above do not
+    // close that: they read the lane RAIL, not this PANE.
+    //
+    // ONE ROW, MEASURED. `npx vitest run src/renderer/src/__tests__/
+    // pod-stop.e2e.test.tsx` with the pane's rows printed reported exactly one
+    // transcript row for the kept Pod, reading `You` + `KEPT_POD_PROMPT`: the
+    // `user_message` the real manager persisted above, backfilled by the real
+    // `events.read`. The count is pinned rather than `>= 1` so an extra row
+    // appearing in this pane is a failure that gets looked at.
+    await waitFor(() => {
+      expect(
+        transcriptRows(keptPrimary).length,
+        'the kept Pod rendered no transcript row, so the negative below is vacuous',
+      ).toBe(1);
+    });
+    const keptRows = transcriptRows(keptPrimary);
+    // ITS OWN CONTENT, read back OFF THE ROW. Nothing in this test put this
+    // string into the DOM; it went into the store through `PodManager.send`
+    // and came back through the IPC read.
+    expect(keptRows[0]?.textContent ?? '').toContain(KEPT_POD_PROMPT);
+    // And none of what it DID render is a lane-closed notice.
+    expect(keptRows.filter((row) => (row.textContent ?? '').includes('Lane closed'))).toEqual([]);
+
     expect(laneClosedRows(keptPrimary)).toEqual([]);
 
     // The Pod that WAS stopped still reads the notice when the user comes back
