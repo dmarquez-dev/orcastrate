@@ -1,0 +1,7 @@
+backup-*.bak
+.handrun-state.json
+.handrun-state.done.*.json
+evaluate-output.txt
+.sandbox/
+.probe/
+oc-sandbox/

@@ -1,0 +1,869 @@
+{
+  "meta": {
+    "generatedAt": "2026-10-07T19:51:01.965Z",
+    "build": "3b57255",
+    "electron": "43.4.0",
+    "playwright": "1.63.0",
+    "sandbox": "C:\\oc-sandbox"
+  },
+  "results": [
+    {
+      "id": "B2",
+      "title": "The baseline document loads into the form",
+      "checks": [
+        {
+          "label": "Model is the fixture value",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "File row shows the sandbox settings path",
+          "ok": true,
+          "detail": "C:\\oc-sandbox\\home\\.claude\\settings.json"
+        },
+        {
+          "label": "allow rules rendered",
+          "ok": true,
+          "detail": "claude-opus-5 | Bash(npm run test:*) | Read(//sandbox/**) | Bash(rm -rf:*) | OC_HANDRUN | baseline | OC_MARKER | do-not-"
+        },
+        {
+          "label": "deny rule rendered",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "env var rendered",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/B2-baseline-loaded.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "B3",
+      "title": "A save writes the file and takes a backup  [NEW capability]",
+      "checks": [
+        {
+          "label": "fixture marker present before save",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "settings.json now holds the new value",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "settings.json is still valid JSON",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "trailing newline preserved",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "exactly one backup exists",
+          "ok": true,
+          "detail": "settings.json.2026-10-07T19-49-36-667Z.bak"
+        },
+        {
+          "label": "the backup holds the PRE-save content",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "a Saved banner is shown",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the backup path is surfaced to the user",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/B3-saved.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "B4",
+      "title": "A second save takes a second, distinct backup  [C2]",
+      "checks": [
+        {
+          "label": "two backups now exist",
+          "ok": true,
+          "detail": "settings.json.2026-10-07T19-49-36-667Z.bak, settings.json.2026-10-07T19-49-38-904Z.bak"
+        },
+        {
+          "label": "their names are distinct",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "their contents are distinct",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "one backup still holds the original baseline",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the other holds wrote-once",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "live file holds wrote-twice",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "Same-millisecond collision is not reachable by hand; the unit suite covers it with an injected clock."
+      ],
+      "shots": [
+        "screenshots/B4-second-save.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "B6",
+      "title": "Invalid hooks JSON blocks the save",
+      "checks": [
+        {
+          "label": "the hooks problem is reported on screen",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "settings.json on disk is UNCHANGED",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "Save control disabled: true"
+      ],
+      "shots": [
+        "screenshots/B6-invalid-hooks.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "B7",
+      "title": "crossSessionInbound=hold saves, with a warning not an error",
+      "checks": [
+        {
+          "label": "the hold caveat is shown beside the choice",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the save SUCCEEDED (warnings heading, not error)",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the warning names the observed CLI build",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "hold reached the file",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "Installed CLI is 2.1.277; the message names 2.1.235, the build the value set was read from."
+      ],
+      "shots": [
+        "screenshots/B7-hold-warning.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "B8",
+      "title": "An unparseable file makes the panel read-only",
+      "checks": [
+        {
+          "label": "read-only notice shown for malformed JSON",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Save is disabled",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Model field is read-only",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "read-only notice shown for a non-object",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the cause names \"must be a JSON object\"",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the read-only notice is gone",
+          "ok": true,
+          "detail": "readOnlyNodes=0"
+        },
+        {
+          "label": "fields are editable again",
+          "ok": true,
+          "detail": "modelDisabled=false"
+        },
+        {
+          "label": "recovers after the file is fixed (Save enables once edited)",
+          "ok": true,
+          "detail": "pristine=true afterEdit=false"
+        }
+      ],
+      "notes": [
+        "Save disabled on a pristine draft is correct behaviour, not a stuck read-only state."
+      ],
+      "shots": [
+        "screenshots/B8a-malformed.png",
+        "screenshots/B8b-not-an-object.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C1",
+      "title": "Closing with a dirty draft raises the panel-owned confirmation  [C1]",
+      "checks": [
+        {
+          "label": "the confirmation appeared",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "it is headed \"You have unsaved changes\"",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "it states nothing was written",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "Keep editing left the panel open",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the edit survived",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/C1-close-confirm.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C2",
+      "title": "Switching panels with a dirty draft raises the same guard  [C1]",
+      "checks": [
+        {
+          "label": "the confirmation appeared on panel SWITCH too",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "discarding moved us to Beachcomber",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/C2-switch-confirm.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3",
+      "title": "A failed reload KEEPS the draft  [C1 — the data-loss fix]",
+      "checks": [
+        {
+          "label": "the failure was reported",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "THE DRAFT SURVIVED the failed reload",
+          "ok": true,
+          "detail": "model=\"keep-me-through-failure\""
+        },
+        {
+          "label": "the field is still editable",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/C3-failed-reload-keeps-draft.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C4",
+      "title": "An external write raises the stale notice  [C2 watcher]",
+      "checks": [
+        {
+          "label": "the stale notice appeared",
+          "ok": false,
+          "detail": "staleNodes=0"
+        }
+      ],
+      "notes": [
+        "DIAGNOSED: HelmService.watch() is never called by the application. No helmWatch IPC channel exists, load()/save() do not arm it, and the only callers are tests. The watcher cannot fire, so this notice is unreachable in the shipped app. See FINDINGS.md."
+      ],
+      "shots": [
+        "screenshots/C4-stale-notice.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C5",
+      "title": "A conflicting save is refused and the comparison is reachable  [C1]",
+      "checks": [
+        {
+          "label": "the save was refused with a conflict",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "NOTHING was written to disk",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "headed \"Nothing was written\"",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "advice says comparing never discards",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the Compare control is ON the conflict banner",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the draft survived the conflict",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the side-by-side rendered",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "column headings are On disk now / Your edit",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "it shows the disk value",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "it shows my edit",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "rows are marked Differs/Unchanged",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "comparing did NOT discard the draft",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/C5a-conflict.png",
+        "screenshots/C5b-comparison.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "D2",
+      "title": "The comparison empty state names no unreachable control  [C2 defect]",
+      "checks": [
+        {
+          "label": "the empty state is on screen",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "it does NOT instruct the user to press Compare",
+          "ok": true,
+          "detail": "No comparison yet. When one is fetched, the current contents of the file on disk"
+        },
+        {
+          "label": "it keeps the reassurance",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "and indeed NO Compare control is rendered right now",
+          "ok": true,
+          "detail": "count=0"
+        }
+      ],
+      "notes": [
+        "This is the pairing that made the old copy wrong: surface present, control absent."
+      ],
+      "shots": [
+        "screenshots/D2-empty-state.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "D1",
+      "title": "A later unrelated failure goes to the banner, not the comparison  [C2 defect]",
+      "checks": [
+        {
+          "label": "the failed COMPARE renders inside the comparison surface",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the later failure reached the error BANNER",
+          "ok": true,
+          "detail": "banner=1"
+        },
+        {
+          "label": "it did NOT land in the comparison surface",
+          "ok": true,
+          "detail": "comparisonError=0"
+        },
+        {
+          "label": "the message appears exactly once on the panel",
+          "ok": true,
+          "detail": "occurrences=1"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/D1a-compare-failed.png",
+        "screenshots/D1b-later-failure-in-banner.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E1",
+      "title": "Beachcomber scans and lists all four roots",
+      "checks": [
+        {
+          "label": "group rendered: projects",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "group rendered: shellSnapshots",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "group rendered: fileHistory",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "group rendered: pasteCache",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "entry listed: C--oc-sandbox-repos-blocked-repo",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "entry listed: oc-test-recorded",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "entry listed: oc-test-orphan",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "entry listed: oc-test-decoy",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/E1-scan.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E2",
+      "title": "The unverified notice precedes the path it qualifies  [C2 / T5]",
+      "checks": [
+        {
+          "label": "found the row for the encoded entry",
+          "ok": true,
+          "detail": "beachcomber-row:2e72a46b-25ec-4ef5-a3f3-f9a267baf6fc"
+        },
+        {
+          "label": "the row carries the unverified notice",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the notice says \"the path below is a guess\"",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "THE NOTICE COMES BEFORE THE PATH in document order",
+          "ok": true,
+          "detail": "notice@5 path@6"
+        },
+        {
+          "label": "the path shown is the LOSSY DECODE, not the real cwd",
+          "ok": true,
+          "detail": "C:\\oc\\sandbox\\repos\\blocked\\repo"
+        }
+      ],
+      "notes": [
+        "rendered path = C:\\oc\\sandbox\\repos\\blocked\\repo",
+        "real Pod cwd  = C:\\oc-sandbox\\repos\\blocked-repo"
+      ],
+      "shots": [
+        "screenshots/E2-notice-order.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E3",
+      "title": "The orphan marker appears only on a recorded path",
+      "checks": [
+        {
+          "label": "the recorded-but-missing entry IS marked orphan",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the GUESSED entry is NOT marked orphan",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "A guess is never called missing — that invariant is why the notice has a second sentence."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "E4",
+      "title": "A Pod blocks the entry whose path was only a guess  [C2 — the crown jewel]",
+      "checks": [
+        {
+          "label": "Pod created at the real cwd",
+          "ok": true,
+          "detail": "ok=true id=af5658bb-0610-49fe-98db-27d3178f6518 cwd=C:\\oc-sandbox\\repos\\blocked-repo"
+        },
+        {
+          "label": "the projects row was found",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "⭐ THE ROW IS BLOCKED",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "its checkbox is genuinely disabled",
+          "ok": true,
+          "detail": "disabled=true"
+        },
+        {
+          "label": "the row announces itself disabled",
+          "ok": true,
+          "detail": "aria-disabled=true"
+        }
+      ],
+      "notes": [
+        "createPod spawns nothing — it validates the cwd and writes a store record.",
+        "row text: C--oc-sandbox-repos-blocked-repoPath not verifiedOrcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.C:\\oc\\sandbox\\repos\\blocked\\repo276 B · 2 files · 2 sessions · modified 2026-10-07Canno",
+        "Pre-C2 this row would NOT have blocked: its displayPath is a wrong guess that does not equal the Pod cwd."
+      ],
+      "shots": [
+        "screenshots/E4-pod-blocking.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E5",
+      "title": "The same name under a NON-projects root is not blocked  [C2 R4]",
+      "checks": [
+        {
+          "label": "shellSnapshots: the identically-named entry is NOT blocked",
+          "ok": true,
+          "detail": "{\"blocked\":false,\"disabled\":false}"
+        },
+        {
+          "label": "shellSnapshots: and it remains selectable",
+          "ok": true,
+          "detail": "disabled=false"
+        },
+        {
+          "label": "fileHistory: the identically-named entry is NOT blocked",
+          "ok": true,
+          "detail": "{\"blocked\":false,\"disabled\":false}"
+        },
+        {
+          "label": "fileHistory: and it remains selectable",
+          "ok": true,
+          "detail": "disabled=false"
+        },
+        {
+          "label": "pasteCache: the identically-named entry is NOT blocked",
+          "ok": true,
+          "detail": "{\"blocked\":false,\"disabled\":false}"
+        },
+        {
+          "label": "pasteCache: and it remains selectable",
+          "ok": true,
+          "detail": "disabled=false"
+        }
+      ],
+      "notes": [
+        "Gated on root === projects AND pathSource === decoded-name. This proves the first half is live."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "E6",
+      "title": "A recorded entry still blocks the old way  [C2 union, not replacement]",
+      "checks": [
+        {
+          "label": "second Pod created",
+          "ok": true,
+          "detail": "ok=true"
+        },
+        {
+          "label": "the recorded entry is blocked by its recorded cwd",
+          "ok": true,
+          "detail": "{\"blocked\":true,\"disabled\":true}"
+        }
+      ],
+      "notes": [
+        "Nothing blocked before C2 may become unblocked; the new comparison is a union."
+      ],
+      "shots": [
+        "screenshots/E6-recorded-blocked.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E7",
+      "title": "Preview, then cancel, removes nothing  [NEW capability]",
+      "checks": [
+        {
+          "label": "the decoy exists before preview",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "selected the paste-cache decoy",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the preview dialog opened",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "headed \"Move these to the recycle bin?\"",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "states nothing is removed until confirmed",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "CANCEL removed nothing from disk",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/E7-preview.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "E8",
+      "title": "Confirming moves it to the recycle bin  [NEW capability — destructive]",
+      "checks": [
+        {
+          "label": "target present before confirm",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the directory is GONE from disk",
+          "ok": true,
+          "detail": "exists=false"
+        },
+        {
+          "label": "a result summary is shown",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "headed \"Last cleanup\"",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "result: Last cleanup Moved 1 item to the recycle bin.",
+        "Removal is shell.trashItem — the OS recycle bin, recoverable. Only a sandbox fixture was moved."
+      ],
+      "shots": [
+        "screenshots/E8-trashed.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "F2",
+      "title": "Re-clicking the open panel's own button is a no-op, and raises NO dialog  [C1]",
+      "checks": [
+        {
+          "label": "the panel is STILL open",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "NO confirmation dialog was raised",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "the draft is untouched",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [
+        "Compelled by the frozen contract; the cost is that three close routes became two."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "F5",
+      "title": "aria-pressed on a button that cannot un-press  [C1 known wart]",
+      "checks": [
+        {
+          "label": "the open panel reports aria-pressed=true",
+          "ok": true,
+          "detail": "helm=true"
+        },
+        {
+          "label": "the closed panel reports aria-pressed=false",
+          "ok": true,
+          "detail": "beachcomber=false"
+        }
+      ],
+      "notes": [
+        "Truthful as a state indicator, but F2 shows the control cannot un-press itself. aria-current is the alternative."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "F3/F4",
+      "title": "The remaining close routes still work",
+      "checks": [
+        {
+          "label": "F3: the strip close button closed the panel",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "F4: Escape closed the panel",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/F-closed.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "SAFETY",
+      "title": "The real home was never touched",
+      "checks": [
+        {
+          "label": "real ~/.claude/settings.json is byte-identical",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "no stray backup appeared beside the real settings",
+          "ok": true,
+          "detail": ""
+        }
+      ],
+      "notes": [],
+      "shots": [],
+      "error": null
+    }
+  ],
+  "total": 111,
+  "failed": 1,
+  "errored": 0
+}

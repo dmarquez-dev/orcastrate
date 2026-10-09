@@ -1348,3 +1348,68 @@ defects C1 introduced.
 token; the four unconsumed tokens; the opaque `.confirmScrim`; and every remaining
 2026-09-01 item (the `PanelBar` pair, `resetHelmForReopen` as an unnamed fifth
 clearing site, the two criterion-phrasing gaps).
+
+## 2026-10-07 — driven Electron hand-run (no session; Playwright-driven, observed directly)
+
+The hand-run owed since C1, executed by Playwright driving the real Electron app
+against a sandboxed home. 110 of 111 checks passed across 24 steps. Full evidence,
+root causes and screenshots in `.dir-sdlc/handruns/2026-09-30-electron-handrun/`.
+
+### Correctness risks
+
+- **BLOCKING — Helm's file watcher is never armed, so the stale notice is dead
+  code.** `HelmService.watch(scopeId)` is the only arming path
+  (`helm-service.ts:239-248`) and **nothing in the application calls it**: there is
+  no `helmWatch` IPC channel, `handlers.ts` registers only `helmScopes`/`helmLoad`/
+  `helmSave`, and `load()`/`save()` do not arm it. The only callers are
+  `tests/unit/helm/watcher.test.ts` and `tests/unit/ipc/channels.test.ts`.
+  Production passes `watchEnabled: true`, which makes it look enabled, and the
+  frozen contract documents the behaviour as intended (`helm.ts:57-58`).
+  **Proved empirically**: with the user scope loaded, two external writes produced
+  **zero** `helmChanged` pushes over 25s and no stale notice.
+  **Consequences**: (a) `COPY.staleHeading`/`staleBody` can never render; (b) C2's
+  `acknowledgeOwnWrite` fix is correct but guards a path that never executes, so
+  its user-visible benefit is currently zero. Save-time conflict detection is
+  unaffected — it re-reads independently, which is why the conflict flow passes.
+  **Remediations, ranked**: (1) have the `helmLoad` handler call
+  `deps.helm.watch(scopeId)` after a successful load and `watch(null)` on close —
+  smallest change, keeps the renderer ignorant; (2) add an explicit `helmWatch`
+  channel the renderer calls on scope selection; (3) accept it is not shipped and
+  delete the unreachable copy. Whichever is chosen, **add a test asserting the
+  application arms the watcher**, not merely that the watcher works once armed.
+  *Why nothing caught it*: every watcher test calls `watch()` itself, and
+  `helm.watch` was never a declared contract operation in C1's or C2's session
+  contracts, so `coverage.md` never had a row for it — the exact
+  implementer-with-no-consumer shape the coverage check exists to find.
+
+### Cosmetics
+
+- **The "path not verified" caveat renders on paths that are not guesses —
+  now visually confirmed.** Under `shell-snapshots`, `file-history` and
+  `paste-cache`, every row shows "…the path below is a guess" above a true
+  absolute path, because `buildEntry` labels every non-`projects` entry
+  `pathSource: 'decoded-name'`. Already filed from C2 review; this run confirms
+  it in the real UI, where it is plainly wrong for three of the four roots.
+- **The `hold` warning names CLI 2.1.235 while 2.1.277 is installed.** Correct —
+  2.1.235 is the build the confirmed value set was read from — but it reads as
+  stale. Decide whether to re-verify against the current CLI.
+
+### Verified working (closes the "never hand-run" gap)
+
+Helm's write path (file written, valid JSON, trailing newline, backup holds the
+pre-save content, second save produced a distinct backup name **and** payload);
+Beachcomber's trash path (cancel removed nothing; confirm moved the fixture to the
+recycle bin). Every C1 and C2 fix confirmed in a real window, including **Pod
+blocking by encoded cwd** — the row was blocked with a genuinely `disabled`
+checkbox while its displayed path was a wrong guess — and both halves of the R4
+guard, the union property, failure routing, the `comparisonEmpty` copy, the close
+guard on both close and switch, the failed-reload draft retention, and the
+conflict side-by-side.
+
+### Still not exercised
+
+`B5` (a blocked backup aborts the write) and the same-millisecond backup collision
+are not reachable interactively — the backup name derives from the save-time clock;
+both remain covered only by unit tests with an injected clock. `D3` (a failed
+`helm:scopes` printing once) could not be staged without breaking every later step.
+Narrow-window layout still needs a human eye.
