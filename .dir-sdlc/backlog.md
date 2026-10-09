@@ -106,9 +106,22 @@ Sub-session 3 shipped Beachcomber and Helm, closing MVP items 6 and 7. Deferred
 at its Gate 3 by explicit user decision. Full per-criterion verdicts and each
 finding's full text are in that session's `reviews/T1.md`–`T10.md`.
 
-**FOUR ITEMS IN THIS BLOCK WERE CLOSED 2026-09-01 by session
-`2026-08-31-orcastrate-helm-draft-safety` (sub-session C1), merged as `818b833`.** Do not
-re-scope them:
+**STATUS: this block is now almost entirely closed.** Four items were closed
+2026-09-01 by sub-session C1 (`2026-08-31-orcastrate-helm-draft-safety`, merged
+`818b833`); **seven more were closed 2026-09-30 by sub-session C2**
+(`2026-09-04-orcastrate-correctness-sweep`, merged `32638b7`). Only the token
+work and the test/CI and cosmetic notes below remain. Do not re-scope anything
+marked closed.
+
+**CLOSED 2026-09-30 by C2** — the `refused`/`NOT_FOUND` contract contradiction;
+the same-millisecond backup overwrite; Pod blocking against a `displayPath`
+guess; `acknowledgeOwnWrite` swallowing one genuine external change; the
+`HelmNotices.tsx` duplicate sentence (its `toHaveLength(2)` pin is now
+`toHaveLength(1)` and the REPORTED DEFECT comment is deleted — that was the
+authorised outcome, not a weakened test); `BeachcomberRow.tsx:77`
+path-above-caveat; and the leaf error module.
+
+**CLOSED 2026-09-01 by C1:**
 
 - Escalation-derived — *a failed Helm `reload` discards the draft* — **closed**. A failed
   load whose scope equals the previously selected one now keeps `document` and `draft`; a
@@ -152,12 +165,18 @@ file for the eight findings C1 itself produced.
   validator legitimately emits `parseError` and `permissionsDeny`. The type is
   `string`, so nothing breaks — but a consumer keying per-field rendering off the
   five would leave a `parseError` issue disabling Save with no visible cause.
-- **`font-weight: 600` has no token.** The set offers 400/500/700, and
-  `shell/EmptyWorkspace.module.css` uses 600. Fixing it is a visual decision, not
-  a mechanical swap — which is why T10 pinned it rather than changing it.
+- **`font-weight: 600` has no token.** The set offers 400/500/700. Fixing it is a
+  visual decision, not a mechanical swap — which is why T10 pinned it rather than
+  changing it. **Re-measured 2026-10-09: this is wider than first recorded — 10
+  occurrences across 5 files** (`lanes/LaneRail.module.css` ×2,
+  `pods/DeletePodDialog.module.css` ×2, `pods/NewPodDialog.module.css` ×2,
+  `shell/EmptyWorkspace.module.css`, `transcript/Transcript.module.css` ×3), not
+  the single file originally named.
 - **Four of the nine tokens T4 added have no consumer yet** — `borderThick`,
   `trackingTight`, `weightRegular`, `weightMedium`. Candidates for a dead-token
-  sweep if nothing claims them.
+  sweep if nothing claims them. **Re-verified 2026-10-09: still unconsumed.** Their
+  only reference anywhere is `contracts/renderer-panels.ts`, the file that declares
+  them; no stylesheet uses any of the four.
 
 ### Correctness risks
 
@@ -1201,6 +1220,18 @@ Sub-session C1 of the Large routing over the 2026-08-20 block. All 66 acceptance
 criteria met, no blocking findings, no revision rounds. Eight advisory findings
 carried forward by user decision at Gate 3. `HelmNotices.tsx`'s duplicate-sentence
 defect is NOT repeated here — it is already in the 2026-08-20 block above.
+
+**TWO ITEMS IN THIS BLOCK WERE CLOSED 2026-09-30 by sub-session C2**
+(`2026-09-04-orcastrate-correctness-sweep`, merged `32638b7`) — both were defects
+C1 itself introduced. Do not re-scope them:
+- Correctness risks — *`HelmPanel.tsx:53,62-63` `compareRequested` never resets* —
+  **closed**. A resetting `lastAction` latch replaced the one-way flag, so a later
+  unrelated failure lands in the error banner rather than the comparison surface.
+- Correctness risks — *`helm/copy.ts` `COPY.comparisonEmpty` names an affordance
+  that may not be on screen* — **closed**. The copy now describes when a
+  comparison appears instead of naming a control that is not rendered.
+
+Everything else in this block is still open and is C3's scope.
 
 ### Contract gaps
 
