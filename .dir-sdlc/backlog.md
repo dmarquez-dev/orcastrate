@@ -3,6 +3,28 @@
 Work deliberately deferred by a DIR session, with the session that deferred it.
 Read at session setup; append only at Gate 3.
 
+> ## TRUST STATUS — read before scoping anything from this file
+>
+> **Blocks from `2026-09-01` onward are accurate.** Their closed items carry
+> closure notes naming the session that closed them (added 2026-10-09).
+>
+> **Blocks before `2026-09-01` are STALE and must be verified before use.**
+> Sessions closed items without annotating the source block, so finished work is
+> still listed as open. A 7-item sample on 2026-10-09 found **5 already fixed**:
+>
+> | Item, as written | Actual state |
+> |---|---|
+> | "Nothing reconciles persisted Pod and lane state at startup" | fixed — `src/main/pod-manager/startup-reconciliation.ts` |
+> | "The Pod tab's `x` stops a Pod but can never remove one" | fixed — `pods/DeletePodDialog.tsx`, `podDelete` handler |
+> | "A stopped lane's `lane_closed` … never reaches the renderer" | fixed — emitted at `pod-manager.ts:368` |
+> | "A failed `start()` orphans the child, and `stop()` cannot reap" | fixed — `pod-runner.ts:451`, "the reap, shared by `stop()` and by the failed-start path" |
+> | "`statusToken('stopped')` has no production caller" | stale — called from `LaneRow.tsx:154` and `PodTab.tsx` |
+> | "`_UncoveredAtSchemaHead` is still the inert spelling" | **still open** — `store/schema.ts:256-257` |
+> | "Nothing in this session has run in a real Electron window" | **closed 2026-10-07** by the driven hand-run |
+>
+> Treat every pre-`2026-09-01` bullet as a claim to check against the code, not
+> as work to schedule. An audit of those blocks is itself a worthwhile session.
+
 ## 2026-08-19 — 2026-08-18-orcastrate-mvp
 
 - **Direct Calf steering (`SendMessage` / `TaskStop`) stays deferred; sub-session 2
