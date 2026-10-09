@@ -319,3 +319,91 @@ describe('a panel service failure crosses as data, in this boundary vocabulary',
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Arming the Helm watcher
+// ---------------------------------------------------------------------------
+
+/**
+ * THE REGRESSION THESE PIN. `HelmService.watch` is the only path that starts
+ * the `fs.watch` behind `HelmChangedPush`, and for the whole life of the
+ * feature nothing in the application called it: no `helmWatch` channel exists,
+ * and neither `load` nor `save` arms it. The watcher was therefore dead code
+ * in the shipped app — the "This file changed on disk" notice could never
+ * render, and `save`'s `acknowledgeOwnWrite` guarded a push path that never
+ * ran. It survived because every watcher test calls `watch` itself, so the
+ * method was thoroughly covered in isolation while the question "does anything
+ * call it" went unasked.
+ *
+ * These tests ask that question. They assert on the CALL, not on the watcher's
+ * behaviour, which is `tests/unit/helm/watcher.test.ts`'s job.
+ */
+describe('loading a scope arms the watcher for it', () => {
+  it('arms the watcher with the scope that was loaded', async () => {
+    const h = harness();
+    const result = await h.invoke(INVOKE_CHANNELS.helmLoad, VALID_PANEL_PAYLOADS.scopeId);
+
+    expect(result.ok).toBe(true);
+    expect(h.helm.loadCalls).toEqual([VALID_PANEL_PAYLOADS.scopeId]);
+    expect(h.helm.watchCalls).toEqual([VALID_PANEL_PAYLOADS.scopeId]);
+  });
+
+  it('re-arms on every load, so a scope switch follows the form', async () => {
+    const h = harness();
+    await h.invoke(INVOKE_CHANNELS.helmLoad, 'user');
+    await h.invoke(INVOKE_CHANNELS.helmLoad, 'project:pod-1');
+    await h.invoke(INVOKE_CHANNELS.helmLoad, 'user');
+
+    // `HelmWatcher` holds at most one watch and releases the previous one, so
+    // re-arming is how the watch follows the scope rather than accumulating.
+    expect(h.helm.watchCalls).toEqual(['user', 'project:pod-1', 'user']);
+  });
+
+  it('does not arm when the load itself failed', async () => {
+    const h = harness();
+    h.helm.throwWith(new IpcFailure('IO', 'EACCES: permission denied'));
+
+    const result = await h.invoke(INVOKE_CHANNELS.helmLoad, VALID_PANEL_PAYLOADS.scopeId);
+
+    expect(result.ok).toBe(false);
+    expect(h.helm.loadCalls).toEqual([VALID_PANEL_PAYLOADS.scopeId]);
+    expect(h.helm.watchCalls).toEqual([]);
+  });
+
+  it('does not arm when the scopeId never cleared validation', async () => {
+    const h = harness();
+    const result = await h.invoke(INVOKE_CHANNELS.helmLoad, { not: 'a scope id' });
+
+    expect(result.ok).toBe(false);
+    expect(h.helm.watchCalls).toEqual([]);
+  });
+
+  /**
+   * The watch is advisory and the frozen contract says it is NEVER A GUARD.
+   * `watch` resolves the scope again and re-reads the file to seed its hash,
+   * and `readSnapshot` rethrows anything that is not ENOENT — so an
+   * unreadable-but-present settings file must not turn a load the user can see
+   * succeed into a failed invoke.
+   */
+  it('still answers the load when arming the watcher throws', async () => {
+    const h = harness();
+    h.helm.failWatchWith(new IpcFailure('IO', 'EISDIR: illegal operation on a directory'));
+
+    const result = await h.invoke(INVOKE_CHANNELS.helmLoad, VALID_PANEL_PAYLOADS.scopeId);
+
+    expect(result.ok, 'an advisory watch failure must not fail the load').toBe(true);
+    expect(h.helm.watchCalls).toEqual([VALID_PANEL_PAYLOADS.scopeId]);
+  });
+
+  it('answers the load even when arming throws something that is not an Error', async () => {
+    const h = harness();
+    h.helm.failWatchWith('a bare string, as fs can produce');
+
+    const result = await h.invoke(INVOKE_CHANNELS.helmLoad, VALID_PANEL_PAYLOADS.scopeId);
+
+    expect(result.ok).toBe(true);
+    // Asserted so this test cannot pass vacuously: without the arming call it
+    // would be green for the wrong reason, since nothing would ever throw.
+    expect(h.helm.watchCalls).toEqual([VALID_PANEL_PAYLOADS.scopeId]);
+  });
+});

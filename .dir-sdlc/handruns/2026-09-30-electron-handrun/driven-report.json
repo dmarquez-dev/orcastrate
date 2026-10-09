@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generatedAt": "2026-10-07T19:51:01.965Z",
+    "generatedAt": "2026-10-09T18:05:11.892Z",
     "build": "3b57255",
     "electron": "43.4.0",
     "playwright": "1.63.0",
@@ -70,7 +70,7 @@
         {
           "label": "exactly one backup exists",
           "ok": true,
-          "detail": "settings.json.2026-10-07T19-49-36-667Z.bak"
+          "detail": "settings.json.2026-10-09T18-03-56-579Z.bak"
         },
         {
           "label": "the backup holds the PRE-save content",
@@ -101,7 +101,7 @@
         {
           "label": "two backups now exist",
           "ok": true,
-          "detail": "settings.json.2026-10-07T19-49-36-667Z.bak, settings.json.2026-10-07T19-49-38-904Z.bak"
+          "detail": "settings.json.2026-10-09T18-03-56-579Z.bak, settings.json.2026-10-09T18-03-58-803Z.bak"
         },
         {
           "label": "their names are distinct",
@@ -336,13 +336,16 @@
       "checks": [
         {
           "label": "the stale notice appeared",
-          "ok": false,
-          "detail": "staleNodes=0"
+          "ok": true,
+          "detail": "staleNodes=1"
+        },
+        {
+          "label": "it explains saving re-reads first",
+          "ok": true,
+          "detail": ""
         }
       ],
-      "notes": [
-        "DIAGNOSED: HelmService.watch() is never called by the application. No helmWatch IPC channel exists, load()/save() do not arm it, and the only callers are tests. The watcher cannot fire, so this notice is unreachable in the shipped app. See FINDINGS.md."
-      ],
+      "notes": [],
       "shots": [
         "screenshots/C4-stale-notice.png"
       ],
@@ -543,7 +546,7 @@
         {
           "label": "found the row for the encoded entry",
           "ok": true,
-          "detail": "beachcomber-row:2e72a46b-25ec-4ef5-a3f3-f9a267baf6fc"
+          "detail": "beachcomber-row:789d2667-4a67-4ba0-81e1-21bbe481aa6a"
         },
         {
           "label": "the row carries the unverified notice",
@@ -603,7 +606,7 @@
         {
           "label": "Pod created at the real cwd",
           "ok": true,
-          "detail": "ok=true id=af5658bb-0610-49fe-98db-27d3178f6518 cwd=C:\\oc-sandbox\\repos\\blocked-repo"
+          "detail": "ok=true id=c2bd7a07-ca67-4d88-bf9f-a46060882b4a cwd=C:\\oc-sandbox\\repos\\blocked-repo"
         },
         {
           "label": "the projects row was found",
@@ -628,7 +631,7 @@
       ],
       "notes": [
         "createPod spawns nothing — it validates the cwd and writes a store record.",
-        "row text: C--oc-sandbox-repos-blocked-repoPath not verifiedOrcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.C:\\oc\\sandbox\\repos\\blocked\\repo276 B · 2 files · 2 sessions · modified 2026-10-07Canno",
+        "row text: C--oc-sandbox-repos-blocked-repoPath not verifiedOrcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.C:\\oc\\sandbox\\repos\\blocked\\repo276 B · 2 files · 2 sessions · modified 2026-10-09Canno",
         "Pre-C2 this row would NOT have blocked: its displayPath is a wrong guess that does not equal the Pod cwd."
       ],
       "shots": [
@@ -863,7 +866,7 @@
       "error": null
     }
   ],
-  "total": 111,
-  "failed": 1,
+  "total": 112,
+  "failed": 0,
   "errored": 0
 }

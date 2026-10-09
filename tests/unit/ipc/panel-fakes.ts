@@ -198,6 +198,16 @@ export interface FakeHelmService extends HelmService {
   disarm(): void;
   readonly saveCalls: HelmSaveRequest[];
   readonly loadCalls: HelmScopeId[];
+  /**
+   * Every `watch` call, in order — `null` included, since releasing the watch
+   * is as much a call as starting one. This exists because the watcher being
+   * ARMED BY THE APPLICATION is a separate claim from the watcher working, and
+   * only the second one used to be tested: `watch` was fully covered in
+   * isolation while nothing in `src/main/**` ever called it.
+   */
+  readonly watchCalls: (HelmScopeId | null)[];
+  /** Makes `watch` throw, to prove a dead watcher cannot fail a live load. */
+  failWatchWith(err: unknown): void;
   scopeCount(): number;
 }
 
@@ -208,9 +218,11 @@ export function fakeHelmService(
   // to throw — the envelope suite throws each of them deliberately — so
   // "armed" cannot be encoded as "the value is not null".
   let armed: { value: unknown } | null = null;
+  let watchArmed: { value: unknown } | null = null;
   let scopeCalls = 0;
   const saveCalls: HelmSaveRequest[] = [];
   const loadCalls: HelmScopeId[] = [];
+  const watchCalls: (HelmScopeId | null)[] = [];
 
   function guard(): void {
     if (armed !== null) throw armed.value;
@@ -246,6 +258,11 @@ export function fakeHelmService(
      * ever being what makes a safety test pass.
      */
     watch(scopeId: HelmScopeId | null): void {
+      watchCalls.push(scopeId);
+      // Thrown BEFORE the emit, which is the order the real one fails in: it
+      // resolves the scope and re-reads the file to seed its hash, and either
+      // can throw, long before any push exists to send.
+      if (watchArmed !== null) throw watchArmed.value;
       if (scopeId === null) return;
       emitChanged({
         scopeId,
@@ -259,9 +276,14 @@ export function fakeHelmService(
     },
     disarm() {
       armed = null;
+      watchArmed = null;
+    },
+    failWatchWith(err) {
+      watchArmed = { value: err };
     },
     saveCalls,
     loadCalls,
+    watchCalls,
     scopeCount: () => scopeCalls,
   };
 }

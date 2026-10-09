@@ -1,9 +1,9 @@
 # Driven hand-run — results
 
-Generated 2026-10-07T19:51:01.965Z
+Generated 2026-10-09T18:05:11.892Z
 Build `3b57255` · Electron 43.4.0 · Playwright 1.63.0
 
-**110/111 checks passed.** 0 step(s) errored.
+**112/112 checks passed.** 0 step(s) errored.
 
 | Step | Title | Checks | Verdict |
 |---|---|---|---|
@@ -16,7 +16,7 @@ Build `3b57255` · Electron 43.4.0 · Playwright 1.63.0
 | C1 | Closing with a dirty draft raises the panel-owned confirmation  [C1] | 5 | PASS |
 | C2 | Switching panels with a dirty draft raises the same guard  [C1] | 2 | PASS |
 | C3 | A failed reload KEEPS the draft  [C1 — the data-loss fix] | 3 | PASS |
-| C4 | An external write raises the stale notice  [C2 watcher] | 1 | FAIL (1) |
+| C4 | An external write raises the stale notice  [C2 watcher] | 2 | PASS |
 | C5 | A conflicting save is refused and the comparison is reachable  [C1] | 12 | PASS |
 | D2 | The comparison empty state names no unreachable control  [C2 defect] | 4 | PASS |
 | D1 | A later unrelated failure goes to the banner, not the comparison  [C2 defect] | 4 | PASS |
@@ -58,13 +58,6 @@ Build `3b57255` · Electron 43.4.0 · Playwright 1.63.0
   - `screenshots/B8a-malformed.png`
   - `screenshots/B8b-not-an-object.png`
 
-## C4 — An external write raises the stale notice  [C2 watcher]
-
-- **FAIL** the stale notice appeared — `staleNodes=0`
-- note: DIAGNOSED: HelmService.watch() is never called by the application. No helmWatch IPC channel exists, load()/save() do not arm it, and the only callers are tests. The watcher cannot fire, so this notice is unreachable in the shipped app. See FINDINGS.md.
-
-  - `screenshots/C4-stale-notice.png`
-
 ## D2 — The comparison empty state names no unreachable control  [C2 defect]
 
 - note: This is the pairing that made the old copy wrong: surface present, control absent.
@@ -85,7 +78,7 @@ Build `3b57255` · Electron 43.4.0 · Playwright 1.63.0
 ## E4 — A Pod blocks the entry whose path was only a guess  [C2 — the crown jewel]
 
 - note: createPod spawns nothing — it validates the cwd and writes a store record.
-- note: row text: C--oc-sandbox-repos-blocked-repoPath not verifiedOrcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.C:\oc\sandbox\repos\blocked\repo276 B · 2 files · 2 sessions · modified 2026-10-07Canno
+- note: row text: C--oc-sandbox-repos-blocked-repoPath not verifiedOrcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.C:\oc\sandbox\repos\blocked\repo276 B · 2 files · 2 sessions · modified 2026-10-09Canno
 - note: Pre-C2 this row would NOT have blocked: its displayPath is a wrong guess that does not equal the Pod cwd.
 
   - `screenshots/E4-pod-blocking.png`

@@ -258,7 +258,42 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): string[] {
 
   register(INVOKE_CHANNELS.helmScopes, () => deps.helm.listScopes());
 
-  register(INVOKE_CHANNELS.helmLoad, (scopeId) => deps.helm.load(requireHelmScopeId(scopeId)));
+  /**
+   * ARMING THE WATCHER IS THIS HANDLER'S JOB, and nothing else does it.
+   *
+   * `HelmService.watch` is the only path that starts the `fs.watch` behind
+   * `HelmChangedPush`, and until this call existed nothing in the application
+   * invoked it: there is no `helmWatch` channel, and neither `load` nor `save`
+   * arms it. The watcher was therefore dead code in the shipped app — the
+   * "This file changed on disk" notice could never render, and `save`'s
+   * `acknowledgeOwnWrite` guarded a push path that never ran. Found by the
+   * 2026-10-07 driven hand-run, which observed zero pushes across two external
+   * writes; see `.dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS.md`.
+   *
+   * Arming HERE rather than inside `load` keeps the service's documented
+   * behaviour unchanged and puts the call where "the user chose a scope" is
+   * actually known. A scope switch and a reload both route through `load`, and
+   * `HelmWatcher` holds at most one watch and releases the previous one, so
+   * re-arming on every load is correct rather than merely harmless.
+   *
+   * THE ARMING MUST NOT BE ABLE TO FAIL THE LOAD. The frozen contract calls the
+   * watch advisory and says it is NEVER A GUARD. `watch` re-reads the file to
+   * seed its hash and resolves the scope again, and `readSnapshot` rethrows
+   * anything that is not ENOENT — so an unreadable-but-present settings file
+   * would otherwise turn a load the user can see succeed into a failed invoke.
+   * A best-effort signal that can break the thing it annotates is worse than
+   * no signal, so the failure is swallowed deliberately.
+   */
+  register(INVOKE_CHANNELS.helmLoad, async (scopeId) => {
+    const id = requireHelmScopeId(scopeId);
+    const document = await deps.helm.load(id);
+    try {
+      deps.helm.watch(id);
+    } catch {
+      /* advisory only: a watch that cannot start must not fail the load */
+    }
+    return document;
+  });
 
   /**
    * `save` is the one call in this file that can destroy a developer's

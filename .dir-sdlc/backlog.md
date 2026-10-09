@@ -1357,8 +1357,18 @@ root causes and screenshots in `.dir-sdlc/handruns/2026-09-30-electron-handrun/`
 
 ### Correctness risks
 
-- **BLOCKING — Helm's file watcher is never armed, so the stale notice is dead
-  code.** `HelmService.watch(scopeId)` is the only arming path
+- **CLOSED 2026-10-09 — BLOCKING — Helm's file watcher is never armed, so the
+  stale notice is dead code.** Fixed by remediation 1: the `helmLoad` handler now
+  arms the watcher after a successful load, with the arming wrapped so an advisory
+  watch failure cannot fail the load. Six regression tests in
+  `tests/unit/ipc/panels.test.ts` assert the *application* makes the call; shown
+  able to fail (3 go red with `expected [] to deeply equal [ 'user' ]` when the
+  handler is reverted). Verified end to end: the probe went from 0 pushes in 25s
+  to 1 push with the stale notice in 500ms, the driven suite from 110/111 to
+  **112/112**, `npm test` 2222 -> **2228**, both typechecks at baseline.
+  Original report kept below for provenance.
+
+- **(original report)** `HelmService.watch(scopeId)` is the only arming path
   (`helm-service.ts:239-248`) and **nothing in the application calls it**: there is
   no `helmWatch` IPC channel, `handlers.ts` registers only `helmScopes`/`helmLoad`/
   `helmSave`, and `load()`/`save()` do not arm it. The only callers are

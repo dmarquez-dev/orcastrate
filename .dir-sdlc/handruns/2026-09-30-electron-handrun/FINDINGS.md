@@ -3,6 +3,11 @@
 **2026-10-07 · build `3b57255` · Electron 43.4.0 · Playwright 1.63.0**
 **110 of 111 checks passed across 24 steps, 0 steps errored.**
 
+> **UPDATE 2026-10-09 — F1 is FIXED.** `helmLoad` now arms the watcher. The
+> focused probe that found the defect went from **0 pushes in 25s** to **1 push
+> with the stale notice on screen in 500ms**, and the full suite re-ran at
+> **112/112**. See "The fix" at the end of F1.
+
 Executed by Playwright driving the real Electron app (`_electron.launch`) against
 a sandboxed home. The real `~/.claude` was never read or written — asserted at
 the end of every run and passing.
@@ -87,6 +92,45 @@ C1's or C2's session contracts, so `coverage.md` never had a row for it.
 
 **Add a regression test that asserts the application arms the watcher**, not just
 that the watcher works once armed.
+
+### The fix (2026-10-09)
+
+Took remediation 1. `src/main/ipc/handlers.ts` — the `helmLoad` handler now
+calls `deps.helm.watch(id)` after a successful load:
+
+- **Arming in the handler, not inside `load`.** Keeps the service's documented
+  behaviour unchanged and puts the call where "the user chose a scope" is known.
+  Scope switches and reloads both route through `load`, and `HelmWatcher` holds
+  at most one watch and releases the previous one, so re-arming every load is
+  correct rather than merely harmless.
+- **The arming cannot fail the load.** `watch` resolves the scope again and
+  re-reads the file to seed its hash, and `readSnapshot` rethrows anything that
+  is not ENOENT — so an unreadable-but-present settings file would otherwise
+  turn a load the user can see succeed into a failed invoke. The contract calls
+  the watch advisory and NEVER A GUARD, so the failure is swallowed deliberately.
+
+**Six regression tests** in `tests/unit/ipc/panels.test.ts`, under
+"loading a scope arms the watcher for it". They assert on the *call*, leaving
+the watcher's own behaviour to `tests/unit/helm/watcher.test.ts`. Coverage: the
+scope is armed; re-arming follows a scope switch; a failed load does not arm; a
+payload that fails validation does not arm; a throwing `watch` still answers the
+load; and the same for a non-`Error` throw.
+
+**Shown able to fail.** With the one-line handler reverted, 3 of the 6 go red
+with `AssertionError: expected [] to deeply equal [ 'user' ]` — nothing armed
+the watcher. The three negative tests stay green by design, so the positive ones
+carry the weight; the non-`Error` case gained a `watchCalls` assertion so it
+cannot pass vacuously either.
+
+**Verified end to end:**
+
+| | before | after |
+|---|---|---|
+| `probe-watcher.mjs` pushes | 0 in 25s | **1, stale notice in 500ms** |
+| driven suite | 110/111 | **112/112** |
+| `npm test` | 2222 | **2228** |
+| `typecheck:node` | 0 errors | 0 errors |
+| `tsc -p tsconfig.web.json` | 24, all TS6307 | 24, all TS6307 |
 
 ---
 
