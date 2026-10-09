@@ -73,6 +73,9 @@ const STYLES_ROOT = `${RENDERER_ROOT}/src/styles`;
 const TESTS_ROOT = `${RENDERER_ROOT}/src/__tests__`;
 const CONTRACT_STATE = `${RENDERER_ROOT}/src/contracts/renderer-state.ts`;
 const MAIN_ROOT = `${ROOT}/src/main`;
+/** The two source trees outside `src/`. Not the renderer's `__tests__` above. */
+const TEST_TREE_ROOT = `${ROOT}/tests`;
+const PROBE_ROOT = `${ROOT}/probe`;
 
 /**
  * THE FILES ALLOWED TO REACH MAIN, AND WHY EACH ONE IS ALLOWED.
@@ -754,10 +757,40 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
  * '▾', '…' and '—' on purpose, and a rule that flagged them would be turned
  * off within a day.
  *
- * SCOPE IS ALL OF `src/`, not just the renderer. The byte landed in the
- * renderer this time; nothing about the mechanism is renderer-specific, and a
- * rule scoped to where the last incident happened only ever catches the last
- * incident.
+ * SCOPE IS EVERY SOURCE TREE IN THE REPOSITORY — `src/`, `tests/` AND
+ * `probe/`. The byte landed in the renderer this time; nothing about the
+ * mechanism is renderer-specific, and a rule scoped to where the last
+ * incident happened only ever catches the last incident. That argument is the
+ * reason the walk below takes all three roots: for one session this docblock
+ * made the argument one level above a rule that walked `src/` alone, which is
+ * exactly the shape it was arguing against.
+ *
+ * WHICH EXTENSIONS, DECIDED RATHER THAN INHERITED FROM THE OTHER RULES.
+ * Measured in this session with
+ * `find <root> -type f | sed 's/.*\.//' | sort | uniq -c`: `src/` holds 141
+ * `.ts`, 106 `.tsx`, 19 `.css`, 1 `.md` and 1 `.html`; `tests/` holds 66
+ * `.ts`, 6 `.ndjson`, 1 `.md` and 1 `.json`; `probe/` holds 4 `.md`, 4
+ * `.ndjson`, 2 `.ts` and 2 `.json`. Neither new root contains a `.tsx`,
+ * `.css` or `.html` file, so the filter inherited from the rules above would
+ * have covered their `.ts` files and silently skipped the other 20. It is
+ * therefore widened to `.md` and `.json` — hand-authored files edited by
+ * precisely the scripted tooling that wrote the original byte, so they carry
+ * the same failure mode — and `.ndjson` is excluded, which the anchored
+ * `\.(…|json)$` alternation already declines to match because the dot it
+ * requires is not there.
+ *
+ * THE `.ndjson` EXCLUSION IS A PROPERTY OF THOSE FILES, not of where the last
+ * incident happened. All ten, under `tests/fixtures/protocol/` and
+ * `probe/evidence/`, are byte-for-byte RECORDINGS of another process's
+ * stream-json stdout, and their whole value is fidelity: a fixture that has
+ * been tidied no longer reproduces the input the parser actually met. A
+ * control byte inside a recording may be the DATA rather than a defect, and a
+ * rule unable to tell those apart gets answered by editing the fixture, which
+ * is the one repair a fixture must never invite. Measured this session, every
+ * file under both roots is clean today — `grep -lP` for the control class over
+ * `find tests probe -type f` matched nothing, non-`.ndjson` and `.ndjson`
+ * alike — so the exclusion hides nothing that exists; it is there for the
+ * recording that will one day legitimately carry one.
  */
 const CONTROL_BYTE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 
@@ -771,6 +804,42 @@ function controlByteReport(text: string): string | null {
     return `line ${String(line)}: 0x${hex}`;
   }
   return null;
+}
+
+/** See the docblock above for why `.md` and `.json` are in and `.ndjson` is out. */
+const CONTROL_BYTE_EXTENSIONS = /\.(ts|tsx|css|html|md|json)$/;
+
+/**
+ * ONE ENTRY PER WALKED ROOT, EACH WITH ITS OWN FLOOR. Per-root rather than one
+ * threshold over a merged list, on purpose: a single
+ * `expect(files.length).toBeGreaterThan(100)` across three roots stays green
+ * when `probe/` is renamed, because `src/`'s 268 matches absorb the eight that
+ * went missing, and the rule then reports `clean` over a tree it never opened.
+ * That is the same vacuity shape the rest of this file exists to close, so the
+ * roots are asserted one at a time and the failure names the one that came up
+ * short. The counts in the comments were measured this session by
+ * `find <root> -type f -regextype posix-extended -regex '.*\.(ts|tsx|css|html|md|json)$' | wc -l`.
+ */
+const CONTROL_BYTE_ROOTS: readonly { path: string; label: string; floor: number }[] = [
+  { path: SRC_ROOT, label: 'src', floor: 200 }, // 268 matched
+  { path: TEST_TREE_ROOT, label: 'tests', floor: 50 }, // 68 matched
+  { path: PROBE_ROOT, label: 'probe', floor: 5 }, // 8 matched
+];
+
+/**
+ * `filesUnder` lets ENOENT out of `readdirSync`, so a mistyped or renamed root
+ * would fail this rule with a stack trace about a directory read rather than
+ * with the name of the root that vanished. The floor above is the assertion
+ * that should speak, so an absent root is turned into zero files and handed to
+ * it. Only ENOENT: any other IO failure is a real fault and still throws.
+ */
+async function filesUnderIfPresent(root: string, extensions: RegExp): Promise<string[]> {
+  try {
+    return await filesUnder(root, extensions);
+  } catch (error) {
+    if ((error as { code?: string }).code === 'ENOENT') return [];
+    throw error;
+  }
 }
 
 /**
@@ -833,21 +902,29 @@ describe('the two rules added for previously undetectable failure modes', () => 
     expect('lane-row-unread').not.toContain(retired);
   });
 
-  it('finds no stray control byte anywhere under src/', async () => {
-    const files = await filesUnder(SRC_ROOT, /\.(ts|tsx|css|html)$/);
-    // The walk found a tree. Without this the rule below reports "clean" for a
-    // path that does not exist, which is the vacuity this whole file is about.
-    expect(files.length).toBeGreaterThan(100);
-
+  it('finds no stray control byte anywhere under src/, tests/ or probe/', async () => {
     const offenders: string[] = [];
-    for (const file of files) {
-      const found = controlByteReport(await read(file));
-      if (found !== null) offenders.push(`${relative(file)}: ${found}`);
+    for (const { path, label, floor } of CONTROL_BYTE_ROOTS) {
+      const files = await filesUnderIfPresent(path, CONTROL_BYTE_EXTENSIONS);
+      // Each root proves it was really walked, separately, so a missing one
+      // cannot hide behind another root's totals.
+      expect(
+        files.length,
+        `${label}/ matched ${String(files.length)} files, at or below the floor of ${String(floor)} measured this session: the root is missing, renamed or newly empty, and a clean control-byte report over it would mean nothing`,
+      ).toBeGreaterThan(floor);
+
+      for (const file of files) {
+        const found = controlByteReport(await read(file));
+        if (found !== null) offenders.push(`${relative(file)}: ${found}`);
+      }
     }
     expect(offenders).toEqual([]);
   });
 
   it('finds no reference to a retired test id outside the one ratified proof', async () => {
+    // Deliberately still `src/` only, and still on its own extension filter:
+    // the retired id is a renderer `getByTestId` selector, and widening its
+    // reach is a separate decision from widening the control-byte walk's.
     const files = await filesUnder(SRC_ROOT, /\.(ts|tsx|css|html)$/);
     expect(files.length).toBeGreaterThan(100);
 

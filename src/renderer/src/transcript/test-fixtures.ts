@@ -5,6 +5,10 @@ import type {
   NormalizedEvent,
   Seq,
 } from '@shared/contracts/events';
+import {
+  STARTUP_RECONCILIATION_REASON,
+  STARTUP_RECONCILIATION_SUBTYPE,
+} from '@shared/startup-reconciliation-notice';
 
 import type { TranscriptView } from '../contracts/renderer-state';
 
@@ -130,11 +134,15 @@ export function makeFirstRunEvents(): NormalizedEvent[] {
  *
  * A fixture that stamped only one of the two carriers would let the filter's
  * exemption pass while the real notice stayed hidden, so both are here.
+ *
+ * BOTH VALUES COME FROM THE PRODUCER'S OWN DEFINITION, re-exported onward for
+ * the suites that already import them from here. This file used to declare its
+ * own copy of the reason sentence and its own two marker literals, which is
+ * what made the fixture agree with the filter no matter what the boot sweep
+ * actually writes — a fixture that cannot disagree with the code under test
+ * proves nothing about it.
  */
-export const STARTUP_RECONCILIATION_REASON =
-  'Orcastrate restarted while this Pod was still open. No Claude Code process ' +
-  'survives an application restart, so lanes left running were marked ' +
-  'Orphaned. Press Open to start this Pod again.';
+export { STARTUP_RECONCILIATION_REASON };
 
 export function makeReconciliationEvent(
   seq: Seq,
@@ -144,9 +152,9 @@ export function makeReconciliationEvent(
     seq,
     {
       type: 'system',
-      subtype: 'startup_reconciliation',
+      subtype: STARTUP_RECONCILIATION_SUBTYPE,
       data: {
-        subtypeMarker: 'startup_reconciliation',
+        subtypeMarker: STARTUP_RECONCILIATION_SUBTYPE,
         reason: STARTUP_RECONCILIATION_REASON,
         statusBefore: 'running',
         statusAfter: 'closed',

@@ -11,6 +11,7 @@
  */
 
 import type { EventType, NormalizedEvent } from '@shared/contracts/events';
+import { STARTUP_RECONCILIATION_SUBTYPE } from '@shared/startup-reconciliation-notice';
 
 // ---------------------------------------------------------------------------
 // 1. The three sets. Exhaustive over `EventType`, PROVED BELOW.
@@ -211,14 +212,20 @@ const HIDDEN_IN_CONVERSATION: ReadonlySet<EventType> = new Set<EventType>(PLUMBI
  * `SystemPayload.subtype` and `StartupReconciliationData.subtypeMarker` for the
  * startup-reconciliation notice.
  *
- * DUPLICATED FROM `src/main/pod-manager/startup-reconciliation.ts` ON PURPOSE.
- * `tsconfig.web.json` includes only `src/renderer/src/**` and `src/shared/**`,
- * so importing the producer's const would pull main-process code into the
- * renderer program to buy one string. `transcript/startup-reconciliation.test.tsx`
- * already carries the same literal for the same reason; the tests below pin
- * this copy against the producer's exact payload shape.
+ * RE-EXPORTED, NOT DECLARED. This used to be a deliberate copy of the
+ * producer's const, justified by `tsconfig.web.json` including only
+ * `src/renderer/src/**` and `src/shared/**`. The justification was sound and
+ * the copy still had to go: no test in this program ever read the producer, so
+ * a rename there left every renderer suite green while the notice went back to
+ * being hidden by the default filter. The marker now has a single definition
+ * under `src/shared/**`, which BOTH tsconfig programs include, so the filter
+ * reads the very binding the boot sweep writes.
+ *
+ * Imported through the `@shared/*` path mapping, which `tsconfig.web.json`
+ * declares — the main-process side of the same module takes the relative
+ * specifier instead, because `tsconfig.node.json` declares no `paths`.
  */
-export const STARTUP_RECONCILIATION_SUBTYPE = 'startup_reconciliation';
+export { STARTUP_RECONCILIATION_SUBTYPE };
 
 /**
  * ONE OF THE TWO PLACES FILTERING LOOKS AT `payload` CONTENTS — the other is

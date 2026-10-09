@@ -41,6 +41,28 @@ const FIXTURES = [
   '06-permission-prompt.ndjson',
 ] as const;
 
+/**
+ * How many `user_message` rows each fixture replays with NO send in front of
+ * it. MEASURED IN-TREE, not copied from the spec: the numbers below came out of
+ * `npx vitest run tests/unit/ipc/user-prompt.test.ts` with a temporary probe
+ * that printed `(await replay(fixture, null)).length` for all six streams.
+ * They sum to 7, which is the same 7 the `calfPromptTexts` total pins from the
+ * file side — two independent paths to the same count.
+ *
+ * These are the per-fixture floor the survival loop asserts BEFORE its two
+ * `baseline`-relative assertions, which are vacuously true on an empty
+ * baseline. `04-orphaned-calf.ndjson` is legitimately 0; see the comment at the
+ * assertion.
+ */
+const BASELINE_USER_ROWS: Record<(typeof FIXTURES)[number], number> = {
+  '01-parallel-dispatch.ndjson': 2,
+  '02-nested-dispatch.ndjson': 2,
+  '03-tool-result-close.ndjson': 1,
+  '04-orphaned-calf.ndjson': 0,
+  '05-malformed.ndjson': 1,
+  '06-permission-prompt.ndjson': 1,
+};
+
 const harnesses: Harness[] = [];
 
 function harness(options: Parameters<typeof makeHarness>[0] = {}): Harness {
@@ -385,6 +407,27 @@ describe("a Calf's prompt echo is never suppressed (criterion 7)", () => {
       // The baseline is MEASURED by running the same replay with no send, in
       // this same process, rather than hard-coded from a previous run.
       const baseline = await replay(fixture, null);
+
+      // THE BASELINE ITSELF IS PINNED FIRST, and that is the whole point of
+      // this line. `toHaveLength(baseline.length + 1)` and
+      // `toEqual([typed, ...baseline])` BOTH hold when `baseline` is empty —
+      // both sides collapse to `[typed]`, and `0 + 1 === 1`. A replay that
+      // ingested nothing would satisfy the two assertions below while proving
+      // nothing at all about Calf prompt survival. Pinning the measured row
+      // count against the recorded expectation is what makes a dead replay
+      // fail here instead of passing there.
+      //
+      // `04-orphaned-calf.ndjson` legitimately replays ZERO `user_message`
+      // rows — its Calf is dispatched but never speaks — so its recorded
+      // expectation is 0 and it is deliberately NOT asserted non-zero. A
+      // blanket non-zero guard would fail on a correct tree. The cost is that
+      // this fixture's iteration carries NO survival proof: all it proves is
+      // that the typed row was appended. The survival claim rests on the other
+      // five, and on `'both identical Calf prompts in 01-parallel-dispatch
+      // survive the send'` below.
+      expect(baseline, `${fixture}: replayed baseline user_message rows`).toHaveLength(
+        BASELINE_USER_ROWS[fixture],
+      );
 
       // Adversarial on purpose: the user types the very sentence a Calf in this
       // stream was dispatched with, so the pending record is a text match for a

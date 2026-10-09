@@ -213,15 +213,20 @@ describe('the startup-reconciliation notice is diagnostic, not plumbing', () => 
   });
 
   it('is recognised by EITHER carrier, because over-showing is the safe way to be wrong', () => {
+    // The two POSITIVE carriers read the marker's single definition. They used
+    // to be literals, which made this test agree with the filter even when the
+    // filter had drifted away from what the boot sweep writes. The NEAR-MISS
+    // literals further down stay literals, because a near miss has to be
+    // spelled out to be a near miss.
     const subtypeOnly = makeEvent(1, {
       type: 'system',
-      subtype: 'startup_reconciliation',
+      subtype: STARTUP_RECONCILIATION_SUBTYPE,
       data: null,
     });
     const dataOnly = makeEvent(2, {
       type: 'system',
       subtype: 'something_else',
-      data: { subtypeMarker: 'startup_reconciliation' },
+      data: { subtypeMarker: STARTUP_RECONCILIATION_SUBTYPE },
     });
     expect(isStartupReconciliationNotice(subtypeOnly.payload)).toBe(true);
     expect(isStartupReconciliationNotice(dataOnly.payload)).toBe(true);
