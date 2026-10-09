@@ -3,27 +3,31 @@
 Work deliberately deferred by a DIR session, with the session that deferred it.
 Read at session setup; append only at Gate 3.
 
-> ## TRUST STATUS — read before scoping anything from this file
+> ## TRUST STATUS — audited 2026-10-09, read before scoping anything from this file
 >
-> **Blocks from `2026-09-01` onward are accurate.** Their closed items carry
-> closure notes naming the session that closed them (added 2026-10-09).
+> **Every block in this file has now been verified against the code.** The
+> pre-`2026-09-01` blocks were audited bullet by bullet on 2026-10-09; each one
+> that was already fixed now carries a `**CLOSED**` note in its own block naming
+> the evidence. Scope from the bullets as written — they are current.
 >
-> **Blocks before `2026-09-01` are STALE and must be verified before use.**
-> Sessions closed items without annotating the source block, so finished work is
-> still listed as open. A 7-item sample on 2026-10-09 found **5 already fixed**:
+> What the audit changed, in case a reader remembers the older state:
 >
-> | Item, as written | Actual state |
+> | Item | Audit verdict |
 > |---|---|
-> | "Nothing reconciles persisted Pod and lane state at startup" | fixed — `src/main/pod-manager/startup-reconciliation.ts` |
-> | "The Pod tab's `x` stops a Pod but can never remove one" | fixed — `pods/DeletePodDialog.tsx`, `podDelete` handler |
-> | "A stopped lane's `lane_closed` … never reaches the renderer" | fixed — emitted at `pod-manager.ts:368` |
-> | "A failed `start()` orphans the child, and `stop()` cannot reap" | fixed — `pod-runner.ts:451`, "the reap, shared by `stop()` and by the failed-start path" |
-> | "`statusToken('stopped')` has no production caller" | stale — called from `LaneRow.tsx:154` and `PodTab.tsx` |
-> | "`_UncoveredAtSchemaHead` is still the inert spelling" | **still open** — `store/schema.ts:256-257` |
-> | "Nothing in this session has run in a real Electron window" | **closed 2026-10-07** by the driven hand-run |
+> | Pane model — "pin the Matriarch always" | **closed** — adopted exactly as the research round recommended (`primaryLaneId` + `followerLaneIds`) |
+> | The three "indicator set" refinements | **closed** — `WorkingIndicator` is deleted; the status dot carries the motion |
+> | Four tokens "with no consumer" | **closed** — 22 real `var()` uses. The 2026-10-09 re-check that called them unconsumed grepped the TS identifiers, not the CSS variable names |
+> | `closePod` against an already-closed Pod | **closed** — `close-pod-lane-sweep.test.ts:311` |
+> | Migration 4's blob hash | **closed** — `it.each([1, 2, 3, 4])` |
+> | Dangling `contracts/activity-indicator.ts` pointers | **closed** — no reference remains |
+> | `MIGRATION_1` interpolating four live enums | **narrowed to two** — `LANE_KINDS` (`:344`) and `EVENT_TYPES` (`:382`) |
 >
-> Treat every pre-`2026-09-01` bullet as a claim to check against the code, not
-> as work to schedule. An audit of those blocks is itself a worthwhile session.
+> **The structural cause of the staleness is still unfixed.** A DIR session
+> appends its deferrals at Gate 3 and records closures in its own block; nothing
+> reaches back to the block an item came from. This file has been patched by hand
+> four times now (`d9d95cb`, `8ce26fd`, `008da4d`, and this audit). It will
+> recur until the DIR skill gains a step for it, or sessions are told explicitly
+> to annotate the source block.
 
 ## 2026-08-19 — 2026-08-18-orcastrate-mvp
 
@@ -105,8 +109,13 @@ The other 48 advisories stay in `.dir-sdlc/sessions/2026-08-19-orcastrate-worksp
   change to the frozen `renderer-theme.ts`, so it needs an escalation.
   **Sub-session 3 will hit this the moment it styles Beachcomber or Helm.**
 
-- **`MIGRATION_1` still interpolates four live enums** — `POD_STATUSES`,
-  `LANE_STATUSES`, `LANE_KINDS`, `EVENT_TYPES` — into already-shipped DDL, the
+- **`MIGRATION_1` still interpolates two live enums.** **NARROWED 2026-10-09:**
+  three of the original four are now pinned — `MIGRATION_1_POD_STATUSES`,
+  `MIGRATION_1_LANE_STATUSES` and `MIGRATION_1_PERMISSION_MODES`. Still live are
+  `LANE_KINDS` (`schema.ts:344`) and `EVENT_TYPES` (`schema.ts:382`); see the
+  `2026-08-26` block, which deferred exactly this pair deliberately. Original text,
+  for the reasoning: interpolates `POD_STATUSES`, `LANE_STATUSES`, `LANE_KINDS`
+  and `EVENT_TYPES` into already-shipped DDL, the
   identical latent bug T1 fixed for `PERMISSION_MODES`. Widening any of the four
   silently rewrites history. Partially mitigated: the byte-identity pin now fails
   loudly instead of shipping, but the pin is not a fix. Pinning all five
@@ -115,7 +124,10 @@ The other 48 advisories stay in `.dir-sdlc/sessions/2026-08-19-orcastrate-worksp
 
 - **Nine of fifteen invoke channels have no surface that renders their error**,
   and four of those (`podUpdate`, `podDelete`, `podSetPermissionMode`,
-  `podReconnect`) are never invoked by any affordance at all. Enforced as an
+  `podReconnect`) are never invoked by any affordance at all. **VERIFIED
+  2026-10-09: down to two.** `podDelete` and `podReconnect` have production
+  callers; `podUpdate` and `podSetPermissionMode` are referenced only from
+  `test-utils/stub-api.ts`. Enforced as an
   executable allowlist in `src/renderer/src/__tests__/failure-paths.e2e.test.tsx`,
   so the set cannot silently grow — but a user currently gets no feedback when any
   of the nine fails. Related: `TranscriptPane.tsx:140-142` has an unreachable
@@ -194,11 +206,17 @@ file for the eight findings C1 itself produced.
   `pods/DeletePodDialog.module.css` ×2, `pods/NewPodDialog.module.css` ×2,
   `shell/EmptyWorkspace.module.css`, `transcript/Transcript.module.css` ×3), not
   the single file originally named.
-- **Four of the nine tokens T4 added have no consumer yet** — `borderThick`,
-  `trackingTight`, `weightRegular`, `weightMedium`. Candidates for a dead-token
-  sweep if nothing claims them. **Re-verified 2026-10-09: still unconsumed.** Their
-  only reference anywhere is `contracts/renderer-panels.ts`, the file that declares
-  them; no stylesheet uses any of the four.
+- ~~**Four of the nine tokens T4 added have no consumer yet** — `borderThick`,
+  `trackingTight`, `weightRegular`, `weightMedium`.~~ **CLOSED — audit 2026-10-09.**
+  All four are consumed, across 22 real `var()` declarations:
+  `--oc-border-thick` in `Beachcomber`, `BeachcomberPreviewDialog`, `Helm`,
+  `LaneRail`, `PodBar` and `PanelBar`; `--oc-tracking-tight` in `Beachcomber` and
+  `BeachcomberPreviewDialog`; `--oc-weight-regular` in `Helm`; `--oc-weight-medium`
+  in `Beachcomber`, `BeachcomberPreviewDialog`, `Helm` and `PanelBar`.
+  **The re-check recorded here earlier the same day was wrong** — it grepped the
+  TypeScript identifiers (`borderThick`) rather than the CSS variable names
+  (`--oc-border-thick`), which is how stylesheets actually reference them. Noted
+  because it is the one audit finding that reversed a *negative* verdict.
 
 ### Correctness risks
 
@@ -237,7 +255,9 @@ file for the eight findings C1 itself produced.
 
 ### Test and CI concerns
 
-- **Nothing in this session has run in a real Electron window.** Coverage is unit
+- ~~**Nothing in this session has run in a real Electron window.**~~ **CLOSED
+  2026-10-07** by the Playwright-driven hand-run (`929c613`); see the `2026-10-07`
+  block at the end of this file. Original text: coverage is unit
   and jsdom only, as design section 9 specifies — but that decision predates a
   panel that moves files to the recycle bin. T8 states plainly it did not launch
   the app, and the two layout token values are therefore unvalidated, since jsdom
@@ -246,10 +266,12 @@ file for the eight findings C1 itself produced.
   `--sequence.shuffle`: its "covers all four documented codes" reads a set filled
   by earlier tests in the same file. Pre-existing from sub-session 1; the rest of
   the repo shuffles clean.
-- **Two T10 pins fail when the defects they pin are fixed** —
-  `PRE_TOKEN_SHELL_DECLARATIONS` and the `HelmNotices` `toHaveLength(2)`. The
-  two-sidedness is deliberate, but each fix carries a mandatory edit to
-  `failure-paths.e2e.test.tsx`.
+- **One T10 pin still fails when the defect it pins is fixed.** **NARROWED
+  2026-10-09:** the `HelmNotices` `toHaveLength(2)` half is **closed** — C2 fixed
+  the duplicate sentence and the pin now reads `toHaveLength(1)`.
+  `PRE_TOKEN_SHELL_DECLARATIONS` is still live, and has **moved** out of
+  `failure-paths.e2e.test.tsx` into `src/renderer/src/__tests__/hygiene.test.ts:628`,
+  asserted at `:710`. Whoever does the font-weight token work edits it there.
 - **`src/main/ipc/handlers.ts:90-92`'s duplicate-registration guard has no direct
   test**, before or after this session. Extracting `register` into an exported
   factory would cover it without a test-only export.
@@ -265,10 +287,12 @@ file for the eight findings C1 itself produced.
 
 ### Cosmetics
 
-- `src/renderer/src/test-utils/stub-api.ts:154` — fixture docblock claims the
-  default scan carries "an empty root"; all four roots are populated.
-- `src/renderer/src/helm/probes.ts:8-11` — header says `HelmPanel.test.tsx` runs
-  the probes against the real panel; that arm lives in `discrimination.test.tsx`.
+- ~~`src/renderer/src/test-utils/stub-api.ts:154` — fixture docblock claims the
+  default scan carries "an empty root".~~ **CLOSED — audit 2026-10-09.** The phrase
+  is gone from the file.
+- ~~`src/renderer/src/helm/probes.ts:8-11` — header says `HelmPanel.test.tsx` runs
+  the probes against the real panel.~~ **CLOSED — audit 2026-10-09.** The header now
+  names both arms correctly, and `HelmPanel.test.tsx` does reference the probes.
 - `src/renderer/src/helm/rules.ts:7-8` — states the lookahead bug backwards. It
   says the broken form "matches nothing"; measured, it returns true on a
   tokenised declaration, so it fires on *clean* code. The shipped pattern is
@@ -394,7 +418,19 @@ not pending work.
   certainly right, but it is a real fork and should be chosen deliberately rather
   than discovered.
 
-### Pane model: pin the Matriarch always, and let one Calf pane follow selection
+### Pane model: pin the Matriarch always — CLOSED, ADOPTED (audit 2026-10-09)
+
+**This decision was taken and shipped, and nobody wrote it down here.**
+`src/renderer/src/contracts/renderer-state.ts` now declares
+`primaryLaneId: LaneId | null` (`:234`) and `followerLaneIds: readonly LaneId[]`
+(`:253`) — the state shape the research round below recommended, **not** the
+`boolean` the original proposal asked for. `selectedLaneId` and `pinnedLaneId` are
+both deleted, and the invariants are the ordinary list rules the research round
+predicted (`:244-246`). `LaneRowVm` carries `inPrimaryPane` / `inFollowerPane` /
+`focusedFollower` in place of `selected` / `pinned`.
+
+Everything below is kept for provenance — it is the reasoning that produced the
+shipped shape. **Not pending work.**
 
 Raised from using the app, 2026-08-20. **Design question, not a defect** — the
 current model works as specified. Decide it before, or together with, the pinning
@@ -474,6 +510,17 @@ files rather than promoted.
   one-line change to a spelling that is already validated in the same file.
   Note the same weakness applies to the pre-existing `_UncoveredPodStatus` guard
   at `schema.ts:65-78`, which T0 kept but documented as not-to-be-relied-on.
+  **VERIFIED STILL OPEN — audit 2026-10-09.** Current citation is
+  `schema.ts:256-257`; the surrounding docblock at `:250-254` claims "the build
+  breaks here", which is the false sentence. The validated spelling is one screen
+  down at `:275-277` (`_AssertNever`) and again at `:312`. **One new sub-finding
+  from the audit:** that guard measures `PermissionMode` against
+  `MIGRATION_2_PERMISSION_MODES` while the schema head is now migration 3
+  (`MIGRATION_3_PERMISSION_MODES`, `:226`), and its docblock still calls migration 2
+  the head. Benign today — the two lists are verbatim identical — but the guard
+  should name the head it means, and pod status and lane status both already do
+  (`MIGRATION_3_POD_STATUSES`, `MIGRATION_4_LANE_STATUSES`). Fixing the spelling
+  and the target is one edit.
 
 ### Contract gaps
 
@@ -625,8 +672,11 @@ the other 28 stay in that session's `reviews/T0.md`–`T5.md`.
   three places — `startup-reconciliation.ts:32`,
   `transcript/startup-reconciliation.test.tsx:39`, `transcript/test-fixtures.ts:131`.
 
-- **`PodManager.closePod` against an already-closed Pod is exercised nowhere in the
-  repository.** `relaunch.e2e.test.tsx` test 1 was the only site; T5 reshaped it
+- ~~**`PodManager.closePod` against an already-closed Pod is exercised nowhere in the
+  repository.**~~ **CLOSED — audit 2026-10-09.** Covered by
+  `tests/unit/pod-manager/close-pod-lane-sweep.test.ts:311`, "criterion 5: a second
+  `closePod` against an already-closed Pod", added by the
+  `2026-08-26-orcastrate-stop-transcript-visibility` session. Original text: `relaunch.e2e.test.tsx` test 1 was the only site; T5 reshaped it
   correctly, because the affordance it drove no longer exists — a stopped Pod has
   no stop control, and its `x` is now the delete control. The user-reachable path
   is fully covered (T5 verified `closePod` is still driven through the real
@@ -844,8 +894,11 @@ while proving the fix.
 
 ### Defects found by this session, not fixed by it
 
-- **A stopped lane's `lane_closed` event is durably written and never reaches the
-  renderer.** *Mechanism verified twice — by T7 and independently by the orchestrator,
+- ~~**A stopped lane's `lane_closed` event is durably written and never reaches the
+  renderer.**~~ **CLOSED 2026-08-26** (`f7008ae`), together with the PLUMBING item
+  below — the two were one outcome and were fixed as one. See the
+  `2026-08-26-orcastrate-stop-transcript-visibility` block. Original text:
+  *Mechanism verified twice — by T7 and independently by the orchestrator,
   2026-08-26.* `PodManager.#stopRunningLanes` appends the events and then pushes only
   `laneChanged` — never `podEvent`. The renderer's backfill short-circuits on
   `hasMore === false`, so the event stays invisible for the life of the session. The
@@ -855,8 +908,9 @@ while proving the fix.
   The fix is one line, `this.#push.podEvent({ podId, events: stored })`, in
   `#stopRunningLanes`.
 
-- **`lane_closed` is PLUMBING, so even once pushed it is hidden in the default
-  transcript view.** This falsifies the premise of this session's own T7 criterion 3,
+- ~~**`lane_closed` is PLUMBING, so even once pushed it is hidden in the default
+  transcript view.**~~ **CLOSED 2026-08-26** (`f7008ae`) by exactly the
+  payload-scoped exemption this bullet prescribes. Original text: This falsifies the premise of this session's own T7 criterion 3,
   which asserted `lane_closed` was a CONVERSATION type — it is not
   (`transcript-filter.ts`, `PLUMBING` alongside `thinking`). Criterion 3 was recorded
   **not met** rather than quietly dropped. If the stop should read in words in the
@@ -901,17 +955,27 @@ while proving the fix.
   and nothing is broken today since this repo has no CI workflows. If shallow-clone CI
   ever lands, the durable fix is committing the shipped renderings as a fixture.
 
-- **Migration 4's own blob hash must be added to `migration-frozen.test.ts`** once this
-  branch merges. Nothing in the file records that obligation — which is exactly the
+- ~~**Migration 4's own blob hash must be added to `migration-frozen.test.ts`** once this
+  branch merges.~~ **CLOSED — audit 2026-10-09.** `SHIPPED_BLOB` carries migration 4
+  and the suite runs `it.each([1, 2, 3, 4])`. Original text: nothing in the file
+  records that obligation — which is exactly the
   omission that made migration 1's pin necessary.
 
-- **`statusToken('stopped')` has no production caller.** Accepted out of scope at
+- ~~**`statusToken('stopped')` has no production caller.**~~ **STALE — audit
+  2026-10-09.** `statusToken` is called from `lanes/LaneRow.tsx:154` and
+  `pods/PodTab.tsx:173`. The `statusToken`-versus-CSS-variable split is still worth a
+  deliberate look, which is the half of this bullet that survives. Original text:
+  accepted out of scope at
   Gate 2: the rail consumes `--oc-status-*` variables directly, exactly as `orphaned`
   does. The pair was widened to keep the hygiene guard honest. The `statusToken`
   versus CSS-variable split is worth a deliberate look rather than being inherited
   again.
 
-- **Dangling contract pointers in shipped source.** `PodTab.tsx` and `LaneRow.tsx`
+- ~~**Dangling contract pointers in shipped source.**~~ **CLOSED — audit 2026-10-09.**
+  No reference to `contracts/activity-indicator.ts`, `POD_TAB_MOUNT` or
+  `LANE_ROW_MOUNT` remains anywhere under `src/`; the
+  `2026-08-27-orcastrate-indicator-collapse` session removed them with the module.
+  Original text: `PodTab.tsx` and `LaneRow.tsx`
   cite `contracts/activity-indicator.ts` and its `POD_TAB_MOUNT` / `LANE_ROW_MOUNT`
   constants, but frozen contracts live in `.dir-sdlc/sessions/<slug>/contracts/` and
   are not part of the source tree. The comments describe the mount shape correctly;
@@ -976,7 +1040,16 @@ them.** Both matter, because one of these items is not the CSS change it looks l
   ticking." **A resting-state outline is therefore a contract change, not a CSS
   change** — see the third item.
 
-### UX refinements — the indicator set
+### UX refinements — the indicator set — CLOSED 2026-08-27 (audit 2026-10-09)
+
+**All three shipped, via the `2026-08-27-orcastrate-indicator-collapse` session,
+and none of them was marked here.** `WorkingIndicator` and the whole
+`src/renderer/src/activity/` directory are **deleted** — its `raw.d.ts` was
+re-homed to `styles/raw.d.ts` and its source test to `pods/PodTab.source.test.ts`,
+each carrying a header that records the move. The status dot carries the motion
+now, which is the first of the two shapes the second bullet below says to prefer,
+and it is also the shape the third bullet says is the safe home for a resting
+affordance. Kept for provenance; **not pending work.**
 
 - **The lane rail should use the dot form, not the bar.** `LaneRow.tsx:129` mounts
   `size="bar"`; the user's read is that a purely dot-based set looks best and that
@@ -1476,3 +1549,163 @@ are not reachable interactively — the backup name derives from the save-time c
 both remain covered only by unit tests with an injected clock. `D3` (a failed
 `helm:scopes` printing once) could not be staged without breaking every later step.
 Narrow-window layout still needs a human eye.
+
+---
+
+## 2026-10-09 — pre-C1 backlog audit (no session; every bullet checked against code)
+
+Every bullet in every pre-`2026-09-01` block was read against the code on
+2026-10-09. The closures are annotated in their own blocks above. This block is
+the **roster of what the audit left standing**, so a scoping session can read one
+list instead of re-deriving it. Each line carries the citation the audit used.
+
+**Seven items were closed and unmarked**, and one earlier verdict was reversed:
+the four "unconsumed" tokens are consumed. That reversal is the one to remember —
+the bad check grepped TypeScript identifiers where only CSS variable names appear.
+
+### Open — correctness, with a citation
+
+- **`_UncoveredAtSchemaHead` is the inert empty-array spelling** —
+  `store/schema.ts:256-257`, docblock `:250-254` falsely claims the build breaks.
+  Also names migration 2 as the schema head where migration 3 is (`:226`).
+- **`MIGRATION_1` still interpolates `LANE_KINDS` (`:344`) and `EVENT_TYPES`
+  (`:382`)** live. Deliberately deferred by the `2026-08-26` session; the other
+  three enums are pinned. `migration-frozen.test.ts` catches either the moment a
+  union widens, so this is latent, not live.
+- **The `RESUME_FAILED` regex matches the bare word `resume`** —
+  `pod/errors.ts:63`. Load-bearing on the common path since `openPod` started
+  resuming: it is the discriminator between a silent fresh session and a
+  surfaced, beached error.
+- **The abandoned `ccSessionId` persists through the resume fallback** —
+  `pod-manager.ts:713-731`. `#startFreshAfterRejectedResume` logs the abandoned
+  id and calls `#start(pod, false)` without clearing the stored one.
+- **`podUpdate` and `podSetPermissionMode` have no production caller** — their
+  only references are in `test-utils/stub-api.ts`. Down from four: `podDelete`
+  and `podReconnect` both acquired callers.
+- **`LaneRail.module.css` lacks `flex: none`** on the dot where
+  `PodBar.module.css:120` has it.
+
+### Open — tests and guards, with a citation
+
+- **The `startup_reconciliation` marker is duplicated and pinned to nothing** —
+  `transcript-filter.ts:221` re-declares the literal that
+  `pod-manager/startup-reconciliation.ts:28` produces, and the test compares
+  against a hard-coded string (`transcript-filter.test.ts:191`). Nothing reads
+  the producer. `STARTUP_RECONCILIATION_REASON` lives in three places. Either
+  fix (a `tests/**` equality test, or move the literal to `src/shared/`) is cheap.
+- **A vacuous assertion in `tests/unit/ipc/user-prompt.test.ts:398-401`** —
+  `toHaveLength(baseline.length + 1)` and `toEqual([typed, ...baseline])` both
+  hold trivially for any fixture that ingests nothing. No `baseline.length > 0`
+  guard exists anywhere in the file. The fix stays one line, and cannot be blanket.
+- **The control-byte hygiene rule still scans `src/` only** —
+  `__tests__/hygiene.test.ts:836`, "finds no stray control byte anywhere under
+  `src/`". `tests/` and `probe/` carry the same exposure and
+  `tests/router/hygiene.test.ts` has no such rule.
+- **`PRE_TOKEN_SHELL_DECLARATIONS` is still a two-sided pin**, relocated to
+  `__tests__/hygiene.test.ts:628`, asserted `:710`. The font-weight token work
+  must edit it.
+- **`tests/unit/store/errors.test.ts:117` is order-dependent** — "Runs last in
+  this file; `provoked` is filled by the tests above." Fails under shuffle.
+- **`handlers.ts`'s duplicate-registration guard has no direct test** —
+  `register` is still an inner function of `registerIpcHandlers` (`:98-102`);
+  `tests/unit/ipc/channels.test.ts:84` mentions it only in a comment.
+- **`recordAttempts`' Proxy trap forwards exactly one argument** —
+  `tests/unit/pod-manager/helpers.ts:238-248`, and still returns a fresh closure
+  per property access.
+- **No general enforcement that every push channel a method touches is counted** —
+  T1 closed it for `closePod` only; nothing asserts the shape.
+- **`roots.test.ts:129` asserts recursive `sizeBytes` loosely** — `> 0` after
+  subtracting 15.
+- **`migration-frozen.test.ts:100` shells out to `git show`** — red rather than
+  skipped in a shallow clone. Nothing is broken today; this repo has no CI workflows.
+- **Helm's watcher tests depend on `fs.watch` landing within a fixed turn count.**
+- **The retired-id rule's exemption self-check proves presence, not purpose** —
+  `hygiene.test.ts:805-833`. It now asserts call-shape *containment*, which is
+  closer than when first filed, but still not the surrounding call in the exempt
+  file (`lanes/LaneRail.test.tsx:180` holds the real proof).
+- **NEW — `KEPT_POD` is a dead constant.** `__tests__/pod-stop.e2e.test.tsx:271`
+  declares it and nothing in the file reads it; the scenario reaches the kept Pod
+  through `keptLaneId` instead. Worth a look alongside the standing finding that
+  the `KEPT_POD` *rendered* assertion is near-vacuous — the two may be the same
+  thing, with the assertion having gone away rather than been strengthened.
+
+### Open — prose no longer true of the code (recurring pattern #1)
+
+Eleven instances, every one verified present. They are individually trivial and
+collectively the project's most repeated defect class, which is the argument for
+sweeping them in one pass rather than one at a time.
+
+- `contracts/renderer-state.ts:298` — "The four fields below"; three remain
+  (`inPrimaryPane`, `inFollowerPane`, `focusedFollower`).
+- `pods/PodTab.tsx:229` — the `srOnly` sentence "opens with `STATUS_LABEL[status]`";
+  the symbol is `POD_STATUS_LABEL` (`:7`, `:239`).
+- `pods/PodTab.test.tsx:310` — "Duplicated from `PodTab`'s own `STATUS_LABEL`".
+- `__tests__/pod-stop.e2e.test.tsx:466` — still "from Running to Stopped"; the
+  row reads `Idle` before the stop. The suggested rename is in the `2026-08-27` block.
+- `pods/PodTab.source.test.ts:25-26` — "`activity/raw.d.ts` declares the form
+  today; T3 moves that declaration to `styles/raw.d.ts`". Future tense about
+  finished work, naming a deleted file. The same file's own header already
+  records the move correctly one paragraph up.
+- `helm/rules.ts:7-8` — states the lookahead bug backwards ("matches nothing";
+  measured, it fires on clean code).
+- `main/index.ts:94` — "Criterion 5" from an earlier task's numbering.
+- `pods/PodBar.module.css:1-4` — "the only bare lengths are hairline border
+  widths, for which the token set has no entry"; `--oc-border-thick` exists and
+  the same file uses it at `:152`.
+- `styles/tokens.css:43` — the Status block header lists three lane statuses
+  where there are four.
+- `styles/tokens.css:63-65` — the assembled sentence overstates: it says the
+  value "clears the shipped `closed`/`idle` precedent (2.173)" while naming
+  `stopped`/`idle`, which is 1.796.
+- `docs/superpowers/specs/2026-08-18-orcastrate-design.md:236-238` — §4.4's
+  "never to data loss" still has no cross-reference to the §8 row that carries
+  the exception.
+
+### Open — cosmetic and structural, with a citation
+
+- `ipc/index.ts:10-15` — two consecutive re-exports from `./validate`.
+- `beachcomber/BeachcomberGroupHeader.tsx:62-64` — the one user-visible sentence
+  composed in JSX rather than routed through `copy.ts`.
+- `beachcomber/BeachcomberRefusals.tsx:36-38` — a refusal renders
+  `{refusal.reason}` and never names the entry it refers to.
+- `lanes/LaneRail.module.css:156` — `.rowMain:hover` paints `--oc-bg-hover`,
+  which `:130` also uses as the selected-Matriarch surface, so hover feedback
+  vanishes there. Fix is a Matriarch-specific hover surface, not a change to the
+  three selection tokens.
+- `lanes/LaneRail.module.css:155-157` — `.rowMain:hover` paints only the button
+  box, drawing an inner rectangle inside the full-width swimlane.
+- `lanes/LaneRow.source.test.ts` — the guard also bars `useState`/`useEffect`/`useRef`,
+  broader than its criterion. Now *documented* as lane-row-specific in
+  `pods/PodTab.source.test.ts:16-20`, so it is a deliberate asymmetry rather than
+  an oversight — but it will still go red on a legitimate future `useRef`.
+- `tests/unit/store/migration-2.test.ts:103-104` — its own migration-1
+  byte-identity test, fully subsumed by `migration-frozen.test.ts`.
+- **`use-dialog-focus.ts` is still in `beachcomber/`** with one consumer
+  (`BeachcomberPreviewDialog.tsx:45`). `DeletePodDialog` and `NewPodDialog` have
+  none of its three behaviours. Moving it to `shell/` needs an owner for both
+  `shell/**` and `beachcomber/**`.
+
+### Open — design decisions, no code answer
+
+- **The palette-wide lightness pass**, and whether the hygiene guard should
+  assert measured separation rather than string inequality. Worst shipped pair is
+  `idle`/`beached` at 1.005, with five pairs under 1.2. Includes the
+  `stopped`-vs-`waiting` measurement the third hand-run asked for, and the open
+  question of whether a stopped Pod's tab should read grey where its Matriarch
+  reads tan. Treat as one pass.
+- **The six `2026-08-19` MVP feature deferrals** are all intact product
+  decisions, not rot: direct Calf steering (`pod-runner.ts:485` still returns
+  `{ supported: false }`), `forkSession` branching (no reference anywhere), the
+  full config manager, adopting terminal-started sessions, a raw terminal pane
+  per lane, and macOS/Linux validation.
+
+### Informational — frozen contracts and process notes
+
+Not work. Frozen contracts are never edited, so the falsified claims in
+`pod-lifecycle.ts` §7, `transcript-filter.ts` §1, `lane-stopped-status.ts:77`
+and the `beachcomber.ts:213` lineage stay as recorded; they are live
+misinformation for anyone reading those sessions' artifacts, which is the whole
+reason they are written down here. The same holds for the manifest-gloss note,
+the two textually identical `podEvent` statements at `pod-manager.ts:567,755`,
+the contract-operation coverage false alarm, the quiescent-tree gate note, and
+the commit-series note.
