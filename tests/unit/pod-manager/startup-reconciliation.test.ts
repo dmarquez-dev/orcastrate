@@ -13,7 +13,10 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { STARTUP_RECONCILIATION_REASON } from '../../../src/main/pod-manager';
+import {
+  STARTUP_RECONCILIATION_REASON,
+  STARTUP_RECONCILIATION_SUBTYPE,
+} from '../../../src/main/pod-manager';
 import {
   eventsFor,
   laneIds,
@@ -121,9 +124,17 @@ describe('step (b): the durable record', () => {
     const [notice] = eventsFor(h, podId);
     if (notice === undefined) throw new Error('no notice was appended');
 
-    expect(notice.payload).toMatchObject({ type: 'system', subtype: 'startup_reconciliation' });
-    // Verbatim. It already names `Open`, which is the affordance `'closed'`
-    // selects, and rewording it desyncs the transcript from the control.
+    // The marker the sweep STAMPED, against its single definition. Both sides
+    // were literals here; that pinned the string and said nothing about the
+    // wiring, which is the half that can break.
+    expect(notice.payload).toMatchObject({
+      type: 'system',
+      subtype: STARTUP_RECONCILIATION_SUBTYPE,
+    });
+    // Verbatim, and spelled out: the one place the SENTENCE is pinned as words
+    // rather than as a reference. It already names `Open`, which is the
+    // affordance `'closed'` selects, and rewording it desyncs the transcript
+    // from the control.
     expect(systemData(notice).reason).toBe(
       'Orcastrate restarted while this Pod was still open. No Claude Code process ' +
         'survives an application restart, so lanes left running were marked ' +
@@ -131,7 +142,7 @@ describe('step (b): the durable record', () => {
     );
     expect(systemData(notice).reason).toBe(STARTUP_RECONCILIATION_REASON);
     expect(systemData(notice)).toMatchObject({
-      subtypeMarker: 'startup_reconciliation',
+      subtypeMarker: STARTUP_RECONCILIATION_SUBTYPE,
       statusBefore: 'waiting',
       statusAfter: 'closed',
       orphanedLaneIds: laneIds(h, podId),

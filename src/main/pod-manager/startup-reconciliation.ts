@@ -19,26 +19,35 @@
  */
 
 import type { LaneId, PodId, PodStatus, Timestamp } from '../../shared/contracts/events';
+import {
+  STARTUP_RECONCILIATION_REASON,
+  STARTUP_RECONCILIATION_SUBTYPE,
+} from '../../shared/startup-reconciliation-notice';
 
 /**
- * `SystemPayload.subtype` for the reconciliation notice. A free string by
- * contract (`events.ts`), so `EventType` and `EVENT_TYPES` are untouched and
- * anything that renders a `system` event today renders this one.
- */
-export const STARTUP_RECONCILIATION_SUBTYPE = 'startup_reconciliation' as const;
-
-/**
- * EXACT TEXT, rendered verbatim, and pinned by a test.
+ * The marker and the reason sentence, RE-EXPORTED rather than declared.
  *
- * It is a fixed sentence rather than a free string so that two Pods reconciled
- * by the same sweep read identically and so the wording cannot drift. It
- * already names `Open`, which is also the affordance `status: 'closed'`
- * selects. Do not reword it.
+ * Both used to be declared here and copied into the renderer's transcript
+ * filter, because `tsconfig.web.json` cannot see `src/main/**`. They now have
+ * ONE definition, in `src/shared/startup-reconciliation-notice.ts`, which both
+ * tsconfig programs include — so the filter reads the same binding this
+ * producer writes and a rename here can no longer leave the notice silently
+ * hidden.
+ *
+ * THE SPECIFIER IS RELATIVE ON PURPOSE, not `@shared/...`. `tsconfig.node.json`
+ * declares no `paths` at all; only `tsconfig.web.json` maps `@shared/*`.
+ * Verified 2026-10-09: `@shared` appears nowhere under `src/main/`,
+ * `src/preload/`, `src/shared/`, `tests/` or `probe/`, and a file whose only
+ * import is `@shared/contracts/events` fails under this program's options with
+ * `TS2307: Cannot find module '@shared/contracts/events'`. Vitest's own alias
+ * would have resolved it at runtime, which is exactly how such an import gets
+ * committed green and breaks `tsc` instead.
+ *
+ * `./index.ts` re-exports both names onward, so every existing
+ * `import { STARTUP_RECONCILIATION_REASON } from '.../src/main/pod-manager'`
+ * still resolves to the same value.
  */
-export const STARTUP_RECONCILIATION_REASON =
-  'Orcastrate restarted while this Pod was still open. No Claude Code process ' +
-  'survives an application restart, so lanes left running were marked ' +
-  'Orphaned. Press Open to start this Pod again.';
+export { STARTUP_RECONCILIATION_REASON, STARTUP_RECONCILIATION_SUBTYPE };
 
 /** `SystemPayload.data` for the reconciliation notice. */
 export interface StartupReconciliationData {

@@ -16,24 +16,29 @@
  * every Pod on every relaunch would train the user to ignore the one that
  * matters, so "no row" is a requirement and is asserted as one.
  *
- * The reason sentence is written out here as a literal on purpose. It lives in
+ * The reason sentence is written out here as a literal on purpose, and it is
+ * the ONLY copy this file still keeps. Pinning the words locally is what makes
+ * this a wording assertion rather than a tautology against whatever the
+ * producer currently says.
+ *
+ * AMENDED 2026-10-09. The sentence and the marker used to live only in
  * `src/main/pod-manager/startup-reconciliation.ts`, which no renderer file may
  * import EXCEPT the one named in `hygiene.test.ts`'s `MAIN_REACHING_FILES` —
  * `__tests__/relaunch.e2e.test.tsx`, which runs a real `PodManager` because the
  * defect it reproduces is a disagreement between main and the renderer and a
- * stub cannot hold both sides of one. That rule is now ENFORCED as well as
- * stated: this sentence used to claim a blanket ban that `hygiene.test.ts` did
- * not check, because its import rule exempts every relative specifier.
- *
- * Pinning the words locally is what makes this a wording assertion rather than
- * a tautology against whatever the producer currently says — and it is what
- * this file does INSTEAD of taking the exception.
+ * stub cannot hold both sides of one. Both now have a single definition in
+ * `src/shared/startup-reconciliation-notice.ts`, which this program does
+ * include, so no exception is needed to reach them. The MARKER is therefore
+ * read from there rather than copied: a local copy of it was a tautology, not
+ * a wording assertion, because the marker's identity is the whole of what the
+ * filter matches on.
  */
 
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { NormalizedEvent } from '@shared/contracts/events';
+import { STARTUP_RECONCILIATION_SUBTYPE } from '@shared/startup-reconciliation-notice';
 
 import { TranscriptEventItem } from './TranscriptEventItem';
 import { makeEvent } from './test-fixtures';
@@ -41,7 +46,15 @@ import { makeEvent } from './test-fixtures';
 // Imported for its `afterEach(cleanup)` side effect.
 import '../test-utils';
 
-const SUBTYPE = 'startup_reconciliation';
+/**
+ * The marker as the boot sweep writes it, read from its single definition
+ * under `src/shared/**` rather than copied. The REASON sentence below stays a
+ * local literal on purpose — see the docblock above: pinning the words here is
+ * a wording assertion, and the only one of the two that is worth keeping as a
+ * copy. The marker never was: a local copy of it made this suite agree with
+ * the filter whatever the producer wrote.
+ */
+const SUBTYPE = STARTUP_RECONCILIATION_SUBTYPE;
 
 /** Verbatim, as `StartupReconciliationData.reason` fixes it. */
 const REASON =
