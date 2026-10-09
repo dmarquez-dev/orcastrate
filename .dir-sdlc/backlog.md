@@ -1356,13 +1356,22 @@ Everything else in this block is still open and is C3's scope.
 
 ### Correctness risks
 
-- **`HelmPanel.tsx:53,62-63` — `compareRequested` never resets.** After a compare that
+- ~~**`HelmPanel.tsx:53,62-63` — `compareRequested` never resets.**~~ **CLOSED 2026-09-30**
+  by C2 (`32638b7`), as this block's own header already recorded. Annotated here
+  2026-10-09, because the header said so and the bullet did not — the exact split
+  that made the pre-C1 audit necessary. Verified in code: a resetting `lastAction`
+  latch (`HelmPanel.tsx:62`, read at `:73`) replaced the one-way flag. Original text:
+  after a compare that
   failed, `incoming` stays null; a subsequent *different* failure (a failed save, say)
   then satisfies `compareRequested && !comparing && incoming === null` and prints its
   message inside the comparison surface instead of the error banner. Narrow — it needs a
   failed compare followed by an unrelated failure — and it is the mirror of the bug the
   flag exists to prevent. Clearing the flag when `actionError` transitions closes it.
-- **`helm/copy.ts` `COPY.comparisonEmpty` names an affordance that may not be on screen.**
+- ~~**`helm/copy.ts` `COPY.comparisonEmpty` names an affordance that may not be on screen.**~~
+  **CLOSED 2026-09-30** by C2 (`32638b7`), as this block's own header already recorded;
+  annotated here 2026-10-09 for the same reason as the bullet above. Verified in code:
+  `copy.ts:154-155` now describes when a comparison appears and names no button.
+  Original text:
   It says "Compare with the file on disk to fetch its current contents", but that button
   exists only on the conflict banner (`HelmNotices.tsx:104`). With a draft and no conflict,
   the surface advertises an action the user cannot reach.
