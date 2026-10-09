@@ -1835,11 +1835,41 @@ by user decision at Gate 3.
   injecting and copy it back afterward. **Put that in the injection instructions
   rather than discovering it again.**
 
-- **One commit message is incomplete.** `4b05532` describes T2's positive control
-  fully but says nothing about deleting `KEPT_POD` and `STOPPED_POD` — criterion 1
-  of that task and the three deletions in its diff. Nothing claimed is false, and
-  DIR never rewrites history, so the commit stands. Recorded so a later reader of
-  the log is not misled about where those constants went.
+- **Two commit messages drifted from their diffs, and the second is the worse
+  kind.** Both were caught by reading the message back against the diff, which is
+  this project's convention and the only thing that finds either. In both cases
+  the **staged paths were correct** — nothing was committed that should not have
+  been, and no file was missed. Only the prose drifted. History is never rewritten
+  here, so both commits stand; they are recorded so the log stays readable despite
+  them.
+
+  - **`4b05532` is INCOMPLETE.** It describes T2's positive control fully but says
+    nothing about deleting `KEPT_POD` and `STOPPED_POD` — criterion 1 of that task.
+    Verified: `git show 4b05532 -- src/renderer/src/__tests__/pod-stop.e2e.test.tsx
+    | grep '^-'` returns three removed lines, the two `const` declarations and the
+    blank line between them, and the message mentions none of it. Nothing claimed
+    is false. Recorded so a later reader is not misled about where those constants
+    went.
+  - **`e6768b2` is INACCURATE, which is worse.** The session's own artifact commit
+    says "five guards hardened against **start/stop races**". **There were no races
+    in that session.** The five were a vacuous prompt-survival assertion, a
+    kept-pane negative with no positive control, an order-dependent coverage check,
+    a scan whose reach was too narrow, and a duplicated constant — not one of them
+    a concurrency defect. Verified: `grep -ic race` over that session's `spec.md`
+    and `manifest.json` returns **0** for both files, so the word appears nowhere
+    in the frozen scope it claims to summarise. An incomplete message leaves a
+    reader uninformed; this one sends a reader searching the log for race
+    conditions to a session that never touched one, and sends anyone scoping
+    concurrency work to a precedent that does not exist.
+
+  **Both are the same class as this project's standing `test(renderer):`-versus-
+  `fix(renderer):` note** — the `595247d` item in the 2026-08-27 indicator-collapse
+  block above, which likewise records a message whose characterisation of its diff
+  was wrong while its contents were right. One `dir-git` agent summarising a diff
+  rather than reading it closely is an incident; three is the pattern. The
+  staged-paths half of that agent's job keeps coming back correct while the prose
+  half keeps drifting, which locates the defect in how the message is derived, not
+  in how the commit is assembled.
 
 - **`.dir-sdlc/log.md` has the same hole the backlog had.** Found during this
   session's setup: three merged DIR sessions have no entry of their own —
@@ -1856,3 +1886,92 @@ by user decision at Gate 3.
   should have — every change is to test and guard code, plus one constant move
   proven byte-identical by SHA-256. Recorded only so the next hand-run knows this
   session added no surface for it to exercise.
+
+---
+
+## 2026-10-09 — 2026-10-09-orcastrate-audit-trail-repair (Small)
+
+Follow-up to the guard-hardening session. Corrected the docblock claim that
+session introduced, recorded its two commit-message defects, and filled five
+missing `log.md` entries. Small writes no `reviews/` file, so the per-criterion
+verdicts live in `log.md`'s entry for this session and nowhere else. Seven
+derived criteria, all met; 0 blocking findings.
+
+### Correctness risks
+
+- **An absolute claim about `grep -P` that is actually locale-conditional —
+  caught, and fixed, inside this session.** `src/renderer/src/__tests__/hygiene.test.ts`.
+  The first draft of the replacement docblock said `grep -lP` "cannot report a hit
+  at all" and "matches nothing whatever the files contain". Measured at Gate 3:
+  `grep -P` fails that way only where `LANG` and `LC_ALL` are unset, which is this
+  harness's state and the state the original measurement was taken in. Force a
+  UTF-8 locale and it works — `LC_ALL=C.UTF-8 grep -lP '[\x00-\x08…]'` exits 1 and
+  names a planted-byte file. **The conclusion was never in doubt** (a clean result
+  from an unrunnable command is evidence of nothing, and the real sweep was
+  re-measured with a positive control); only the generality of the sentence
+  overreached. Now scoped explicitly, with the reason the condition is spelled out
+  rather than trimmed.
+  **This is the third nesting of one defect class in two sessions:** a vacuous
+  assertion, then a docblock citing a broken instrument for it, then an
+  over-general claim in the docblock that fixed that. Each was caught by the next
+  layer of review rather than by the author. Worth knowing that the pattern
+  recurs *at every level*, including in the prose written to correct it.
+
+- **One `log.md` figure is second-hand.** `.dir-sdlc/log.md`, the
+  `2026-10-09 — pre-C1 backlog audit` entry. "22 `var()` declarations" is quoted
+  from `a186f06`'s own prose rather than re-derived from the stylesheets. It is
+  traceable to an artifact, which is the standard the entry had to meet, but it
+  inherits whatever that count's accuracy was — and that audit is the one whose
+  headline finding was a *miscounted* grep. Re-derive it if it is ever load-bearing.
+
+### Test and CI concerns
+
+- **The driven hand-run's date rests partly on evidence that does not survive a
+  clone.** `.dir-sdlc/log.md`, `2026-10-07 — driven Electron hand-run`. Three dates
+  name three different events: `2026-09-30` is the directory and the *manual*
+  32-step plan, whose `RESULTS.md` is still an unfilled capture template, so that
+  sitting never happened; `2026-10-07` is when the driven run executed; `2026-10-09`
+  is when git first sees any of it (`929c613`) and when the watcher repair landed
+  (`d995e1d`). The entry is headed `2026-10-07` because `log.md`'s own convention
+  dates a hand-run by when it was driven, and because it matches the existing
+  backlog block so a cross-referencing reader lands on one date. **Git corroborates
+  none of it**, and the entry says so. The `README.md` self-heading is the only
+  durable half of the evidence; the Oct 7 mtimes that corroborate it will not
+  survive a fresh clone.
+
+### Cosmetics
+
+- **A sixth `log.md` hole is still open.** The **2026-08-21 hand-run of
+  sub-session B** — the one that produced the four findings that *became* the
+  `2026-08-21-orcastrate-transcript-readability` session — has no entry. It is
+  distinct from the existing `2026-08-21 — second hand-run` section, which
+  postdates that merge (`25d241f` follows `52950c3`). Deliberately not written:
+  there is no artifact directory for it, only secondhand prose in two sessions'
+  `spec.md` files, and backfilling it would be exactly the reconstruction this
+  session's brief forbade. Recorded so the next audit does not rediscover it as
+  though it were new.
+
+### Process notes, for whoever runs the next session
+
+- **Quoted heredocs are not backslash-safe in this harness, and it wrote a live
+  control byte into a source file.** This session's first attempt at the docblock
+  edit went through `python - <<'PYEOF'`. Backslashes collapsed in transit —
+  `\\x00` arrived as `\x00`, Python interpreted it, and **a literal 0x00 byte
+  landed in `hygiene.test.ts:796`**. Line-continuation backslashes were eaten the
+  same way. It was caught within minutes by the very rule being documented
+  (`hygiene.test.ts: line 796: 0x00`, `1 failed | 20 passed`), reverted, and redone
+  with the Edit tool.
+  **Two things follow.** First, use the Edit tool for any content containing
+  backslashes; a quoted heredoc is not sufficient protection in this harness.
+  Second, and more useful: the control-byte rule T4 had just widened **caught a
+  real, tooling-introduced byte on the same day it merged**, in a file it had not
+  been aimed at. Until now that rule had only ever been demonstrated against an
+  injected byte. It has a live case.
+
+- **The orchestrator made the final one-sentence fix directly** rather than
+  re-dispatching, after the reviewer specified it precisely and it was verified
+  comment-only (`git diff` shows every changed line beginning ` *`) and still green
+  at 21/21. Recorded because it is a departure from "the orchestrator dispatches,
+  implementers edit": for a one-sentence comment correction already specified by a
+  review, a re-dispatch is the overhead the Small track exists to avoid. Judge the
+  same way next time, and do not let it widen past one specified sentence.

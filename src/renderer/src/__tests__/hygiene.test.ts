@@ -786,11 +786,46 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
  * been tidied no longer reproduces the input the parser actually met. A
  * control byte inside a recording may be the DATA rather than a defect, and a
  * rule unable to tell those apart gets answered by editing the fixture, which
- * is the one repair a fixture must never invite. Measured this session, every
- * file under both roots is clean today — `grep -lP` for the control class over
- * `find tests probe -type f` matched nothing, non-`.ndjson` and `.ndjson`
- * alike — so the exclusion hides nothing that exists; it is there for the
- * recording that will one day legitimately carry one.
+ * is the one repair a fixture must never invite.
+ *
+ * AND EVERY FILE UNDER BOTH ROOTS IS CLEAN TODAY, MEASURED WITH AN INSTRUMENT
+ * THAT WAS WATCHED FINDING A PLANTED BYTE. 86 files — every path `find tests
+ * probe -type f` returns, non-`.ndjson` and `.ndjson` alike — reported `86
+ * swept []` from a Node sweep that reads each file as `latin1`, which is the
+ * load-bearing detail: it maps every byte to its own code point, so no decoder
+ * silently replaces the thing being looked for.
+ *
+ *   find tests probe -type f | node -e "const f=require('fs'),C=/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/,l=f.readFileSync(0,'utf8').split('\n').filter(Boolean);console.log(l.length+' swept',l.filter(p=>C.test(f.readFileSync(p,'latin1'))))"
+ *
+ * It takes its file list on stdin, and that is how it was proved able to
+ * report rather than assumed to be: with one extra path appended carrying a
+ * literal 0x08 it printed `87 swept` and named exactly that file.
+ *
+ * THE INSTRUMENT IS NAMED BECAUSE THE PREVIOUS ONE DID NOT WORK HERE. This
+ * paragraph used to cite `grep -lP` for the control class over the same
+ * `find`. That command reports nothing **in the environment this suite runs
+ * in**, where `LANG` and `LC_ALL` are both unset: it exits 2 with
+ * `grep: -P supports only unibyte and UTF-8 locales` and finds no match
+ * whatever the files contain — confirmed against the same planted-byte file,
+ * which it also failed to find.
+ *
+ * THE CONDITION IS NAMED ON PURPOSE, and the first draft of this very
+ * paragraph got it wrong by omitting it. `grep -P` is not broken as such:
+ * force a UTF-8 locale and it works, `LC_ALL=C.UTF-8 grep -lP '[\x00-\x08…]'`
+ * exiting 1 and naming the planted file. So a later reader whose shell sets
+ * `LANG` will find the old command behaving fine, and would reasonably
+ * conclude this warning was wrong. It is not — it is scoped. What makes the
+ * original measurement worthless is that it was taken with the locale unset,
+ * where a clean result and an unrunnable command are indistinguishable.
+ *
+ * The conclusion survived re-measurement; only the evidence for it had to be
+ * replaced — and that is this rule's own failure mode, silent and introduced
+ * by tooling, arriving one level up in the docblock that argues for it. The
+ * over-general first draft was the same failure a level up again, which is
+ * why the condition is spelled out rather than trimmed for brevity.
+ *
+ * So the exclusion hides nothing that exists; it is there for the recording
+ * that will one day legitimately carry one.
  */
 const CONTROL_BYTE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
 
