@@ -756,3 +756,68 @@ itself. Four advisories carried to the backlog, including a sixth `log.md` hole
 left deliberately unwritten — the 2026-08-21 sub-session B hand-run has no artifact
 directory, and backfilling it would be the reconstruction this session's brief
 forbade.
+
+## 2026-10-12 — 2026-10-09-orcastrate-theme-contract-decisions
+
+Sub-session **C3**, the last of the Large routing over the 2026-08-20 block, run
+from the cold-start brief at `.dir-sdlc/handoff-c3.md`. **All five scoped items
+closed.** Three tasks, all `frontend`, 17 files, **+474/−57** over
+`41f274e..10feee6` — `56abc4b` (PanelBar on `aria-current`), `5ba2f3e` (the
+clearing list and the criterion-6 reading, prose only), `10feee6` (both theme
+tokens, 19 call sites, the pin release and a new repo-wide census).
+
+**32 of 32 acceptance criteria met. 1 blocking finding, closed in one round of a
+cap of two. 5 escalations, 1 amendment, 4 user interactions.** Suite **2233 →
+2240**, both figures measured in this session rather than inherited; `npm run
+typecheck` clean on both programs at the base and at the tip. T2 took one
+re-dispatch when an API session limit killed its reviewer mid-run — a crash
+costs a dispatch, never a round, so `reviewRounds` is 1 and equals the sum of the
+per-task `revisionRounds`.
+
+The theme contract gained two additions-only members under escalations E1 and E2:
+`--oc-weight-semibold: 600`, closing a gap five directories had independently
+worked around, and `--oc-overlay-scrim`, a new family deriving its hue from
+`--oc-bg-app` through `color-mix` so that no colour literal was invented — which
+answers on its own terms the objection the stylesheets had recorded for choosing
+opacity. All fifteen bare `font-weight` literals in the renderer are now
+tokenised, so none remains anywhere, and four dialogs veil the window instead of
+hiding it.
+
+**Two of the five items were handed over with their breadth wrong, and both were
+corrected by re-measuring rather than by trusting the citation.** The opaque
+scrim was four sites, not one: a census of all eleven `var(--oc-bg-app)` CSS
+consumers found four identical full-window rules, with the cause already recorded
+in one of their docblocks. And the clearing-list amendment belonged in the live
+contract under `src/`, not in C1's frozen session artifact, which carries the same
+list and which this project never edits.
+
+**Two defects originated in this session's own frozen criteria, and both were
+caught by the parties downstream of them.** Criterion 8's expected count was
+arithmetically impossible against criterion 4's mandated value — the implementer
+reported the conflict instead of quietly filtering a grep to make the number come
+out, and it was fixed by escalation E5 and amendment A1. Criterion 2 asserted
+"five directories" while naming four, which an implementer faithfully reproduced
+into shipped prose before a reviewer caught it; the orchestrator then found a
+third site the reviewer had missed. The Gate 2 consistency check tested vacuity
+and pairwise contradiction but never simulated a criterion's own stated count
+against the post-change tree — the gap that let both through.
+
+**The session's single blocking finding is the argument for the Gate 2 decision
+that produced it.** Criterion 11 was rewritten before the freeze from "delete
+these three strings" to "the docblock carries no claim this task falsifies". The
+blocking finding was a fourth false claim in that same file, sitting in the
+assertion body rather than the docblock, which none of the three enumerated greps
+would have reached. An enumeration of known instances is not a specification of
+the obligation.
+
+Seven advisories carried to the backlog, three contract gaps and one correctness
+risk among them by explicit user decision at Gate 3. Two recurring defect classes
+already written down in this project's notes recurred anyway — a check that cannot
+report, five times, and heredoc backslash collapse, a second time — and the
+backlog now argues they need enforcing rather than remembering. `dir-git`'s prose
+drifted from its diff for the fourth consecutive session while its staged paths
+were correct every time; the mandatory read-back caught it, and the commit stands
+as written because history is never rewritten here. **Nothing in this session was
+rendered for a human eye:** the four veiled scrims and ten semibold headings are
+confirmed by count, census predicate and a green suite, and the driven hand-run
+that would actually look at them has not been re-run.

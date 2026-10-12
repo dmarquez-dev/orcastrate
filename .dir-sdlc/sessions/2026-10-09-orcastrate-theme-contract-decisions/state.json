@@ -1,0 +1,243 @@
+{
+  "session": "2026-10-09-orcastrate-theme-contract-decisions",
+  "updatedAt": "2026-10-12T18:50:00Z",
+  "phase": "merged",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-09-orcastrate-theme-contract-decisions",
+  "branch": "dir/2026-10-09-orcastrate-theme-contract-decisions",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "41f274eaaa74ae73d8c642e16a13450cd4d2a6d4",
+      "commit": "56abc4b43d07771a6a84b50edbf8905ccaa3e8ba"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 1,
+      "startRef": "41f274eaaa74ae73d8c642e16a13450cd4d2a6d4",
+      "commit": "5ba2f3e57c9f0f25bad5a0d2a668060086eb2a1b"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "startRef": "5ba2f3e57c9f0f25bad5a0d2a668060086eb2a1b",
+      "commit": "10feee6a24c4579b1f91b09e6a3163102230bf55"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "The 10 bare `font-weight: 600` declarations across 5 renderer directories have no token. Does the theme contract gain a semibold weight, or do the 10 sites move onto the existing 500/700 tokens?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Add the semibold token. The contract gains `--oc-weight-semibold` at 600 as an additions-only amendment, and all 10 sites move onto it. The user took the first option as recommended.",
+      "options": [
+        {
+          "summary": "Add `--oc-weight-semibold` (600) to TOKENS and tokens.css, additions-only, and move all 10 declarations onto it.",
+          "rationale": "All 10 sites are one role - headings and emphatic labels - and five directories independently reached for the same bare value for the same reason. That is the exact shape the sub-session 3 amendment recorded when it added seven tokens including `--oc-weight-bold`. Additions-only means no existing component's appearance changes.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/contracts/renderer-theme.ts:141-153",
+              "src/renderer/src/styles/tokens.css:138-140"
+            ]
+          }
+        },
+        {
+          "summary": "Move the 10 declarations onto the existing `--oc-weight-medium` (500) or `--oc-weight-bold` (700).",
+          "rationale": "No contract change at all. But it is a visible typography change at 10 sites in 5 directories, and it requires a per-site visual judgment about which way each one goes - which is precisely the decision T10 declined to make when it pinned the value instead.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/styles/tokens.css:138-140"
+            ]
+          }
+        },
+        {
+          "summary": "Accept the bare 600s and leave `PRE_TOKEN_SHELL_DECLARATIONS` pinning them.",
+          "rationale": "Costs nothing now. Leaves the theme contract's rule 3 - no component hardcodes a value, every one comes from `var(--oc-*)` - violated at 10 sites, and leaves a two-sided pin holding a known defect in place.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "question": "Four full-window scrims are opaque (`background: var(--oc-bg-app)`) because the token set has no alpha layer, so a dialog hides the window rather than veiling it. Does the contract gain an overlay token, and does the fix cover all four sites or only the one the backlog filed?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "One token, all four scrims. Add a single overlay token to the theme contract and convert Helm, DeletePodDialog, NewPodDialog and BeachcomberPreviewDialog together. The user took the first option as recommended.",
+      "options": [
+        {
+          "summary": "Add one overlay token and convert all four scrims together.",
+          "rationale": "A census of all 11 `--oc-bg-app` consumers in CSS found exactly four full-window scrims, all with the identical declaration triple, and one of them records the missing alpha layer as the cause for itself and for a sibling. One cause, one token, one consistent result across every dialog in the app.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/beachcomber/BeachcomberPreviewDialog.module.css:8-10",
+              "src/renderer/src/helm/Helm.module.css:413-420",
+              "src/renderer/src/pods/NewPodDialog.module.css:1-9",
+              "src/renderer/src/pods/DeletePodDialog.module.css:6-14"
+            ]
+          }
+        },
+        {
+          "summary": "Add the token but convert only `.confirmScrim`, the single site the backlog filed.",
+          "rationale": "Matches the literal filed scope and the handoff brief's 'sole consumer' note. It would leave three dialogs opaque while a fourth veils - a visible inconsistency nobody asked for, and a near-certain re-file.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/handoff-c3.md",
+              "src/renderer/src/helm/Helm.module.css:413"
+            ]
+          }
+        },
+        {
+          "summary": "Accept all four as opaque and correct the backlog's measurement instead.",
+          "rationale": "Changes no CSS, but replaces the 'sole consumer' note with the four-site census so a later session scopes it correctly. Defers a real visual defect while closing the measurement error that hid its breadth.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "question": "`PanelBar`'s per-panel button carries `aria-pressed`, which truthfully reports open state but sits on a button that can never un-press itself, because the frozen contract requires a re-click on the open panel's own button to be a no-op. Keep `aria-pressed`, move to `aria-current`, or make the strip a tablist with `aria-selected`?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Move to `aria-current=\"true\"`. This sanctions the edit to PanelBar.test.tsx:50-59 that C1's criterion 11 protected. The user took the first option as recommended.",
+      "options": [
+        {
+          "summary": "Replace `aria-pressed={open === key}` with `aria-current` on the open panel's button.",
+          "rationale": "MDN defines aria-current as indicating that the element 'represents the current item within a container or set of related elements', with the value `true` meaning the current item in a set. One button in a strip of panel buttons is exactly that. The panel strip is not a toggle, so the toggle attribute is the wrong one.",
+          "evidence": {
+            "kind": "external",
+            "sources": [
+              "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-current"
+            ]
+          }
+        },
+        {
+          "summary": "Give the strip `role=\"tablist\"` with `role=\"tab\"` buttons and `aria-selected`.",
+          "rationale": "The strictest reading of the spec: MDN warns that when something is selected rather than current, such as a tab in a tablist, aria-selected is the attribute, and explicitly says not to substitute aria-current for aria-selected on a tab. But it pulls in roles, APG arrow-key navigation and tabpanel wiring, and it interacts with the frozen no-dialog-on-re-click rule.",
+          "evidence": {
+            "kind": "external",
+            "sources": [
+              "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-current"
+            ]
+          }
+        },
+        {
+          "summary": "Keep `aria-pressed` and record in the docblock why it stays.",
+          "rationale": "Cheapest, and touches no protected test. But the external evidence cuts against it: aria-pressed is defined for toggle buttons with two reachable states and this button has one. Nothing is announced incorrectly - the attribute remains a truthful state indicator - it is the control's affordance that is misdescribed.",
+          "evidence": {
+            "kind": "external",
+            "sources": [
+              "https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/button_role"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "question": "`resetHelmForReopen` nulls `incoming` through a whole-state reset, so the live contract's clearing list - declared EXHAUSTIVE over four named events - is not exhaustive as written. The behaviour is correct; only the prose is wrong. Amend the live contract, rescope the word, or record it and amend nothing?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Name the whole-state reset in the live contract, stamped with this session's slug per the file's existing amendment convention, and complete `resetHelmForReopen`'s own docblock. No code change. The user took the first option as recommended.",
+      "options": [
+        {
+          "summary": "Amend the live clearing list to name the panel-close whole-state reset, and complete the store method's docblock.",
+          "rationale": "The live contract already uses an `ADDED by session <slug>` convention, so the amendment has a stamped home that does not touch any frozen session artifact. The store method's own docblock names the document and the draft but not `incoming`, so it has the same hole. After the edit, an auditor's question is answerable from the contract alone.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/contracts/renderer-panels.ts:406-411",
+              "src/renderer/src/state/panel-store.ts:329-331"
+            ]
+          }
+        },
+        {
+          "summary": "Narrow the claim instead: the list is exhaustive over events that clear `incoming` alone, and a whole-state reset is a separate class.",
+          "rationale": "Arguably truer to what the original author meant, and a smaller edit. It leaves a reader to infer that the whole-state reset class exists rather than seeing it named, which is most of the value of fixing it at all.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Leave both the contract and the docblock; file it in the backlog's Informational section.",
+          "rationale": "That section already parks falsified claims in frozen contracts that can never be edited. But this claim sits in a live contract under `src/`, not in a frozen artifact, so unlike those it can actually be fixed - which makes parking it a weaker fit than it first looks.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/backlog.md:1735-1747"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "E5",
+      "taskId": "T3",
+      "question": "T3's acceptance criteria 4 and 8 are arithmetically incompatible as frozen. Criterion 4 MANDATES that the overlay token derive its hue from `--oc-bg-app` via `color-mix` and introduce no colour literal; that necessarily adds an eighth `var(--oc-bg-app)` occurrence at the token's own definition site in `styles/tokens.css`, inside criterion 8's `--include=\"*.css\"` glob. Criterion 8 demands the count be exactly 7. Reaching 7 would require a hex literal, violating criterion 4. Amend the frozen criterion, or record criterion 8 as not met on its letter?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend criterion 8 to scope its count to consumers, excluding the token definition site, keeping the total at 7. The user took the first option as recommended. Performed as amendment A1.",
+      "options": [
+        {
+          "summary": "Scope criterion 8's command to exclude the token definition site, keeping the expected total at 7.",
+          "rationale": "The criterion's own subject has always been the seven CONSUMERS it names by file and line - its text reads 'the SEVEN other `--oc-bg-app` consumers' and asserts 'the seven matching file:line pairs are exactly those listed'. The definition of a different token is not a consumer of this one. The filter expresses what the criterion meant rather than relaxing what it checks, and both the count and the exactly-those-listed claim stay true.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/styles/tokens.css:46",
+              ".dir-sdlc/sessions/2026-10-09-orcastrate-theme-contract-decisions/manifest.json"
+            ]
+          }
+        },
+        {
+          "summary": "Change the expected total from 7 to 8 and name the definition site as the expected eighth occurrence.",
+          "rationale": "The smallest possible edit to the frozen text. But it leaves a criterion whose count says 8 while its prose names seven files and asserts the matches are exactly those listed, so a later reader must reconstruct why the two numbers disagree - the stale-prose trap this session exists to close.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/styles/tokens.css:46"
+            ]
+          }
+        },
+        {
+          "summary": "Leave the frozen criterion untouched and record criterion 8 as not met on its letter.",
+          "rationale": "Preserves the frozen artifact perfectly and costs no amendment record. But it writes a false negative into the Gate 3 per-criterion table against work that is correct, and a later reader of `coverage.md` sees a failed criterion where none failed.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E5",
+      "artifact": "manifest.json",
+      "before": "T3 criterion 8's evidence required `grep -rno \"var(--oc-bg-app)\" src/renderer --include=\"*.css\" | wc -l` to print exactly 7 after the change, unfiltered.",
+      "after": "The same grep piped through `grep -v \"^src/renderer/src/styles/tokens.css:\"` must print exactly 7, with the unfiltered form recorded as printing 8; the amendment states why criteria 4 and 8 could not both hold as frozen.",
+      "inFlight": [
+        "T3"
+      ]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 5,
+    "reviewRounds": 1
+  }
+}

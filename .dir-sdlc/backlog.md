@@ -199,7 +199,16 @@ file for the eight findings C1 itself produced.
   validator legitimately emits `parseError` and `permissionsDeny`. The type is
   `string`, so nothing breaks — but a consumer keying per-field rendering off the
   five would leave a `parseError` issue disabling Save with no visible cause.
-- **`font-weight: 600` has no token.** The set offers 400/500/700. Fixing it is a
+- ~~**`font-weight: 600` has no token.**~~ **CLOSED 2026-10-12** by sub-session C3
+  (`2026-10-09-orcastrate-theme-contract-decisions`, `10feee6`). The contract gained
+  `--oc-weight-semibold: 600` as an additions-only amendment authorised by escalation E1,
+  and all ten declarations consume it. **The close went wider than the item:** the
+  remaining five bare `font-weight` literals (four `700`, one `400`) were folded in by
+  user decision at Gate 2, so **no `*.module.css` under `src/renderer/src` sets
+  `font-weight` to a literal anywhere** — a zero-pixel change, since those tokens already
+  held exactly those values. That is what let the new hygiene census be the universal rule
+  with no exception list rather than one scoped to a single value. Original text:
+  The set offers 400/500/700. Fixing it is a
   visual decision, not a mechanical swap — which is why T10 pinned it rather than
   changing it. **Re-measured 2026-10-09: this is wider than first recorded — 10
   occurrences across 5 files** (`lanes/LaneRail.module.css` ×2,
@@ -266,12 +275,20 @@ file for the eight findings C1 itself produced.
   `--sequence.shuffle`: its "covers all four documented codes" reads a set filled
   by earlier tests in the same file. Pre-existing from sub-session 1; the rest of
   the repo shuffles clean.
-- **One T10 pin still fails when the defect it pins is fixed.** **NARROWED
-  2026-10-09:** the `HelmNotices` `toHaveLength(2)` half is **closed** — C2 fixed
-  the duplicate sentence and the pin now reads `toHaveLength(1)`.
-  `PRE_TOKEN_SHELL_DECLARATIONS` is still live, and has **moved** out of
+- ~~**One T10 pin still fails when the defect it pins is fixed.**~~ **FULLY CLOSED
+  2026-10-12** by sub-session C3 (`10feee6`). Both halves are now shut. C3 deleted the
+  `EmptyWorkspace.module.css: font-weight: 600` entry from
+  `PRE_TOKEN_SHELL_DECLARATIONS`, leaving its five border entries, and **the pin fired
+  exactly as predicted**: the implementer converted the stylesheet before editing the
+  list and observed `expected [ …(5) ] to deeply equal [ …(6) ]` at the assertion. The
+  exception list shrank under review rather than outliving the problem, which is what it
+  was built to do. **NARROWED 2026-10-09:** the `HelmNotices` `toHaveLength(2)` half is
+  **closed** — C2 fixed the duplicate sentence and the pin now reads `toHaveLength(1)`.
+  Original text: `PRE_TOKEN_SHELL_DECLARATIONS` is still live, and has **moved** out of
   `failure-paths.e2e.test.tsx` into `src/renderer/src/__tests__/hygiene.test.ts:628`,
   asserted at `:710`. Whoever does the font-weight token work edits it there.
+  (Those line numbers were already stale by the time C3 read them — the declaration was
+  at `:631` and the assertion at `:713`. Re-grep, always.)
 - **`src/main/ipc/handlers.ts:90-92`'s duplicate-registration guard has no direct
   test**, before or after this session. Extracting `register` into an exported
   factory would cover it without a test-only export.
@@ -1330,19 +1347,57 @@ Everything else in this block is still open and is C3's scope.
 
 ### Contract gaps
 
-- **`panel-store.ts:329-332` — a fifth site nulls `incoming`.** `resetHelmForReopen`
+- ~~**`panel-store.ts:329-332` — a fifth site nulls `incoming`.**~~ **CLOSED 2026-10-12**
+  by sub-session C3 (`5ba2f3e`), authorised by escalation E4. The **live** contract at
+  `contracts/renderer-panels.ts` now names the panel-close whole-state reset as a fifth
+  clearing event, stamped with C3's slug, and `EXHAUSTIVE` stays and is now true;
+  `resetHelmForReopen`'s own docblock, which had the identical hole one line from the
+  code, now names `incoming` too. No behaviour changed — the diff touches only comments.
+  **Note the target:** the amendment went to the live contract under `src/`, NOT to C1's
+  frozen `helm-draft-safety.ts:142`, which carries the same list and which this project
+  never edits — that frozen copy is still wrong and is now its own backlog item in the
+  C3 block below. **One residue:** C3's reviewer, asked to audit whether `EXHAUSTIVE` is
+  now *true* rather than just confirm a fifth bullet exists, enumerated all 13 writers of
+  `incoming` and found a **sixth** clearing write at `panel-store.ts:663` — a failed
+  `compare()`. It does not falsify the claim, because the docblock preamble separately
+  names "the last request failed" as a cause of null, but it is carried forward. Original
+  text: `resetHelmForReopen`
   replaces the whole Helm state via `newHelmState(null)` when the panel closes, so
   `incoming` goes null with `document` and `draft`. Correct behaviour, but the frozen
   contract's clearing list names "exactly four events" and this is not one of them. A
   future reader auditing that list will find it and cannot tell whether it is a bug.
   Fix is to name the whole-state reset in the contract, not to change the code.
-- **`HelmPanel.tsx:113` — the comparison surface does not exist before a scope is
+- ~~**`HelmPanel.tsx:113` — the comparison surface does not exist before a scope is
+  chosen.**~~ **CLOSED 2026-10-12** by sub-session C3 (`5ba2f3e`). Resolved as prose, with
+  no behaviour change and no escalation: the question "which reading did criterion 6 mean"
+  was settled at rung 1 of the inference ladder, because the **frontend discipline base
+  states the rule the criterion transcribed almost verbatim** — "Every fetch has a
+  declared loading state, a declared error state, and a declared empty state" — and that
+  rule governs the states *of a fetch*, not whether the surface mounts before a fetch is
+  possible. `HelmComparison` declares all three whenever a draft exists; with no scope
+  chosen there is no fetch, no pending edit and no file. `HelmPanel.tsx`'s docblock now
+  records which reading governs, names the discipline rule, and cites C1's unreachability
+  finding, so the next auditor does not re-litigate it. The gating is byte-identical.
+  Original text: the comparison surface does not exist before a scope is
   chosen.** Criterion 6 required a declared empty state; with `draft === null` no
   surface renders at all. Judged met at review, because the reviewer traced the store
   and established that `draft === null && incoming !== null` is unreachable, so the
   gating never hides a comparison that has data. The criterion's letter admits the
   other reading; a future session should decide which it meant.
-- **`Helm.module.css` `.confirmScrim` is opaque.** It uses `background: var(--oc-bg-app)`
+- ~~**`Helm.module.css` `.confirmScrim` is opaque.**~~ **CLOSED 2026-10-12** by
+  sub-session C3 (`10feee6`), authorised by escalation E2. The contract gained
+  `--oc-overlay-scrim: color-mix(in srgb, var(--oc-bg-app) 70%, transparent)` — a
+  deliberately new family, not a sixth `--oc-bg-*` surface, and introducing no colour
+  literal, which answers the exact objection the stylesheets had recorded. **This item
+  was filed four times too narrow.** The scoping pass found the defect is **four
+  full-window scrims, not one**: a census of all eleven `var(--oc-bg-app)` CSS consumers
+  found four identical `position: fixed; inset: 0; background: var(--oc-bg-app)` rules —
+  Helm's close confirmation, `DeletePodDialog`, `NewPodDialog` and
+  `BeachcomberPreviewDialog` — and `BeachcomberPreviewDialog.module.css:8-10` had
+  recorded the missing alpha layer as the cause for itself *and* for `NewPodDialog`. All
+  four now veil instead of hiding the whole window, and that docblock, which became false
+  the moment the token existed, was rewritten with the change. The seven legitimate
+  `--oc-bg-app` surfaces are untouched. Original text: It uses `background: var(--oc-bg-app)`
   because `renderer-theme.ts`'s `TOKENS` has no overlay, opacity or alpha token, and the
   stylesheet rule forbids literal colours. So the panel behind the confirmation is hidden
   rather than dimmed. **Same shape as the gap that produced `ADDED_TOKENS` in
@@ -1380,7 +1435,19 @@ Everything else in this block is still open and is C3's scope.
   This was compelled by the frozen contract ("re-clicking the open panel's own button must
   not raise a dialog") and is not a defect, but it removes a gesture users had. The strip
   close button and Escape both survive and are test-covered, so nothing is trapped.
-- **`PanelBar.tsx:78` — `aria-pressed` announces a toggle that cannot be un-pressed.**
+- ~~**`PanelBar.tsx:78` — `aria-pressed` announces a toggle that cannot be un-pressed.**~~
+  **CLOSED 2026-10-12** by sub-session C3 (`56abc4b`), authorised by escalation E3, which
+  also **sanctioned the edit to `PanelBar.test.tsx:50-59` that C1's own criterion 11
+  protected** — the decision the item asked for. The button now carries
+  `aria-current="true"`, on MDN's definition that aria-current marks "the current item
+  within a container or set of related elements", which one button in a panel strip is;
+  `aria-pressed` is for a toggle with two reachable states and this button has one. The
+  stylesheet's open-state selector, both rationale docblocks, and the protected test moved
+  with it — the test still reads the attribute off the open panel's button *and* off a
+  closed one, so the non-visual two-state proof is intact, and `aria-pressed` survives
+  untouched on the seven files carrying genuine toggles. **One residue carried forward:**
+  the implementation emits `aria-current="false"` on every closed button, and both agents
+  labelled its ARIA validity as belief rather than verified fact. Original text:
   The attribute still truthfully reports open state, but the button it sits on can no
   longer un-press itself. Changing it means editing `PanelBar.test.tsx:50-59`, which the
   session's own criterion 11 protected. Decide between keeping `aria-pressed` as a state
@@ -1625,7 +1692,12 @@ the bad check grepped TypeScript identifiers where only CSS variable names appea
   `__tests__/hygiene.test.ts:836`, "finds no stray control byte anywhere under
   `src/`". `tests/` and `probe/` carry the same exposure and
   `tests/router/hygiene.test.ts` has no such rule.
-- **`PRE_TOKEN_SHELL_DECLARATIONS` is still a two-sided pin**, relocated to
+- ~~**`PRE_TOKEN_SHELL_DECLARATIONS` is still a two-sided pin**~~ — **CLOSED 2026-10-12**
+  by sub-session C3 (`10feee6`). The font-weight entry is deleted and the pin fired on the
+  way, as designed. **The citation in this roster line was already stale when C3 read
+  it:** the declaration was at `:631` and the assertion at `:713`, not `:628`/`:710` — it
+  had moved twice on 2026-10-09, within hours of this roster being written. C3's handoff
+  brief caught and corrected it before dispatch. Original text: relocated to
   `__tests__/hygiene.test.ts:628`, asserted `:710`. The font-weight token work
   must edit it.
 - ~~**`tests/unit/store/errors.test.ts:117` is order-dependent**~~ —
@@ -1984,3 +2056,149 @@ derived criteria, all met; 0 blocking findings.
   implementers edit": for a one-sentence comment correction already specified by a
   review, a re-dispatch is the overhead the Small track exists to avoid. Judge the
   same way next time, and do not let it widen past one specified sentence.
+
+---
+
+## 2026-10-12 — 2026-10-09-orcastrate-theme-contract-decisions
+
+Sub-session **C3** of the Large routing over the 2026-08-20 block, and the last of the
+three. **All five scoped items are CLOSED** — the closures are annotated in their own
+blocks above: `font-weight: 600` and the T10 pin in the `2026-08-20` block, the opaque
+`.confirmScrim`, the unnamed fifth clearing site, the criterion-6 reading and the
+`PanelBar` `aria-pressed` decision in the `2026-09-01` block, and the pin line in the
+`2026-10-09` audit roster.
+
+**32 acceptance criteria, all met. One blocking finding, closed in one round. Five
+escalations, one amendment. 4 user interactions. Suite 2228 → 2240** (measured 2233 at
+the session's own base, 2240 at its tip); typecheck clean on both programs throughout.
+Three commits: `56abc4b`, `5ba2f3e`, `10feee6`.
+
+Two of the five items were filed with their **breadth wrong**, both corrected before
+decomposition: the opaque scrim was four sites rather than one, and the clearing-list
+amendment belonged in the live contract rather than C1's frozen artifact. Scoping a
+handed-down item by re-measuring it, rather than by trusting its citation, is what this
+session's two biggest corrections came from.
+
+### Contract gaps
+
+- **`panel-store.ts:663` — a failed `compare()` nulls `incoming` and the clearing list
+  does not name it.** The sixth clearing write, found by a reviewer asked to audit whether
+  `EXHAUSTIVE` is now *true* rather than confirm a fifth bullet exists. It does **not**
+  falsify the claim: the docblock's preamble at `:406` separately taxonomises "the last
+  request failed" as a cause of null, so the write is accounted for outside the list by
+  design. But a reader of the bullet list alone, without the preamble, finds a clearing
+  write the list does not name — the same reading failure the whole item existed to close.
+  A future session may want the list to cross-reference it explicitly.
+- **`contracts/renderer-panels.ts:421` — the new fifth entry states the reset
+  unconditionally; the code guards on phase.** `panel-store.ts:337` reads
+  `current.phase === 'idle' ? current : newHelmState(null)`. Harmless in substance:
+  `incoming` can only be non-null after a scope load, by which point `phase` is `'ready'`,
+  so whenever there is anything to clear the replacement does happen, and when the guard
+  short-circuits `incoming` is already null. Precision only.
+- **`.dir-sdlc/sessions/2026-08-31-orcastrate-helm-draft-safety/contracts/helm-draft-safety.ts:142`
+  still carries the four-event list with the now-known-false `EXHAUSTIVE`.** C3 amended
+  the live contract and correctly left this one alone — frozen contracts are never edited
+  here. It is live misinformation for anyone reading C1's artifacts, which is exactly the
+  class the `2026-10-09` **Informational** section exists for. Recorded, not actionable.
+
+### Correctness risks
+
+- **`shell/PanelBar.tsx:89` — `aria-current="false"` is emitted on every closed panel
+  button, and its ARIA validity was never verified.** React stringifies the `false` branch
+  rather than omitting the attribute; the test asserts `'false'` and passes, so the
+  behaviour is measured. What is *not* measured is whether `aria-current="false"` on every
+  non-current item is correct practice versus omitting the attribute. **Both the
+  implementer and the reviewer explicitly labelled this belief rather than verified fact,
+  and neither spent a lookup**, correctly, since no criterion turned on it. This is the
+  one unverified external claim the session shipped. Closing it costs one citation, or one
+  line to omit the attribute on closed buttons.
+
+### Test and CI concerns
+
+- **`shell/Panels.styles.test.ts` does not guard the open-state selector.** It imports
+  `PanelBar.module.css?raw` but asserts only on `.panelBar`, so C3's swap to
+  `[aria-current='true']` has no stylesheet-level guard against a silent revert. Only the
+  component test ties paint to announcement, and indirectly.
+- **`styles/tokens.test.ts:57` locates the `:root` body with
+  `source.indexOf('}', openIndex)`** — the first `}` after `:root {`. Any future token
+  whose value contains a brace would silently truncate that body and make the "inside
+  `:root`" assertion vacuous for every token after it. `color-mix(…)` has no braces, so
+  nothing is wrong today. A latent trap in a file C3 did not own.
+- **`__tests__/hygiene.test.ts:16-17`'s header bullet understates the scoped rule.** It
+  says the `beachcomber`/`helm`/`shell` rule checks "a border width or a letter-spacing",
+  but `:726` still runs `tokenOffenders(text, [LETTER_SPACING, FONT_WEIGHT])`. Not
+  falsified — the next bullet states font weights are enforced repo-wide, a superset — but
+  the enumeration no longer maps to the code path. Same for the docblock title "THE RAW
+  BORDER WIDTHS THIS RULE STILL TOLERATES", which also governs letter-spacing and
+  font-weight offenders and merely happens to contain only border widths today.
+- **`npx prettier --check` warns on `renderer-panels.ts`, `panel-store.ts` and
+  `HelmPanel.tsx`** — pre-existing, identical at the session's base. Not fixed because
+  reformatting would have touched executable lines and broken a no-behaviour-change
+  criterion. The repo has no `eslint.config.*` at all, so lint is not an available check.
+
+### Cosmetics
+
+- **Three loose count phrasings in C3's own new census section.**
+  `__tests__/hygiene.test.ts:1030` ("the five bare `font-weight` literals in `lanes/`,
+  `pods/` and `transcript/`") and `:1236` ("these three directories hold the five
+  literals") — those three directories hold **14** bare declarations across **5 files**, so
+  "five literals" is true only read as *files*, the measure the session standardised on in
+  the contract files and did not carry into the test file. And `:1201` ("the four other
+  bare literals") is **five** — four `700`s and one `400`; defensible only as four distinct
+  file-value pairs. Deliberately not fixed: no assertion depends on any of them, every
+  assertion is correct and two-sided, and three comment words were not worth the session's
+  unused second revision round.
+- **`__tests__/hygiene.test.ts:709` — "Beachcomber has two, Helm one, the shell four."**
+  Measured: 2, 1, and **five** — eight against an assertion of
+  `toBeGreaterThanOrEqual(7)`, so the suite stays green and the comment is simply stale.
+  **Pre-existing, and proven so:** at `41f274e`, before C3 began, `shell/` already held
+  five module stylesheets, and `PanelBar.module.css` existed at that ref, so T1 modified
+  rather than added it and is not the cause either. A **twelfth** instance of the "prose no
+  longer true of the code" class. C3's implementer surfaced it and correctly declined to
+  edit it, since its criterion scoped to claims its own change falsified.
+- **Commit `10feee6`'s message drifted from its diff.** The body claims "the remaining
+  nine take existing tokens (five 400→`--oc-weight-regular`, four 700→`--oc-weight-bold`)".
+  The diff shows **one** `400` and **four** `700`s, and only **five** sites take an
+  existing token — the other four are the scrims, which take the **new** overlay token.
+  The 19 total is correct, which is why the error survives a casual read. History is never
+  rewritten here, so the commit stands and this is the record. Found by the mandatory
+  read-back; everything else in that message is true of its diff.
+- **`lanes/LaneRow.tsx:46` and `lanes/LaneRail.test.tsx:201` carry `aria-pressed` prose.**
+  Still accurate — those are the genuine two-state lane toggles — and correctly untouched.
+  Noted only so a future `aria-pressed` sweep does not mistake them for stragglers.
+
+### Process notes, for whoever runs the next session
+
+- **Two defect classes already written down in this project's notes recurred anyway, five
+  times between them.** (1) *A check that cannot report*: five instances this session — a
+  control string quoting source prose that wrapped across a line break and so could never
+  match (twice, once in the orchestrator's own criterion and once in an implementer's); a
+  reviewer's probe returning 0 offenders where 15 existed; and two more caught in
+  drafting. (2) *Heredoc backslash collapse*: the reviewer's probe died because a quoted
+  heredoc turned `\\s*` into a bare `s` inside a template literal — the second such
+  incident in this project. **Both are in memory as advice and both recurred. They need to
+  be enforced rather than remembered:** a positive control is only a control if it is run,
+  and file content should go through the edit tools without exception.
+- **`dir-git`'s prose drifted for the fourth consecutive session while its staged paths
+  were correct every time.** Three of C3's three commits staged exactly their `owns`
+  globs; one of three misdescribed its own diff. The read-back is the only control, since
+  history is never rewritten — and it caught this one. Keep doing it, and consider that the
+  cheap model may be the wrong tier for message authorship specifically.
+- **Broadening a criterion from an enumeration to a property paid for itself immediately.**
+  C3's criterion 11 was rewritten at Gate 2 from "delete these three strings" to "the
+  docblock carries no claim this task falsifies". The session's single blocking finding was
+  a fourth false claim in that same file, in the assertion body rather than the docblock,
+  which none of the three enumerated greps would have touched. **An enumeration of known
+  instances is not a specification of the obligation.**
+- **The criteria the orchestrator writes need the same adversarial read as the code.** Two
+  defects originated in C3's own frozen criteria: criterion 8's count was arithmetically
+  impossible against criterion 4's mandated value (amendment A1), and criterion 2 asserted
+  "five directories" while naming four, which an implementer faithfully reproduced into
+  shipped prose. The Gate 2 consistency check tested vacuity and pairwise contradiction
+  but never **simulated a criterion's own stated count against the post-change tree**. Add
+  that step.
+- **The veiled dialogs have not been seen by a human.** Four scrims now paint a
+  translucent overlay, confirmed by count, by census predicate and by a passing suite — but
+  no part of this session rendered them. The 2026-10-07 driven Playwright hand-run is the
+  instrument that would, and it has not been re-run against these changes. The same gap
+  applies to the ten semibold headings. **A call site is not a pixel.**
