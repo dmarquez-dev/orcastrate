@@ -2,8 +2,16 @@
  * Lane rail (spec 5.1). A LIST, not a second tab row — the layout below is a
  * vertical stack of rows, and nothing here draws a tab.
  *
- * Every color, font and spacing value comes from `styles/tokens.css`. There is
- * no literal in this file that a theme change would miss.
+ * Every value a THEME owns comes from `styles/tokens.css`: color, font size,
+ * font weight, spacing step, border width and letter-spacing. The border
+ * widths and `.railHeading`'s tracking were the last holdouts and were
+ * converted on 2026-10-12.
+ *
+ * Raw lengths DO remain, so a theme change does not reach every literal here —
+ * it reaches every literal a theme owns. The survivors are geometry a theme has
+ * no say over and no token for: the two ring offsets in
+ * `.status[data-pod-status='waiting'] .dot`'s `box-shadow`, the `1px`/`-1px`
+ * clip recipe in `.srOnly`, and the `1fr` grid fractions in the row layouts.
  */
 
 .rail {
@@ -14,7 +22,7 @@
   height: 100%;
   overflow-y: auto;
   background: var(--oc-bg-panel);
-  border-right: 1px solid var(--oc-border);
+  border-right: var(--oc-border-hairline) solid var(--oc-border);
 }
 
 .railHeading {
@@ -22,7 +30,7 @@
   padding: var(--oc-space-3) var(--oc-space-3) var(--oc-space-2);
   font-size: var(--oc-text-xs);
   font-weight: var(--oc-weight-semibold);
-  letter-spacing: 0.06em;
+  letter-spacing: var(--oc-tracking-wide);
   text-transform: uppercase;
   color: var(--oc-fg-muted);
 }
@@ -36,7 +44,7 @@
 .inlineNote {
   margin: 0 var(--oc-space-3) var(--oc-space-2);
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-muted);
@@ -59,7 +67,7 @@
 .errorState {
   margin: var(--oc-space-2) var(--oc-space-3);
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-danger);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-danger-bg);
   color: var(--oc-fg-primary);
@@ -84,7 +92,7 @@
   align-items: start;
   gap: var(--oc-space-1);
   padding: 0;
-  border-bottom: 1px solid var(--oc-border);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
 }
 
 /* The Matriarch is pinned at the top and reads as the trunk of the list. */
@@ -274,7 +282,7 @@
  * same way on both surfaces.
  */
 .status[data-pod-status] .dot {
-  border: 1px solid var(--pod-status-color);
+  border: var(--oc-border-hairline) solid var(--pod-status-color);
   background: var(--pod-status-color);
 }
 
@@ -379,7 +387,7 @@
   align-self: center;
   margin-inline-end: var(--oc-space-2);
   padding: var(--oc-space-1) var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);
@@ -398,7 +406,7 @@
 .finishedToggle {
   margin: 0 var(--oc-space-3) var(--oc-space-3);
   padding: var(--oc-space-1) var(--oc-space-2);
-  border: 1px solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-muted);
