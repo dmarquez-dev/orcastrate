@@ -618,44 +618,27 @@ function borderOffenders(text: string): string[] {
 }
 
 /**
- * THE RAW BORDER WIDTHS THIS RULE STILL TOLERATES, EXHAUSTIVELY.
+ * THIS RULE TOLERATES NO RAW BORDER WIDTH AT ALL, and that is the point rather
+ * than an omission.
  *
- * Two `shell/` stylesheets predate the tokens: they are sub-session 2 files
- * that landed when `TOKENS` had nothing to offer. Fixing their bare `1px`
- * border widths is a change to shipped pixels, and is for a later owner of
- * `shell/` to decide.
+ * It used to pin an exhaustive list of raw `1px` border widths — five of them,
+ * in two `shell/` stylesheets — on the grounds that converting them changed
+ * shipped pixels and was a later owner of `shell/`'s decision to make.
+ * 2026-10-12-orcastrate-token-sweep was that owner: those five declarations
+ * now read `var(--oc-border-hairline)`, so the pin had nothing left to
+ * tolerate and was deleted in the same change that converted them. The pin was
+ * two-sided, so neither half could have landed alone.
  *
- * THE LIST SHRANK BY ONE, WHICH IS THE MECHANISM WORKING RATHER THAN AN EDIT
- * TO GET A TEST GREEN. It used to carry a sixth entry,
- * `EmptyWorkspace.module.css`'s bare `font-weight`, argued for on the grounds
- * that no token for that weight existed — the set offered 400/500/700 and
- * nothing between — and that the decision was a later owner's to make. Both
- * halves have since stopped being true: `--oc-weight-semibold` exists
- * (2026-10-09-orcastrate-theme-contract-decisions), the weight decision WAS
- * made deliberately by the user (escalation E1) rather than rounded by a test
- * author, and that session owned the stylesheet and converted it. So the entry
- * was deleted rather than left standing, because a stale exemption is what a
- * later reader treats as the current decision.
+ * The assertion below compares the offender list against the EMPTY list, which
+ * is strictly stronger than comparing it against a pin: a declaration that
+ * stops being tokenised fails, and there is no tolerated entry left that could
+ * absorb one. An exception list that shrinks to nothing under review, rather
+ * than quietly outliving the problem it described, is the mechanism working.
  *
- * The assertion below compares against this list EXACTLY, in both directions.
- * A sixth raw declaration anywhere in the three directories fails. So does
- * FIXING one of these five without deleting its line here — which is the
- * point, and is exactly what happened to the sixth: the exception list shrinks
- * under review rather than quietly outliving the problem, as
- * `SURFACELESS_CHANNELS` does in the failure-path suite.
- *
- * NOTE THE SCOPE, because the list cannot state it: this rule walks
- * `TOKENISED_STYLE_ROOTS` only. Font weights are now covered REPO-WIDE and
- * with no exception list at all, by the census at the foot of this file.
+ * NOTE THE SCOPE, because nothing in the assertion states it: this rule walks
+ * `TOKENISED_STYLE_ROOTS` only. Font weights are covered REPO-WIDE, by the
+ * census at the foot of this file.
  */
-const PRE_TOKEN_SHELL_DECLARATIONS: readonly string[] = [
-  'src/renderer/src/shell/EmptyWorkspace.module.css: border: 1px solid var(--oc-border-strong)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-bottom: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-left: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-right: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-top: 1px solid var(--oc-border)',
-];
-
 async function panelStylesheets(): Promise<string[]> {
   const sheets: string[] = [];
   for (const root of TOKENISED_STYLE_ROOTS) {
@@ -727,19 +710,18 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
         offenders.push(`${relative(file)}: ${offender}`);
       }
     }
-    // Exactly the pre-token `shell/` declarations named in
-    // `PRE_TOKEN_SHELL_DECLARATIONS`, and nothing else. Both directions fail
-    // loudly. The list's LENGTH is deliberately not restated here: the list is
-    // the statement of what is tolerated, it sits a few lines up, and a count
-    // copied into a comment beside it is exactly what went stale the last time
-    // the list shrank.
-    expect(offenders.sort()).toEqual([...PRE_TOKEN_SHELL_DECLARATIONS]);
+    // Nothing is tolerated: any raw border width, letter-spacing or font
+    // weight in the three directories fails loudly, and no pinned list can
+    // absorb one. Still sorted, so a failure message is stable and legible
+    // rather than ordered by directory walk.
+    expect(offenders.sort()).toEqual([]);
   });
 
   it('leaves the two panel directories with no exception at all', async () => {
-    // Stated separately from the assertion above so the exception list can
-    // never be read as covering Beachcomber or Helm. Those two directories are
-    // clean, and this is what says so on its own.
+    // Stated separately from the assertion above so that if a tolerated-
+    // declaration list is ever reintroduced there, it can never be read as
+    // covering Beachcomber or Helm. Those two directories are clean, and this
+    // is what says so on its own.
     const offenders: string[] = [];
     for (const file of await panelStylesheets()) {
       if (file.startsWith(`${RENDERER_ROOT}/src/shell/`)) continue;
@@ -1029,10 +1011,10 @@ describe('the two rules added for previously undetectable failure modes', () => 
  * `panelStylesheets()` walks `TOKENISED_STYLE_ROOTS` — `beachcomber/`, `helm/`
  * and `shell/`, three directories. That is why the five bare `font-weight`
  * literals in `lanes/`, `pods/` and `transcript/` were never offenders, never
- * appeared in `PRE_TOKEN_SHELL_DECLARATIONS`, and survived a session whose
- * whole subject was font-weight tokens: the rule was never looking at them. A
- * narrow rule does not report that it is narrow, which is the failure mode
- * worth writing a second rule to close.
+ * appeared in the exception list the scoped rule pinned at the time, and
+ * survived a session whose whole subject was font-weight tokens: the rule was
+ * never looking at them. A narrow rule does not report that it is narrow,
+ * which is the failure mode worth writing a second rule to close.
  *
  * So BOTH rules below walk EVERY `*.module.css` under `src/renderer/src`, and
  * both are two-sided.
@@ -1254,8 +1236,8 @@ describe('the theme-contract conversions of this session', () => {
       }
     }
     // NO EXCEPTION LIST, deliberately. The alternative was a second list of
-    // tolerated declarations, which is the artifact
-    // `PRE_TOKEN_SHELL_DECLARATIONS` exists to shrink.
+    // tolerated declarations — the kind of artifact the scoped rule above
+    // carried until its last entry was converted away and the list deleted.
     expect(offenders).toEqual([]);
   });
 

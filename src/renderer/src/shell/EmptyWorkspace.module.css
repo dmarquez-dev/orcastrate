@@ -23,7 +23,7 @@
 
 .action {
   padding: var(--oc-space-2) var(--oc-space-4);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-md);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);

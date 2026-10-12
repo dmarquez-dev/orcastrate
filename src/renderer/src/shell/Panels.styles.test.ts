@@ -9,11 +9,11 @@
  * Modelled on `composer/Composer.styles.test.ts`, which does the same job for
  * the composer, down to the vacuity guard.
  *
- * Only the files this task ADDED are covered. `WorkspaceLayout.module.css`
- * predates the border-width token and carries a bare `1px` from sub-session 1;
- * that is the known token-set gap `__tests__/hygiene.test.ts` documents, and
- * rewriting a sibling task's stylesheet to satisfy a rule this task invented
- * would be churn, not hygiene.
+ * Only the two files this task ADDED are covered, and the sibling `shell/`
+ * stylesheets are covered elsewhere rather than not at all:
+ * `__tests__/hygiene.test.ts` holds every `*.module.css` under
+ * `beachcomber/`, `helm/` and `shell/` to tokenised border widths,
+ * letter-spacings and font weights, with nothing tolerated.
  */
 
 import { describe, expect, it } from 'vitest';
