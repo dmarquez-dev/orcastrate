@@ -69,7 +69,15 @@ describe("the user's turn is distinguished without colour and without alignment 
 
   it('carries a background AND a border, both from tokens', () => {
     expect(body()).toMatch(/background:\s*var\(--oc-bg-raised\)/);
-    expect(body()).toMatch(/border:\s*1px solid var\(--oc-border-strong\)/);
+    /*
+     * THE WIDTH IS A TOKEN TOO. This read `1px solid` until the token sweep;
+     * a raw length here is what the repo-wide border-width census now flags,
+     * so the assertion names the token rather than the literal.
+     */
+    expect(
+      body(),
+      ".event[data-turn-role='user'] must carry its border width as a token",
+    ).toMatch(/border:\s*var\(--oc-border-hairline\) solid var\(--oc-border-strong\)/);
   });
 
   it('moves ONLY the user — no other role gets a position rule', () => {

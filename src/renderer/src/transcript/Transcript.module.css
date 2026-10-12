@@ -12,13 +12,13 @@
   min-width: 0;
   height: 100%;
   background: var(--oc-bg-app);
-  border-left: 1px solid var(--oc-border);
+  border-left: var(--oc-border-hairline) solid var(--oc-border);
 }
 
 .paneHeader {
   flex: 0 0 auto;
   padding: var(--oc-space-3);
-  border-bottom: 1px solid var(--oc-border);
+  border-bottom: var(--oc-border-hairline) solid var(--oc-border);
   background: var(--oc-bg-panel);
 }
 
@@ -48,7 +48,7 @@
   align-items: center;
   gap: var(--oc-space-1);
   padding: var(--oc-space-1) var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);
@@ -108,7 +108,7 @@
 .paneError {
   margin: var(--oc-space-2) var(--oc-space-3);
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-danger);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-danger-bg);
   color: var(--oc-fg-primary);
@@ -170,7 +170,7 @@
   margin-inline-start: auto;
   max-width: 90%;
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-md);
   background: var(--oc-bg-raised);
 }
@@ -178,7 +178,7 @@
 .eventLabel {
   font-size: var(--oc-text-xs);
   font-weight: var(--oc-weight-bold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--oc-tracking-wide);
   text-transform: uppercase;
   color: var(--oc-fg-muted);
 }
@@ -200,7 +200,7 @@
 .eventCode {
   margin: 0;
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-panel);
   color: var(--oc-fg-primary);
@@ -240,7 +240,7 @@
   min-width: 0;
   max-width: 100%;
   padding: var(--oc-space-1) var(--oc-space-2);
-  border: 1px solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-panel);
   color: var(--oc-fg-primary);
@@ -283,7 +283,7 @@
   width: 100%;
   margin-top: var(--oc-space-3);
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);
@@ -306,7 +306,7 @@
 
 .dispatchCard {
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-md);
   background: var(--oc-bg-raised);
 }
@@ -339,7 +339,7 @@
   gap: var(--oc-space-2);
   width: 100%;
   padding: var(--oc-space-1) var(--oc-space-2);
-  border: 1px solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-panel);
   color: var(--oc-fg-primary);
