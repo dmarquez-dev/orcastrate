@@ -11,7 +11,7 @@
   justify-content: center;
   inset: 0;
   padding: var(--oc-space-6);
-  background: var(--oc-bg-app);
+  background: var(--oc-overlay-scrim);
 }
 
 .dialog {
@@ -31,7 +31,7 @@
 .heading {
   margin: 0;
   font-size: var(--oc-text-lg);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
 }
 
 /* The Pod's title, so a mis-click on the wrong tab is visible. */
@@ -39,7 +39,7 @@
   margin: 0;
   color: var(--oc-fg-primary);
   font-size: var(--oc-text-md);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
 }
 
 .warning {

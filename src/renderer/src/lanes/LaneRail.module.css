@@ -21,7 +21,7 @@
   margin: 0;
   padding: var(--oc-space-3) var(--oc-space-3) var(--oc-space-2);
   font-size: var(--oc-text-xs);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--oc-fg-muted);
@@ -159,7 +159,7 @@
 .agentType {
   grid-column: 1;
   font-size: var(--oc-text-md);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
   overflow-wrap: anywhere;
 }
 
@@ -174,7 +174,7 @@
   background: var(--oc-status-running);
   color: var(--oc-fg-inverse);
   font-size: var(--oc-text-xs);
-  font-weight: 700;
+  font-weight: var(--oc-weight-bold);
   text-align: center;
 }
 

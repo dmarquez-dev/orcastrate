@@ -325,7 +325,13 @@ export class PanelStateStore {
     );
   }
 
-  /** Closing Helm drops the loaded document and any unsaved draft with it. */
+  /**
+   * Closing Helm drops the loaded document and any unsaved draft with it, and
+   * `incoming` goes NULL with them. `newHelmState(null)` replaces the WHOLE Helm
+   * state, so `incoming` is not cleared by a targeted write — it falls as part
+   * of the wholesale replacement. `HelmView.incoming`'s clearing list in
+   * `contracts/renderer-panels.ts` names this reset for that reason.
+   */
   private resetHelmForReopen(): void {
     if (this.api === null) return;
     this.patchHelm((current) => (current.phase === 'idle' ? current : newHelmState(null)));

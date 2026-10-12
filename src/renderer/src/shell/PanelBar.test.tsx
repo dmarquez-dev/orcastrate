@@ -47,14 +47,19 @@ describe('PanelBar', () => {
     expect(screen.getByTestId(PANEL_TEST_IDS.panelBarClose)).toBeDefined();
   });
 
-  it('carries the open state on aria-pressed, not on colour alone', () => {
+  // Open state has to be readable without seeing the strip, so this reads the
+  // attribute off the open button AND off a closed one: an attribute that is
+  // present on every button distinguishes nothing. The carrier is
+  // `aria-current` and not the toggle attribute, because a panel button only
+  // ever opens — see the rationale in `PanelBar.tsx`.
+  it('carries the open state on aria-current: true on the open panel, false on a closed one', () => {
     render(<PanelBar onClose={vi.fn()} onOpen={vi.fn()} open="beachcomber" />);
 
     expect(
-      screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'beachcomber')).getAttribute('aria-pressed'),
+      screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'beachcomber')).getAttribute('aria-current'),
     ).toBe('true');
     expect(
-      screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')).getAttribute('aria-pressed'),
+      screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')).getAttribute('aria-current'),
     ).toBe('false');
   });
 

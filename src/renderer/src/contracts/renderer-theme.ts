@@ -165,6 +165,53 @@ export const TOKENS = {
   // the other's markup, for the same reason `podBarHeight` exists.
   panelBarHeight: '--oc-panel-bar-height',
   panelMaxWidth: '--oc-panel-max-width',
+
+  // AMENDMENT (sub-session 2026-10-09-orcastrate-theme-contract-decisions, T3)
+  // — ADDITIONS ONLY. Nothing above is renamed, revalued, removed or
+  // reordered, so no existing component's appearance changes as a side effect.
+  //
+  // BOTH KEYS CLOSE A TOKEN-SET GAP OF THE EXACT SHAPE THE SUB-SESSION 3
+  // AMENDMENT RECORDED ABOVE (`:140-148`): a value that six directories
+  // reached for independently because `TOKENS` had nothing to offer, which
+  // every reviewer called a gap rather than a deviation. Measured in this
+  // session rather than assumed, by
+  // `grep -rn "font-weight: *600" src/renderer --include="*.module.css"`.
+
+  /**
+   * The weight between `medium` and `bold`, so the ramp reads 400/500/600/700.
+   *
+   * TEN declarations across FIVE FILES in FOUR DIRECTORIES — `lanes`, `pods`,
+   * `shell` and `transcript` — independently wrote a bare `600` because the set
+   * offered 400/500/700 and NOTHING BETWEEN, the one step a heading or an
+   * emphatic label actually wants. All ten are headings or emphatic labels,
+   * which is why one token serves them all rather than two.
+   *
+   * The decision to add it rather than round those ten to `medium` or `bold`
+   * was made deliberately by the user (escalation E1), not rounded by a test
+   * author: rounding would have changed shipped pixels in all five files.
+   */
+  weightSemibold: '--oc-weight-semibold',
+
+  /**
+   * A NEW FAMILY, deliberately NOT an `--oc-bg-*`.
+   *
+   * The `--oc-bg-*` ramp is five surfaces BACK TO FRONT: each one BACKS the
+   * content drawn on it. A scrim sits ABOVE all five and VEILS what is behind
+   * it. Those are different jobs, and the `--oc-action-*` versus
+   * `--oc-status-*` argument at `:97-107` is the precedent — families are kept
+   * apart when they mean different things, because collapsing them is what
+   * makes a ramp's own rules stop meaning anything.
+   *
+   * It carries the ALPHA, which is the whole point. Four full-window scrims
+   * were `background: var(--oc-bg-app)` — fully opaque, so a dialog HID the
+   * window instead of veiling it. `BeachcomberPreviewDialog.module.css`
+   * recorded the reason in prose: "the token set has no alpha layer, and
+   * inventing one would be a color literal". Correct at the time, and this key
+   * is the answer to it. The value derives its hue from `--oc-bg-app` through
+   * `color-mix` and adds only the alpha, so NO NEW COLOUR LITERAL enters the
+   * token set — see `tokens.css`.
+   */
+  overlayScrim: '--oc-overlay-scrim',
 } as const;
 
 /** `cssVar(TOKENS.bgPanel)` -> `"var(--oc-bg-panel)"`. */

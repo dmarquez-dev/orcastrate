@@ -82,14 +82,14 @@
 .paneTitle {
   margin: 0;
   font-size: var(--oc-text-lg);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
   color: var(--oc-fg-primary);
 }
 
 .pinnedTag {
   color: var(--oc-fg-muted);
   font-size: var(--oc-text-sm);
-  font-weight: 400;
+  font-weight: var(--oc-weight-regular);
 }
 
 .paneSubtitle {
@@ -177,7 +177,7 @@
 
 .eventLabel {
   font-size: var(--oc-text-xs);
-  font-weight: 700;
+  font-weight: var(--oc-weight-bold);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--oc-fg-muted);
@@ -315,7 +315,7 @@
   margin: 0;
   color: var(--oc-fg-primary);
   font-size: var(--oc-text-md);
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
 }
 
 .dispatchNoRows {
@@ -353,7 +353,7 @@
 }
 
 .dispatchAgentType {
-  font-weight: 600;
+  font-weight: var(--oc-weight-semibold);
 }
 
 .dispatchAgentDescription {

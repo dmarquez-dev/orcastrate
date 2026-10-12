@@ -5,7 +5,7 @@
  * `--oc-pod-bar-height` (38px), so the two read as chrome and sub-chrome
  * rather than as two peer tab rows — the reason the token exists.
  *
- * Open state is carried by `aria-pressed`, and the selector below hangs off
+ * Open state is carried by `aria-current`, and the selector below hangs off
  * that attribute rather than off a class. The state is therefore expressed
  * once, in the accessibility tree, and the colour merely follows it: there is
  * no way to paint a button "open" without also announcing it.
@@ -40,7 +40,7 @@
   color: var(--oc-fg-primary);
 }
 
-.button[aria-pressed='true'] {
+.button[aria-current='true'] {
   border-color: var(--oc-border-strong);
   background: var(--oc-bg-selected);
   color: var(--oc-fg-primary);

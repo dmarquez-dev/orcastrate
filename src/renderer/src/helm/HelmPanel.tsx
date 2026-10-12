@@ -122,6 +122,32 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
         beside the file nor a file to fetch. With a draft on screen it is
         always present, and it declares its own loading, error and empty
         states rather than appearing only once it has something to show.
+
+        WHICH READING OF C1's T4 CRITERION 6 GOVERNS. That criterion 6 asked
+        for a declared loading state while `view.comparing`, a declared error
+        state from `view.actionError`, and a declared empty state when
+        `view.incoming` is null, and said a surface rendering only the success
+        path fails. Its letter admits a second reading in which this gate
+        never met it, because with `draft === null` no comparison surface
+        mounts at all. The first reading is the one that governs, and this is
+        settled, not open:
+
+          - Criterion 6 transcribed the frontend discipline's data-fetching
+            rule, "Every fetch has a declared loading state, a declared error
+            state, and a declared empty state". That rule governs the states
+            OF A FETCH — not whether a surface mounts before any fetch is
+            possible.
+          - `HelmComparison` declares all three whenever a draft exists, which
+            is exactly when a fetch is possible.
+          - With no scope chosen there is no fetch, no pending edit, and no
+            file to compare against. There is nothing for the three states to
+            be states of.
+          - `draft === null && incoming !== null` is unreachable, as C1's
+            reviewer separately established. So this gate can never hide a
+            comparison that has data.
+
+        The gate is therefore correct as written. Do not "fix" it by mounting
+        the surface unconditionally.
       */}
       {draft === null ? null : (
         <HelmComparison

@@ -417,7 +417,7 @@
   display: grid;
   place-items: center;
   padding: var(--oc-space-4);
-  background: var(--oc-bg-app);
+  background: var(--oc-overlay-scrim);
 }
 
 .confirm {

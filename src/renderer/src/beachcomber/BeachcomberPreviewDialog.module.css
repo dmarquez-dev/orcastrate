@@ -5,9 +5,15 @@
  * `Beachcomber.module.css`; the two files are separate because the dialog is
  * the one surface that sits above the panel rather than inside it.
  *
- * The scrim is opaque rather than translucent for the same reason
- * `NewPodDialog.module.css` is: the token set has no alpha layer, and inventing
- * one would be a color literal.
+ * The scrim VEILS the window rather than hiding it: `--oc-overlay-scrim`
+ * carries the alpha and derives its hue from `--oc-bg-app` through
+ * `color-mix`, so no colour literal was invented to get it. This paragraph
+ * used to say the opposite — that the scrim was opaque "for the same reason
+ * `NewPodDialog.module.css` is: the token set has no alpha layer, and
+ * inventing one would be a color literal". That was true when it was written
+ * and stopped being true the moment the token existed
+ * (2026-10-09-orcastrate-theme-contract-decisions); the three other
+ * full-window scrims moved with it.
  */
 
 .scrim {
@@ -17,7 +23,7 @@
   align-items: center;
   justify-content: center;
   padding: var(--oc-space-6);
-  background: var(--oc-bg-app);
+  background: var(--oc-overlay-scrim);
   inset: 0;
 }
 
