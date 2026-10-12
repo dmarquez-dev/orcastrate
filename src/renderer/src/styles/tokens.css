@@ -28,6 +28,23 @@
   --oc-bg-hover: #2b303a;
   --oc-bg-selected: #333a47;
 
+  /* AMENDMENT (2026-10-09-orcastrate-theme-contract-decisions) — OVERLAY, a
+     NEW FAMILY and deliberately not a sixth `--oc-bg-*`. The five surfaces
+     above BACK the content drawn on them; a scrim sits ABOVE all five and
+     VEILS what is behind it. Same argument as `--oc-action-*` versus
+     `--oc-status-*` below: families stay apart when they mean different
+     things.
+     NO NEW COLOUR LITERAL. The hue is `--oc-bg-app` itself, reached through
+     `color-mix`, and this token adds only the ALPHA — which is exactly the
+     objection `BeachcomberPreviewDialog.module.css` recorded when it settled
+     for an opaque scrim ("the token set has no alpha layer, and inventing one
+     would be a color literal"). 70% is opaque enough to drop the window well
+     behind the dialog and short enough of 100% to still read as a veil; at
+     100% a dialog HIDES the window, which is the defect being fixed, and at 0%
+     it would veil nothing. `color-mix` needs no fallback here: the renderer is
+     Chromium only (Electron 43), well past its Chrome 111 baseline. */
+  --oc-overlay-scrim: color-mix(in srgb, var(--oc-bg-app) 70%, transparent);
+
   /* Text. `fg-primary` on `bg-app` and `fg-muted` on `bg-panel` both clear
      WCAG AA for body text; `fg-inverse` is for filled status/danger chips. */
   --oc-fg-primary: #e8eaee;
@@ -134,9 +151,18 @@
   --oc-tracking-wide: 0.04em;
 
   /* Weights. A form-heavy panel needs the contrast between a field label and
-     its value; `bold` is the `font-weight: 700` that had no token. */
+     its value; `bold` is the `font-weight: 700` that had no token.
+     AMENDMENT (2026-10-09-orcastrate-theme-contract-decisions) — `semibold`
+     is the step that was missing, so the ramp now reads 400/500/600/700 in
+     order. Ten declarations across five files in four directories — `lanes`,
+     `pods`, `shell` and `transcript` — wrote a bare `600` because the set
+     jumped 500 to 700; all ten are headings or emphatic labels, so one step
+     serves them. Added rather than rounding those ten to `medium` or `bold`,
+     which would have changed shipped pixels in all five files
+     (escalation E1). */
   --oc-weight-regular: 400;
   --oc-weight-medium: 500;
+  --oc-weight-semibold: 600;
   --oc-weight-bold: 700;
 
   /* Layout. The four regions of spec 5.1 agree on their geometry here, so no

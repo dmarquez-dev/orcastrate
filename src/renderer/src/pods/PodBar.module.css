@@ -184,7 +184,7 @@
   background: var(--oc-status-waiting);
   color: var(--oc-fg-inverse);
   font-size: var(--oc-text-xs);
-  font-weight: 700;
+  font-weight: var(--oc-weight-bold);
 }
 
 .permissionBadge::before {
@@ -205,7 +205,7 @@
   background: var(--oc-danger-bg);
   color: var(--oc-danger);
   font-size: var(--oc-text-xs);
-  font-weight: 700;
+  font-weight: var(--oc-weight-bold);
   letter-spacing: 0.04em;
 }
 

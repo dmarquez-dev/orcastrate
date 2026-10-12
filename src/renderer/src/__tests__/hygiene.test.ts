@@ -14,18 +14,23 @@
  *   - no file under `src/renderer/**` outside `styles/` carries a hex colour,
  *     an `rgb(`/`hsl(` literal, a px font-size, or a hardcoded font stack;
  *   - no `*.module.css` under `beachcomber/`, `helm/` or `shell/` sets a
- *     border width, a letter-spacing or a font weight to anything but a token.
+ *     border width or a letter-spacing to anything but a token;
+ *   - no `*.module.css` ANYWHERE under `src/renderer/src` sets a font weight
+ *     to anything but a `var(--oc-weight-*)` token, and every full-window
+ *     overlay paints `var(--oc-overlay-scrim)`. These two are repo-wide and
+ *     carry no exception list; see the census at the foot of this file.
  *
- * THE LAST RULE IS NEW, AND THIS PARAGRAPH USED TO SAY THE OPPOSITE. It said
- * those three properties were deliberately unchecked "because `TOKENS` has no
- * border-width, tracking or font-weight token". That was true when it was
- * written and stopped being true the moment `renderer-theme.ts` gained
- * `--oc-border-hairline`, `--oc-border-thick`, `--oc-tracking-tight`,
- * `--oc-tracking-wide` and the three `--oc-weight-*` keys. The rule that used
- * to have nothing to point at now has seven tokens to point at, so it is
- * enforced — and the rationale for not enforcing it is deleted rather than
- * left standing, because a stale rationale is what a later reader treats as
- * the current decision.
+ * THE TOKEN RULES ARE NEWER THAN THIS FILE, AND THIS PARAGRAPH USED TO SAY THE
+ * OPPOSITE. It said those properties were deliberately unchecked "because
+ * `TOKENS` has no border-width, tracking or font-weight token". That was true
+ * when it was written and stopped being true the moment `renderer-theme.ts`
+ * gained `--oc-border-hairline`, `--oc-border-thick`, `--oc-tracking-tight`,
+ * `--oc-tracking-wide` and its `--oc-weight-*` keys — of which there are now
+ * four, `--oc-weight-semibold` having closed the 500-to-700 gap in
+ * 2026-10-09-orcastrate-theme-contract-decisions. The rule that used to have
+ * nothing to point at has tokens to point at, so it is enforced — and the
+ * rationale for not enforcing it is deleted rather than left standing, because
+ * a stale rationale is what a later reader treats as the current decision.
  *
  * WHAT IS STILL DELIBERATELY NOT CHECKED: raw lengths in general. The
  * screen-reader clip recipe (`width: 1px; height: 1px`) is the recipe itself
@@ -613,24 +618,38 @@ function borderOffenders(text: string): string[] {
 }
 
 /**
- * THE DECLARATIONS THIS RULE FINDS THAT THIS TASK DOES NOT FIX, EXHAUSTIVELY.
+ * THE RAW BORDER WIDTHS THIS RULE STILL TOLERATES, EXHAUSTIVELY.
  *
  * Two `shell/` stylesheets predate the tokens: they are sub-session 2 files
- * that landed when `TOKENS` had nothing to offer, and both live outside this
- * task's ownership (`src/renderer/src/__tests__/**`). Fixing them is a change
- * to shipped pixels — `font-weight: 600` in particular has NO token, since the
- * set offers 400/500/700 — and belongs to whoever owns `shell/`, with the
- * weight decision made deliberately rather than rounded by a test author.
+ * that landed when `TOKENS` had nothing to offer. Fixing their bare `1px`
+ * border widths is a change to shipped pixels, and is for a later owner of
+ * `shell/` to decide.
+ *
+ * THE LIST SHRANK BY ONE, WHICH IS THE MECHANISM WORKING RATHER THAN AN EDIT
+ * TO GET A TEST GREEN. It used to carry a sixth entry,
+ * `EmptyWorkspace.module.css`'s bare `font-weight`, argued for on the grounds
+ * that no token for that weight existed — the set offered 400/500/700 and
+ * nothing between — and that the decision was a later owner's to make. Both
+ * halves have since stopped being true: `--oc-weight-semibold` exists
+ * (2026-10-09-orcastrate-theme-contract-decisions), the weight decision WAS
+ * made deliberately by the user (escalation E1) rather than rounded by a test
+ * author, and that session owned the stylesheet and converted it. So the entry
+ * was deleted rather than left standing, because a stale exemption is what a
+ * later reader treats as the current decision.
  *
  * The assertion below compares against this list EXACTLY, in both directions.
- * A seventh raw declaration anywhere in the three directories fails. So does
- * FIXING one of these six without deleting its line here — which is the point:
- * the exception list shrinks under review rather than quietly outliving the
- * problem, exactly as `SURFACELESS_CHANNELS` does in the failure-path suite.
+ * A sixth raw declaration anywhere in the three directories fails. So does
+ * FIXING one of these five without deleting its line here — which is the
+ * point, and is exactly what happened to the sixth: the exception list shrinks
+ * under review rather than quietly outliving the problem, as
+ * `SURFACELESS_CHANNELS` does in the failure-path suite.
+ *
+ * NOTE THE SCOPE, because the list cannot state it: this rule walks
+ * `TOKENISED_STYLE_ROOTS` only. Font weights are now covered REPO-WIDE and
+ * with no exception list at all, by the census at the foot of this file.
  */
 const PRE_TOKEN_SHELL_DECLARATIONS: readonly string[] = [
   'src/renderer/src/shell/EmptyWorkspace.module.css: border: 1px solid var(--oc-border-strong)',
-  'src/renderer/src/shell/EmptyWorkspace.module.css: font-weight: 600',
   'src/renderer/src/shell/WorkspaceLayout.module.css: border-bottom: 1px solid var(--oc-border)',
   'src/renderer/src/shell/WorkspaceLayout.module.css: border-left: 1px solid var(--oc-border)',
   'src/renderer/src/shell/WorkspaceLayout.module.css: border-right: 1px solid var(--oc-border)',
@@ -708,8 +727,12 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
         offenders.push(`${relative(file)}: ${offender}`);
       }
     }
-    // Exactly the six pre-token `shell/` declarations, and nothing else. Both
-    // directions fail loudly: see `PRE_TOKEN_SHELL_DECLARATIONS`.
+    // Exactly the pre-token `shell/` declarations named in
+    // `PRE_TOKEN_SHELL_DECLARATIONS`, and nothing else. Both directions fail
+    // loudly. The list's LENGTH is deliberately not restated here: the list is
+    // the statement of what is tolerated, it sits a few lines up, and a count
+    // copied into a comment beside it is exactly what went stale the last time
+    // the list shrank.
     expect(offenders.sort()).toEqual([...PRE_TOKEN_SHELL_DECLARATIONS]);
   });
 
@@ -992,5 +1015,269 @@ describe('the two rules added for previously undetectable failure modes', () => 
       }
     }
     expect(offenders).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The two conversions of 2026-10-09-orcastrate-theme-contract-decisions
+// ---------------------------------------------------------------------------
+
+/**
+ * THE SCOPE TRAP THIS SECTION EXISTS TO AVOID, and it is the reason the rules
+ * here do not simply extend the ones above.
+ *
+ * `panelStylesheets()` walks `TOKENISED_STYLE_ROOTS` — `beachcomber/`, `helm/`
+ * and `shell/`, three directories. That is why the five bare `font-weight`
+ * literals in `lanes/`, `pods/` and `transcript/` were never offenders, never
+ * appeared in `PRE_TOKEN_SHELL_DECLARATIONS`, and survived a session whose
+ * whole subject was font-weight tokens: the rule was never looking at them. A
+ * narrow rule does not report that it is narrow, which is the failure mode
+ * worth writing a second rule to close.
+ *
+ * So BOTH rules below walk EVERY `*.module.css` under `src/renderer/src`, and
+ * both are two-sided.
+ */
+async function allModuleStylesheets(): Promise<string[]> {
+  return (await filesUnder(`${RENDERER_ROOT}/src`, /\.module\.css$/)).sort();
+}
+
+/**
+ * The value of every `prop: …` declaration, ANCHORED AT A DECLARATION
+ * BOUNDARY — start of text, `;`, `{` or a newline.
+ *
+ * `declaredValues` above is deliberately unanchored and that is right for its
+ * callers, but it cannot be reused here: it searches anywhere in the text, so
+ * `declaredValues(text, 'position')` reads `background-position: center` as a
+ * `position` of `center`, and `declaredValues(text, 'background')` would never
+ * see `background-color` at all. The scrim rule below turns on exactly those
+ * two properties, so it needs a reader that cannot confuse a longhand with the
+ * shorthand it is spelled inside. Both directions are proved below.
+ */
+function anchoredValues(text: string, prop: string): string[] {
+  const out: string[] = [];
+  const pattern = new RegExp(`(?:^|[;{\\n])\\s*${prop}\\s*:\\s*([^;\\n}]*)`, 'gi');
+  for (const match of text.matchAll(pattern)) {
+    if (match[1] !== undefined) out.push(match[1].trim());
+  }
+  return out;
+}
+
+/**
+ * Innermost `selector { … }` blocks. A nested at-rule yields the rules INSIDE
+ * it rather than itself, which is what this needs: `LaneRail.module.css` and
+ * `PodBar.module.css` both wrap rules in `@media (prefers-reduced-motion)`,
+ * and a rule's properties must be read per rule and not per file — "this file
+ * mentions `position: fixed` somewhere and `background` somewhere" is not the
+ * question.
+ */
+interface CssRule {
+  selector: string;
+  body: string;
+}
+
+function cssRules(text: string): CssRule[] {
+  const rules: CssRule[] = [];
+  for (const match of text.matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    rules.push({ selector: (match[1] ?? '').trim(), body: match[2] ?? '' });
+  }
+  return rules;
+}
+
+/**
+ * All four edges pinned. `0 auto 0 auto` and `0 0 auto 0` are NOT this: they
+ * pin some edges and leave others, so the rule covers a strip rather than the
+ * window, and a strip is not a scrim.
+ */
+const ALL_EDGES_PINNED = /^0(?:px)?(?:\s+0(?:px)?){0,3}$/;
+
+/** A full-window overlay: taken out of flow, and pinned to every edge. */
+function isFullWindowRule(rule: CssRule): boolean {
+  return (
+    anchoredValues(rule.body, 'position').includes('fixed') &&
+    anchoredValues(rule.body, 'inset').some((value) => ALL_EDGES_PINNED.test(value))
+  );
+}
+
+/** Every background a full-window rule paints, `background-color` included. */
+function fullWindowBackgrounds(text: string): { selector: string; background: string }[] {
+  const out: { selector: string; background: string }[] = [];
+  for (const rule of cssRules(text)) {
+    if (!isFullWindowRule(rule)) continue;
+    for (const prop of ['background', 'background-color']) {
+      for (const background of anchoredValues(rule.body, prop)) {
+        out.push({ selector: rule.selector, background });
+      }
+    }
+  }
+  return out;
+}
+
+const OVERLAY_SCRIM = 'var(--oc-overlay-scrim)';
+
+/**
+ * THE FOUR FULL-WINDOW SCRIMS, NAMED INDIVIDUALLY so the count cannot drift
+ * silently in EITHER direction. A fifth scrim fails this; so does one of these
+ * four ceasing to be a full-window overlay. All four were
+ * `background: var(--oc-bg-app)` — fully opaque, so a dialog HID the window
+ * instead of veiling it — until `--oc-overlay-scrim` existed to carry an alpha.
+ */
+const FULL_WINDOW_SCRIM_RULES: readonly string[] = [
+  'src/renderer/src/beachcomber/BeachcomberPreviewDialog.module.css: .scrim',
+  'src/renderer/src/helm/Helm.module.css: .confirmScrim',
+  'src/renderer/src/pods/DeletePodDialog.module.css: .scrim',
+  'src/renderer/src/pods/NewPodDialog.module.css: .scrim',
+];
+
+/**
+ * A weight must be a `--oc-weight-*` token and not merely SOME token.
+ * `tokenOffenders` accepts any `var(`, which is right for its callers but
+ * would pass `font-weight: var(--oc-space-2)` — a token, wrong family, and
+ * nonsense as a weight.
+ */
+const WEIGHT_TOKEN = /^var\(\s*--oc-weight-[\w-]+\s*\)$/;
+
+function weightOffenders(text: string): string[] {
+  return anchoredValues(text, FONT_WEIGHT)
+    .filter((value) => !WEIGHT_TOKEN.test(value))
+    .map((value) => `${FONT_WEIGHT}: ${value}`);
+}
+
+describe('the census matchers themselves', () => {
+  it('reads a declaration without confusing a longhand for its shorthand', () => {
+    // The case that MUST match, in the exact shape the four scrims are written.
+    expect(anchoredValues('\n  position: fixed;\n', 'position')).toEqual(['fixed']);
+    expect(anchoredValues('{ position: fixed; }', 'position')).toEqual(['fixed']);
+    expect(anchoredValues('color: red; position: fixed;', 'position')).toEqual(['fixed']);
+
+    // The NEAR-MISSES that must not. This is the whole reason the helper
+    // exists: `declaredValues` reads both of these as a `position` and a
+    // `background`, and is shown doing so here rather than described.
+    expect(anchoredValues('\n  background-position: center;\n', 'position')).toEqual([]);
+    expect(declaredValues('\n  background-position: center;\n', 'position')).toEqual(['center']);
+    expect(anchoredValues('\n  background-color: red;\n', 'background')).toEqual([]);
+    expect(anchoredValues('\n  background-color: red;\n', 'background-color')).toEqual(['red']);
+  });
+
+  it('splits rules so a property is read per rule and not per file', () => {
+    // Two rules, each holding one half of the scrim recipe. A per-FILE check
+    // would call this a full-window background; a per-RULE check must not.
+    const split = '.a { position: fixed; }\n.b { inset: 0; background: red; }';
+    expect(cssRules(split).map((rule) => rule.selector)).toEqual(['.a', '.b']);
+    expect(fullWindowBackgrounds(split)).toEqual([]);
+
+    // And a rule nested in an at-rule is still reached, which is how
+    // `LaneRail.module.css` and `PodBar.module.css` are written.
+    const nested = '@media (prefers-reduced-motion: reduce) {\n  .c { position: fixed; inset: 0; background: red; }\n}';
+    expect(fullWindowBackgrounds(nested)).toEqual([{ selector: '.c', background: 'red' }]);
+  });
+
+  it('catches a full-window background that is not the scrim token, and passes its clean twin', () => {
+    const dirty = '.scrim { position: fixed; inset: 0; background: var(--oc-bg-app); }';
+    expect(fullWindowBackgrounds(dirty)).toEqual([
+      { selector: '.scrim', background: 'var(--oc-bg-app)' },
+    ]);
+    const clean = `.scrim { position: fixed; inset: 0; background: ${OVERLAY_SCRIM}; }`;
+    expect(fullWindowBackgrounds(clean)).toEqual([
+      { selector: '.scrim', background: OVERLAY_SCRIM },
+    ]);
+    expect(fullWindowBackgrounds(clean).every((f) => f.background === OVERLAY_SCRIM)).toBe(true);
+    expect(fullWindowBackgrounds(dirty).every((f) => f.background === OVERLAY_SCRIM)).toBe(false);
+
+    // A STRIP IS NOT A SCRIM: pinned on three edges, so it covers a band and
+    // is none of this rule's business.
+    expect(ALL_EDGES_PINNED.test('0')).toBe(true);
+    expect(ALL_EDGES_PINNED.test('0 0 0 0')).toBe(true);
+    expect(ALL_EDGES_PINNED.test('0 0 auto 0')).toBe(false);
+    expect(
+      fullWindowBackgrounds('.d { position: fixed; inset: 0 0 auto 0; background: red; }'),
+    ).toEqual([]);
+    // Not taken out of flow at all.
+    expect(
+      fullWindowBackgrounds('.e { position: absolute; inset: 0; background: red; }'),
+    ).toEqual([]);
+  });
+
+  it('catches a font weight that is not a --oc-weight-* token, and passes every twin that is', () => {
+    // The ten-times-repeated violation this session converted, and the four
+    // other bare literals the census also found.
+    expect(weightOffenders(`.a { ${FONT_WEIGHT}: 600; }`)).toEqual([`${FONT_WEIGHT}: 600`]);
+    expect(weightOffenders(`.a { ${FONT_WEIGHT}: 700; }`)).toEqual([`${FONT_WEIGHT}: 700`]);
+    expect(weightOffenders(`.a { ${FONT_WEIGHT}: 400; }`)).toEqual([`${FONT_WEIGHT}: 400`]);
+    // A KEYWORD is a literal too. The census found numerics only, so this is
+    // the case the rule holds against rather than one it has met.
+    expect(weightOffenders(`.a { ${FONT_WEIGHT}: bold; }`)).toEqual([`${FONT_WEIGHT}: bold`]);
+
+    // Every weight token passes, the new one included.
+    for (const weight of ['regular', 'medium', 'semibold', 'bold']) {
+      expect(weightOffenders(`.a { ${FONT_WEIGHT}: var(--oc-weight-${weight}); }`)).toEqual([]);
+    }
+
+    // A token of the WRONG FAMILY is still an offender — this is what
+    // `tokenOffenders` would wave through, shown rather than described.
+    const wrongFamily = `.a { ${FONT_WEIGHT}: var(--oc-space-2); }`;
+    expect(weightOffenders(wrongFamily)).toEqual([`${FONT_WEIGHT}: var(--oc-space-2)`]);
+    expect(tokenOffenders(wrongFamily, [FONT_WEIGHT])).toEqual([]);
+
+    // And the lookahead trap this file documents at length is not reintroduced
+    // here: the clean declaration must not fire.
+    expect(weightOffenders(`.a { ${FONT_WEIGHT}:var(--oc-weight-bold); }`)).toEqual([]);
+  });
+});
+
+describe('the theme-contract conversions of this session', () => {
+  it('censuses every module stylesheet in the renderer, well beyond the three panel roots', async () => {
+    const sheets = await allModuleStylesheets();
+    const names = sheets.map(relative);
+
+    // A census that silently scanned nothing would otherwise report as a pass.
+    expect(sheets.length).toBeGreaterThan(0);
+
+    // And it must reach OUTSIDE `TOKENISED_STYLE_ROOTS`, which is the entire
+    // point of this section: these three directories hold the five literals
+    // the scoped rule could never see.
+    expect(names).toContain('src/renderer/src/lanes/LaneRail.module.css');
+    expect(names).toContain('src/renderer/src/pods/PodBar.module.css');
+    expect(names).toContain('src/renderer/src/transcript/Transcript.module.css');
+    for (const sheet of sheets) {
+      expect(sheet.endsWith('.module.css')).toBe(true);
+    }
+    // Strictly wider than the scoped scan, so this is not a duplicate of it.
+    expect(sheets.length).toBeGreaterThan((await panelStylesheets()).length);
+  });
+
+  it('sets every font weight from a --oc-weight-* token, everywhere, with no exception list', async () => {
+    const offenders: string[] = [];
+    for (const file of await allModuleStylesheets()) {
+      const text = stripCssComments(await read(file));
+      for (const offender of weightOffenders(text)) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+    }
+    // NO EXCEPTION LIST, deliberately. The alternative was a second list of
+    // tolerated declarations, which is the artifact
+    // `PRE_TOKEN_SHELL_DECLARATIONS` exists to shrink.
+    expect(offenders).toEqual([]);
+  });
+
+  it('paints every full-window overlay with the scrim token, and there are exactly four', async () => {
+    const found: string[] = [];
+    const wrong: string[] = [];
+    for (const file of await allModuleStylesheets()) {
+      // COMMENTS MUST BE STRIPPED: `permissions/PermissionCards.module.css`
+      // discusses `position: fixed` in prose to explain that it has none, and
+      // a rule that read prose as code would call it a scrim.
+      const text = stripCssComments(await read(file));
+      for (const { selector, background } of fullWindowBackgrounds(text)) {
+        found.push(`${relative(file)}: ${selector}`);
+        if (background !== OVERLAY_SCRIM) {
+          wrong.push(`${relative(file)}: ${selector} paints ${background}`);
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
+    // TWO-SIDED on the named list, like every other census in this file: a
+    // fifth full-window scrim fails, and so does one of these four quietly
+    // ceasing to be one.
+    expect(found.sort()).toEqual([...FULL_WINDOW_SCRIM_RULES]);
   });
 });
