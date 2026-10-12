@@ -1,0 +1,272 @@
+{
+  "meta": {
+    "generatedAt": "2026-10-12T19:04:31.740Z",
+    "build": "out/main/index.js",
+    "electron": "via playwright _electron",
+    "playwright": "local devDependency",
+    "scope": "C3 verification — overlay scrim, semibold token, aria-current"
+  },
+  "results": [
+    {
+      "id": "C3-1",
+      "title": "Both new tokens resolve on :root in the real window",
+      "checks": [
+        {
+          "label": "--oc-weight-semibold resolves to 600",
+          "ok": true,
+          "detail": "600"
+        },
+        {
+          "label": "--oc-overlay-scrim is defined",
+          "ok": true,
+          "detail": "color-mix(in srgb, #14161a 70%, transparent)"
+        },
+        {
+          "label": "--oc-overlay-scrim derives from --oc-bg-app rather than a literal",
+          "ok": true,
+          "detail": "color-mix(in srgb, #14161a 70%, transparent)"
+        },
+        {
+          "label": "the pre-existing weight ramp is untouched (additions-only)",
+          "ok": true,
+          "detail": "regular=400 bold=700"
+        }
+      ],
+      "notes": [
+        "--oc-bg-app = #14161a"
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "C3-2",
+      "title": "Live-DOM weight census — converted selectors at 600, ramp respected",
+      "checks": [
+        {
+          "label": "at least one C3-converted selector is on screen to judge",
+          "ok": true,
+          "detail": "1 element(s): heading"
+        },
+        {
+          "label": "every rendered C3-converted selector computes font-weight 600",
+          "ok": true,
+          "detail": "all 1 at 600"
+        },
+        {
+          "label": "no element computes a weight outside the 400/500/600/700 ramp",
+          "ok": true,
+          "detail": "ramp respected"
+        }
+      ],
+      "notes": [
+        "distinct computed font-weights in the live DOM: 400, 500, 600"
+      ],
+      "shots": [
+        "screenshots/c3/01-empty-workspace.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-3",
+      "title": "NewPodDialog — scrim veils, heading and bypass warning at 600",
+      "checks": [
+        {
+          "label": "scrim found as the dialog parent",
+          "ok": true,
+          "detail": "_scrim_1g64o_1"
+        },
+        {
+          "label": "scrim is position:fixed full-window",
+          "ok": true,
+          "detail": "fixed inset=0px"
+        },
+        {
+          "label": "scrim background has alpha strictly between 0 and 1",
+          "ok": true,
+          "detail": "color(srgb 0.0784314 0.0862745 0.101961 / 0.7)"
+        },
+        {
+          "label": "COMPOSITING: two scrim regions with different content behind them differ",
+          "ok": true,
+          "detail": "differ (128B vs 116B) -> content shows through"
+        },
+        {
+          "label": "dialog heading computes 600",
+          "ok": true,
+          "detail": "\"New Pod\" -> 600"
+        },
+        {
+          "label": "CONTROL: forced OPAQUE, the same two regions become byte-identical",
+          "ok": true,
+          "detail": "identical -> the probe DOES detect opacity, so every COMPOSITING check here is meaningful"
+        }
+      ],
+      "notes": [
+        "bypass warning not rendered in default permission mode; not asserted"
+      ],
+      "shots": [
+        "screenshots/c3/02-newpod-dialog-veiled.png",
+        "screenshots/c3/02b-control-forced-opaque.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-4",
+      "title": "DeletePodDialog — scrim veils, heading and subject at 600",
+      "checks": [
+        {
+          "label": "createPod succeeded",
+          "ok": true,
+          "detail": "\"\""
+        },
+        {
+          "label": "a Pod tab is rendered after createPod",
+          "ok": true,
+          "detail": "1 tab(s)"
+        },
+        {
+          "label": "scrim background has alpha strictly between 0 and 1",
+          "ok": true,
+          "detail": "color(srgb 0.0784314 0.0862745 0.101961 / 0.7)"
+        },
+        {
+          "label": "COMPOSITING: scrim regions over different content differ",
+          "ok": true,
+          "detail": "differ (142B vs 126B)"
+        },
+        {
+          "label": "delete heading computes 600",
+          "ok": true,
+          "detail": "\"Delete Pod\" -> 600"
+        }
+      ],
+      "notes": [
+        "createPod -> {\"ok\":true,\"value\":{\"id\":\"49220bf0-0f75-4c7f-8f81-80e2afe90ed0\",\"title\":\"oc-c3-pod\",\"cwd\":\"C:\\\\oc-sandbox\\\\repos\\\\plain-"
+      ],
+      "shots": [
+        "screenshots/c3/03-deletepod-dialog-veiled.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-5",
+      "title": "PanelBar: aria-current carries open state AND still paints it",
+      "checks": [
+        {
+          "label": "exactly one panel button reports aria-current=\"true\"",
+          "ok": true,
+          "detail": "1"
+        },
+        {
+          "label": "the open one is helm",
+          "ok": true,
+          "detail": "helm"
+        },
+        {
+          "label": "NO panel button carries aria-pressed any more",
+          "ok": true,
+          "detail": "beachcomber=null helm=null"
+        },
+        {
+          "label": "the closed buttons are distinguishable from the open one",
+          "ok": true,
+          "detail": "1 closed"
+        },
+        {
+          "label": "PAINT: the open button renders a different background than a closed one",
+          "ok": true,
+          "detail": "open=rgb(51, 58, 71) closed=rgba(0, 0, 0, 0)"
+        }
+      ],
+      "notes": [
+        "panel buttons: [{\"key\":\"beachcomber\",\"current\":\"false\",\"pressed\":null,\"bg\":\"rgba(0, 0, 0, 0)\",\"borderColor\":\"rgba(0, 0, 0, 0)\"},{\"key\":\"helm\",\"current\":\"true\",\"pressed\":null,\"bg\":\"rgb(51, 58, 71)\",\"borderColor\":\"rgb(69, 77, 91)\"}]",
+        "That paint check is the one jsdom cannot make: the attribute rename also had to move the stylesheet selector, and had it not, every renderer test would still pass while the open panel lost its highlight."
+      ],
+      "shots": [
+        "screenshots/c3/04-panelbar-aria-current.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-6",
+      "title": "Helm close-confirmation scrim veils the window",
+      "checks": [
+        {
+          "label": "the close confirmation appeared on a dirty draft",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "confirmScrim background has alpha strictly between 0 and 1",
+          "ok": true,
+          "detail": "color(srgb 0.0784314 0.0862745 0.101961 / 0.7)"
+        },
+        {
+          "label": "COMPOSITING: confirmScrim lets differing content through",
+          "ok": true,
+          "detail": "differ (385B vs 116B)"
+        },
+        {
+          "label": "the draft was discarded, so nothing blocks later steps",
+          "ok": true,
+          "detail": "cleared"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/c3/05-helm-close-confirm-veiled.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-7",
+      "title": "Beachcomber preview scrim veils the window",
+      "checks": [
+        {
+          "label": "a Beachcomber row could be selected",
+          "ok": true,
+          "detail": "beachcomber-row-select"
+        },
+        {
+          "label": "preview scrim background has alpha strictly between 0 and 1",
+          "ok": true,
+          "detail": "color(srgb 0.0784314 0.0862745 0.101961 / 0.7)"
+        },
+        {
+          "label": "COMPOSITING: preview scrim lets differing content through",
+          "ok": true,
+          "detail": "differ (409B vs 116B)"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/c3/06-beachcomber-preview-veiled.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "C3-8",
+      "title": "Positive control: the compositing probe can detect an opaque scrim",
+      "checks": [
+        {
+          "label": "with the shipped token, the two regions DIFFER",
+          "ok": true,
+          "detail": "differ"
+        },
+        {
+          "label": "forced OPAQUE, the same two regions become byte-identical",
+          "ok": true,
+          "detail": "identical -> the probe does detect opacity, so the checks above are meaningful"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/c3/07-control-forced-opaque.png"
+      ],
+      "error": null
+    }
+  ],
+  "total": 32,
+  "failed": 0,
+  "errored": 0
+}
