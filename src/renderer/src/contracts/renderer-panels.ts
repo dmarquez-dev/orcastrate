@@ -416,6 +416,14 @@ export interface HelmView extends Loadable<HelmScope[]> {
    *   - `discard()` — the pending edit is gone, so there is nothing to compare.
    *   - a SUCCESSFUL `save()` — the write resolved the divergence, and
    *     `HelmSaveResult.document` is the new truth.
+   *   - the PANEL-CLOSE WHOLE-STATE RESET.
+   *     ADDED by session `2026-10-09-orcastrate-theme-contract-decisions`.
+   *     When `helmMounts` reaches 0, `resetHelmForReopen` replaces the WHOLE
+   *     Helm state via `newHelmState(null)`, so `incoming` goes null
+   *     alongside `document` and `draft`. This one is not a targeted clear of
+   *     `incoming` like the four above; it is wholesale replacement, and
+   *     `incoming` falls with everything else. It is named here because the
+   *     list claims to be exhaustive, and without it that claim was false.
    *
    * A FAILED `save()` DOES NOT CLEAR IT. A CONFLICT is exactly when the
    * comparison matters most: the draft survives — `save()`'s docblock
