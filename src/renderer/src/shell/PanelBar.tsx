@@ -28,8 +28,14 @@ import { testId } from './contract-runtime';
  * strip has no room for a sentence but a user has every right to hear one
  * before opening a panel that deletes files.
  *
- * OPEN STATE IS NOT CARRIED BY COLOUR. `aria-pressed` says it, and
- * `PanelBar.module.css` paints from that attribute.
+ * OPEN STATE IS NOT CARRIED BY COLOUR. `aria-current` says it, and
+ * `PanelBar.module.css` paints from that attribute. `aria-current` is the right
+ * one because it marks the current item within a set of related elements, and
+ * one button in a strip of panel buttons is exactly that. The toggle attribute
+ * `aria-pressed` was wrong here: it describes a button with two reachable
+ * states, and this button has one, because the frozen contract makes a re-click
+ * on the open panel's own button a no-op (see A PANEL BUTTON ONLY EVER OPENS
+ * below). It reported the state truthfully and still misdescribed the control.
  *
  * A PANEL BUTTON ONLY EVER OPENS. It used to toggle — clicking the open
  * panel's own button closed it — and that gesture now reaches `onOpen` with the
@@ -80,7 +86,7 @@ export function PanelBar({ open, onOpen, onClose }: PanelBarProps): JSX.Element 
         <span key={key}>
           <button
             aria-describedby={`${descriptionId}-${key}`}
-            aria-pressed={open === key}
+            aria-current={open === key}
             className={styles.button}
             data-testid={testId(PANEL_TEST_IDS.panelBarOpen, key)}
             onClick={() => {
