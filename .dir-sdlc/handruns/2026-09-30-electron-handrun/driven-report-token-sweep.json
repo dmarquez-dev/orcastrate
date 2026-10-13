@@ -1,0 +1,870 @@
+{
+  "meta": {
+    "generatedAt": "2026-10-13T00:41:20.971Z",
+    "scope": "Token sweep verification — 36 border widths, 3 letter-spacing sites",
+    "repoRoot": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-12-orcastrate-token-sweep",
+    "sandboxRoot": "C:\\oc-sandbox-token-sweep",
+    "builtCss": "out/renderer/assets/index-0uCezQ_O.css",
+    "build": "out/main/index.js",
+    "electron": "via playwright _electron",
+    "playwright": "local devDependency",
+    "hashes": {
+      "lanes/LaneRail.module.css": {
+        "signature": [
+          "railHeading",
+          "rail",
+          "finishedToggle"
+        ],
+        "candidates": [
+          "1h7yc"
+        ],
+        "hash": "1h7yc"
+      },
+      "pods/DeletePodDialog.module.css": {
+        "signature": [
+          "session",
+          "dialog",
+          "buttonDanger"
+        ],
+        "candidates": [
+          "cgaoz"
+        ],
+        "hash": "cgaoz"
+      },
+      "pods/NewPodDialog.module.css": {
+        "signature": [
+          "cwdDisplay",
+          "bypass",
+          "bypassWarning"
+        ],
+        "candidates": [
+          "ccdyc"
+        ],
+        "hash": "ccdyc"
+      },
+      "pods/PodBar.module.css": {
+        "signature": [
+          "bypassBadge",
+          "newPod",
+          "runControl"
+        ],
+        "candidates": [
+          "e9f3f"
+        ],
+        "hash": "e9f3f"
+      },
+      "shell/EmptyWorkspace.module.css": {
+        "signature": [
+          "empty",
+          "heading",
+          "body",
+          "action"
+        ],
+        "candidates": [
+          "glur9"
+        ],
+        "hash": "glur9"
+      },
+      "shell/WorkspaceLayout.module.css": {
+        "signature": [
+          "podBarRegion",
+          "laneRailRegion",
+          "composerRegion"
+        ],
+        "candidates": [
+          "l2fht"
+        ],
+        "hash": "l2fht"
+      },
+      "transcript/Transcript.module.css": {
+        "signature": [
+          "dispatchCard",
+          "dispatchAgent",
+          "paneHeader"
+        ],
+        "candidates": [
+          "m07co"
+        ],
+        "hash": "m07co"
+      }
+    },
+    "harnessFaults": [],
+    "thinObservation": {
+      "thin": "0.8px",
+      "medium": "2.4px",
+      "thick": "4.8px",
+      "onepx": "0.8px",
+      "ladder": {
+        "1px": "0.8px",
+        "2px": "1.6px",
+        "3px": "2.4px",
+        "4px": "4px",
+        "5px": "4.8px"
+      },
+      "devicePixelRatio": 1.0000000149011612,
+      "equivalentTo1px": true
+    },
+    "pixelGrid": {
+      "oneCssPx": "0.8px",
+      "viaToken": "0.8px",
+      "ladder": {
+        "1px": "0.8px",
+        "2px": "1.6px",
+        "3px": "2.4px",
+        "4px": "4px",
+        "5px": "4.8px"
+      },
+      "keywords": {
+        "thin": "0.8px",
+        "medium": "2.4px",
+        "thick": "4.8px"
+      },
+      "devicePixelRatio": 1.0000000149011612
+    },
+    "oneCssPxReference": "0.8px",
+    "countProvenance": {
+      "checks total/failed/errored": "counted by this driver over its own results array at report time",
+      "hairline consumers in bundle": "counted by this driver as /var\\(--oc-border-hairline\\)/g over the built CSS text",
+      "0.06em occurrences in bundle": "counted by this driver as /0\\.06em/g over the built CSS text",
+      "swept element count": "document.querySelectorAll(\"*\").length at sweep time",
+      "the 1px reference used by every border check": "measured at TS-1 on a synthetic element declaring border-width:1px in this window",
+      "per-stylesheet measured/total": "counted over this run's own coverage table, which lists every converted site"
+    }
+  },
+  "coverage": {
+    "lanes/LaneRail.module.css": [
+      {
+        "cls": "rail",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "right=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "inlineNote",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs routingMode === 'inline'"
+      },
+      {
+        "cls": "errorState",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs the rail to fail to load"
+      },
+      {
+        "cls": "row",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs at least one lane, which needs a live `claude` process"
+      },
+      {
+        "cls": "dot",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a lane row to carry a status dot"
+      },
+      {
+        "cls": "rowAction",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a lane row with a Steer action"
+      },
+      {
+        "cls": "finishedToggle",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs at least one FINISHED lane"
+      },
+      {
+        "cls": "railHeading",
+        "kind": "tracking",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "letter-spacing=0.44px (font-size=11px)",
+        "where": "TS-5 active Pod, workspace body"
+      }
+    ],
+    "pods/DeletePodDialog.module.css": [
+      {
+        "cls": "dialog",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-7 DeletePodDialog open"
+      },
+      {
+        "cls": "error",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a failing delete"
+      },
+      {
+        "cls": "button",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-7 DeletePodDialog open"
+      }
+    ],
+    "pods/NewPodDialog.module.css": [
+      {
+        "cls": "dialog",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog open"
+      },
+      {
+        "cls": "input",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog open"
+      },
+      {
+        "cls": "cwdDisplay",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog open"
+      },
+      {
+        "cls": "mode",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog open"
+      },
+      {
+        "cls": "bypass",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog, bypass mode selected"
+      },
+      {
+        "cls": "error",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a rejected submission"
+      },
+      {
+        "cls": "button",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-4 NewPodDialog open"
+      }
+    ],
+    "pods/PodBar.module.css": [
+      {
+        "cls": "statusDot",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "bypassBadge",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-6 bypassPermissions Pod"
+      },
+      {
+        "cls": "runControl",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "newPod",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-2 empty workspace"
+      },
+      {
+        "cls": "bypassBadge",
+        "kind": "tracking",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "letter-spacing=0.44px (font-size=11px)",
+        "where": "TS-6 bypassPermissions Pod"
+      }
+    ],
+    "shell/EmptyWorkspace.module.css": [
+      {
+        "cls": "action",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "where": "TS-2 empty workspace"
+      }
+    ],
+    "shell/WorkspaceLayout.module.css": [
+      {
+        "cls": "podBarRegion",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "bottom=0.8px",
+        "where": "TS-2 empty workspace"
+      },
+      {
+        "cls": "panelBarRegion",
+        "kind": "border",
+        "convertedThisSession": false,
+        "status": "measured",
+        "value": "bottom=0.8px",
+        "where": "TS-2 empty workspace"
+      },
+      {
+        "cls": "laneRailRegion",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "right=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "splitPane",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a split view, i.e. a pinned follower lane"
+      },
+      {
+        "cls": "composerRegion",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "top=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      }
+    ],
+    "transcript/Transcript.module.css": [
+      {
+        "cls": "pane",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "left=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "paneHeader",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "measured",
+        "value": "bottom=0.8px",
+        "where": "TS-5 active Pod, workspace body"
+      },
+      {
+        "cls": "unpin",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a SPLIT pane, i.e. a pinned follower lane"
+      },
+      {
+        "cls": "paneError",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs the transcript to fail to load"
+      },
+      {
+        "cls": "event",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a user-role transcript event, which needs a live `claude` process"
+      },
+      {
+        "cls": "eventCode",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a tool-result event carrying code"
+      },
+      {
+        "cls": "disclosure",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs compact tool activity in the stream"
+      },
+      {
+        "cls": "loadMore",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs more events than one transcript page"
+      },
+      {
+        "cls": "dispatchCard",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a dispatch event from a live agent"
+      },
+      {
+        "cls": "dispatchAgent",
+        "kind": "border",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a dispatch event from a live agent"
+      },
+      {
+        "cls": "eventLabel",
+        "kind": "tracking",
+        "convertedThisSession": true,
+        "status": "not reached",
+        "reason": "needs a real transcript event, which needs a live `claude` process"
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "TS-0",
+      "title": "Provenance: the live window is THIS worktree's build",
+      "checks": [
+        {
+          "label": "the built bundle contains a .railHeading rule",
+          "ok": true,
+          "detail": "hash=1h7yc"
+        },
+        {
+          "label": "that rule carries letter-spacing: var(--oc-tracking-wide) — the converted form",
+          "ok": true,
+          "detail": "margin: 0; padding: var(--oc-space-3) var(--oc-space-3) var(--oc-space-2); font-size: var(--oc-text-xs); font-weight: var(--oc-weight-semibold); letter-spacing:"
+        },
+        {
+          "label": "the pre-conversion literal 0.06em appears 0 times in the built bundle",
+          "ok": true,
+          "detail": "0 occurrence(s)"
+        },
+        {
+          "label": "the bundle has strictly more hairline consumers than the 24 recorded at af12edc",
+          "ok": true,
+          "detail": "60 > 24"
+        },
+        {
+          "label": "file hash resolved unambiguously for lanes/LaneRail.module.css",
+          "ok": true,
+          "detail": "signature {railHeading, rail, finishedToggle} -> _1h7yc_"
+        },
+        {
+          "label": "file hash resolved unambiguously for pods/DeletePodDialog.module.css",
+          "ok": true,
+          "detail": "signature {session, dialog, buttonDanger} -> _cgaoz_"
+        },
+        {
+          "label": "file hash resolved unambiguously for pods/NewPodDialog.module.css",
+          "ok": true,
+          "detail": "signature {cwdDisplay, bypass, bypassWarning} -> _ccdyc_"
+        },
+        {
+          "label": "file hash resolved unambiguously for pods/PodBar.module.css",
+          "ok": true,
+          "detail": "signature {bypassBadge, newPod, runControl} -> _e9f3f_"
+        },
+        {
+          "label": "file hash resolved unambiguously for shell/EmptyWorkspace.module.css",
+          "ok": true,
+          "detail": "signature {empty, heading, body, action} -> _glur9_"
+        },
+        {
+          "label": "file hash resolved unambiguously for shell/WorkspaceLayout.module.css",
+          "ok": true,
+          "detail": "signature {podBarRegion, laneRailRegion, composerRegion} -> _l2fht_"
+        },
+        {
+          "label": "file hash resolved unambiguously for transcript/Transcript.module.css",
+          "ok": true,
+          "detail": "signature {dispatchCard, dispatchAgent, paneHeader} -> _m07co_"
+        }
+      ],
+      "notes": [
+        "repoRoot resolved by lib.mjs = C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-12-orcastrate-token-sweep",
+        "sandbox root = C:\\oc-sandbox-token-sweep",
+        "built renderer CSS = out/renderer/assets/index-0uCezQ_O.css",
+        "var(--oc-border-hairline) appears 60 time(s) in the built bundle (counted by this driver over the bundle text; the frozen contract records 24 consumers at the session base `af12edc`, so a bundle showing ~24 would be a PRE-session build)",
+        "no .railHeading in the DOM yet (no active Pod) — the window/bundle hash agreement is re-checked at TS-4 where the rail renders"
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "TS-1",
+      "title": "Both tokens resolve on :root in the real window",
+      "checks": [
+        {
+          "label": "--oc-border-hairline resolves to 1px",
+          "ok": true,
+          "detail": "1px"
+        },
+        {
+          "label": "--oc-tracking-wide resolves to 0.04em",
+          "ok": true,
+          "detail": "0.04em"
+        },
+        {
+          "label": "a literal 1px and var(--oc-border-hairline) compute IDENTICALLY on synthetic elements",
+          "ok": true,
+          "detail": "literal 1px -> 0.8px, var(--oc-border-hairline) -> 0.8px"
+        }
+      ],
+      "notes": [
+        "--oc-text-xs = 11px, --oc-border-thick = 2px",
+        "pixel grid measured on synthetic elements: declared 1px computes 0.8px; ladder 1px->0.8px 2px->1.6px 3px->2.4px 4px->4px 5px->4.8px; devicePixelRatio=1.0000000149011612",
+        "NOT 1px. This display snaps used border widths to whole DEVICE pixels, so a declared 1px computes 0.8px. This is the engine's pixel grid, not a token failure — and it is why every border check below compares against this measured reference rather than the string \"1px\". Hardcoding 1px here would be the same mistake criterion 4 forbids for tracking.",
+        "At --oc-text-xs: 11px both tracking candidates are SUB-PIXEL — 0.04em = 0.44px, 0.06em = 0.66px — which is why every tracking check below is computed from the element's own measured font-size."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "TS-2",
+      "title": "Empty workspace — WorkspaceLayout regions and EmptyWorkspace action",
+      "checks": [
+        {
+          "label": "podBarRegion border-bottom computes a declared 1px (=0.8px) — WorkspaceLayout.module.css:20",
+          "ok": true,
+          "detail": "border-bottom-width=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "panelBarRegion border-bottom computes a declared 1px (=0.8px) — WorkspaceLayout.module.css:30",
+          "ok": true,
+          "detail": "border-bottom-width=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "EmptyWorkspace .action border computes a declared 1px (=0.8px) on all four sides — EmptyWorkspace.module.css:26",
+          "ok": true,
+          "detail": "top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        }
+      ],
+      "notes": [
+        "swept 33 elements; 4 converted-class hit(s)"
+      ],
+      "shots": [
+        "screenshots/token-sweep/01-empty-workspace.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-3",
+      "title": "Border probe + CONTROL: the probe discriminates on TOKEN RESOLUTION",
+      "checks": [
+        {
+          "label": "the probe found .podBarRegion in the live DOM",
+          "ok": true,
+          "detail": "_podBarRegion_l2fht_35"
+        },
+        {
+          "label": "BASELINE: .podBarRegion computes border-bottom-width 0.8px — identical to a literal 1px",
+          "ok": true,
+          "detail": "bottom=0.8px style=solid (literal-1px reference 0.8px)"
+        },
+        {
+          "label": "CONTROL: with --oc-border-hairline overridden to a non-length, the computed width CHANGES",
+          "ok": true,
+          "detail": "baseline bottom=0.8px -> overridden bottom=0px (style solid -> none)"
+        },
+        {
+          "label": "CONTROL: the overridden width is no longer 1px",
+          "ok": true,
+          "detail": "0px (shipped reference 0.8px)"
+        },
+        {
+          "label": "the override was removed and the shipped hairline came back",
+          "ok": true,
+          "detail": "bottom=0.8px (reference 0.8px)"
+        }
+      ],
+      "notes": [
+        "Element: the Pod-bar region div. Stylesheet: src/renderer/src/shell/WorkspaceLayout.module.css:20 — `border-bottom: var(--oc-border-hairline) solid var(--oc-border)`."
+      ],
+      "shots": [
+        "screenshots/token-sweep/02-control-border-token-broken.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-4",
+      "title": "NewPodDialog — converted borders in the open dialog",
+      "checks": [
+        {
+          "label": "NewPodDialog .dialog border computes a declared 1px (=0.8px) on all sides — NewPodDialog.module.css:19",
+          "ok": true,
+          "detail": "top=0.8px right=0.8px bottom=0.8px left=0.8px"
+        },
+        {
+          "label": "every rendered NewPodDialog converted border is a declared 1px (=0.8px) on the sides it sets",
+          "ok": true,
+          "detail": "all 14 rendered hit(s) at 0.8px"
+        },
+        {
+          "label": "the bypassPermissions mode option could be selected",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "NewPodDialog .bypass border computes a declared 1px (=0.8px) — NewPodDialog.module.css:74",
+          "ok": true,
+          "detail": "top=0.8px right=0.8px bottom=0.8px left=0.8px"
+        }
+      ],
+      "notes": [
+        "rendered NewPodDialog converted classes (hash ccdyc): .dialog, .input, .cwdDisplay, .button, .mode, .mode, .mode, .mode, .input, .input, .button, .button, .button, .button"
+      ],
+      "shots": [
+        "screenshots/token-sweep/03-newpod-dialog.png",
+        "screenshots/token-sweep/03b-newpod-dialog-bypass-mode.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-5",
+      "title": ".railHeading RENDERED — tracking measured against its own font-size",
+      "checks": [
+        {
+          "label": "createPod succeeded",
+          "ok": true,
+          "detail": "{\"ok\":true,\"value\":{\"id\":\"412f955b-68e4-46a3-8529-ba531b343795\",\"title\":\"oc-token-sweep\",\"cwd\":\"C:\\\\oc-sandbox-token-sweep\\\\repos\\\\plain-rep"
+        },
+        {
+          "label": "a Pod tab is rendered after the reload",
+          "ok": true,
+          "detail": "1 tab(s)"
+        },
+        {
+          "label": "the lane rail heading is present in the DOM",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": ".railHeading is ON SCREEN (non-zero layout rect)",
+          "ok": true,
+          "detail": "h2#lane-rail-heading rect=239.1999969482422x35.95000076293945 text=\"LANES\""
+        },
+        {
+          "label": "measured letter-spacing equals 0.04 x its own computed font-size (sub-pixel tolerance)",
+          "ok": true,
+          "detail": "|0.44 - 0.4400| = 0.0000px"
+        },
+        {
+          "label": "measured letter-spacing is STRICTLY LESS than 0.06 x font-size (the old value)",
+          "ok": true,
+          "detail": "0.44px < 0.6600px"
+        },
+        {
+          "label": "the live element is the h2 the contract names",
+          "ok": true,
+          "detail": "<h2 id=\"lane-rail-heading\">"
+        },
+        {
+          "label": "CONTROL: overridden back to 0.06em, the SAME probe reports a STRICTLY LARGER value",
+          "ok": true,
+          "detail": "shipped 0.44px -> overridden 0.66px (0.66 > 0.44)"
+        },
+        {
+          "label": "CONTROL: the overridden value matches 0.06 x font-size, so the probe tracks the declaration",
+          "ok": true,
+          "detail": "|0.66 - 0.6600| = 0.0000px"
+        },
+        {
+          "label": "the override was removed and the shipped tracking came back",
+          "ok": true,
+          "detail": "0.44px"
+        }
+      ],
+      "notes": [
+        "activated pod-tab:412f955b-68e4-46a3-8529-ba531b343795",
+        "MEASURED: letter-spacing=0.44px font-size=11px -> 0.04x font-size = 0.4400px, 0.06x font-size = 0.6600px",
+        "rendered converted classes with an active Pod: WorkspaceLayout.module.css:.podBarRegion, PodBar.module.css:.statusDot, PodBar.module.css:.runControl, PodBar.module.css:.newPod, WorkspaceLayout.module.css:.panelBarRegion, WorkspaceLayout.module.css:.laneRailRegion, LaneRail.module.css:.rail, LaneRail.module.css:.railHeading, Transcript.module.css:.pane, Transcript.module.css:.paneHeader, WorkspaceLayout.module.css:.composerRegion"
+      ],
+      "shots": [
+        "screenshots/token-sweep/04-rail-heading-rendered.png",
+        "screenshots/token-sweep/05-control-rail-heading-0.06em.png",
+        "screenshots/token-sweep/06-workspace-body.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-6",
+      "title": ".bypassBadge — tracking and border on a bypassPermissions Pod",
+      "checks": [
+        {
+          "label": "createPod with permissionMode bypassPermissions succeeded",
+          "ok": true,
+          "detail": "{\"ok\":true,\"value\":{\"id\":\"2b7d4707-8beb-4546-9552-c5350ae74699\",\"title\":\"oc-token-sweep-bypass\",\"cwd\":\"C:\\\\oc-sandbox-token-sweep\\\\repos\\\\bl"
+        },
+        {
+          "label": "the bypass badge is on screen",
+          "ok": true,
+          "detail": "rect=51.82500076293945x17.55000114440918"
+        },
+        {
+          "label": ".bypassBadge letter-spacing equals 0.04 x its own font-size (PodBar.module.css:212)",
+          "ok": true,
+          "detail": "|0.44 - 0.4400| = 0.0000px"
+        },
+        {
+          "label": ".bypassBadge border computes a declared 1px (=0.8px) on all sides — PodBar.module.css:206",
+          "ok": true,
+          "detail": "top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        }
+      ],
+      "notes": [
+        "MEASURED .bypassBadge: letter-spacing=0.44px font-size=11px -> 0.04x font-size = 0.4400px"
+      ],
+      "shots": [
+        "screenshots/token-sweep/07-bypass-badge.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-7",
+      "title": "DeletePodDialog — converted borders in the open dialog",
+      "checks": [
+        {
+          "label": "at least one DeletePodDialog converted border is rendered",
+          "ok": true,
+          "detail": ".dialog, .button, .button"
+        },
+        {
+          "label": "every rendered DeletePodDialog converted border is a declared 1px (=0.8px) on the sides it sets",
+          "ok": true,
+          "detail": "all 3 rendered hit(s) at 0.8px"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/token-sweep/08-deletepod-dialog.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "TS-8",
+      "title": "Per-stylesheet coverage — measured, or named as unreachable",
+      "checks": [
+        {
+          "label": "lanes/LaneRail.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "2/8 site(s) measured: .rail, .railHeading"
+        },
+        {
+          "label": "pods/DeletePodDialog.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "2/3 site(s) measured: .dialog, .button"
+        },
+        {
+          "label": "pods/NewPodDialog.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "6/7 site(s) measured: .dialog, .input, .cwdDisplay, .mode, .bypass, .button"
+        },
+        {
+          "label": "pods/PodBar.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "5/5 site(s) measured: .statusDot, .bypassBadge, .runControl, .newPod, .bypassBadge"
+        },
+        {
+          "label": "shell/EmptyWorkspace.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "1/1 site(s) measured: .action"
+        },
+        {
+          "label": "shell/WorkspaceLayout.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "4/5 site(s) measured: .podBarRegion, .panelBarRegion, .laneRailRegion, .composerRegion"
+        },
+        {
+          "label": "transcript/Transcript.module.css: at least one converted declaration MEASURED on screen",
+          "ok": true,
+          "detail": "2/11 site(s) measured: .pane, .paneHeader"
+        },
+        {
+          "label": "every one of the 7 converted stylesheets is accounted for in the coverage table",
+          "ok": true,
+          "detail": "7 stylesheet(s)"
+        },
+        {
+          "label": "this session's converted-site count matches the frozen contract's 36 + 3",
+          "ok": true,
+          "detail": "39 site(s) enumerated as converted by this session"
+        }
+      ],
+      "notes": [
+        "lanes/LaneRail.module.css .inlineNote (border) NOT measured — needs routingMode === 'inline'",
+        "lanes/LaneRail.module.css .errorState (border) NOT measured — needs the rail to fail to load",
+        "lanes/LaneRail.module.css .row (border) NOT measured — needs at least one lane, which needs a live `claude` process",
+        "lanes/LaneRail.module.css .dot (border) NOT measured — needs a lane row to carry a status dot",
+        "lanes/LaneRail.module.css .rowAction (border) NOT measured — needs a lane row with a Steer action",
+        "lanes/LaneRail.module.css .finishedToggle (border) NOT measured — needs at least one FINISHED lane",
+        "pods/DeletePodDialog.module.css .error (border) NOT measured — needs a failing delete",
+        "pods/NewPodDialog.module.css .error (border) NOT measured — needs a rejected submission",
+        "shell/WorkspaceLayout.module.css .splitPane (border) NOT measured — needs a split view, i.e. a pinned follower lane",
+        "transcript/Transcript.module.css .unpin (border) NOT measured — needs a SPLIT pane, i.e. a pinned follower lane",
+        "transcript/Transcript.module.css .paneError (border) NOT measured — needs the transcript to fail to load",
+        "transcript/Transcript.module.css .event (border) NOT measured — needs a user-role transcript event, which needs a live `claude` process",
+        "transcript/Transcript.module.css .eventCode (border) NOT measured — needs a tool-result event carrying code",
+        "transcript/Transcript.module.css .disclosure (border) NOT measured — needs compact tool activity in the stream",
+        "transcript/Transcript.module.css .loadMore (border) NOT measured — needs more events than one transcript page",
+        "transcript/Transcript.module.css .dispatchCard (border) NOT measured — needs a dispatch event from a live agent",
+        "transcript/Transcript.module.css .dispatchAgent (border) NOT measured — needs a dispatch event from a live agent",
+        "transcript/Transcript.module.css .eventLabel (tracking) NOT measured — needs a real transcript event, which needs a live `claude` process",
+        "TALLY (counted over this run's coverage table): 40 enumerated site(s), of which 39 were converted by this session (36 border declarations + 3 tracking) and 1 was already tokenised at af12edc (.panelBarRegion).",
+        "MEASURED 21 of this session's 39 converted sites on screen; the remaining 18 are listed above, each with the reason it was not reachable."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "TS-9",
+      "title": "OBSERVATION (not a criterion): does border-width `thin` compute to 1px?",
+      "checks": [
+        {
+          "label": "OBSERVATION: `thin` computes to the SAME width as a declared `1px` in this engine",
+          "ok": true,
+          "detail": "thin=0.8px vs 1px=0.8px"
+        }
+      ],
+      "notes": [
+        "synthetic elements: thin=0.8px medium=2.4px thick=4.8px; declared 1px=0.8px; dpr=1.0000000149011612",
+        "Consequence for the backlog item: converting the six surviving `thin` border widths in composer/Composer.module.css and permissions/PermissionCards.module.css to var(--oc-border-hairline) is a ZERO-PIXEL change in this engine — the two compute identically here. It is a consistency change, not a visual one.",
+        "Scope: this says what THIS Chromium does, measured here, on this display. The CSS spec fixes only the thin<medium<thick ordering and leaves the widths UA-defined, so this is an engine measurement, not a standards claim, and it is an observation outside this run's acceptance criteria."
+      ],
+      "shots": [],
+      "error": null
+    }
+  ],
+  "total": 52,
+  "failed": 0,
+  "errored": 0
+}
