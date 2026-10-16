@@ -1,0 +1,222 @@
+{
+  "session": "2026-10-12-orcastrate-token-sweep",
+  "updatedAt": "2026-10-16T00:05:48.413Z",
+  "phase": "merged",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/2026-10-12-orcastrate-token-sweep",
+  "branch": "dir/2026-10-12-orcastrate-token-sweep",
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "af12edcb8a9d9c8210fc91477497a55bf6e2989c",
+      "commit": "f8deb51"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "af12edcb8a9d9c8210fc91477497a55bf6e2989c",
+      "commit": "ab7dd23"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "af12edcb8a9d9c8210fc91477497a55bf6e2989c",
+      "commit": "01a8055"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "af12edcb8a9d9c8210fc91477497a55bf6e2989c",
+      "commit": "0327924"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "startRef": "0327924",
+      "commit": "9a09c1b"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "9a09c1b",
+      "commit": "d83b28c",
+      "note": "Criterion 6 was not met on the letter of its Gate 2 text and was escalated as E3; the user resolved E3 by amending it (A2), and the criterion is MET under the amended text. The substance was measured throughout: .podBarRegion (shell/WorkspaceLayout.module.css:20) computes 0.8px, equal to a live literal-1px reference in the same window, with a measured ladder and a token-resolution control collapsing the border to 0px/none. No revision round was spent because no implementation change followed."
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "lanes/LaneRail.module.css:25 declares letter-spacing: 0.06em, and the token set has no entry at that value (--oc-tracking-tight: -0.01em, --oc-tracking-wide: 0.04em). Add a third tracking token at 0.06em, or move the site to --oc-tracking-wide, which is a visible change to shipped type?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "answer": "Move the site to var(--oc-tracking-wide). The user chose to align the lone outlier with the token set's documented purpose rather than add a one-consumer token: tracking on .railHeading tightens from 0.06em to 0.04em, a deliberate and authorized visible change to shipped type. No new tracking token is added, so all three bare letter-spacing sites converge on --oc-tracking-wide.",
+      "options": [
+        {
+          "summary": "Move .railHeading to var(--oc-tracking-wide), tightening it 0.06em to 0.04em.",
+          "rationale": "tokens.css:147-148 defines --oc-tracking-wide as 'the uppercase column heading and section label', which is exactly what .railHeading is; all 12 other uppercase labels in the tree already use it, so the 0.06em reads as a pre-token oversight rather than an intent.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/styles/tokens.css:147-151",
+              "src/renderer/src/lanes/LaneRail.module.css:20-28"
+            ]
+          }
+        },
+        {
+          "summary": "Add a third token --oc-tracking-wider: 0.06em and point the site at it.",
+          "rationale": "Zero-pixel, but creates a token with exactly one consumer, encoding the outlier into the token set instead of resolving it; C3's --oc-weight-semibold precedent had ten consumers.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/styles/tokens.css:150-151"
+            ]
+          }
+        },
+        {
+          "summary": "Render .railHeading at both values in the hand-run driver and decide from the screenshot.",
+          "rationale": "This is the session's only change to shipped type, and .railHeading is one of the seven semibold sites no human has yet seen rendered.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "question": "A bulk token sweep can produce `var(--oc-*)solid` — a tokenised value with no separator, which is invalid CSS the browser discards entirely, so the declaration silently does nothing. T2 produced exactly this on all 14 of its lines and the raw-length census passed it cleanly. No guard in this repository catches the class. Amend T5 to add a terminator rule, defer it to the backlog, or add it as its own task?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend T5 to add the guard now. The user chose to close the defect class in this session rather than defer it: T5 gains two criteria requiring a two-sided repo-wide rule that every var(--oc-*) reference is terminated by a space, comma, closing paren, semicolon, brace or end-of-line, with both-direction matcher samples and a real-tree injection outside the three legacy roots. Recorded as amendment A1.",
+      "options": [
+        {
+          "summary": "Amend T5 to add a var(--oc-*) terminator rule now.",
+          "rationale": "T5 already owns hygiene.test.ts and is not yet dispatched, so the guard costs one assertion and no extra dispatch; the defect was live on 14 lines in this very session and every existing guard passed it.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/pods/PodBar.module.css",
+              "src/renderer/src/__tests__/hygiene.test.ts",
+              "src/renderer/src/styles/tokens.test.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Defer the guard to the backlog and ship the session as scoped.",
+          "rationale": "The conversions themselves are verified clean tree-wide, so nothing ships broken; this keeps the frozen manifest untouched and the session inside the Gate 1 scope.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src"
+            ]
+          }
+        },
+        {
+          "summary": "Add the rule as a new task T7 after T5.",
+          "rationale": "Keeps T5 criteria exactly as signed at Gate 2, at the cost of an extra dispatch and review cycle; still a manifest amendment either way.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "taskId": "T6",
+      "question": "T6 criterion 6 requires a converted border be measured \"with a computed border width of 1px\". In the window under test no 1px border computes to 1px — a declared literal 1px measures 0.8px too, because Chromium quantises used border widths to whole device pixels. The letter is unsatisfiable for any 1px border on this display, and it contradicts criterion 4 of the same task, which forbids comparing against a hardcoded pixel value. Amend criterion 6 to the live-literal comparison, accept it as met with a recorded note, or require a re-run on a 100%-scaled display?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Amend criterion 6 to \"computes the same width as a literal 1px measured live in the same window\", and accept T6 unchanged.",
+          "rationale": "Makes the task internally consistent with criterion 4, which mandates exactly this method for the analogous measurement, and preserves what the criterion is for — that the token resolves as a length and lands on the same used width as the literal it replaced. No implementation change.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/sessions/2026-10-12-orcastrate-token-sweep/manifest.json",
+              ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-token-sweep.md"
+            ]
+          }
+        },
+        {
+          "summary": "Accept criterion 6 as met with a recorded note, no amendment.",
+          "rationale": "Cheapest and the measured substance is not in doubt, but it leaves frozen text contradicting the method the same task required elsewhere; this project has now shipped three such criteria, and leaving the third unamended removes the only signal the next spec author gets.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Require a re-run on a 100%-scaled display so a declared 1px computes 1px.",
+          "rationale": "Satisfies the letter literally, but costs a node_modules junction, a rebuild and a full re-run, and proves nothing the measured ladder and the token/literal equality check have not already established.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend criterion 6 to the live-literal comparison and accept T6 unchanged. The user chose to make the task internally consistent with its own criterion 4 rather than accept defective frozen text or force a re-run on a different display. Recorded as amendment A2; no implementation change followed, and T6 criterion 6 is met under the amended text."
+    },
+    {
+      "id": "E4",
+      "question": "The first dir-git dispatch wrote \"Co-Authored-By: Claude Haiku 5.5\" on commits 01a8055 and f8deb51, where this session's attribution is \"Claude Opus 5\"; the agent disclosed it and the remaining four commits carry the correct trailer. The branch is unpushed, so amending those two is still cheap and affects nothing external — but this project's standing rule is that history is never rewritten. Amend the two commits before merge, or leave them and record the discrepancy?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Leave both commits as written and record the discrepancy in the backlog.",
+          "rationale": "Matches this project's standing rule that history is never rewritten, which exists because a rewrite sweeps in concurrent peers; the deviation is disclosed, bounded to two trailer lines, and changes nothing about the code. The read-back is the control, and it worked.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/sessions/2026-10-12-orcastrate-token-sweep/log.md"
+            ]
+          }
+        },
+        {
+          "summary": "Amend the two commits to the Claude Opus 5 trailer before merging.",
+          "rationale": "The branch is unpushed and the two commits are the oldest on it with no concurrent peer work uncommitted, so the usual hazard does not apply; it leaves a uniform audit trail across all six commits. Costs a rewrite of two shas and a re-verification that nothing else moved.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "dir/2026-10-12-orcastrate-token-sweep"
+            ]
+          }
+        }
+      ],
+      "answer": "Leave 01a8055 and f8deb51 as written and record the discrepancy. The user upheld this project's standing rule that history is never rewritten; the deviation is disclosed, bounded to two trailer lines, changes no code, and the mandatory commit read-back is what caught it. Carried to the backlog as a record rather than as work."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "artifact": "manifest.json",
+      "before": "T5 carried 13 acceptance criteria, none of which required any check that a var(--oc-*) reference be syntactically terminated; the two censuses it specified test only for the presence of a raw length.",
+      "after": "T5 carries 15 acceptance criteria: two new ones require a two-sided repo-wide terminator rule with named must-flag and must-pass samples, and a real-tree injection outside beachcomber/, helm/ and shell/ showing it fails.",
+      "inFlight": []
+    },
+    {
+      "id": "A2",
+      "escalation": "E3",
+      "artifact": "manifest.json",
+      "before": "T6 criterion 6 required a converted border measured \"with a computed border width of 1px\".",
+      "after": "T6 criterion 6 requires a converted border that computes the SAME used width as a literal 1px measured live in the same window, compared against a reference element rather than the string 1px.",
+      "inFlight": []
+    }
+  ],
+  "metrics": {
+    "userInteractions": 5,
+    "escalationsRaised": 4,
+    "reviewRounds": 1
+  }
+}

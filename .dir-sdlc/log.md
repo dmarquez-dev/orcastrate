@@ -821,3 +821,63 @@ as written because history is never rewritten here. **Nothing in this session wa
 rendered for a human eye:** the four veiled scrims and ten semibold headings are
 confirmed by count, census predicate and a green suite, and the driven hand-run
 that would actually look at them has not been re-run.
+
+## 2026-10-15 — 2026-10-12-orcastrate-token-sweep
+
+Standard track. Work ran 2026-10-12/13, merged 2026-10-15. Six tasks, six
+commits (`01a8055` … `d83b28c`), 24 files, +3119/−115. **63 acceptance criteria,
+62 met on the letter and all 63 after one amendment; one blocking finding closed
+in one round; four escalations, two amendments; 5 user interactions,
+`reviewRounds: 1`. Suite 2240 → 2248**, measured by the orchestrator at both
+ends on a quiescent tree; typecheck exit 0 on both programs throughout.
+
+**C3's blind spot is closed for the two properties it left open, and the
+project's last token exception list is gone.** 36 raw-length border widths and 3
+`letter-spacing` literals converted; `PRE_TOKEN_SHELL_DECLARATIONS` deleted, its
+assertion now `toEqual([])`, which is strictly stronger than tolerating a
+five-entry pin. Three repo-wide two-sided censuses replace it, each with
+both-direction matcher samples and each shown able to fail by injection
+**outside** the three legacy roots — and on the tracking injection the old scoped
+rule stayed green, which demonstrates the scope trap rather than arguing it.
+
+**The handoff brief was wrong on five measurements, and one resized the session
+fivefold.** It billed 2 bare border widths against an actual 36: it had counted
+declarations naming no `--oc-*` token, while the rule's predicate flags any raw
+length in a `border*` value. That made the brief self-inconsistent, since its own
+demand for a census with no exception list would have gone red on the 29
+survivors of a 7-site fix. Caught at kickoff by re-measuring rather than
+trusting a citation — the third consecutive session in which that step was the
+largest correction.
+
+**Two findings outlived the work they came from.** A bulk substitution produced
+`var(--oc-border-hairline)solid` on 14 lines — invalid CSS a browser discards
+whole — and the raw-length census **passed it**, as did a 31/31 suite; no CSS
+parser exists anywhere in the repo. Amendment A1 added a token-termination rule
+to close it. And **a third defective criterion was frozen**: T6's criterion 6
+demanded a border measured "at 1px" when Chromium quantises used widths to whole
+device pixels, so no 1px border — a declared literal included — computes to
+`1px`. Criterion 4 of that same task explicitly forbade the hardcoded comparison
+criterion 6 required. Amendment A2 resolved it at Gate 3. The Gate 2 simulation
+step C3 asked for did run, and still missed it, because `1px` does not look like
+a number that needs simulating.
+
+**The conversions were finally seen.** A new Playwright driver built from the
+session worktree and measured 21 of 39 converted sites in the real Electron
+window, 52/52 checks, no application defect — including `.railHeading` at
+`letter-spacing: 0.44px` against its own `font-size: 11px`, the session's one
+visible change and an element no previous hand-run had ever rendered. The
+remaining 18 sites are recorded unreachable with a reason each, most needing a
+live `claude` process. The instrument also produced the session's sharpest
+sentence: an ambiguous class anchor silently dropped a whole stylesheet, so a
+site was reported "not reached" while it was plainly visible in the screenshot
+that same step had just taken — **a coverage gap that reports itself as a limit
+is worse than one that errors.**
+
+Four advisories carried to the backlog by explicit user decision, two contract
+gaps and two correctness risks. **"A check that cannot report" recurred six
+times, and the sixth was the orchestrator's own** — a NUL-byte probe that
+returned a file's line count because bash collapses `$'\x00'` to the empty
+string. Six commit messages were read back and **all six were accurate against
+their diffs**, ending a four-session streak of drift; two carry the wrong
+attribution trailer, disclosed by `dir-git` itself and left unrewritten by user
+decision at escalation E4.

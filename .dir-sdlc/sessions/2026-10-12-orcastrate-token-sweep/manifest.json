@@ -1,0 +1,153 @@
+{
+  "session": "2026-10-12-orcastrate-token-sweep",
+  "createdAt": "2026-10-12T20:55:00.000Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": ["contracts/token-sweep-census.ts"],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "lanes/: convert 7 bare border widths and the one authorised visible tracking change",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/lanes/LaneRail.module.css",
+        "src/renderer/src/lanes/LaneRail.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "All 7 border declarations in src/renderer/src/lanes/LaneRail.module.css that carried a raw `1px` at af12edc (lines 17, 39, 62, 87, 277, 382, 401) read `var(--oc-border-hairline)` as this task leaves the file, in the exact text form the frozen contract's `TokenisedBorderWidth` declares: the width term alone is substituted, no shorthand is split into longhands, and no `border-width` declaration is added beside an existing shorthand.",
+        "A grep for a raw length inside a `border`/`border-top`/`border-right`/`border-bottom`/`border-left`/`border-width`/`border-block`/`border-inline`/`outline` value in src/renderer/src/lanes/LaneRail.module.css reports none. The command and its exit code are named, and the grep is positive-controlled: run it first against an injected `border: 1px solid red` in that file, report the hit it finds, then remove the injection. A grep reporting nothing is evidence only once it has been seen reporting something.",
+        "The 7 border conversions are zero-pixel, shown from the diff rather than argued: each changed line differs from its af12edc text only by the replacement of the exact substring `1px` with `var(--oc-border-hairline)`, and `--oc-border-hairline` is `1px` at src/renderer/src/styles/tokens.css:144.",
+        "`.railHeading`'s `letter-spacing` reads `var(--oc-tracking-wide)` where it read `0.06em`. This is the session's ONE deliberate change to shipped rendering, authorised by escalation E1: tracking tightens from 0.06em to 0.04em. The criterion is NOT satisfied by a change described as zero-pixel, and no new tracking token is introduced anywhere.",
+        "src/renderer/src/lanes/LaneRail.styles.test.ts asserts the Pod-governed dot's border through the token rather than through the literal `1px` that its af12edc line 374 pattern `/border:\\s*1px solid var\\(--pod-status-color\\)/` matched.",
+        "That assertion is shown able to fail, which test.md's Coverage rule requires of every test in this session ('A test is shown able to fail — seen failing before it is made to pass, or shown to catch the defect it exists for when that defect is injected'): revert the `.status[data-pod-status] .dot` border in the stylesheet to `1px` by hand, run `npx vitest run src/renderer/src/lanes/LaneRail.styles.test.ts`, report the failure observed, then restore the conversion. 'Verified by inspection' does not satisfy this.",
+        "Every claim the docblock of src/renderer/src/lanes/LaneRail.module.css makes is true of the file as this task leaves it. State the claim and the evidence rather than a list of strings deleted. Note before deciding that the file still carries raw lengths after conversion — a `box-shadow` at af12edc line 311 and the screen-reader clip recipe at lines 418-421 — so a claim that no literal in the file would be missed by a theme change has to be true of THAT file, not of the borders alone.",
+        "`npx vitest run src/renderer/src/lanes` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the two paths in `owns` and no others, shown by `git status --porcelain` scoped to src/renderer/src."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "pods/: convert 14 bare border widths, 1 bare letter-spacing, and 2 falsified docblocks",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/DeletePodDialog.module.css",
+        "src/renderer/src/pods/NewPodDialog.module.css",
+        "src/renderer/src/pods/PodBar.module.css"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "All 14 border declarations under src/renderer/src/pods/ that carried a raw `1px` at af12edc read `var(--oc-border-hairline)` as this task leaves them, in the exact form the frozen contract's `TokenisedBorderWidth` declares. The 14 are 3 in DeletePodDialog.module.css (lines 24, 62, 78), 7 in NewPodDialog.module.css (lines 19, 52, 74, 107, 133, 168, 184) and 4 in PodBar.module.css (lines 121, 203, 249, 328). PodBarPanel.module.css and PodsChrome.module.css carried none and are not in this task's ownership set.",
+        "A grep for a raw length inside a `border`/`border-top`/`border-right`/`border-bottom`/`border-left`/`border-width`/`border-block`/`border-inline`/`outline` value anywhere under src/renderer/src/pods/ reports none. The command and its exit code are named, and the grep is positive-controlled against an injected `border: 1px solid red` whose hit is reported before the injection is removed.",
+        "The 14 border conversions are zero-pixel, shown from the diff: each changed line differs from its af12edc text only by the replacement of the exact substring `1px` with `var(--oc-border-hairline)`.",
+        "`.bypassBadge`'s `letter-spacing` in PodBar.module.css reads `var(--oc-tracking-wide)` where it read `0.04em`. `--oc-tracking-wide` is `0.04em` at src/renderer/src/styles/tokens.css:151, so this conversion changes nothing on screen — stated as the measured equality of the two values, not assumed.",
+        "Every claim the docblock of src/renderer/src/pods/PodBar.module.css makes is true of the file as this task leaves it. Before deciding, note that the file still carries raw lengths in `box-shadow` at af12edc lines 72 and 159, so replacement prose must not claim the file is free of bare lengths; and that the same file already uses `--oc-border-thick` at lines 152 and 172, so prose asserting the token set has no border-width entry is false independently of this session's conversions.",
+        "Every claim the docblock of src/renderer/src/pods/DeletePodDialog.module.css makes is true of the file as this task leaves it. Note the direction: at af12edc that file carries 3 bare border widths and nothing else bare, so its claim that the only bare lengths are hairline border widths is TRUE today and this task's conversions are what make it false. The file carries no raw length at all once converted.",
+        "`npx vitest run src/renderer/src/pods` passes, with the measured file and test counts reported from that run's own output. If any assertion outside this task's ownership set needs to change for the suite to pass, stop and escalate rather than widening the set.",
+        "The task's diff touches exactly the three paths in `owns` and no others, shown by `git status --porcelain` scoped to src/renderer/src."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "transcript/: convert 10 bare border widths and 1 bare letter-spacing",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/transcript/Transcript.module.css",
+        "src/renderer/src/transcript/Transcript.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "All 10 border declarations in src/renderer/src/transcript/Transcript.module.css that carried a raw `1px` at af12edc (lines 15, 21, 51, 111, 173, 203, 243, 286, 309, 342) read `var(--oc-border-hairline)` as this task leaves the file, in the exact form the frozen contract's `TokenisedBorderWidth` declares.",
+        "A grep for a raw length inside a `border`/`border-top`/`border-right`/`border-bottom`/`border-left`/`border-width`/`border-block`/`border-inline`/`outline` value anywhere under src/renderer/src/transcript/ reports none. The command and its exit code are named, and the grep is positive-controlled against an injected `border: 1px solid red` whose hit is reported before the injection is removed.",
+        "The 10 border conversions are zero-pixel, shown from the diff: each changed line differs from its af12edc text only by the replacement of the exact substring `1px` with `var(--oc-border-hairline)`.",
+        "The `letter-spacing` at af12edc line 181 reads `var(--oc-tracking-wide)` where it read `0.04em` — the same value, so nothing changes on screen, stated as the measured equality of the two values.",
+        "src/renderer/src/transcript/Transcript.styles.test.ts asserts the turn body's border through the token rather than through the literal `1px` that its af12edc line 72 pattern `/border:\\s*1px solid var\\(--oc-border-strong\\)/` matched, and the assertion still names which selector carries the border.",
+        "That assertion is shown able to fail, as test.md's Coverage rule requires: revert the asserted declaration in the stylesheet to `1px` by hand, run `npx vitest run src/renderer/src/transcript/Transcript.styles.test.ts`, report the failure observed, then restore the conversion.",
+        "Every claim the docblock of src/renderer/src/transcript/Transcript.module.css makes is true of the file as this task leaves it. Note that the file still carries the screen-reader clip recipe's raw lengths at af12edc lines 395-398 after conversion, and that no edit is required if every claim is already true of the converted file — say which it is and why.",
+        "`npx vitest run src/renderer/src/transcript` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the two paths in `owns` and no others, shown by `git status --porcelain` scoped to src/renderer/src."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "shell/: convert the 5 pinned declarations and delete PRE_TOKEN_SHELL_DECLARATIONS, atomically",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/shell/EmptyWorkspace.module.css",
+        "src/renderer/src/shell/WorkspaceLayout.module.css",
+        "src/renderer/src/shell/Panels.styles.test.ts",
+        "src/renderer/src/__tests__/hygiene.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "All 5 border declarations named in `PRE_TOKEN_SHELL_DECLARATIONS` at af12edc read `var(--oc-border-hairline)` as this task leaves them: 1 in src/renderer/src/shell/EmptyWorkspace.module.css (line 26) and 4 in src/renderer/src/shell/WorkspaceLayout.module.css (lines 20, 64, 97, 103). The form is the one the frozen contract's `TokenisedBorderWidth` declares.",
+        "A grep for a raw length inside a `border`/`border-top`/`border-right`/`border-bottom`/`border-left`/`border-width`/`border-block`/`border-inline`/`outline` value anywhere under src/renderer/src/shell/ reports none. The command and its exit code are named, and the grep is positive-controlled against an injected `border: 1px solid red` whose hit is reported before the injection is removed.",
+        "The 5 conversions are zero-pixel, shown from the diff: each changed line differs from its af12edc text only by the replacement of the exact substring `1px` with `var(--oc-border-hairline)`.",
+        "No occurrence of the identifier `PRE_TOKEN_SHELL_DECLARATIONS` survives anywhere under src/ — the constant, its docblock, the two comments naming it, and the assertion comparing the scoped scan's offenders against it are all gone. The count is measured both before and after by the same command; `grep -ro PRE_TOKEN_SHELL_DECLARATIONS src | wc -l` returns 5 at af12edc, which is this check's positive control, and must return 0 as this task leaves the tree.",
+        "The deletion removes no coverage. The scoped rule over `beachcomber/`, `helm/` and `shell/` still runs and now tolerates nothing: its offender list is asserted against the empty list, which is strictly stronger than comparing it against a 5-entry pin. No other assertion in src/renderer/src/__tests__/hygiene.test.ts is deleted, loosened, skipped or narrowed, and the diff is the evidence.",
+        "The scoped rule is shown able to fail after the pin is gone, which is what distinguishes deleting a pin from deleting a check (test.md Coverage: 'A test is shown able to fail'): inject `border: 1px solid var(--oc-border)` into one `shell/` stylesheet, run `npx vitest run src/renderer/src/__tests__/hygiene.test.ts`, report the named failing assertion and its message, then revert the injection.",
+        "Every claim the docblock of src/renderer/src/shell/Panels.styles.test.ts makes is true of the tree as this task leaves it. Its af12edc text states that `WorkspaceLayout.module.css` 'predates the border-width token and carries a bare `1px`' and calls that 'the known token-set gap `__tests__/hygiene.test.ts` documents' — both halves stop being true here, and the file's assertions are unaffected, so this is a prose obligation and not an assertion change.",
+        "Every claim src/renderer/src/__tests__/hygiene.test.ts makes that this task's change falsifies is corrected or removed, and the prose the file keeps is true of the tree as this task leaves it. Two known sites at af12edc: line 1032's docblock reference to the deleted identifier, and line 1258's present-tense claim that the list 'exists to shrink'. Report by property — the file's prose is true of the tree — not by enumerating these two.",
+        "`npx vitest run src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/shell` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the four paths in `owns` and no others, shown by `git status --porcelain` scoped to src/renderer/src."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Extend the repo-wide census to letter-spacing and border widths, with no exception list",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": ["src/renderer/src/__tests__/hygiene.test.ts"],
+      "dependsOn": ["T1", "T2", "T3", "T4"],
+      "acceptance": [
+        "src/renderer/src/__tests__/hygiene.test.ts carries a repo-wide rule asserting that no `letter-spacing` declaration in any `*.module.css` under src/renderer/src has a value outside the `--oc-tracking-*` family, scanning the population the frozen contract's `CensusScope` names and carrying no exception list of any kind. The assertion is two-sided in the contract's `CensusAssertionShape`: the offender list is compared against the empty list.",
+        "The same file carries a repo-wide rule asserting that no value of any property in the frozen contract's `BORDER_WIDTH_PROPERTIES` carries a raw length, over the same population, with no exception list, and two-sided in the same shape.",
+        "Both new rules read declarations with the anchored reader the contract's `DeclarationReader` names, so a longhand cannot be read as the shorthand it is spelled inside and a custom property cannot be read as a property.",
+        "The tracking rule's matcher test flags every sample in the contract's `TRACKING_MUST_FLAG` and flags none in `TRACKING_MUST_PASS`, both directions asserted in the file rather than described. The wrong-family sample `letter-spacing: var(--oc-space-2)` is the one that matters: a predicate testing only for `var(` passes it, which is the defect C3's `WEIGHT_TOKEN` regex exists to close.",
+        "The border rule's matcher test flags every sample in the contract's `BORDER_MUST_FLAG` and flags none in `BORDER_MUST_PASS`, both directions asserted in the file. `border-radius: 4px` is the near-miss that matters: 69 `border-radius` declarations exist in this tree and not one of them may enter the offender set.",
+        "The tracking rule is shown able to fail against the real tree, not only against synthetic strings: inject a bare `letter-spacing` into a `*.module.css` OUTSIDE `beachcomber/`, `helm/` and `shell/`, run `npx vitest run src/renderer/src/__tests__/hygiene.test.ts`, report the failing assertion and its message, then revert. Injecting outside those three roots is the point — it is the scope trap this whole section exists to close.",
+        "The border rule is shown able to fail the same way: inject `border: 1px solid var(--oc-border)` into a `*.module.css` outside those three roots, run the same command, report the failure, then revert.",
+        "Both new rules scan the list the existing census guard covers, so neither can pass by scanning nothing — the contract's `CensusSelfCheck` states what that guard asserts, and this criterion is met by the new rules walking that same list, or by an equivalent guard of their own if they do not.",
+        "Neither new rule introduces a constant enumerating tolerated declarations, and no such constant exists anywhere in the file as this task leaves it. Emptying the last of them was T4's work, and re-creating one for a different property would reinstate exactly what this session removed.",
+        "AMENDMENT A1 (escalation E2). The file carries a third repo-wide rule asserting that every `var(--oc-*)` reference in any `*.module.css` under src/renderer/src is TERMINATED by one of: a space, `,`, `)`, `;`, `}`, or end-of-line. Two-sided (offenders compared against the empty list), no exception list, over the same population as the other two censuses, and read with the same anchored reader. It must flag `border: var(--oc-border-hairline)solid red` and `border: var(--oc-border-hairline)dashed red`; it must NOT flag `border: var(--oc-border-hairline) solid red`, `box-shadow: 0 0 0 var(--oc-space-1), 0 0 0 var(--oc-space-2)`, `padding: var(--oc-space-2);` or `grid-template-columns: var(--oc-a) var(--oc-b)`. Both directions asserted in the file rather than described. This closes a defect class with NO detector in this repo: T2's first pass produced `var(--oc-border-hairline)solid` on all 14 of its lines — invalid CSS the browser discards entirely, so every one of those borders would have vanished on screen — and the raw-length census passed it cleanly, as did the full pods suite at 31/31. Verified by the orchestrator: no CSS parser exists anywhere under src/ or tests/, and `styles/tokens.test.ts` checks only that token NAMES match the frozen TOKENS map, never that a usage is syntactically live.",
+        "That third rule is shown able to fail against the real tree, not only against synthetic strings: inject the dead form into a `*.module.css` OUTSIDE `beachcomber/`, `helm/` and `shell/`, run `npx vitest run src/renderer/src/__tests__/hygiene.test.ts`, report the failing assertion and its message, then revert.",
+        "No test name in this file claims more than its test checks, which test.md's Naming rule requires ('The name must not claim more than the test checks. A name broader than its assertions misleads every later reader'). A name saying 'everywhere' or 'with no exception list' must be carried by a rule that walks the whole population and tolerates nothing.",
+        "Every count and every universal this task adds to or edits in the file's prose is true of the tree as this task leaves it, including the header bullet list at af12edc lines 16-17, which scopes the border-width and letter-spacing rules to `beachcomber/`, `helm/` and `shell/` — a scope this task's change makes false.",
+        "`npm test` passes on a quiescent tree, with the test-file and test counts REPORTED AS MEASURED from that run's own output rather than asserted against the handoff brief's 141 files and 2240 tests, which this session has not re-verified. Report the same two numbers measured the same way at the session base af12edc, and the delta between them.",
+        "`npm run typecheck` exits 0, covering both programs (`typecheck:node` over tsconfig.node.json and `typecheck:web` over tsconfig.web.json). Report each program's exit code separately: vitest transpiles without typechecking, so a green suite is not evidence for this."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Extend the Electron hand-run driver so the converted values are seen rendered",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-token-sweep.mjs",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-TOKEN-SWEEP.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-token-sweep.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-token-sweep.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/token-sweep/**"
+      ],
+      "dependsOn": ["T5"],
+      "acceptance": [
+        "A driver at .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-token-sweep.mjs drives the real built Electron app through Playwright against the sandboxed home, reusing driver/lib.mjs and driver/sandbox.mjs as driver/run-c3.mjs does, with USERPROFILE/APPDATA/LOCALAPPDATA/TEMP redirected so the real ~/.claude is not touched. Report the sandbox root the run used.",
+        "The run is driven against a build produced from THIS SESSION'S worktree, not from the main checkout. `lib.mjs`'s `repoRoot` resolves relative to the driver file, so a driver executed from the main checkout's copy would launch a build with none of this session's conversions in it and would confirm nothing. State which checkout was built, and name the commit or the converted declaration observed in the built bundle that proves it.",
+        "`npm run build` completes in that worktree, which runs `typecheck:node` and `typecheck:web` ahead of the bundle. Report its exit code.",
+        "`.railHeading` is on screen and its computed `letter-spacing` is MEASURED in the running window. The element is the `<h2 id=\"lane-rail-heading\">` rendered by src/renderer/src/lanes/LaneRail.tsx:70. The measured value equals 0.04 times the element's own computed `font-size`, within sub-pixel rounding, and is strictly less than 0.06 times it. Compare against the element's measured font-size rather than a hardcoded pixel value. This is the session's one authorised visible change, and it is the element no hand-run has ever rendered.",
+        "That probe is shown able to discriminate: override `letter-spacing` back to `0.06em` on the same element in-page, re-probe, and report a strictly larger measured value. A probe that has only ever reported the value it expected has not been shown to measure anything — this project's recurring defect is a check that cannot report.",
+        "AMENDED A2 (escalation E3). At least one converted border declaration is measured in the running window and computes the SAME used width as a literal `1px` measured live in the same window, naming the element and the stylesheet it comes from. The comparison is against a reference element created and measured in that window, never against the string `1px`. Original text, frozen at Gate 2: 'At least one converted border declaration is measured in the running window with a computed border width of 1px, naming the element and the stylesheet it comes from.' That text was unsatisfiable: Chromium quantises used border widths to whole device pixels, so on the display under test no 1px border computes to `1px` — a declared literal included, measuring 0.8px on a ladder fitting floor(declared x 1.25)/1.25 exactly. It also contradicted criterion 4 of this same task, which forbids comparing against a hardcoded pixel value for the analogous measurement; the method criterion 4 mandates is the one that makes this criterion's intent measurable.",
+        "That border probe is shown able to discriminate on TOKEN RESOLUTION, which is the failure a passing suite cannot see: override `--oc-border-hairline` in-page to a value that does not resolve as a length, re-probe the same element, and report the different computed width observed. A token that failed to resolve computes to a width the probe must distinguish from 1px.",
+        "The findings document records, for each of the 7 converted stylesheets (lanes/LaneRail, pods/DeletePodDialog, pods/NewPodDialog, pods/PodBar, shell/EmptyWorkspace, shell/WorkspaceLayout, transcript/Transcript), either a measured computed value on a converted declaration in that file or an explicit statement that no converted site in it could be reached, with the reason. No site is reported as verified unless it was measured. Recording a limit satisfies this criterion; claiming a site that was never on screen does not.",
+        "The findings document records, for each of the 3 converted `letter-spacing` sites (lanes/LaneRail `.railHeading`, pods/PodBar `.bypassBadge`, transcript/Transcript line 181 at af12edc), either its measured computed value or the reason it could not be reached. Two of the three plausibly need application state the driver cannot create — a bypass-permission Pod and live transcript content — and recording that is a pass.",
+        "The findings document carries a section stating what the run did NOT prove, in the shape FINDINGS-C3.md uses. A run that reports only its passes is this project's instrument problem in another form, and C3's own honest limit — 3 of 10 semibold sites rendered — is the reason this task exists.",
+        "Every count in the findings document and in the run's report is attributed to the command or the probe that produced it, and every harness failure is recorded as a harness failure, distinguished from an application defect. C3's first pass would have reported 20/23 on three harness faults.",
+        "The task's diff touches nothing outside .dir-sdlc/handruns/2026-09-30-electron-handrun/, shown by `git status --porcelain`. In particular no file under src/ is modified: an in-page override is a runtime probe and is never committed."
+      ]
+    }
+  ]
+}

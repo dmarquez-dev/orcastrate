@@ -1754,9 +1754,20 @@ sweeping them in one pass rather than one at a time.
 - `helm/rules.ts:7-8` — states the lookahead bug backwards ("matches nothing";
   measured, it fires on clean code).
 - `main/index.ts:94` — "Criterion 5" from an earlier task's numbering.
-- `pods/PodBar.module.css:1-4` — "the only bare lengths are hairline border
-  widths, for which the token set has no entry"; `--oc-border-thick` exists and
-  the same file uses it at `:152`.
+- ~~`pods/PodBar.module.css:1-4` — "the only bare lengths are hairline border
+  widths, for which the token set has no entry"~~ — **CLOSED 2026-10-15** by session
+  `2026-10-12-orcastrate-token-sweep` (`ab7dd23`). The docblock was rewritten and each of its
+  five replacement claims verified in-session. **This roster line undercounted the defect:
+  the claim was false on three counts, not one.** `--oc-border-thick` exists and the file
+  used it (the count this line records); `:209` was a bare `letter-spacing`, not a border
+  width; and `:72`/`:159` carried bare `px` lengths in `box-shadow`, which neither this line
+  nor the handoff brief recorded. The replacement prose deliberately does **not** claim the
+  file is free of bare lengths, because the two `box-shadow` geometries remain and the token
+  set has no shadow-geometry entry (verified: anchored grep exit 1, positive-controlled).
+  A companion claim in `pods/DeletePodDialog.module.css:1-4` was absent from this roster
+  entirely, and its direction was the opposite: it was **true** at `af12edc` and the
+  session's own conversions are what falsified it. Original text: `--oc-border-thick` exists
+  and the same file uses it at `:152`.
 - `styles/tokens.css:43` — the Status block header lists three lane statuses
   where there are four.
 - `styles/tokens.css:63-65` — the assembled sentence overstates: it says the
@@ -2124,13 +2135,18 @@ session's two biggest corrections came from.
   whose value contains a brace would silently truncate that body and make the "inside
   `:root`" assertion vacuous for every token after it. `color-mix(…)` has no braces, so
   nothing is wrong today. A latent trap in a file C3 did not own.
-- **`__tests__/hygiene.test.ts:16-17`'s header bullet understates the scoped rule.** It
-  says the `beachcomber`/`helm`/`shell` rule checks "a border width or a letter-spacing",
-  but `:726` still runs `tokenOffenders(text, [LETTER_SPACING, FONT_WEIGHT])`. Not
-  falsified — the next bullet states font weights are enforced repo-wide, a superset — but
-  the enumeration no longer maps to the code path. Same for the docblock title "THE RAW
-  BORDER WIDTHS THIS RULE STILL TOLERATES", which also governs letter-spacing and
-  font-weight offenders and merely happens to contain only border widths today.
+- ~~**`__tests__/hygiene.test.ts:16-17`'s header bullet understates the scoped rule.**~~ —
+  **CLOSED 2026-10-15** by session `2026-10-12-orcastrate-token-sweep` (`0327924`, `9a09c1b`).
+  The docblock title "THE RAW BORDER WIDTHS THIS RULE STILL TOLERATES" is gone with the pin
+  it headed, and the header bullet was rewritten twice: T4 corrected the prose its pin
+  deletion falsified, and T5 rewrote the bullet again because the repo-wide censuses made
+  its three-directory scoping false. The bullet now records that the scoped rule is a
+  narrower restatement **over this tree** and states explicitly that it is *not* narrower as
+  a predicate — it reads declarations unanchored, so it flags a custom property named
+  `--oc-border` that the anchored census does not, both directions asserted in the file.
+  Original text: it said the rule checks "a border width or a letter-spacing" while `:726`
+  ran `tokenOffenders(text, [LETTER_SPACING, FONT_WEIGHT])`; not falsified, but the
+  enumeration no longer mapped to the code path.
 - **`npx prettier --check` warns on `renderer-panels.ts`, `panel-store.ts` and
   `HelmPanel.tsx`** — pre-existing, identical at the session's base. Not fixed because
   reformatting would have touched executable lines and broken a no-behaviour-change
@@ -2202,3 +2218,160 @@ session's two biggest corrections came from.
   no part of this session rendered them. The 2026-10-07 driven Playwright hand-run is the
   instrument that would, and it has not been re-run against these changes. The same gap
   applies to the ten semibold headings. **A call site is not a pixel.**
+
+---
+
+## 2026-10-15 — 2026-10-12-orcastrate-token-sweep
+
+Work ran 2026-10-12/13; closed and merged 2026-10-15. **C3's shape, one property over, and
+it finished what C3 started.** The repo-wide census now covers `letter-spacing` and border
+widths as well as `font-weight`, and **`PRE_TOKEN_SHELL_DECLARATIONS` is deleted** — the
+project's last token exception list, emptied rather than left to outlive its problem, which
+is what its own docblock said it existed for.
+
+**63 acceptance criteria, 62 met on the letter and all 63 after one amendment. One blocking
+finding, closed in one round. Four escalations, two amendments. 5 user interactions,
+`reviewRounds: 1`. Suite 2240 → 2248** (measured by the orchestrator at both ends on a
+quiescent tree); typecheck exit 0 on both programs throughout. Six commits: `01a8055`,
+`f8deb51`, `ab7dd23`, `0327924`, `9a09c1b`, `d83b28c`.
+
+**39 declarations converted** — 36 raw-length border widths (all exactly `1px`, in 7 files
+across 4 directories) to `var(--oc-border-hairline)`, and 3 `letter-spacing` literals to
+`var(--oc-tracking-wide)`. 38 are zero-pixel. The 39th, `.railHeading`'s `0.06em → 0.04em`,
+is the session's only change to shipped type, decided by the user at escalation E1 rather
+than rounded by an implementer — and it was **measured on screen** at `0.44px` against its
+own `font-size: 11px`, the first time any hand-run has rendered that element.
+
+**The handoff brief was wrong on five measurements and one of them resized the session.** It
+billed 2 bare border widths; there were 36. The brief had counted declarations naming no
+`--oc-*` token, while the rule's actual predicate (`borderOffenders`) flags any raw length in
+a `border*` value regardless of colour token. That made the brief internally inconsistent:
+its §4 asked for a repo-wide census with no exception list, which would have gone red on the
+29 survivors of a 7-site conversion. Re-measuring at kickoff — and positive-controlling the
+predicate against `border-radius: 4px` and `border: 0` — is what caught it, for the third
+consecutive session.
+
+### Contract gaps
+
+- **Six untokenised border widths survive, declared with the CSS keyword `thin`** —
+  `composer/Composer.module.css:15,44,70` and `permissions/PermissionCards.module.css:27,85,100`.
+  A keyword is not a raw length, so the frozen census predicate correctly does not flag them,
+  and T5 was right to report rather than widen a frozen criterion. **Both files were invisible
+  twice over:** they sit outside `beachcomber/`/`helm/`/`shell/`, so the old scoped rule never
+  saw them, and this session never touched them. **Converting them is zero-pixel in the engine
+  that ships** — T6 measured `thin` at `0.8px` on a synthetic element in the real Electron
+  window, identical to a declared `1px` (`medium` `2.4px`, `thick` `4.8px`). MDN states
+  `thin` ≡ `1px` but the spec fixes only the `thin < medium < thick` ordering, so this is an
+  engine measurement on one display rather than a standards claim. **A mechanical consistency
+  sweep, not a design pass** — which is the opposite of how the deferral reads in
+  `hygiene.test.ts`, where the prose calls widening "a design decision and not a test change".
+  Correcting that framing is part of the item.
+- **A reachable converted declaration is reported as unreachable** —
+  `transcript/Transcript.module.css:45` is a grouped selector, `.filterToggle, .unpin`, and
+  the driver enumerates it only as `.unpin`, reporting "not reached — needs a SPLIT pane".
+  But `.filterToggle` renders unconditionally in the pane header
+  (`TranscriptPane.tsx:175-181`) and the run measured `.pane` and `.paneHeader` as rendered
+  in that very state. This understates coverage, which is the conservative direction and
+  violated no criterion. **Scope is bounded and positive-controlled:** the 6-line context
+  above every hairline declaration in all 7 files was grepped for comma-grouped selectors and
+  this is the only one. Fix is declaration-keyed enumeration, or enumerating every selector
+  in a group.
+
+### Correctness risks
+
+- **The hand-run driver's prose overstates its own central fix.** `FINDINGS-TOKEN-SWEEP.md`
+  says the driver fails "loudly on ambiguity instead of dropping the file"; `resolveHashes()`
+  does fail loudly *and* the plan loop still skips the file (`if (!h) continue`), so it does
+  both. Either throw, or soften the sentence. Two more in the same document: the `0.8px`
+  quantization's **mechanism** is stated as fact ("this display is fractionally scaled") while
+  the run's own `devicePixelRatio` reads `1.0000000149011612` — the quantization is measured
+  and the `×1.25` fit is exact on all five rungs, but the cause is not measured; and TS-0
+  defers a live-element/bundle hash check to "TS-4" where the rail renders at TS-5 and no such
+  check exists, so `check('the live .railHeading element carries the SAME file hash…')` never
+  ran. The claim is substantiated by other artifacts, but by a different one than the pointer
+  names.
+- **Two rewritten docblocks state exhaustive enumerations no scanner enforces** —
+  `pods/PodBar.module.css:1-8` ("two declarations still carry a bare `px`") and
+  `pods/DeletePodDialog.module.css:1-5` ("the only raw values left are `z-index`, `opacity`,
+  the `100%` fills and the `0` resets"). Both were verified true as the session left them —
+  by full declaration listings, not filtered greps — but the census checks border widths,
+  tracking and token termination, not these enumerations, so both will go stale silently on
+  the next edit to either file. The same hazard the session spent five criteria correcting,
+  now reintroduced in two files at once.
+
+### Informational — not work
+
+- **Commits `01a8055` and `f8deb51` carry `Co-Authored-By: Claude Haiku 5.5`** where this
+  session's attribution is `Claude Opus 5`. `dir-git` disclosed the deviation itself and the
+  remaining four commits are correct. **Escalation E4; the user chose to leave them**,
+  upholding the rule that history is never rewritten even though the branch was unpushed and
+  the usual "a rewrite sweeps in concurrent peers" hazard did not apply. The mandatory
+  commit read-back is what caught it — the fifth consecutive session in which that read-back
+  found something, and the first in which what it found was not a message contradicting its
+  own diff. **All six messages were accurate against their diffs**, which breaks a
+  four-session streak.
+
+### Process notes, for whoever runs the next session
+
+- **"A check that cannot report" recurred six times, and the sixth was the orchestrator's.**
+  Five were caught inside the session: T2's census grep passed invalid CSS cleanly; T2's own
+  first positive control proved nothing because `\b` cannot follow `%`, and it discarded the
+  control rather than banking it; T2's reviewer found the implementer's tree-wide control
+  would have returned no hits only because peers had already converted their files, and ran a
+  base-text control instead; T5 withdrew a matcher assertion after determining `border-radius`
+  is *not* the near-miss that fools the unanchored reader (`border-radius:` offers a hyphen
+  where `declaredValues` needs a colon — the real case is a custom property named
+  `--oc-border`). The sixth: **the orchestrator reported 290 NUL bytes in a findings
+  document**, because bash collapses `$'\x00'` to the empty string and `grep -c ''` matches
+  every line — 290 was the file's line count. Byte-delta with a planted-NUL control showed
+  zero. **The rule is not "positive-control your greps"; it is "positive-control the
+  instrument you are about to trust", and it applies to the orchestrator's own commands.**
+- **A bulk token sweep can produce CSS the browser silently discards, and nothing in this
+  repository detected it.** T2's first pass stripped a trailing space, writing
+  `var(--oc-border-hairline)solid` on all 14 of its lines — invalid CSS, so every one of
+  those borders would have vanished on screen. The raw-length census **passed it**, because
+  there is no raw length left to find; the full `pods` suite passed 31/31. Only the
+  zero-pixel diff criterion caught it. Verified independently: no CSS parser exists anywhere
+  under `src/` or `tests/`, and `styles/tokens.test.ts` checks only that token *names* match
+  the frozen `TOKENS` map. **Closed this session by amendment A1** (escalation E2), which
+  added a two-sided repo-wide rule that every `var(--oc-*)` reference be terminated by a
+  space, `,`, `)`, `;`, `}` or end-of-line. **The lesson generalises past CSS:** a
+  presence-of-bad-value predicate cannot see a well-formed value that is syntactically dead.
+- **The orchestrator froze a third defective criterion, and the Gate 2 step that was supposed
+  to catch it is the one C3 asked for.** T6's criterion 6 required a border measured "with a
+  computed border width of 1px". No 1px border computes to `1px` in the window under test —
+  a declared literal measures `0.8px`, because Chromium quantises used widths to whole device
+  pixels. Worse, **criterion 4 of the same task explicitly forbade exactly that**: "compare
+  against the element's measured font-size rather than a hardcoded pixel value." The two could
+  not both be honoured, and the method criterion 4 mandated is the one that made criterion 6's
+  intent measurable. Resolved by amendment A2 at Gate 3. C3's own note said to simulate a
+  criterion's stated numbers against the post-change tree before freezing; **this session did
+  run that step and still missed this, because `1px` does not look like a number anyone needs
+  to simulate.** Add the narrower rule: a criterion naming a *rendered* quantity must say what
+  it is measured against, never a literal.
+- **The architect died mid-decomposition on an API rate limit**, after writing
+  `manifest.json` and the contract but before returning its coverage mapping. The orchestrator
+  derived the mapping itself and recorded the provenance deviation in `coverage.md` rather
+  than presenting it as architect-derived — it also authored the definition of done that
+  mapping joins against, which is a weaker guarantee and is stated as such in the artifact.
+  Drafts on disk were complete and schema-valid, so no re-dispatch was attempted.
+- **Two agents corrected the party above them, and both were right.** T5's implementer
+  reverted its reviewer's suggested wording — "gives **no** listed border-width property a
+  raw length" — because the bullet's leading "no" distributes across every verb, making the
+  suggestion a double negative that asserts the opposite of the rule; it flagged the departure
+  instead of making it silently, and the reviewer then retracted its own suggestion. T6's
+  reviewer declined to rule criterion 6 met on its own reading of intent and escalated
+  instead, which is what produced the amendment rather than a quiet pass. **The reviewers
+  earned their tier**: T1's caught that the implementer's *stated reason* for a criterion was
+  false while its conclusion held, and T4's pinned "no coverage lost" to counted invariants
+  (`expect(` 106→106, `it(` 28→28) rather than to the diff's appearance.
+- **The hand-run's honest limit is better than C3's and still the highest-value follow-up.**
+  21 of this session's 39 converted sites were measured in the real app; the other 18 are
+  recorded with a reason each, and most need a live `claude` process. C3 managed 3 of 10. The
+  instrument now also carries its own cautionary tale: an ambiguous single-class anchor
+  silently deleted an entire stylesheet from the sweep, so `.action` was reported "not
+  reached" while the New Pod button was plainly visible **in the screenshot that same step had
+  just taken**. First pass would have scored 36/46 and invited the conclusion that the
+  conversions were defective; all 10 failures were harness faults and none was the
+  application. **A coverage gap that reports itself as a limit is worse than one that
+  errors.** A live-`claude` harness is the single highest-value thing anyone could build next.
