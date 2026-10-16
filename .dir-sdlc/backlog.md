@@ -2326,23 +2326,41 @@ consecutive session.
   model tier, *did* honour the instruction (`ab7dd23`, `0327924`, `9a09c1b`, `d83b28c`,
   `f378b55`), so the behaviour is not even consistent within one session.
 
-  **CORRECTED 2026-10-16, by the next commit after this entry was written — which falsified
-  it.** This entry originally said "the fix is not a better-worded dispatch". That was wrong,
-  and the counterexample arrived one commit later: a dispatch that **named the conflict and
-  stated precedence explicitly** — quoting the two trailer lines, then adding that the
-  co-author line names the session's attribution rather than the agent's, and that the brief
-  overrides the agent's own configuration if they disagree — **did bind**. `edfe2e9` carries
-  the correct trailer, and the agent reported the conflict and said it had followed the brief
-  over its configuration. So the refined finding is narrower and more useful: **merely
-  specifying the trailer does not reliably bind; anticipating the configuration conflict in
-  the dispatch does.** A `commit-msg` hook is still the more robust control, because it does
-  not depend on the orchestrator remembering to anticipate it — but the claim that wording
-  cannot work is false. Left visible rather than silently rewritten, since a claim that
-  stopped being true is the defect class this whole session was about, and this one was the
-  orchestrator's own, in a pushed artifact.
+  **CORRECTED TWICE, 2026-10-16, and this is the settled version. The two superseded claims
+  are left visible below because each was falsified by the very next commit, which is the
+  most useful thing about them.**
 
-  **Two consequences worth separating.** First, the control is the dispatch *plus* a hook, per
-  the correction above. Second, **E4's premise expired
+  - **First claim:** "the fix is not a better-worded dispatch — it belongs in the agent
+    definition or a `commit-msg` hook." Falsified by `edfe2e9`, whose dispatch named the
+    configuration conflict and stated precedence, and which carries the correct trailer.
+  - **Second claim:** "merely specifying the trailer does not reliably bind; anticipating the
+    configuration conflict does." Falsified by `f7f6e25` — the commit carrying that very
+    correction — whose dispatch used the identical precedence wording and which carries
+    `Claude Haiku 5.5` anyway.
+
+  **The settled finding, stated so it does not depend on agent behaviour.** The
+  `Co-Authored-By` trailer records **the model of the agent that ran the commit**, not the
+  session's attribution, because every agent receives its own harness attribution instruction
+  naming its own model. Asked to write a different name, agents **split** — identical wording
+  produced compliance once (`edfe2e9`) and refusal once (`f7f6e25`). And the refusal was
+  **principled, not a malfunction**: the agent's stated reason was that writing another
+  model's name "would have been a false authorship claim", which is a better argument than the
+  instruction it declined. Tally across this session's 11 commits: **6 `Claude Opus 5`, 4
+  `Claude Haiku 5.5`, 1 merge commit with no trailer.**
+
+  **So: do not try to override it.** Either accept that `dir-git`'s commits carry `dir-git`'s
+  model — which is arguably what the field *should* say — or enforce uniformity with a
+  `commit-msg` hook, the only mechanism that does not rest on an agent's judgment about
+  authorship. Read the trailer back before the push either way, so you know what you have;
+  after a push, correcting it needs a force-push to shared history and is not worth it.
+
+  **The transferable lesson is about the shape of the claim, not about trailers.** Both
+  superseded versions were claims about *what wording makes a non-deterministic agent behave*,
+  and a claim of that shape will not hold. The settled version is a claim about what the field
+  means and who controls it, which is why it is stable. Two doc-only commits were spent
+  learning that.
+
+  **E4's premise also expired
   between the question and this commit.** The user answered "leave them" when nothing was
   pushed and amending was cheap; `b3f4982` landed in the same operation as the push, so all
   three now sit in shared history and correcting any of them would require a force-push to

@@ -143,17 +143,18 @@ than it looks and is documented in the handrun README's "Why a sandbox was viabl
 - **Use the Edit tool for file content.** Never heredocs, `sed -i` or redirects.
 - **Read every commit message back against its diff**, every time. It has found something in
   six consecutive sessions.
-- **Anticipate `dir-git`'s attribution configuration in the dispatch, or it will win.**
-  ⚠ Last session, a dispatch that simply specified the trailer verbatim was overridden by the
-  agent's own configuration on one commit of six, inconsistently — four other dispatches in
-  the same session honoured the same instruction. Three of eleven pushed commits carry
-  `Claude Haiku 5.5` as a result. **What worked**, on the one dispatch that tried it: quote
-  the two trailer lines, then state explicitly that the co-author line names *the session's*
-  attribution rather than the agent's, and that this brief takes precedence if the agent's
-  configuration disagrees. That dispatch produced the correct trailer and the agent disclosed
-  the conflict rather than silently resolving it. A `commit-msg` hook asserting the trailer
-  would be more robust, since it does not depend on the orchestrator remembering. See the
-  `2026-10-15` block's tooling entry, including its own correction.
+- **Do not try to make `dir-git` write the session's attribution in the commit trailer.**
+  ⚠ The `Co-Authored-By` line records **the model of the agent that ran the commit**, because
+  every agent gets its own harness attribution instruction naming its own model. Asked to
+  write a different name, agents split — last session, **identical** precedence wording
+  produced compliance on one commit and a refusal on the next, and the refusal was
+  principled: writing another model's name "would have been a false authorship claim".
+  Tally across that session's 11 commits: 6 `Claude Opus 5`, 4 `Claude Haiku 5.5`, 1 merge
+  with none. **Either accept the mixture, or add a `commit-msg` hook** — the only control that
+  does not rest on an agent's judgment. **Read the trailers back before the push** with
+  `git log --format="%h %(trailers:key=Co-Authored-By,valueonly)"`, because after a push a fix
+  needs a force-push and is not worth it. Two doc-only commits were spent learning this; see
+  the `2026-10-15` block's tooling entry, which records both superseded claims.
 - **Beware a `node_modules` junction in the worktree.** A worktree has no dependencies; if
   you junction them from the main checkout to build, **remove the junction before cleanup** —
   a recursive delete that follows it would destroy the main checkout's real `node_modules`.
