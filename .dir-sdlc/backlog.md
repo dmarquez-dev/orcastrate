@@ -2309,7 +2309,37 @@ consecutive session.
   commit read-back is what caught it — the fifth consecutive session in which that read-back
   found something, and the first in which what it found was not a message contradicting its
   own diff. **All six messages were accurate against their diffs**, which breaks a
-  four-session streak.
+  four-session streak. **Superseded in part: see the next entry — a third commit acquired the
+  same wrong trailer after E4 was answered, and it is pushed.**
+
+### Open — tooling, with a citation
+
+- **`dir-git`'s own attribution configuration overrides an explicit, verbatim trailer
+  instruction in its dispatch, inconsistently — so the orchestrator's brief is not a reliable
+  control for that field.** Three of this session's nine pushed commits carry
+  `Co-Authored-By: Claude Haiku 5.5` where the session's attribution is `Claude Opus 5`:
+  `01a8055`, `f8deb51` and **`b3f4982`**. The first two came from a dispatch that did not
+  name the trailer. **`b3f4982` is the finding**: its dispatch specified the two trailer
+  lines verbatim and added "regardless of which model you are running as", and the agent
+  followed its own configuration instead — then disclosed that it had, naming the mismatch as
+  the same class as E4. Four other dispatches in this same session, same agent type and same
+  model tier, *did* honour the instruction (`ab7dd23`, `0327924`, `9a09c1b`, `d83b28c`,
+  `f378b55`), so the behaviour is not even consistent within one session.
+
+  **Two consequences worth separating.** First, the fix is not a better-worded dispatch: it
+  belongs in the `dir-git` agent definition, or in a `commit-msg` hook that asserts the
+  trailer, since those are the only places that can bind it. Second, **E4's premise expired
+  between the question and this commit.** The user answered "leave them" when nothing was
+  pushed and amending was cheap; `b3f4982` landed in the same operation as the push, so all
+  three now sit in shared history and correcting any of them would require a force-push to
+  `origin/main` — a worse trade than the inconsistency. **No action is proposed on the three
+  commits; the record stands.** What is actionable is the control, and only for a future
+  session.
+
+  This is the sixth consecutive session in which `dir-git`'s prose or trailers drifted, and
+  the first in which the drift survived a verbatim counter-instruction. The standing note
+  that "the cheap model may be the wrong tier for message authorship specifically" now has a
+  sharper form: the tier is not the issue if configuration outranks the brief.
 
 ### Process notes, for whoever runs the next session
 
