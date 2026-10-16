@@ -14,11 +14,26 @@
  *   - no file under `src/renderer/**` outside `styles/` carries a hex colour,
  *     an `rgb(`/`hsl(` literal, a px font-size, or a hardcoded font stack;
  *   - no `*.module.css` under `beachcomber/`, `helm/` or `shell/` sets a
- *     border width or a letter-spacing to anything but a token;
+ *     border width or a letter-spacing to anything but a token. OVER THIS
+ *     TREE that rule is now a narrower restatement of the repo-wide censuses
+ *     below, and is kept only because it also names Beachcomber and Helm on
+ *     their own; it is no longer the thing holding either property. It is not
+ *     narrower as a PREDICATE: it reads declarations unanchored, so it flags
+ *     a custom property named `--oc-border` that the anchored census does not
+ *     (both directions asserted at the foot of this file). It is narrower
+ *     only because no `*.module.css` in this tree declares a custom property;
  *   - no `*.module.css` ANYWHERE under `src/renderer/src` sets a font weight
- *     to anything but a `var(--oc-weight-*)` token, and every full-window
- *     overlay paints `var(--oc-overlay-scrim)`. These two are repo-wide and
- *     carry no exception list; see the census at the foot of this file.
+ *     to anything but a `var(--oc-weight-*)` token, sets a letter-spacing to
+ *     anything but a `var(--oc-tracking-*)` token, gives any listed
+ *     border-width property a raw length, or leaves a `var(--oc-*)` reference
+ *     in a property declaration unterminated — invalid CSS a browser discards
+ *     whole, which no other rule in this repository detects; and every
+ *     full-window overlay paints `var(--oc-overlay-scrim)`. These are
+ *     repo-wide, carry no exception list of any kind, and are two-sided
+ *     against the empty list; see the censuses at the foot of this file.
+ *     A border width declared with the KEYWORD `thin` is not a raw length and
+ *     is outside the border census; six such declarations survive, and the
+ *     `TOKENISED_STYLE_ROOTS` docblock names them.
  *
  * THE TOKEN RULES ARE NEWER THAN THIS FILE, AND THIS PARAGRAPH USED TO SAY THE
  * OPPOSITE. It said those properties were deliberately unchecked "because
@@ -532,14 +547,40 @@ describe('this suite has no live dependencies (criterion 11)', () => {
 /**
  * The three directories the widened rule covers, and why exactly these three.
  *
- * `beachcomber/` and `helm/` are the panels this session added; `shell/` is
- * where the panel strip and the panel region landed. They are the directories
- * whose stylesheets were written AFTER the tokens existed, so they are the
- * ones the rule can hold to without asking anyone to redecide a shipped
- * design. The backlog item this closes named six sub-session 2 directories
- * that reached for bare `1px`, `0.04em` and `font-weight: 700`; widening the
- * rule over those as well is a change to their pixels, not to a test, and is
- * reported rather than made here.
+ * `beachcomber/` and `helm/` are the panels that introduced this rule;
+ * `shell/` is where the panel strip and the panel region landed.
+ *
+ * THE RATIONALE THAT USED TO STAND HERE IS GONE, and it is replaced rather
+ * than amended because it had become the opposite of the truth. It said these
+ * three were the directories written AFTER the tokens existed, so the rule
+ * could hold them without asking anyone to redecide a shipped design, and that
+ * widening the rule over the remaining directories "is a change to their
+ * pixels, not to a test, and is reported rather than made here". Neither half
+ * survives. Two of the `shell/` sheets predated the tokens and were carried by
+ * a pin, `PRE_TOKEN_SHELL_DECLARATIONS`, which is why that pin existed at all.
+ * And the widening was in fact made: 2026-10-12-orcastrate-token-sweep
+ * converted every remaining RAW-LENGTH border width in the renderer — 36
+ * declarations, every one of them exactly `1px` — and every letter-spacing
+ * literal, accepted the one visible change of tracking that required
+ * (`lanes/LaneRail.module.css`'s `.railHeading`, 0.06em to 0.04em), deleted
+ * the pin, and replaced the scope argument with the repo-wide censuses at the
+ * foot of this file. The decision the old paragraph deferred was taken.
+ *
+ * WHAT THE WIDENING DID NOT REACH, recorded here rather than left for a later
+ * reader to discover. Six border widths are declared with the KEYWORD `thin`:
+ * three in `composer/Composer.module.css` and three in
+ * `permissions/PermissionCards.module.css`. A keyword is not a raw length, so
+ * the census predicate at the foot of this file does not flag them and the
+ * sentence above does not claim them — they are untokenised border widths that
+ * survive. Widening the predicate to the keyword forms would change six
+ * shipped borders' pixels, which is a design decision and not a test change,
+ * so it is reported and not made here. Unlike the paragraph this replaced,
+ * that deferral names the survivors.
+ *
+ * SO THIS LIST IS NO LONGER A SCOPE DECISION. It is a narrower second look at
+ * three directories, kept because the assertion below names Beachcomber and
+ * Helm on their own; the properties themselves are held repo-wide and nothing
+ * depends on this list to hold them.
  */
 const TOKENISED_STYLE_ROOTS: readonly string[] = [
   `${RENDERER_ROOT}/src/beachcomber`,
@@ -618,44 +659,27 @@ function borderOffenders(text: string): string[] {
 }
 
 /**
- * THE RAW BORDER WIDTHS THIS RULE STILL TOLERATES, EXHAUSTIVELY.
+ * THIS RULE TOLERATES NO RAW BORDER WIDTH AT ALL, and that is the point rather
+ * than an omission.
  *
- * Two `shell/` stylesheets predate the tokens: they are sub-session 2 files
- * that landed when `TOKENS` had nothing to offer. Fixing their bare `1px`
- * border widths is a change to shipped pixels, and is for a later owner of
- * `shell/` to decide.
+ * It used to pin an exhaustive list of raw `1px` border widths — five of them,
+ * in two `shell/` stylesheets — on the grounds that converting them changed
+ * shipped pixels and was a later owner of `shell/`'s decision to make.
+ * 2026-10-12-orcastrate-token-sweep was that owner: those five declarations
+ * now read `var(--oc-border-hairline)`, so the pin had nothing left to
+ * tolerate and was deleted in the same change that converted them. The pin was
+ * two-sided, so neither half could have landed alone.
  *
- * THE LIST SHRANK BY ONE, WHICH IS THE MECHANISM WORKING RATHER THAN AN EDIT
- * TO GET A TEST GREEN. It used to carry a sixth entry,
- * `EmptyWorkspace.module.css`'s bare `font-weight`, argued for on the grounds
- * that no token for that weight existed — the set offered 400/500/700 and
- * nothing between — and that the decision was a later owner's to make. Both
- * halves have since stopped being true: `--oc-weight-semibold` exists
- * (2026-10-09-orcastrate-theme-contract-decisions), the weight decision WAS
- * made deliberately by the user (escalation E1) rather than rounded by a test
- * author, and that session owned the stylesheet and converted it. So the entry
- * was deleted rather than left standing, because a stale exemption is what a
- * later reader treats as the current decision.
+ * The assertion below compares the offender list against the EMPTY list, which
+ * is strictly stronger than comparing it against a pin: a declaration that
+ * stops being tokenised fails, and there is no tolerated entry left that could
+ * absorb one. An exception list that shrinks to nothing under review, rather
+ * than quietly outliving the problem it described, is the mechanism working.
  *
- * The assertion below compares against this list EXACTLY, in both directions.
- * A sixth raw declaration anywhere in the three directories fails. So does
- * FIXING one of these five without deleting its line here — which is the
- * point, and is exactly what happened to the sixth: the exception list shrinks
- * under review rather than quietly outliving the problem, as
- * `SURFACELESS_CHANNELS` does in the failure-path suite.
- *
- * NOTE THE SCOPE, because the list cannot state it: this rule walks
- * `TOKENISED_STYLE_ROOTS` only. Font weights are now covered REPO-WIDE and
- * with no exception list at all, by the census at the foot of this file.
+ * NOTE THE SCOPE, because nothing in the assertion states it: this rule walks
+ * `TOKENISED_STYLE_ROOTS` only. Font weights are covered REPO-WIDE, by the
+ * census at the foot of this file.
  */
-const PRE_TOKEN_SHELL_DECLARATIONS: readonly string[] = [
-  'src/renderer/src/shell/EmptyWorkspace.module.css: border: 1px solid var(--oc-border-strong)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-bottom: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-left: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-right: 1px solid var(--oc-border)',
-  'src/renderer/src/shell/WorkspaceLayout.module.css: border-top: 1px solid var(--oc-border)',
-];
-
 async function panelStylesheets(): Promise<string[]> {
   const sheets: string[] = [];
   for (const root of TOKENISED_STYLE_ROOTS) {
@@ -727,19 +751,18 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
         offenders.push(`${relative(file)}: ${offender}`);
       }
     }
-    // Exactly the pre-token `shell/` declarations named in
-    // `PRE_TOKEN_SHELL_DECLARATIONS`, and nothing else. Both directions fail
-    // loudly. The list's LENGTH is deliberately not restated here: the list is
-    // the statement of what is tolerated, it sits a few lines up, and a count
-    // copied into a comment beside it is exactly what went stale the last time
-    // the list shrank.
-    expect(offenders.sort()).toEqual([...PRE_TOKEN_SHELL_DECLARATIONS]);
+    // Nothing is tolerated: any raw border width, letter-spacing or font
+    // weight in the three directories fails loudly, and no pinned list can
+    // absorb one. Still sorted, so a failure message is stable and legible
+    // rather than ordered by directory walk.
+    expect(offenders.sort()).toEqual([]);
   });
 
   it('leaves the two panel directories with no exception at all', async () => {
-    // Stated separately from the assertion above so the exception list can
-    // never be read as covering Beachcomber or Helm. Those two directories are
-    // clean, and this is what says so on its own.
+    // Stated separately from the assertion above so that if a tolerated-
+    // declaration list is ever reintroduced there, it can never be read as
+    // covering Beachcomber or Helm. Those two directories are clean, and this
+    // is what says so on its own.
     const offenders: string[] = [];
     for (const file of await panelStylesheets()) {
       if (file.startsWith(`${RENDERER_ROOT}/src/shell/`)) continue;
@@ -1029,10 +1052,10 @@ describe('the two rules added for previously undetectable failure modes', () => 
  * `panelStylesheets()` walks `TOKENISED_STYLE_ROOTS` — `beachcomber/`, `helm/`
  * and `shell/`, three directories. That is why the five bare `font-weight`
  * literals in `lanes/`, `pods/` and `transcript/` were never offenders, never
- * appeared in `PRE_TOKEN_SHELL_DECLARATIONS`, and survived a session whose
- * whole subject was font-weight tokens: the rule was never looking at them. A
- * narrow rule does not report that it is narrow, which is the failure mode
- * worth writing a second rule to close.
+ * appeared in the exception list the scoped rule pinned at the time, and
+ * survived a session whose whole subject was font-weight tokens: the rule was
+ * never looking at them. A narrow rule does not report that it is narrow,
+ * which is the failure mode worth writing a second rule to close.
  *
  * So BOTH rules below walk EVERY `*.module.css` under `src/renderer/src`, and
  * both are two-sided.
@@ -1254,8 +1277,8 @@ describe('the theme-contract conversions of this session', () => {
       }
     }
     // NO EXCEPTION LIST, deliberately. The alternative was a second list of
-    // tolerated declarations, which is the artifact
-    // `PRE_TOKEN_SHELL_DECLARATIONS` exists to shrink.
+    // tolerated declarations — the kind of artifact the scoped rule above
+    // carried until its last entry was converted away and the list deleted.
     expect(offenders).toEqual([]);
   });
 
@@ -1279,5 +1302,350 @@ describe('the theme-contract conversions of this session', () => {
     // fifth full-window scrim fails, and so does one of these four quietly
     // ceasing to be one.
     expect(found.sort()).toEqual([...FULL_WINDOW_SCRIM_RULES]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The repo-wide census, widened to tracking, border widths and live syntax
+// ---------------------------------------------------------------------------
+
+/**
+ * WHY THESE THREE RULES ARE HERE RATHER THAN BOLTED ONTO THE SCOPED RULE.
+ *
+ * The scoped rule above walks `TOKENISED_STYLE_ROOTS`, three directories. It
+ * held border widths and letter-spacings there and nowhere else, and a narrow
+ * rule does not report that it is narrow — the same failure mode that let five
+ * bare `font-weight` literals outlive a session about font weights. So the two
+ * properties join the font-weight census here: EVERY `*.module.css` under
+ * `src/renderer/src`, via `allModuleStylesheets()`, with no exception list of
+ * any kind and two-sided against the empty list.
+ *
+ * ALL THREE READ DECLARATIONS WITH `anchoredValues`, not `declaredValues`. The
+ * anchored reader requires a declaration boundary before the property name, so
+ * `border-radius` can never be read as a `border`, `outline-offset` can never
+ * be read as an `outline`, and a custom property named `--oc-border` could
+ * never be read as a `border` either. The unanchored reader happens to be safe
+ * on today's tree only because no `*.module.css` in it declares a custom
+ * property at all; the anchored one is safe by construction instead, and the
+ * near-misses are asserted below rather than argued for here.
+ */
+
+/**
+ * A tracking value must name the `--oc-tracking-*` family and not merely SOME
+ * token, exactly as `WEIGHT_TOKEN` does for weights. `tokenOffenders` accepts
+ * any `var(`, which would wave through `letter-spacing: var(--oc-space-2)` — a
+ * real token, the wrong family, and nonsense as a tracking value. That sample
+ * is asserted below in both directions.
+ */
+const TRACKING_TOKEN = /^var\(\s*--oc-tracking-[\w-]+\s*\)$/;
+
+function trackingOffenders(text: string): string[] {
+  return anchoredValues(text, LETTER_SPACING)
+    .filter((value) => !TRACKING_TOKEN.test(value))
+    .map((value) => `${LETTER_SPACING}: ${value}`);
+}
+
+/**
+ * Every property that declares a border WIDTH, the logical forms included.
+ *
+ * WIDER THAN `BORDER_PROPERTIES` ABOVE, which omits `border-block` and
+ * `border-inline`. The scoped rule's unanchored reader cannot see either one:
+ * `declaredValues(text, 'border')` needs `border` then a colon, and
+ * `border-block:` offers a hyphen, so a logical-form declaration was invisible
+ * to it. That contrast is asserted below rather than described.
+ *
+ * `border-radius` is absent and unreachable: a radius is a length but not a
+ * border width, and it has its own `--oc-radius-*` tokens. It is also the
+ * near-miss that matters here by volume — 69 `border-radius` declarations
+ * exist in this tree as this census is written, measured with
+ * `grep -rhoE '(^|[;{])[[:space:]]*border-radius[[:space:]]*:' --include='*.module.css' src/renderer/src | wc -l`,
+ * and not one of them may enter the offender set.
+ */
+const CENSUS_BORDER_PROPERTIES: readonly string[] = [
+  'border',
+  'border-top',
+  'border-right',
+  'border-bottom',
+  'border-left',
+  'border-width',
+  'border-block',
+  'border-inline',
+  'outline',
+];
+
+/**
+ * A raw length in a border width is an offender REGARDLESS of whether the rest
+ * of the value names a token: `border: 1px solid var(--oc-border)` is one.
+ * Counting only declarations that named no token at all is how a census of
+ * this exact population once reported 2 where 36 existed.
+ *
+ * `0` is not a raw length — a zero border has no unit to tokenise, and
+ * `border: 0` is how a reset is spelled throughout this tree.
+ */
+function censusBorderOffenders(text: string): string[] {
+  const found: string[] = [];
+  for (const prop of CENSUS_BORDER_PROPERTIES) {
+    for (const value of anchoredValues(text, prop)) {
+      if (RAW_LENGTH.test(value)) found.push(`${prop}: ${value}`);
+    }
+  }
+  return found;
+}
+
+/**
+ * RULE 3 — A TOKEN REFERENCE THAT RUNS STRAIGHT INTO THE NEXT TERM, which is
+ * a defect class that had NO detector anywhere in this repository.
+ *
+ * WHY IT EXISTS, WRITTEN DOWN BECAUSE THE INCIDENT IS THE ARGUMENT. The first
+ * pass of this session's `pods/` conversion emitted
+ * `border: var(--oc-border-hairline)solid var(--oc-border)` on every line it
+ * touched. That is not a border with a token width; it is invalid CSS, which a
+ * browser discards as a whole declaration, so every one of those borders would
+ * simply have vanished on screen. Nothing caught it. The raw-length census
+ * passes it cleanly — there is no raw length in it — and so does the tracking
+ * census, and so did the full `pods/` suite. `styles/tokens.test.ts` checks
+ * that token NAMES match the frozen `TOKENS` map and never that a usage is
+ * syntactically live, and there is no CSS parser anywhere under `src/` or
+ * `tests/` to notice. A tokenised value can be dead, and every
+ * presence-of-a-raw-length predicate in this repository is blind to that.
+ *
+ * WHAT TERMINATES A REFERENCE LEGALLY: whitespace, `,`, `)`, `;`, `}`, or the
+ * end of the line. The last three need no help from the pattern —
+ * `anchoredValues` truncates a value at exactly `;`, `}` and the newline, so a
+ * reference terminated by one of them lands at the end of the extracted value
+ * and the lookahead below has nothing to match. The pattern therefore handles
+ * whitespace, `,` and `)`, and the `;`, `}` and end-of-line forms are asserted
+ * below so the claim rests on a test rather than on this paragraph.
+ *
+ * SCOPE, NAMED RATHER THAN IMPLIED: `--oc-*` references only. A dead
+ * `var(--pod-status-color)solid` would not be flagged, and that boundary is
+ * asserted below too, so a later reader finds it stated rather than discovers
+ * it.
+ */
+const DEAD_TOKEN_REFERENCE = /var\(\s*--oc-[\w-]+\s*\)(?=[^\s,)])/;
+
+/**
+ * Every property name declared in the text, found at a declaration boundary.
+ *
+ * The termination rule is about EVERY property, not a listed few, so it cannot
+ * take a property list the way the two censuses above do — it has to discover
+ * the names and then read each one with the same anchored reader. A name must
+ * start with a letter, which is what keeps a custom property (`--oc-x: …`,
+ * leading hyphens) from being read as a property, and it also makes every name
+ * returned here safe to interpolate into `anchoredValues`'s pattern: `[\w-]`
+ * contains no regex metacharacter.
+ */
+function declaredProperties(text: string): string[] {
+  const names = new Set<string>();
+  for (const match of text.matchAll(/(?:^|[;{\n])\s*([a-zA-Z][\w-]*)\s*:/g)) {
+    if (match[1] !== undefined) names.add(match[1].toLowerCase());
+  }
+  return [...names].sort();
+}
+
+function unterminatedTokenOffenders(text: string): string[] {
+  const found: string[] = [];
+  const everyReference = new RegExp(DEAD_TOKEN_REFERENCE.source, 'g');
+  for (const prop of declaredProperties(text)) {
+    for (const value of anchoredValues(text, prop)) {
+      // A bare element selector carrying a pseudo-class (`a:hover {`) is the
+      // one shape the scan above can read as a property. Its "value" holds the
+      // opening brace and no declaration's does, so this cannot discard one.
+      if (value.includes('{')) continue;
+      for (const _match of value.matchAll(everyReference)) {
+        found.push(`${prop}: ${value}`);
+      }
+    }
+  }
+  return found;
+}
+
+describe('the widened census matchers themselves', () => {
+  it('catches a letter-spacing that is not a --oc-tracking-* token, the wrong family included, and passes both shipped tracking tokens', () => {
+    // MUST FLAG. The first two are the literals this session converted; the
+    // third is a keyword, which is a literal too.
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}: 0.04` + 'em; }')).toEqual([
+      `${LETTER_SPACING}: 0.04` + 'em',
+    ]);
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}: 0.06` + 'em; }')).toEqual([
+      `${LETTER_SPACING}: 0.06` + 'em',
+    ]);
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}: normal; }`)).toEqual([
+      `${LETTER_SPACING}: normal`,
+    ]);
+
+    // THE SAMPLE THAT MATTERS: a token of the WRONG FAMILY. A predicate that
+    // merely tests for `var(` waves it through, and `tokenOffenders` is shown
+    // doing exactly that here rather than being described as doing it.
+    const wrongFamily = `.a { ${LETTER_SPACING}: var(--oc-space-2); }`;
+    expect(trackingOffenders(wrongFamily)).toEqual([`${LETTER_SPACING}: var(--oc-space-2)`]);
+    expect(tokenOffenders(wrongFamily, [LETTER_SPACING])).toEqual([]);
+
+    // MUST NOT FLAG. Both shipped tracking tokens, and the no-space form that
+    // the lookahead trap this file documents at length would fire on.
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}: var(--oc-tracking-wide); }`)).toEqual([]);
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}: var(--oc-tracking-tight); }`)).toEqual([]);
+    expect(trackingOffenders(`.a { ${LETTER_SPACING}:var(--oc-tracking-wide); }`)).toEqual([]);
+  });
+
+  it('catches a raw length in every border-width property, and passes a radius, a bare 0 and outline-offset', () => {
+    // MUST FLAG. A raw length is an offender even when the colour beside it is
+    // a token — the third sample is the one a token-presence count gets wrong.
+    expect(censusBorderOffenders('.a { border: 1' + 'px solid var(--oc-border); }')).toEqual([
+      'border: 1' + 'px solid var(--oc-border)',
+    ]);
+    expect(
+      censusBorderOffenders('.a { border-bottom: 2' + 'px solid var(--oc-border); }'),
+    ).toEqual(['border-bottom: 2' + 'px solid var(--oc-border)']);
+    expect(censusBorderOffenders('.a { border: 1' + 'px solid red; }')).toEqual([
+      'border: 1' + 'px solid red',
+    ]);
+
+    // THE LOGICAL FORM, and why this list is wider than `BORDER_PROPERTIES`:
+    // the scoped rule's unanchored reader cannot see `border-block` at all.
+    const logical = '.a { border-block: 1' + 'px solid var(--oc-border); }';
+    expect(censusBorderOffenders(logical)).toEqual([
+      'border-block: 1' + 'px solid var(--oc-border)',
+    ]);
+    expect(borderOffenders(logical)).toEqual([]);
+
+    // MUST NOT FLAG. A tokenised width; a bare `0`, which has no unit to
+    // tokenise; and the two near-misses the anchored reader exists for.
+    expect(
+      censusBorderOffenders('.a { border: var(--oc-border-hairline) solid var(--oc-border); }'),
+    ).toEqual([]);
+    expect(censusBorderOffenders('.a { border: 0; }')).toEqual([]);
+    expect(censusBorderOffenders('.a { border-radius: 4' + 'px; }')).toEqual([]);
+    expect(censusBorderOffenders('.a { outline-offset: 2' + 'px; }')).toEqual([]);
+    // THE NEAR-MISS THE ANCHORED READER IS ACTUALLY FOR. `border-radius` and
+    // `outline-offset` are safe in both readers — each offers a hyphen where a
+    // colon is needed. A CUSTOM PROPERTY is not: `--oc-border: 1px` ends in
+    // `border:`, so the unanchored reader reads it as a `border` of `1px` and
+    // the scoped rule above would call it an offender. Shown in both
+    // directions rather than argued for.
+    const customProperty = '.a { --oc-border: 1' + 'px; }';
+    expect(declaredValues(customProperty, 'border')).toEqual(['1' + 'px']);
+    expect(borderOffenders(customProperty)).toEqual(['border: 1' + 'px']);
+    expect(anchoredValues(customProperty, 'border')).toEqual([]);
+    expect(censusBorderOffenders(customProperty)).toEqual([]);
+  });
+
+  it('catches a var(--oc-*) reference that runs straight into the next term, and passes every legal terminator', () => {
+    // MUST FLAG — the exact shape this session's first `pods/` pass emitted on
+    // every line it touched. Invalid CSS: the browser discards the whole
+    // declaration, so the border disappears.
+    const dead = '.a { border: var(--oc-border-hairline)solid red; }';
+    expect(unterminatedTokenOffenders(dead)).toEqual([
+      'border: var(--oc-border-hairline)solid red',
+    ]);
+    const deadDashed = '.a { border: var(--oc-border-hairline)dashed red; }';
+    expect(unterminatedTokenOffenders(deadDashed)).toEqual([
+      'border: var(--oc-border-hairline)dashed red',
+    ]);
+
+    // AND THE REASON THIS RULE HAD TO BE WRITTEN: every other predicate in
+    // this file passes that declaration. Shown, not asserted in prose.
+    expect(censusBorderOffenders(dead)).toEqual([]);
+    expect(borderOffenders(dead)).toEqual([]);
+    expect(trackingOffenders(dead)).toEqual([]);
+    const deadHistorical = '.a { border: var(--oc-border-hairline)solid var(--oc-border); }';
+    expect(unterminatedTokenOffenders(deadHistorical)).toHaveLength(1);
+    expect(censusBorderOffenders(deadHistorical)).toEqual([]);
+
+    // MUST NOT FLAG — a space, a comma, a `)`, a `;`, a `}` and end-of-line.
+    expect(
+      unterminatedTokenOffenders('.a { border: var(--oc-border-hairline) solid red; }'),
+    ).toEqual([]);
+    expect(
+      unterminatedTokenOffenders(
+        '.a { box-shadow: 0 0 0 var(--oc-space-1), 0 0 0 var(--oc-space-2); }',
+      ),
+    ).toEqual([]);
+    expect(unterminatedTokenOffenders('.a { padding: var(--oc-space-2); }')).toEqual([]);
+    expect(unterminatedTokenOffenders('.a { padding: var(--oc-space-2) }')).toEqual([]);
+    expect(unterminatedTokenOffenders('.a {\n  padding: var(--oc-space-2)\n}')).toEqual([]);
+    expect(
+      unterminatedTokenOffenders('.a { grid-template-columns: var(--oc-a) var(--oc-b); }'),
+    ).toEqual([]);
+    // A reference nested inside another function is terminated by the `)`.
+    expect(
+      unterminatedTokenOffenders('.a { width: calc(var(--oc-space-2) + var(--oc-space-1)); }'),
+    ).toEqual([]);
+
+    // THE SCOPE BOUNDARY, asserted so it is stated rather than discovered: the
+    // rule covers `--oc-*` references, and a dead reference to any other
+    // custom property is outside it.
+    expect(
+      unterminatedTokenOffenders('.a { border: var(--pod-status-color)solid red; }'),
+    ).toEqual([]);
+  });
+
+  it('discovers property names at a declaration boundary and never reads a custom property as one', () => {
+    expect(declaredProperties('.a { border: 0; padding: 0; }')).toEqual(['border', 'padding']);
+    // A custom-property declaration is not a property. No `*.module.css` in
+    // this tree declares one today, which is why the UNANCHORED reader happens
+    // to be safe; this reader is safe whether or not that stays true.
+    expect(declaredProperties('.a { --oc-border: red; }')).toEqual([]);
+    expect(anchoredValues('.a { --oc-border: red; }', 'border')).toEqual([]);
+    // And a dead reference inside a declaration whose property name is
+    // discovered this way is still reached.
+    expect(
+      unterminatedTokenOffenders('.a { box-shadow: inset 0 0 0 var(--oc-space-1)solid; }'),
+    ).toHaveLength(1);
+  });
+});
+
+describe('the repo-wide token census of this session', () => {
+  it('scans the same list the census guard above covers: non-empty, and wider than the three legacy roots', async () => {
+    const sheets = await allModuleStylesheets();
+    const names = sheets.map(relative);
+    // A census that silently scanned nothing would report as a pass. Stated
+    // here as well as above so these three rules do not depend on another
+    // describe block's guard to be non-vacuous.
+    expect(sheets.length).toBeGreaterThan(0);
+    expect(names).toContain('src/renderer/src/lanes/LaneRail.module.css');
+    expect(names).toContain('src/renderer/src/pods/PodBar.module.css');
+    expect(names).toContain('src/renderer/src/transcript/Transcript.module.css');
+    expect(sheets.length).toBeGreaterThan((await panelStylesheets()).length);
+  });
+
+  it('sets every letter-spacing from a --oc-tracking-* token, everywhere, with no exception list', async () => {
+    const offenders: string[] = [];
+    for (const file of await allModuleStylesheets()) {
+      const text = stripCssComments(await read(file));
+      for (const offender of trackingOffenders(text)) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+    }
+    // NO EXCEPTION LIST, and two-sided against the empty list. The scoped rule
+    // above held this property in three directories; this holds it in all of
+    // them, and nothing is tolerated in either.
+    expect(offenders.sort()).toEqual([]);
+  });
+
+  it('gives no listed border-width property a raw length, everywhere, with no exception list', async () => {
+    const offenders: string[] = [];
+    for (const file of await allModuleStylesheets()) {
+      const text = stripCssComments(await read(file));
+      for (const offender of censusBorderOffenders(text)) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+    }
+    // The pin that used to tolerate five raw `1px` widths in `shell/` was
+    // deleted when they were converted. Nothing replaces it for any property:
+    // an exception list that shrinks to nothing under review, rather than
+    // quietly outliving the problem it described, is the mechanism working.
+    expect(offenders.sort()).toEqual([]);
+  });
+
+  it('terminates every var(--oc-*) reference in every property declaration, everywhere, with no exception list', async () => {
+    const offenders: string[] = [];
+    for (const file of await allModuleStylesheets()) {
+      const text = stripCssComments(await read(file));
+      for (const offender of unterminatedTokenOffenders(text)) {
+        offenders.push(`${relative(file)}: ${offender}`);
+      }
+    }
+    expect(offenders.sort()).toEqual([]);
   });
 });

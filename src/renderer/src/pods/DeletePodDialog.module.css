@@ -1,6 +1,9 @@
 /*
- * The delete confirmation. Every colour, size and gap is a `--oc-*` token; the
- * only bare lengths are hairline border widths, as in `PodBar.module.css`.
+ * The delete confirmation. Colours, spacing, type sizes and radii all name
+ * `--oc-*` tokens, and so do the border widths (`--oc-border-hairline`): no
+ * declaration in this file carries a bare `px`, `rem` or `em` length. The only
+ * raw values left are `z-index`, `opacity`, the `100%` fills and the `0`
+ * resets.
  */
 
 .scrim {
@@ -21,7 +24,7 @@
   max-height: 100%;
   flex-direction: column;
   padding: var(--oc-space-6);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-md);
   background: var(--oc-bg-panel);
   gap: var(--oc-space-4);
@@ -59,7 +62,7 @@
 .error {
   margin: 0;
   padding: var(--oc-space-2);
-  border: 1px solid var(--oc-danger);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-danger-bg);
   color: var(--oc-danger);
@@ -75,7 +78,7 @@
 .button {
   padding-block: var(--oc-space-2);
   padding-inline: var(--oc-space-4);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);

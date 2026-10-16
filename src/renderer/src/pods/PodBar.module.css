@@ -1,7 +1,10 @@
 /*
- * Pod bar (spec 5.1). Every colour, size and gap is a `--oc-*` token; the only
- * bare lengths are hairline border widths, for which the token set has no
- * entry.
+ * Pod bar (spec 5.1). Every border width here is `--oc-border-hairline`,
+ * `--oc-border-thick` or a bare `0` reset, and `.bypassBadge`'s tracking is
+ * `--oc-tracking-wide`. Two declarations still carry a bare `px` length, both
+ * of them `box-shadow` geometry: `.tabItemDropTarget`'s inset edge and
+ * `.statusDot[data-status='waiting']`'s halo. The token set has no shadow
+ * geometry entry for either.
  */
 
 .bar {
@@ -118,7 +121,7 @@
   width: var(--oc-space-2);
   height: var(--oc-space-2);
   flex: none;
-  border: 1px solid var(--pod-status-color);
+  border: var(--oc-border-hairline) solid var(--pod-status-color);
   border-radius: 50%;
   background: var(--pod-status-color);
 }
@@ -200,13 +203,13 @@
   display: inline-flex;
   align-items: center;
   padding-inline: var(--oc-space-1);
-  border: 1px solid var(--oc-danger);
+  border: var(--oc-border-hairline) solid var(--oc-danger);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-danger-bg);
   color: var(--oc-danger);
   font-size: var(--oc-text-xs);
   font-weight: var(--oc-weight-bold);
-  letter-spacing: 0.04em;
+  letter-spacing: var(--oc-tracking-wide);
 }
 
 .bypassBadge::before {
@@ -246,7 +249,7 @@
   align-items: center;
   padding-block: var(--oc-space-1);
   padding-inline: var(--oc-space-2);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-action-run);
@@ -325,7 +328,7 @@
   align-self: center;
   padding-block: var(--oc-space-1);
   padding-inline: var(--oc-space-3);
-  border: 1px solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
   background: var(--oc-bg-raised);
   color: var(--oc-fg-primary);

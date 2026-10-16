@@ -371,7 +371,9 @@ describe('the Pod-governed status dot draws the Pod tab’s five shapes', () => 
   it('fills the base dot from the inline hue, naming no status token of its own', () => {
     const base = block(".status[data-pod-status] .dot");
     expect(base).toMatch(/background:\s*var\(--pod-status-color\)/);
-    expect(base).toMatch(/border:\s*1px solid var\(--pod-status-color\)/);
+    expect(base).toMatch(
+      /border:\s*var\(--oc-border-hairline\) solid var\(--pod-status-color\)/,
+    );
     // `statusToken(podStatus)` already resolves to the right `--oc-status-*`.
     // Naming one here would be a second source of truth for one colour.
     expect(base).not.toMatch(/--oc-status-/);
