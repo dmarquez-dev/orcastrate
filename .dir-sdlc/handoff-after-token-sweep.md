@@ -141,12 +141,19 @@ than it looks and is documented in the handrun README's "Why a sandbox was viabl
   claim this task falsifies" has now caught a blocking finding in two consecutive sessions;
   an enumeration of known instances is not a specification of the obligation.
 - **Use the Edit tool for file content.** Never heredocs, `sed -i` or redirects.
-- **Read every commit message back against its diff**, and **do not trust the dispatch to fix
-  the trailer.** ⚠ `dir-git`'s own attribution configuration overrode an explicit, verbatim
-  trailer instruction on one of six commits last session, inconsistently — four other
-  dispatches in the same session honoured it. Three of nine pushed commits carry the wrong
-  co-author line as a result. The fix belongs in the agent definition or a `commit-msg` hook,
-  not in better wording. See the `2026-10-15` block's tooling entry.
+- **Read every commit message back against its diff**, every time. It has found something in
+  six consecutive sessions.
+- **Anticipate `dir-git`'s attribution configuration in the dispatch, or it will win.**
+  ⚠ Last session, a dispatch that simply specified the trailer verbatim was overridden by the
+  agent's own configuration on one commit of six, inconsistently — four other dispatches in
+  the same session honoured the same instruction. Three of eleven pushed commits carry
+  `Claude Haiku 5.5` as a result. **What worked**, on the one dispatch that tried it: quote
+  the two trailer lines, then state explicitly that the co-author line names *the session's*
+  attribution rather than the agent's, and that this brief takes precedence if the agent's
+  configuration disagrees. That dispatch produced the correct trailer and the agent disclosed
+  the conflict rather than silently resolving it. A `commit-msg` hook asserting the trailer
+  would be more robust, since it does not depend on the orchestrator remembering. See the
+  `2026-10-15` block's tooling entry, including its own correction.
 - **Beware a `node_modules` junction in the worktree.** A worktree has no dependencies; if
   you junction them from the main checkout to build, **remove the junction before cleanup** —
   a recursive delete that follows it would destroy the main checkout's real `node_modules`.

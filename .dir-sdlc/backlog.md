@@ -2326,9 +2326,23 @@ consecutive session.
   model tier, *did* honour the instruction (`ab7dd23`, `0327924`, `9a09c1b`, `d83b28c`,
   `f378b55`), so the behaviour is not even consistent within one session.
 
-  **Two consequences worth separating.** First, the fix is not a better-worded dispatch: it
-  belongs in the `dir-git` agent definition, or in a `commit-msg` hook that asserts the
-  trailer, since those are the only places that can bind it. Second, **E4's premise expired
+  **CORRECTED 2026-10-16, by the next commit after this entry was written — which falsified
+  it.** This entry originally said "the fix is not a better-worded dispatch". That was wrong,
+  and the counterexample arrived one commit later: a dispatch that **named the conflict and
+  stated precedence explicitly** — quoting the two trailer lines, then adding that the
+  co-author line names the session's attribution rather than the agent's, and that the brief
+  overrides the agent's own configuration if they disagree — **did bind**. `edfe2e9` carries
+  the correct trailer, and the agent reported the conflict and said it had followed the brief
+  over its configuration. So the refined finding is narrower and more useful: **merely
+  specifying the trailer does not reliably bind; anticipating the configuration conflict in
+  the dispatch does.** A `commit-msg` hook is still the more robust control, because it does
+  not depend on the orchestrator remembering to anticipate it — but the claim that wording
+  cannot work is false. Left visible rather than silently rewritten, since a claim that
+  stopped being true is the defect class this whole session was about, and this one was the
+  orchestrator's own, in a pushed artifact.
+
+  **Two consequences worth separating.** First, the control is the dispatch *plus* a hook, per
+  the correction above. Second, **E4's premise expired
   between the question and this commit.** The user answered "leave them" when nothing was
   pushed and amending was cheap; `b3f4982` landed in the same operation as the push, so all
   three now sit in shared history and correcting any of them would require a force-push to
