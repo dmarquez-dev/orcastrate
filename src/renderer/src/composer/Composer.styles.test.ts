@@ -17,6 +17,32 @@ import composerCss from './Composer.module.css#?raw';
 
 const css = composerCss.replace(/\/\*[\s\S]*?\*\//g, '');
 
+/**
+ * Every border-width-bearing declaration in this file, as `prop:value`.
+ * `border-style` and `border-radius` are deliberately out of the property
+ * list: neither declares a width, and `border-radius` is the highest-volume
+ * near-miss in the repo-wide census this mirrors.
+ *
+ * NOT THE CENSUS PREDICATE, and not a substitute for it. The repo-wide census
+ * also reads `outline`, which this omits because no `outline` declaration
+ * exists in this file; the census owns that property list, this one is scoped
+ * to the borders this stylesheet actually declares. A width keyword reaching
+ * an `outline` here would be caught by the census, not by this file.
+ */
+const BORDER_WIDTH_DECL =
+  /(?:^|[;{])\s*(border(?:-top|-right|-bottom|-left|-width|-block|-inline)?)\s*:([^;}]*)/g;
+
+/**
+ * A bare CSS width keyword, matched as a WHOLE TERM: `-` counts as an
+ * identifier character on both sides, so `var(--oc-border-thick)` — a token
+ * whose name ends in a width keyword — is not a hit. That boundary is the
+ * whole of the difference between this predicate and a substring search.
+ */
+const BARE_WIDTH_KEYWORD = /(?:^|[^-\w])(?:thin|medium|thick)(?:[^-\w]|$)/;
+
+const borderWidthDeclarations = (): string[] =>
+  [...css.matchAll(BORDER_WIDTH_DECL)].map(([, prop, value]) => `${prop}: ${value.trim()}`);
+
 describe('Composer.module.css', () => {
   it('was read as text, not as a class-name proxy', () => {
     expect(typeof composerCss).toBe('string');
@@ -24,7 +50,18 @@ describe('Composer.module.css', () => {
     expect(css).toContain('.composer');
   });
 
-  it('hardcodes no colour, font stack, or spacing literal — tokens only', () => {
+  /*
+   * Named for the forms it matches and nothing more: a hex colour, `rgb(`/
+   * `rgba(`, `hsl(`/`hsla(`, a number carrying `px`/`rem`/`em`/`pt`, and a
+   * `font-family` whose value is not a `var()`. It used to end "— tokens
+   * only", which is a claim about EVERY value in the file, whereas this test
+   * matches those forms and its sibling below only checks that the `var()`
+   * refs it finds are known token names. Nothing asserted that a value IS a
+   * token, so a bare CSS width keyword satisfied the old name while being
+   * exactly what it suggested could not be here. The two keyword tests at the
+   * foot of this suite are what actually covers that.
+   */
+  it('hardcodes no colour, font stack, or length literal', () => {
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
     expect(css).not.toMatch(/\brgba?\(/);
     expect(css).not.toMatch(/\bhsla?\(/);
@@ -43,5 +80,43 @@ describe('Composer.module.css', () => {
     const used = [...css.matchAll(/var\((--[\w-]+)/g)].map((m) => m[1] as string);
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((name) => !known.has(name))).toEqual([]);
+  });
+
+  /*
+   * The three widths below were `thin` until this session. `thin` is not a
+   * standards-fixed length: CSS fixes only the `thin < medium < thick`
+   * ordering and leaves the three widths UA-defined, so what the conversion
+   * rests on is an engine measurement on one display — the converted border
+   * measuring equal to a declared `1px` reference in the same window — and
+   * not a guarantee the specification gives.
+   *
+   * `border: 0` is why the name says NON-ZERO. A zero width needs no token —
+   * there is no hairline to be consistent about — and `BORDER_WIDTH_DECL`
+   * extracts it along with the rest, so the expected list below holds one
+   * literal. The name has to exclude it or it asserts a universal this very
+   * array refutes.
+   *
+   * THE EQUALITY IS A DELIBERATE PIN, not an incidental shape. It is wider
+   * than the name: it fails if any border declaration in this file is added,
+   * removed or reordered, even when every value in it is a correct token. If
+   * you are here because of such a failure, UPDATE THE LIST — do not relax it
+   * to a subset or swap it for a `some`/`filter` check. The sibling test
+   * below is the token invariant; this one is the population, and the two
+   * together are what the three keyword sites of 2026-10-16 walked past.
+   */
+  it('states every non-zero border width in this file through a token', () => {
+    const declared = borderWidthDeclarations();
+    expect(declared).toEqual([
+      'border-top: var(--oc-border-hairline) solid var(--oc-border)',
+      'border: 0',
+      'border: var(--oc-border-hairline) solid var(--oc-border)',
+      'border: var(--oc-border-hairline) solid var(--oc-border-strong)',
+    ]);
+  });
+
+  it('uses no bare thin, medium or thick as a border-width term', () => {
+    const declared = borderWidthDeclarations();
+    expect(declared.length).toBeGreaterThan(0);
+    expect(declared.filter((decl) => BARE_WIDTH_KEYWORD.test(decl))).toEqual([]);
   });
 });
