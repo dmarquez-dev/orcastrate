@@ -40,8 +40,28 @@ const BORDER_WIDTH_DECL =
  */
 const BARE_WIDTH_KEYWORD = /(?:^|[^-\w])(?:thin|medium|thick)(?:[^-\w]|$)/;
 
+/*
+ * `as string` on both groups, which is this repository's idiom for a capture
+ * `matchAll` types as `string | undefined` — see `borderValues` in
+ * `../permissions/PermissionCards.styles.test.ts` for the identical two-group
+ * case, and the `used` binding in the token test below for the single-group
+ * form. Cited by binding name rather than by line, because a line number here
+ * is a stored derivation that the next edit to either file falsifies silently.
+ *
+ * NEITHER GROUP CAN BE `undefined` HERE: both are unconditional in
+ * `BORDER_WIDTH_DECL` — neither sits inside an optional group or on one side
+ * of an alternation — so any match at all carries both. `matchAll` widens
+ * every group to `string | undefined` regardless of the pattern, so the
+ * guarantee has to be asserted rather than inferred. It is asserted, and not
+ * defended with a `?? ''` fallback: an empty string here would silently
+ * become the declaration `"border: "` and read as a non-offender, turning an
+ * impossible case into a quiet pass in the one test that is meant to catch
+ * untokenised widths.
+ */
 const borderWidthDeclarations = (): string[] =>
-  [...css.matchAll(BORDER_WIDTH_DECL)].map(([, prop, value]) => `${prop}: ${value.trim()}`);
+  [...css.matchAll(BORDER_WIDTH_DECL)].map(
+    (m) => `${m[1] as string}: ${(m[2] as string).trim()}`,
+  );
 
 describe('Composer.module.css', () => {
   it('was read as text, not as a class-name proxy', () => {
