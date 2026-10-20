@@ -24,7 +24,7 @@
   gap: var(--oc-space-2);
   padding: var(--oc-space-3);
   background: var(--oc-bg-raised);
-  border: thin solid var(--oc-status-waiting);
+  border: var(--oc-border-hairline) solid var(--oc-status-waiting);
   border-radius: var(--oc-radius-md);
 }
 
@@ -82,7 +82,7 @@
   padding: var(--oc-space-1) var(--oc-space-2);
   background: var(--oc-bg-panel);
   color: var(--oc-fg-primary);
-  border: thin solid var(--oc-border);
+  border: var(--oc-border-hairline) solid var(--oc-border);
   border-radius: var(--oc-radius-sm);
   font-size: var(--oc-text-sm);
 }
@@ -97,7 +97,7 @@
   padding: var(--oc-space-1) var(--oc-space-3);
   background: var(--oc-bg-selected);
   color: var(--oc-fg-primary);
-  border: thin solid var(--oc-border-strong);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
   border-radius: var(--oc-radius-sm);
 }
 
