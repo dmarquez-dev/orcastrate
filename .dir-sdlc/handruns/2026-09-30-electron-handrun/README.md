@@ -39,6 +39,28 @@ cause and three ranked remediations are in `FINDINGS.md`.
 | `setup.ps1` / `teardown.ps1` / `evaluate.ps1` | For a manual run against the **real** home. Not needed for the driven run. |
 | `fixtures/` | Settings in five states: baseline, external-edit, malformed, not-an-object, hold. |
 
+## Later runs in this directory
+
+**Each session that drives the app ships its own driver and its own artifacts, and leaves
+the earlier ones untouched.** A completed driver is the record of its own run, so it is
+never edited to say what a later run found; a later run writes a dated correction into the
+earlier findings instead. The naming convention is
+`driver/run-<slug>.mjs`, `FINDINGS-<SLUG>.md`, `driven-report-<slug>.md` / `.json` and
+`screenshots/<slug>/` — so `ls driver/run*.mjs` is the list of runs, not a table here that
+can go stale. That command returned four at the time of writing: the 2026-10-07 run above
+(unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
+`keyword-sweep`.
+
+- **`FINDINGS-KEYWORD-SWEEP.md`** (2026-10-20) — the six `thin` border widths tokenised by
+  `2026-10-16-orcastrate-keyword-hairline-sweep`, all six measured on screen, 70/70 checks.
+  It also closes the **grouped-selector enumeration defect**: `run-keyword-sweep.mjs` keys
+  each site by the DECLARATION and carries every selector in its group, so a declaration
+  written under a comma-grouped selector is reached when any of them renders.
+  `FINDINGS-TOKEN-SWEEP.md` carries the matching dated correction.
+- **`FINDINGS-TOKEN-SWEEP.md`** (2026-10-12) — 36 border widths and 3 `letter-spacing`
+  values, 52/52. `VERIFY-MERGED-MAIN.md` is its re-run against merged `main`.
+- **`FINDINGS-C3.md`** — the C3 sub-session's run.
+
 ## Running it
 
 ```bash
@@ -46,6 +68,12 @@ npm run build          # the driver launches out/main/index.js
 node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/smoke.mjs   # sanity
 node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run.mjs     # the suite
 ```
+
+A later run is launched the same way, with its own driver — e.g.
+`node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-keyword-sweep.mjs`. Note
+that `smoke.mjs` writes into the shared `screenshots/` root and `lib.mjs`'s `writeReport()`
+hardcodes `driven-report.*`, both of which belong to the 2026-10-07 run; a slugged driver
+writes its own report and screenshots and leaves those alone.
 
 Requires `playwright` (dev-dependency, installed for this). No browser download
 is needed — `_electron` uses the Electron already in `node_modules`.

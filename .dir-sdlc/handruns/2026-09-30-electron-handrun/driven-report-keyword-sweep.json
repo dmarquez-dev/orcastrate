@@ -1,0 +1,759 @@
+{
+  "meta": {
+    "generatedAt": "2026-10-20T17:53:01.405Z",
+    "scope": "Keyword hairline sweep — 6 converted `thin` border widths, plus the grouped-selector declaration",
+    "repoRoot": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-16-orcastrate-keyword-hairline-sweep",
+    "sandboxRoot": "C:\\oc-sandbox-keyword-sweep",
+    "builtCss": "out/renderer/assets/index-B8ruB0_i.css",
+    "build": "out/main/index.js",
+    "electron": "via playwright _electron",
+    "playwright": "devDependency, resolved from the repository root",
+    "hashes": {
+      "composer/Composer.module.css": {
+        "signature": [
+          "composer",
+          "srOnly",
+          "send",
+          "hint"
+        ],
+        "candidates": [
+          "1vr7c"
+        ],
+        "hash": "1vr7c"
+      },
+      "permissions/PermissionCards.module.css": {
+        "signature": [
+          "card",
+          "reason",
+          "kicker",
+          "asked"
+        ],
+        "candidates": [
+          "22tzo"
+        ],
+        "hash": "22tzo"
+      },
+      "transcript/Transcript.module.css": {
+        "signature": [
+          "filterToggle",
+          "unpin",
+          "paneHeaderActions",
+          "paneHeader"
+        ],
+        "candidates": [
+          "m07co"
+        ],
+        "hash": "m07co"
+      }
+    },
+    "harnessFaults": [],
+    "reference": {
+      "declaredOnePx": "0.8px",
+      "keywordThin": "0.8px",
+      "viaToken": "0.8px",
+      "keywordMedium": "2.4px",
+      "keywordThick": "4.8px",
+      "ladder": {
+        "1px": "0.8px",
+        "2px": "1.6px",
+        "3px": "2.4px",
+        "4px": "4px",
+        "5px": "4.8px"
+      },
+      "devicePixelRatio": 1.0000000149011612,
+      "bothAliveTogether": true
+    },
+    "declaredOnePxReference": "0.8px",
+    "groupValidation": [
+      {
+        "file": "composer/Composer.module.css",
+        "line": 15,
+        "declared": [
+          "composer"
+        ],
+        "found": [
+          "composer"
+        ],
+        "ok": true
+      },
+      {
+        "file": "composer/Composer.module.css",
+        "line": 44,
+        "declared": [
+          "input"
+        ],
+        "found": [
+          "input"
+        ],
+        "ok": true
+      },
+      {
+        "file": "composer/Composer.module.css",
+        "line": 70,
+        "declared": [
+          "send"
+        ],
+        "found": [
+          "send"
+        ],
+        "ok": true
+      },
+      {
+        "file": "permissions/PermissionCards.module.css",
+        "line": 27,
+        "declared": [
+          "card"
+        ],
+        "found": [
+          "card"
+        ],
+        "ok": true
+      },
+      {
+        "file": "permissions/PermissionCards.module.css",
+        "line": 85,
+        "declared": [
+          "reason"
+        ],
+        "found": [
+          "reason"
+        ],
+        "ok": true
+      },
+      {
+        "file": "permissions/PermissionCards.module.css",
+        "line": 100,
+        "declared": [
+          "action"
+        ],
+        "found": [
+          "action"
+        ],
+        "ok": true
+      },
+      {
+        "file": "transcript/Transcript.module.css",
+        "line": 51,
+        "declared": [
+          "filterToggle",
+          "unpin"
+        ],
+        "found": [
+          "filterToggle",
+          "unpin"
+        ],
+        "ok": true
+      }
+    ],
+    "countProvenance": {
+      "checks total/failed/errored": "counted by this driver over its own results array at report time",
+      "swept element count": "document.querySelectorAll(\"*\").length at sweep time",
+      "the declared-1px reference every border check uses": "measured at KS-1 on a synthetic element declaring border-width:1px in this window",
+      "`thin` versus a declared `1px`": "measured at KS-1 on two synthetic elements alive in this window at the same moment",
+      "enumerated / measured / unreached": "counted over this run's own coverage table, which lists every enumerated declaration",
+      "selector groups validated": "read from the stylesheets on disk at KS-2 and compared with this driver's map"
+    }
+  },
+  "coverage": {
+    "composer/Composer.module.css": [
+      {
+        "line": 15,
+        "selectors": [
+          "composer"
+        ],
+        "sides": [
+          "top"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "composer",
+        "value": "top=0.8px",
+        "equalsReference": true,
+        "where": "KS-4 active Pod"
+      },
+      {
+        "line": 44,
+        "selectors": [
+          "input"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "input",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-4 active Pod"
+      },
+      {
+        "line": 70,
+        "selectors": [
+          "send"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "send",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-4 active Pod"
+      }
+    ],
+    "permissions/PermissionCards.module.css": [
+      {
+        "line": 27,
+        "selectors": [
+          "card"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "card",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-6 permission card on screen"
+      },
+      {
+        "line": 85,
+        "selectors": [
+          "reason"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "reason",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-6 permission card on screen"
+      },
+      {
+        "line": 100,
+        "selectors": [
+          "action"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": true,
+        "groupedSelectorDemonstration": false,
+        "status": "measured",
+        "selectorResolved": "action",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-6 permission card on screen"
+      }
+    ],
+    "transcript/Transcript.module.css": [
+      {
+        "line": 51,
+        "selectors": [
+          "filterToggle",
+          "unpin"
+        ],
+        "sides": [
+          "top",
+          "right",
+          "bottom",
+          "left"
+        ],
+        "inContract": false,
+        "groupedSelectorDemonstration": true,
+        "status": "measured",
+        "selectorResolved": "filterToggle",
+        "value": "top=0.8px right=0.8px bottom=0.8px left=0.8px",
+        "equalsReference": true,
+        "where": "KS-4 active Pod"
+      }
+    ]
+  },
+  "results": [
+    {
+      "id": "KS-0",
+      "title": "Provenance: the live window is THIS worktree's build",
+      "checks": [
+        {
+          "label": "file hash resolved unambiguously for composer/Composer.module.css",
+          "ok": true,
+          "detail": "signature {composer, srOnly, send, hint} -> _1vr7c_"
+        },
+        {
+          "label": "file hash resolved unambiguously for permissions/PermissionCards.module.css",
+          "ok": true,
+          "detail": "signature {card, reason, kicker, asked} -> _22tzo_"
+        },
+        {
+          "label": "file hash resolved unambiguously for transcript/Transcript.module.css",
+          "ok": true,
+          "detail": "signature {filterToggle, unpin, paneHeaderActions, paneHeader} -> _m07co_"
+        },
+        {
+          "label": "the built bundle's .composer rule (hash 1vr7c) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " display: flex; flex-direction: column; gap: var(--oc-space-2); padding: var(--oc-space-3); min-height: var(--oc-composer-min-height); background: var"
+        },
+        {
+          "label": "that same .composer rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "the built bundle's .input rule (hash 1vr7c) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " width: 100%; min-height: var(--oc-composer-min-height); resize: vertical; padding: var(--oc-space-2); background: var(--oc-bg-raised); color: var(--o"
+        },
+        {
+          "label": "that same .input rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "the built bundle's .send rule (hash 1vr7c) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " padding: var(--oc-space-1) var(--oc-space-4); background: var(--oc-bg-selected); color: var(--oc-fg-primary); border: var(--oc-border-hairline) solid"
+        },
+        {
+          "label": "that same .send rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "the built bundle's .card rule (hash 22tzo) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " display: flex; flex-direction: column; gap: var(--oc-space-2); padding: var(--oc-space-3); background: var(--oc-bg-raised); border: var(--oc-border-h"
+        },
+        {
+          "label": "that same .card rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "the built bundle's .reason rule (hash 22tzo) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " padding: var(--oc-space-1) var(--oc-space-2); background: var(--oc-bg-panel); color: var(--oc-fg-primary); border: var(--oc-border-hairline) solid va"
+        },
+        {
+          "label": "that same .reason rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "the built bundle's .action rule (hash 22tzo) names var(--oc-border-hairline)",
+          "ok": true,
+          "detail": " padding: var(--oc-space-1) var(--oc-space-3); background: var(--oc-bg-selected); color: var(--oc-fg-primary); border: var(--oc-border-hairline) solid"
+        },
+        {
+          "label": "that same .action rule no longer declares a bare width keyword",
+          "ok": true,
+          "detail": "no bare keyword in the rule body"
+        },
+        {
+          "label": "CONTROL: the keyword predicate FLAGS a body declaring `border: thin solid …`",
+          "ok": true,
+          "detail": "border:thin solid var(--oc-border);"
+        },
+        {
+          "label": "CONTROL: the same predicate does NOT flag var(--oc-border-thick) — the session near-miss",
+          "ok": true,
+          "detail": "border:var(--oc-border-thick) solid var(--oc-border);"
+        }
+      ],
+      "notes": [
+        "repoRoot resolved by lib.mjs = C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-16-orcastrate-keyword-hairline-sweep",
+        "sandbox root = C:\\oc-sandbox-keyword-sweep",
+        "built renderer CSS = out/renderer/assets/index-B8ruB0_i.css"
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "KS-1",
+      "title": "The reference, measured in THIS window: declared 1px, and `thin` beside it",
+      "checks": [
+        {
+          "label": "--oc-border-hairline resolves to a non-empty value on :root",
+          "ok": true,
+          "detail": "1px"
+        },
+        {
+          "label": "the two synthetic elements were alive in the document together when read",
+          "ok": true,
+          "detail": "bothAliveTogether=true"
+        },
+        {
+          "label": "THE SESSION'S PREMISE, measured in this window: `thin` and a declared `1px` have the SAME used width",
+          "ok": true,
+          "detail": "thin -> 0.8px, declared 1px -> 0.8px"
+        },
+        {
+          "label": "var(--oc-border-hairline) and a declared `1px` have the SAME used width",
+          "ok": true,
+          "detail": "token -> 0.8px, declared 1px -> 0.8px"
+        },
+        {
+          "label": "the reference is ORDERED thin < medium < thick, so the probe distinguishes the keywords",
+          "ok": true,
+          "detail": "0.8px < 2.4px < 4.8px"
+        }
+      ],
+      "notes": [
+        "--oc-border-hairline resolves on :root to \"1px\"; --oc-border-thick to \"2px\"",
+        "MEASURED FRESH IN THIS WINDOW: border-width:thin -> 0.8px; border-width:1px -> 0.8px; border-width:var(--oc-border-hairline) -> 0.8px; medium -> 2.4px; thick -> 4.8px; devicePixelRatio=1.0000000149011612",
+        "declared-to-computed ladder in this window: 1px->0.8px 2px->1.6px 3px->2.4px 4px->4px 5px->4.8px — these are declared INPUTS whose computed values are read, not expectations.",
+        "A declared 1px does NOT compute to the string \"1px\" here: it computes 0.8px. That is this display's device-pixel quantization, not a token failure — and it is why every border check below is an EQUALITY against this measured reference rather than against any literal."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "KS-2",
+      "title": "Selector groups validated against the stylesheets, and the validator controlled",
+      "checks": [
+        {
+          "label": "composer/Composer.module.css:15 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border-top: var(--oc-border-hairline) solid var(--oc-border);"
+        },
+        {
+          "label": "composer/Composer.module.css:15 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :8 is \".composer\" -> {composer}; this driver carries {composer}"
+        },
+        {
+          "label": "composer/Composer.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "composer/Composer.module.css:44 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-border);"
+        },
+        {
+          "label": "composer/Composer.module.css:44 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :35 is \".input\" -> {input}; this driver carries {input}"
+        },
+        {
+          "label": "composer/Composer.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "composer/Composer.module.css:70 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-border-strong);"
+        },
+        {
+          "label": "composer/Composer.module.css:70 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :66 is \".send\" -> {send}; this driver carries {send}"
+        },
+        {
+          "label": "composer/Composer.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:27 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-status-waiting);"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:27 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :21 is \".card\" -> {card}; this driver carries {card}"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:85 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-border);"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:85 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :81 is \".reason\" -> {reason}; this driver carries {reason}"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:100 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-border-strong);"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:100 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :96 is \".action\" -> {action}; this driver carries {action}"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "transcript/Transcript.module.css:51 is a var(--oc-border-hairline) declaration in the stylesheet",
+          "ok": true,
+          "detail": "border: var(--oc-border-hairline) solid var(--oc-border-strong);"
+        },
+        {
+          "label": "transcript/Transcript.module.css:51 — this driver's selector group matches the stylesheet's own",
+          "ok": true,
+          "detail": "stylesheet rule at :46 is \".filterToggle,\r\n.unpin\" -> {filterToggle, unpin}; this driver carries {filterToggle, unpin}"
+        },
+        {
+          "label": "transcript/Transcript.module.css contains no at-rule that could nest a declaration out of this parse",
+          "ok": true,
+          "detail": "0 at-rule(s)"
+        },
+        {
+          "label": "CONTROL: the validator REJECTS a selector group with a member missing",
+          "ok": true,
+          "detail": "offered {filterToggle} against the stylesheet's {filterToggle, unpin} -> rejected"
+        }
+      ],
+      "notes": [
+        "That control is the class-keyed defect in miniature: {filterToggle} alone is what a one-class-per-declaration map can hold, and the validator rejects it."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "KS-3",
+      "title": "Empty workspace — sweep before any Pod exists",
+      "checks": [],
+      "notes": [
+        "swept 33 elements; 0 converted-declaration hit(s)"
+      ],
+      "shots": [
+        "screenshots/keyword-sweep/01-empty-workspace.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "KS-4",
+      "title": "Active Pod — the composer declarations and the GROUPED transcript declaration",
+      "checks": [
+        {
+          "label": "createPod succeeded",
+          "ok": true,
+          "detail": "{\"ok\":true,\"value\":{\"id\":\"1dea7631-b31d-4cd4-a987-059ff7469460\",\"title\":\"oc-keyword-sweep\",\"cwd\":\"C:\\\\oc-sandbox-keyword-sweep\\\\repos\\\\plain"
+        },
+        {
+          "label": "a Pod id is known to the driver for the push steps",
+          "ok": true,
+          "detail": "1dea7631-b31d-4cd4-a987-059ff7469460"
+        },
+        {
+          "label": "composer/Composer.module.css:15 MEASURED on screen and equal to the declared-1px reference on the sides it sets",
+          "ok": true,
+          "detail": "via .composer <section> rect=1040.0x186.7 top=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "composer/Composer.module.css:44 MEASURED on screen and equal to the declared-1px reference on the sides it sets",
+          "ok": true,
+          "detail": "via .input <textarea> rect=1016.0x76.0 top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "composer/Composer.module.css:70 MEASURED on screen and equal to the declared-1px reference on the sides it sets",
+          "ok": true,
+          "detail": "via .send <button> rect=62.3x28.5 top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "transcript/Transcript.module.css:51 (.filterToggle, .unpin) is MEASURED, not `not reached`",
+          "ok": true,
+          "detail": "resolved via .filterToggle of group {filterToggle, unpin}; <button> text=\"Show system events\" rect=115.1x25.6; top=0.8px right=0.8px bottom=0.8px left=0.8px"
+        },
+        {
+          "label": "that grouped declaration equals the declared-1px reference on all four sides",
+          "ok": true,
+          "detail": "top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "it resolved through a selector that is NOT the one a class-keyed map would have held (.unpin)",
+          "ok": true,
+          "detail": "resolved via .filterToggle"
+        }
+      ],
+      "notes": [
+        "activated pod-tab:1dea7631-b31d-4cd4-a987-059ff7469460",
+        "rendered declarations with an active Pod: composer/Composer.module.css:15 via .composer, composer/Composer.module.css:44 via .input, composer/Composer.module.css:70 via .send, transcript/Transcript.module.css:51 via .filterToggle"
+      ],
+      "shots": [
+        "screenshots/keyword-sweep/02-active-pod-composer-and-transcript.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "KS-5",
+      "title": "CONTROL: the border probe discriminates on TOKEN RESOLUTION",
+      "checks": [
+        {
+          "label": "the probe found the .composer element in the live DOM",
+          "ok": true,
+          "detail": "_composer_1vr7c_15"
+        },
+        {
+          "label": "BASELINE: .composer border-top equals the declared-1px reference",
+          "ok": true,
+          "detail": "top=0.8px style=solid (reference 0.8px)"
+        },
+        {
+          "label": "CONTROL: with --oc-border-hairline overridden to a non-length, the measured width CHANGES",
+          "ok": true,
+          "detail": "baseline top=0.8px -> overridden top=0px (style solid -> none)"
+        },
+        {
+          "label": "CONTROL: the overridden width no longer equals the reference",
+          "ok": true,
+          "detail": "0px (reference 0.8px)"
+        },
+        {
+          "label": "the override was removed and the shipped hairline came back",
+          "ok": true,
+          "detail": "top=0.8px (reference 0.8px)"
+        }
+      ],
+      "notes": [],
+      "shots": [
+        "screenshots/keyword-sweep/03-control-token-broken.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "KS-6",
+      "title": "Permission cards — .card, .reason and .action through the app's own pushes",
+      "checks": [
+        {
+          "label": "the laneChanged push was sent from the main process",
+          "ok": true,
+          "detail": "true"
+        },
+        {
+          "label": "the permissionRequested push was sent from the main process",
+          "ok": true,
+          "detail": "true"
+        },
+        {
+          "label": "a permission card list is in the DOM",
+          "ok": true,
+          "detail": ""
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:27 MEASURED on screen and equal to the declared-1px reference on all four sides",
+          "ok": true,
+          "detail": "via .card <li> rect=991.2x239.9 top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:85 MEASURED on screen and equal to the declared-1px reference on all four sides",
+          "ok": true,
+          "detail": "via .reason <input> rect=965.6x27.0 top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        },
+        {
+          "label": "permissions/PermissionCards.module.css:100 MEASURED on screen and equal to the declared-1px reference on all four sides",
+          "ok": true,
+          "detail": "via .action <button> rect=57.3x28.5 top=0.8px right=0.8px bottom=0.8px left=0.8px (reference 0.8px)"
+        }
+      ],
+      "notes": [
+        "HOW THIS STATE WAS REACHED, stated so the measurement is not read as more than it is: the lane and the pending request were delivered on the app's own `push:laneChanged` and `push:permissionRequested` channels from the main process. No `claude` process ran. Everything between the channel and the pixel — preload bridge, store, React tree, stylesheet, layout — is the shipped code path."
+      ],
+      "shots": [
+        "screenshots/keyword-sweep/04-permission-card.png"
+      ],
+      "error": null
+    },
+    {
+      "id": "KS-7",
+      "title": "Coverage — every enumerated declaration measured, or named unreachable with its reason",
+      "checks": [
+        {
+          "label": "every one of the frozen contract's six converted declarations is enumerated",
+          "ok": true,
+          "detail": "6 enumerated as inContract"
+        },
+        {
+          "label": "every enumerated declaration is EITHER measured on screen OR carries a reason written before the run",
+          "ok": true,
+          "detail": "6/6 contract site(s) measured; 0 unreached, each with a reason"
+        },
+        {
+          "label": "every MEASURED declaration equals the declared-1px reference on the sides it sets",
+          "ok": true,
+          "detail": "composer/Composer.module.css:15=eq composer/Composer.module.css:44=eq composer/Composer.module.css:70=eq permissions/PermissionCards.module.css:27=eq permissions/PermissionCards.module.css:85=eq permissions/PermissionCards.module.css:100=eq transcript/Transcript.module.css:51=eq"
+        },
+        {
+          "label": "no selector group in the coverage table disagreed with its stylesheet",
+          "ok": true,
+          "detail": "7/7 group(s) validated"
+        }
+      ],
+      "notes": [
+        "TALLY (counted over this run's own coverage table): 7 declaration(s) enumerated, of which 6 are the frozen contract's KEYWORD_WIDTH_SITES and 1 is the grouped-selector declaration this session's enumeration fix was written for."
+      ],
+      "shots": [],
+      "error": null
+    },
+    {
+      "id": "KS-8",
+      "title": "Safety: the real ~/.claude/settings.json was never written",
+      "checks": [
+        {
+          "label": "the real settings.json is byte-identical (sha256) to before the run",
+          "ok": true,
+          "detail": "before=2ce33958d4b55467 after=2ce33958d4b55467"
+        },
+        {
+          "label": "no stray settings backup appeared beside it",
+          "ok": true,
+          "detail": "none"
+        },
+        {
+          "label": "CONTROL: the same backup predicate FLAGS a listing containing settings.json.bak",
+          "ok": true,
+          "detail": "settings.json, settings.json.bak"
+        }
+      ],
+      "notes": [],
+      "shots": [],
+      "error": null
+    }
+  ],
+  "total": 70,
+  "failed": 0,
+  "errored": 0
+}

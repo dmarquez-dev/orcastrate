@@ -18,6 +18,33 @@ of its own so this run neither races nor clobbers C3's, with
 `USERPROFILE`/`APPDATA`/`LOCALAPPDATA`/`TEMP` redirected by `driver/sandbox.mjs` — the
 real `~/.claude` was never read and never written.
 
+## Correction — 2026-10-20: one `not reached` verdict was an artefact of this run's own enumeration
+
+**Everything below this section is left exactly as this run recorded it**, because it is the
+record of what this run observed. This correction is additive and says what a later run
+measured.
+
+This run reported `transcript/Transcript.module.css`'s `.unpin` as **not reached**, needing
+a split pane (see the coverage table and the unreached list below). That verdict was an
+**artefact of enumerating by class name**. `.unpin` shares its selector group and its single
+hairline declaration with `.filterToggle` — the stylesheet's rule at `:45-46` is
+`.filterToggle, .unpin`, and the declaration is at `:51` — and `run-token-sweep.mjs` maps
+one class per declaration, so only `.unpin` was ever probed. `.filterToggle` renders
+unconditionally in the pane header (`TranscriptPane.tsx:175-181`), in the very state this
+run measured `.pane` and `.paneHeader` in.
+
+**That declaration has now been measured.** The keyword hairline sweep's run
+(2026-10-20, `driver/run-keyword-sweep.mjs`, `FINDINGS-KEYWORD-SWEEP.md`,
+`driven-report-keyword-sweep.md` / `.json`) keys every site by the declaration rather than
+by a class, carries every selector in the group, and counts a declaration as reached when
+any of them renders. It resolved this one through **`.filterToggle`**, on a `<button>`
+reading `Show system events` with a layout rect of 115.1 x 25.6, measuring `0.8px` on all
+four sides — equal to a declared `1px` measured in that run's own window.
+
+The reach note `.unpin` carried was not wrong about `.unpin`; it was wrong to be the whole
+answer for the declaration. The defect is the enumeration shape, which is why the later run
+holds the fix as a property rather than as a special case for this one site.
+
 ## The build under test, and why that is a check rather than an assumption
 
 `driver/lib.mjs:8` resolves `repoRoot` four levels up **from the driver file**. A copy of

@@ -25,15 +25,21 @@
  *   - no `*.module.css` ANYWHERE under `src/renderer/src` sets a font weight
  *     to anything but a `var(--oc-weight-*)` token, sets a letter-spacing to
  *     anything but a `var(--oc-tracking-*)` token, gives any listed
- *     border-width property a raw length, or leaves a `var(--oc-*)` reference
- *     in a property declaration unterminated — invalid CSS a browser discards
- *     whole, which no other rule in this repository detects; and every
- *     full-window overlay paints `var(--oc-overlay-scrim)`. These are
- *     repo-wide, carry no exception list of any kind, and are two-sided
- *     against the empty list; see the censuses at the foot of this file.
- *     A border width declared with the KEYWORD `thin` is not a raw length and
- *     is outside the border census; six such declarations survive, and the
- *     `TOKENISED_STYLE_ROOTS` docblock names them.
+ *     border-width property a raw length OR A BARE WIDTH KEYWORD, or leaves a
+ *     `var(--oc-*)` reference in a property declaration unterminated — invalid
+ *     CSS a browser discards whole, which no other rule in this repository
+ *     detects; and every full-window overlay paints `var(--oc-overlay-scrim)`.
+ *     These are repo-wide, carry no exception list of any kind, and are
+ *     two-sided against the empty list; see the censuses at the foot of this
+ *     file.
+ *     A BARE WIDTH KEYWORD IS NOW AN OFFENDER IN BOTH BORDER PREDICATES, and
+ *     this clause used to say the opposite. It said a keyword "is not a raw
+ *     length and is outside the border census", which was a true description of
+ *     the predicate and an accurate count of the survivors — and it pointed at
+ *     a deferral that no longer holds. Both predicates read the keyword forms
+ *     as of 2026-10-16-orcastrate-keyword-hairline-sweep; what each one flags
+ *     and what it declines is asserted sample by sample rather than described,
+ *     and the `TOKENISED_STYLE_ROOTS` docblock carries the correction in full.
  *
  * THE TOKEN RULES ARE NEWER THAN THIS FILE, AND THIS PARAGRAPH USED TO SAY THE
  * OPPOSITE. It said those properties were deliberately unchecked "because
@@ -566,16 +572,37 @@ describe('this suite has no live dependencies (criterion 11)', () => {
  * the pin, and replaced the scope argument with the repo-wide censuses at the
  * foot of this file. The decision the old paragraph deferred was taken.
  *
- * WHAT THE WIDENING DID NOT REACH, recorded here rather than left for a later
- * reader to discover. Six border widths are declared with the KEYWORD `thin`:
- * three in `composer/Composer.module.css` and three in
- * `permissions/PermissionCards.module.css`. A keyword is not a raw length, so
- * the census predicate at the foot of this file does not flag them and the
- * sentence above does not claim them — they are untokenised border widths that
- * survive. Widening the predicate to the keyword forms would change six
- * shipped borders' pixels, which is a design decision and not a test change,
- * so it is reported and not made here. Unlike the paragraph this replaced,
- * that deferral names the survivors.
+ * WHAT THE WIDENING DID NOT REACH THEN, AND REACHES NOW. This paragraph used
+ * to record six border widths declared with the KEYWORD `thin` — three in
+ * `composer/Composer.module.css`, three in
+ * `permissions/PermissionCards.module.css` — as untokenised widths that
+ * survived because a keyword is not a raw length. That much was true. What it
+ * went on to say was not: that widening the predicate to the keyword forms
+ * "would change six shipped borders' pixels, which is a design decision and
+ * not a test change, so it is reported and not made here".
+ *
+ * THAT DEFERRAL RESTED ON A PREMISE THAT WAS NEVER MEASURED, and measuring it
+ * dissolved it. The driven hand-run harness — Playwright over the real Electron
+ * app — put a border declaring `thin` and a border declaring `1px` in the SAME
+ * window and read both used widths back out of the engine: they were equal,
+ * twice, on two separate checkouts. No pixel literal is the reference in that
+ * protocol and none could be: this display quantizes a declared `1px` to
+ * `0.8px`, so the only thing that survives is the EQUALITY between two widths
+ * measured in one window. So the conversion moved no pixels,
+ * there was no design decision to defer to anyone, and the deferral was an
+ * invented obstacle that had kept six declarations out of a census for one
+ * session. The six were converted in that session and both border predicates
+ * now read the keyword forms.
+ *
+ * THE EXACT STRENGTH OF THAT CLAIM, because it is easy to overstate and the
+ * overstatement is what would mislead the next reader. It is AN ENGINE
+ * MEASUREMENT ON ONE DISPLAY, not a standards claim. The CSS specification
+ * fixes only the `thin < medium < thick` ordering and leaves the three widths
+ * UA-defined; MDN records `thin` as equivalent to `1px`. Nothing here licenses
+ * the belief that `thin` is `1px` by rule, and no test in this file asserts
+ * that it is — the predicates reject a bare keyword because it defers to the
+ * engine rather than to the token set, which is the reason that holds whatever
+ * width the engine picks.
  *
  * SO THIS LIST IS NO LONGER A SCOPE DECISION. It is a narrower second look at
  * three directories, kept because the assertion below names Beachcomber and
@@ -617,6 +644,63 @@ const BORDER_PROPERTIES: readonly string[] = [
  */
 const RAW_LENGTH = /\b\d+(?:\.\d+)?(?:px|rem|em|pt|ch)\b/;
 
+/**
+ * THE THREE CSS BORDER-WIDTH KEYWORDS, ALL THREE FLAGGED — not only the one
+ * that ships.
+ *
+ * A rule named for the keyword forms that read `thin` alone would be narrower
+ * than its own name, and the next `medium` anyone writes would walk past it.
+ * So `medium` and `thick` are held here too, and they are covered by SYNTHETIC
+ * samples only: as this predicate is written, no declaration in this tree
+ * declares either one as a bare keyword. That is said out loud rather than left
+ * to be inferred from an empty offender list, because an empty list is equally
+ * consistent with a rule that cannot fire.
+ */
+const BORDER_WIDTH_KEYWORDS: readonly string[] = ['thin', 'medium', 'thick'];
+
+/**
+ * A BARE WIDTH KEYWORD — A TERM MATCH, NOT A SUBSTRING MATCH, and that
+ * distinction is the whole of this predicate's difficulty.
+ *
+ * `var(--oc-border-thick)` is a TOKEN whose NAME ends in a width keyword, and
+ * this tree ships references to it. A predicate that merely searched for
+ * `thick` inside the value would flag every one of them and go red on a clean
+ * tree — so a keyword counts only where it stands as a whole term, with `-`
+ * treated as an identifier character on both sides. Both directions are
+ * asserted sample by sample below; this paragraph is not the evidence.
+ *
+ * `_` IS TREATED AS AN IDENTIFIER CHARACTER TOO, via `\w`, so `_thin` is read
+ * as one identifier and not as a bare keyword. That is a decision rather than
+ * an accident of the character class: `_` is a valid CSS ident character, so
+ * `_thin` is a single identifier to the parser, and reading it as a keyword
+ * would be the substring failure one character to the left. It also keeps this
+ * predicate identical to the two per-stylesheet predicates in
+ * `composer/Composer.styles.test.ts` and
+ * `permissions/PermissionCards.styles.test.ts`, which is worth more than
+ * agreement with any one-off shell census: three readers that disagree about
+ * what a border width is, is the defect shape this rule is the third
+ * instalment of. No `*.module.css` in this tree contains `_` in a declaration
+ * value today, so the case is unexercised and held synthetically below.
+ */
+const BARE_WIDTH_KEYWORD = new RegExp(
+  `(?:^|[^-\\w])(?:${BORDER_WIDTH_KEYWORDS.join('|')})(?:[^-\\w]|$)`,
+);
+
+/**
+ * A border width that defers to neither the token set nor a zero: a raw
+ * physical length, or a bare keyword that defers to the engine instead.
+ *
+ * ONE PREDICATE SERVES BOTH RULES. The keyword test is a test of the declared
+ * VALUE, so it is independent of which reader produced the value — the scoped
+ * rule's unanchored `declaredValues` and the census's anchored `anchoredValues`
+ * hand it the same kind of string. Two predicates for one property that
+ * disagree about what a border width is, is exactly what this session's
+ * subject was.
+ */
+function isOffendingBorderWidth(value: string): boolean {
+  return RAW_LENGTH.test(value) || BARE_WIDTH_KEYWORD.test(value);
+}
+
 /** A value that defers to the token set. The only permitted one. */
 function isTokenValue(value: string): boolean {
   return value.trim().startsWith('var(');
@@ -647,20 +731,39 @@ function tokenOffenders(text: string, properties: readonly string[]): string[] {
   return found;
 }
 
-/** Border widths are the one group where a non-token value can still be fine. */
+/**
+ * Border widths are the one group where a non-token value can still be fine:
+ * `border: 0` has no unit to tokenise.
+ *
+ * WIDENED TO THE KEYWORD FORMS, with the same term-match predicate the census
+ * uses. Nothing in these three directories forced that — none of the six
+ * keyword declarations this session converted was inside them. It is done for
+ * the reason that is specific to this session: 5 of the border declarations in
+ * these three roots name `var(--oc-border-thick)`, a token whose name ends in a
+ * width keyword, so widening HERE is what exercises the term-boundary
+ * requirement against real shipped declarations instead of against synthetic
+ * samples alone. That 5 was measured for this change with
+ * `grep -rnE '(^|[;{])[[:space:]]*(border(-top|-right|-bottom|-left|-width|-block|-inline)?|outline)[[:space:]]*:[^;}]*var\(--oc-border-thick\)' --include='*.module.css' src/renderer/src/beachcomber src/renderer/src/helm src/renderer/src/shell`,
+ * which also declines `PanelBar.module.css`'s `outline-offset` reference to the
+ * same token — the near-miss that tells the count apart from a plain text
+ * search for the token name, which returns 6 lines over these three roots.
+ * A scoped rule left un-widened would also be a second
+ * predicate for the same property, disagreeing with the census about what a
+ * border width is.
+ */
 function borderOffenders(text: string): string[] {
   const found: string[] = [];
   for (const prop of BORDER_PROPERTIES) {
     for (const value of declaredValues(text, prop)) {
-      if (RAW_LENGTH.test(value)) found.push(`${prop}: ${value}`);
+      if (isOffendingBorderWidth(value)) found.push(`${prop}: ${value}`);
     }
   }
   return found;
 }
 
 /**
- * THIS RULE TOLERATES NO RAW BORDER WIDTH AT ALL, and that is the point rather
- * than an omission.
+ * THIS RULE TOLERATES NO UNTOKENISED BORDER WIDTH AT ALL — raw length or bare
+ * keyword — and that is the point rather than an omission.
  *
  * It used to pin an exhaustive list of raw `1px` border widths — five of them,
  * in two `shell/` stylesheets — on the grounds that converting them changed
@@ -701,6 +804,20 @@ describe('the widened matchers themselves', () => {
     // A radius is a length but not a border width, and must not be caught.
     expect(borderOffenders('border-radius: 4' + 'px;')).toEqual([]);
 
+    // A BARE WIDTH KEYWORD IS A VIOLATION HERE TOO, all three of them, and the
+    // token whose NAME ends in one is not. These three roots hold no keyword
+    // declaration and 5 border declarations naming `var(--oc-border-thick)`,
+    // so the second half of this is the one the real tree exercises.
+    expect(borderOffenders('border: thin solid var(--oc-border);')).toEqual([
+      'border: thin solid var(--oc-border)',
+    ]);
+    expect(borderOffenders('border: medium solid var(--oc-border);')).toHaveLength(1);
+    expect(borderOffenders('border-width: thick;')).toEqual(['border-width: thick']);
+    expect(borderOffenders('border: var(--oc-border-thick) solid var(--oc-border);')).toEqual([]);
+    expect(borderOffenders('outline: var(--oc-border-thick) solid var(--oc-focus-ring);')).toEqual(
+      [],
+    );
+
     // Tracking and weight: anything but a token is the violation.
     expect(tokenOffenders(`${FONT_WEIGHT}: 700;`, [FONT_WEIGHT])).toEqual([
       `${FONT_WEIGHT}: 700`,
@@ -740,7 +857,7 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
     expect(sheets.map(relative)).toContain('src/renderer/src/shell/PanelBar.module.css');
   });
 
-  it('sets every border width, letter-spacing and font weight from a token', async () => {
+  it('gives no border width a raw length or a bare width keyword, and sets every letter-spacing and font weight from a token', async () => {
     const offenders: string[] = [];
     for (const file of await panelStylesheets()) {
       const text = stripCssComments(await read(file));
@@ -751,10 +868,10 @@ describe('panel token hygiene: border widths, tracking and weights (criterion 10
         offenders.push(`${relative(file)}: ${offender}`);
       }
     }
-    // Nothing is tolerated: any raw border width, letter-spacing or font
-    // weight in the three directories fails loudly, and no pinned list can
-    // absorb one. Still sorted, so a failure message is stable and legible
-    // rather than ordered by directory walk.
+    // Nothing is tolerated: any raw border width, any bare width keyword, any
+    // raw letter-spacing or font weight in the three directories fails loudly,
+    // and no pinned list can absorb one. Still sorted, so a failure message is
+    // stable and legible rather than ordered by directory walk.
     expect(offenders.sort()).toEqual([]);
   });
 
@@ -1354,12 +1471,37 @@ function trackingOffenders(text: string): string[] {
  * `border-block:` offers a hyphen, so a logical-form declaration was invisible
  * to it. That contrast is asserted below rather than described.
  *
+ * AND THE LOGICAL LONGHANDS ARE LISTED INDIVIDUALLY, which is a correction to
+ * this list rather than a flourish. `anchoredValues` builds
+ * `(?:^|[;{\n])\s*<prop>\s*:`, so the property name must be followed by the
+ * colon: `anchoredValues(text, 'border-block')` CANNOT reach
+ * `border-block-start:`, because `-start` sits exactly where the colon has to
+ * be. Listing the two shorthands therefore bought no coverage of the four
+ * longhands at all, and this list repeated — one level deeper — the very
+ * omission it was added to fix, since `border-block` and `border-inline` were
+ * themselves added because the scoped reader could not see them.
+ *
+ * ALL FOUR LONGHANDS ARE COVERED BY SYNTHETIC SAMPLES ONLY. None ships: as
+ * this list is written, `grep -rnE 'border-(block|inline)-(start|end)'
+ * --include='*.module.css' src/renderer/src` returns nothing and exits 1, and
+ * that command was watched matching a planted
+ * `.a { border-block-start: thin solid red; }` before its empty result was
+ * believed. So this is a rule held against a form the tree has not used yet,
+ * said out loud rather than inferred from an empty offender list.
+ *
  * `border-radius` is absent and unreachable: a radius is a length but not a
  * border width, and it has its own `--oc-radius-*` tokens. It is also the
  * near-miss that matters here by volume — 69 `border-radius` declarations
  * exist in this tree as this census is written, measured with
  * `grep -rhoE '(^|[;{])[[:space:]]*border-radius[[:space:]]*:' --include='*.module.css' src/renderer/src | wc -l`,
  * and not one of them may enter the offender set.
+ *
+ * `border-style` AND `border-color` ARE UNREACHABLE FOR THE SAME REASON THE
+ * LONGHANDS WERE, and that is load-bearing in the other direction: this tree
+ * declares `border-style: dashed` and `border-color: var(--oc-danger)`, and a
+ * predicate that let a `border` entry consume a `-style` or `-color` suffix
+ * would read a STYLE or a COLOUR as a width. An exact, enumerated alternation
+ * is what prevents it; both are asserted below.
  */
 const CENSUS_BORDER_PROPERTIES: readonly string[] = [
   'border',
@@ -1370,6 +1512,10 @@ const CENSUS_BORDER_PROPERTIES: readonly string[] = [
   'border-width',
   'border-block',
   'border-inline',
+  'border-block-start',
+  'border-block-end',
+  'border-inline-start',
+  'border-inline-end',
   'outline',
 ];
 
@@ -1381,12 +1527,20 @@ const CENSUS_BORDER_PROPERTIES: readonly string[] = [
  *
  * `0` is not a raw length — a zero border has no unit to tokenise, and
  * `border: 0` is how a reset is spelled throughout this tree.
+ *
+ * A BARE WIDTH KEYWORD IS AN OFFENDER ON THE SAME FOOTING, and for the same
+ * reason rather than by analogy: `thin` defers the width to the engine instead
+ * of to the token set, which is the property this census holds. It is not a raw
+ * length, which is exactly why a predicate written only against raw lengths
+ * reported this population clean while six keyword declarations shipped — a
+ * census true of its predicate and blind to its subject, for the third time in
+ * this area. `isOffendingBorderWidth` carries both halves.
  */
 function censusBorderOffenders(text: string): string[] {
   const found: string[] = [];
   for (const prop of CENSUS_BORDER_PROPERTIES) {
     for (const value of anchoredValues(text, prop)) {
-      if (RAW_LENGTH.test(value)) found.push(`${prop}: ${value}`);
+      if (isOffendingBorderWidth(value)) found.push(`${prop}: ${value}`);
     }
   }
   return found;
@@ -1488,7 +1642,146 @@ describe('the widened census matchers themselves', () => {
     expect(trackingOffenders(`.a { ${LETTER_SPACING}:var(--oc-tracking-wide); }`)).toEqual([]);
   });
 
-  it('catches a raw length in every border-width property, and passes a radius, a bare 0 and outline-offset', () => {
+  /**
+   * THE FROZEN SAMPLE SETS, ASSERTED ONE AT A TIME.
+   *
+   * These are the `KEYWORD_MUST_FLAG` and `KEYWORD_MUST_PASS` declarations of
+   * the frozen `keyword-hairline-sweep` contract, each named individually
+   * rather than looped over a list, so a failure names the sample that broke
+   * and not an index. A widened predicate is a NEW predicate and inherits no
+   * guarantee from the one it replaced, which is why the near-misses the
+   * raw-length census already held are re-asserted here against the keyword
+   * half as well.
+   */
+  it('flags every must-flag keyword sample and clears every must-pass one in the census, and all but the custom property in the scoped rule', () => {
+    // --- MUST FLAG -------------------------------------------------------
+    // The two shipped shapes: the form all six converted declarations had.
+    expect(censusBorderOffenders('border: thin solid var(--oc-border)')).toEqual([
+      'border: thin solid var(--oc-border)',
+    ]);
+    expect(censusBorderOffenders('border-top: thin solid var(--oc-border)')).toEqual([
+      'border-top: thin solid var(--oc-border)',
+    ]);
+
+    // THE TWO KEYWORDS THAT SHIP NOWHERE, held synthetically and said so. A
+    // rule named for the keyword forms that read `thin` alone would be
+    // narrower than its own name.
+    expect(censusBorderOffenders('border: medium solid var(--oc-border)')).toEqual([
+      'border: medium solid var(--oc-border)',
+    ]);
+    expect(censusBorderOffenders('border-width: thick')).toEqual(['border-width: thick']);
+
+    // THE LOGICAL FORM, which the census property list reaches and the scoped
+    // rule's unanchored reader cannot see at all. Both directions, because the
+    // difference between the two lists is a deliberate property of this file.
+    expect(censusBorderOffenders('border-block: thin solid var(--oc-border)')).toEqual([
+      'border-block: thin solid var(--oc-border)',
+    ]);
+    expect(borderOffenders('border-block: thin solid var(--oc-border)')).toEqual([]);
+
+    // AND THE LOGICAL LONGHANDS, the omission this session corrected. Listing
+    // `border-block` bought none of these: the reader needs the colon directly
+    // after the property name, and `-start` sits where the colon must be. All
+    // four are synthetic — none ships.
+    for (const prop of [
+      'border-block-start',
+      'border-block-end',
+      'border-inline-start',
+      'border-inline-end',
+    ]) {
+      expect(censusBorderOffenders(`${prop}: thin solid var(--oc-border)`)).toEqual([
+        `${prop}: thin solid var(--oc-border)`,
+      ]);
+      expect(censusBorderOffenders(`${prop}: 1` + 'px solid var(--oc-border)')).toHaveLength(1);
+      // And the shorthand entry really could not have reached it, which is the
+      // claim the four entries above rest on.
+      expect(anchoredValues(`${prop}: thin solid red`, 'border-block')).toEqual([]);
+      expect(anchoredValues(`${prop}: thin solid red`, 'border-inline')).toEqual([]);
+    }
+
+    // --- MUST PASS -------------------------------------------------------
+    // The converted form every one of the six became.
+    const converted = 'border: var(--oc-border-hairline) solid var(--oc-border)';
+    expect(censusBorderOffenders(converted)).toEqual([]);
+    expect(borderOffenders(converted)).toEqual([]);
+
+    /*
+     * THE SAMPLE THAT MATTERS, and the reason this predicate is a term match.
+     * `var(--oc-border-thick)` is a TOKEN whose NAME ends in a width keyword,
+     * and this tree ships references to it — 5 of them in border declarations
+     * inside the three scoped roots alone. A predicate that substring-matched
+     * `thick` inside a value would flag every one and go red on a clean tree,
+     * which is the difference between a term match and a substring match,
+     * shown here rather than described.
+     */
+    const thickToken = 'border: var(--oc-border-thick) solid var(--oc-border)';
+    expect(censusBorderOffenders(thickToken)).toEqual([]);
+    expect(borderOffenders(thickToken)).toEqual([]);
+    expect(censusBorderOffenders('border-width: var(--oc-border-thick)')).toEqual([]);
+    expect(borderOffenders('border-width: var(--oc-border-thick)')).toEqual([]);
+    // The substring reading, shown failing, so the near-miss is a measured
+    // hazard and not a cautionary tale: this is what the rule would do without
+    // its term anchors.
+    expect(/thick/.test(thickToken)).toBe(true);
+    expect(BARE_WIDTH_KEYWORD.test(thickToken)).toBe(false);
+
+    // The near-misses carried forward from the token sweep's contract.
+    expect(censusBorderOffenders('border: 0')).toEqual([]);
+    expect(borderOffenders('border: 0')).toEqual([]);
+    expect(censusBorderOffenders('border-radius: 4' + 'px')).toEqual([]);
+    expect(borderOffenders('border-radius: 4' + 'px')).toEqual([]);
+    expect(censusBorderOffenders('outline-offset: 2' + 'px')).toEqual([]);
+    expect(borderOffenders('outline-offset: 2' + 'px')).toEqual([]);
+
+    /*
+     * THE ONE SAMPLE THE TWO PREDICATES DISAGREE ABOUT, asserted in both
+     * directions rather than reconciled.
+     *
+     * `--oc-border: thin` is a CUSTOM PROPERTY whose name ends in `border`. The
+     * anchored census cannot read it as a `border` at all and passes it. The
+     * scoped rule's UNANCHORED reader does read it as a `border` of `thin` and
+     * flags it — exactly as it already flags `--oc-border: 1px`, which this
+     * file has asserted for a session and the header describes as a deliberate
+     * property of the narrower rule rather than a defect in it. Making the
+     * keyword half disagree with the raw-length half about the same sample
+     * would be the inconsistency this session exists to remove, and the only
+     * other repair would be changing the scoped reader, which the frozen
+     * contract fixes as `declaredValues`. So the asymmetry is preserved,
+     * deliberately, and it costs nothing: no `*.module.css` in this tree
+     * declares a custom property at all.
+     */
+    expect(censusBorderOffenders('--oc-border: thin')).toEqual([]);
+    expect(borderOffenders('--oc-border: thin')).toEqual(['border: thin']);
+    expect(censusBorderOffenders('--oc-border: 1' + 'px')).toEqual([]);
+    expect(borderOffenders('--oc-border: 1' + 'px')).toEqual(['border: 1' + 'px']);
+
+    /*
+     * `_` IS AN IDENTIFIER CHARACTER, so a keyword behind one is not bare.
+     * Unexercised in this tree and held synthetically; the decision and its
+     * reasoning sit on `BARE_WIDTH_KEYWORD`. Asserted so that a later reader
+     * who widens the character class sees this fail rather than discovering
+     * the change at a review.
+     */
+    expect(censusBorderOffenders('border-width: _thin')).toEqual([]);
+    expect(censusBorderOffenders('border-width: thin_')).toEqual([]);
+
+    /*
+     * AND THE ALTERNATION REACHES NO STYLE AND NO COLOUR. `border-style` and
+     * `border-color` ship in this tree, and a `border` entry that consumed a
+     * `-style` or `-color` suffix would read a style term or a colour as a
+     * width — `thick` is a legal nonsense value for neither, but `dashed` and a
+     * token colour are what is actually there. The exact enumerated list is
+     * what prevents it.
+     */
+    expect(censusBorderOffenders('border-style: thin')).toEqual([]);
+    expect(censusBorderOffenders('border-color: thick')).toEqual([]);
+    expect(censusBorderOffenders('border-style: dashed')).toEqual([]);
+    expect(censusBorderOffenders('border-color: var(--oc-danger)')).toEqual([]);
+    expect(anchoredValues('border-style: dashed', 'border')).toEqual([]);
+    expect(anchoredValues('border-color: var(--oc-danger)', 'border')).toEqual([]);
+  });
+
+  it('catches a raw length or a bare width keyword in every listed border-width property, and passes a radius, a bare 0 and outline-offset', () => {
     // MUST FLAG. A raw length is an offender even when the colour beside it is
     // a token — the third sample is the one a token-presence count gets wrong.
     expect(censusBorderOffenders('.a { border: 1' + 'px solid var(--oc-border); }')).toEqual([
@@ -1500,6 +1793,67 @@ describe('the widened census matchers themselves', () => {
     expect(censusBorderOffenders('.a { border: 1' + 'px solid red; }')).toEqual([
       'border: 1' + 'px solid red',
     ]);
+    // And a bare keyword, in the rule-body shape the real stylesheets are
+    // written in rather than the bare-declaration shape of the sample sets
+    // above. A keyword is not a raw length, which is why this needed its own
+    // half of the predicate.
+    expect(censusBorderOffenders('.a { border: thin solid var(--oc-border); }')).toEqual([
+      'border: thin solid var(--oc-border)',
+    ]);
+    expect(censusBorderOffenders('.a { border-width: medium; }')).toEqual([
+      'border-width: medium',
+    ]);
+    expect(RAW_LENGTH.test('thin solid var(--oc-border)')).toBe(false);
+
+    /*
+     * EVERY LISTED PROPERTY, WHICH IS WHAT THIS TEST'S NAME CLAIMS.
+     *
+     * The samples above and below name the interesting shapes individually,
+     * which is this file's habit and the right one — but between them they
+     * exercised 9 of the 13 entries, leaving `border-right`, `border-left`,
+     * `border-inline` and `outline` as list items that no sample ever showed
+     * flagging anything. A property no sample exercises is not coverage, which
+     * is the argument the four logical longhands were added on; a name reading
+     * "every listed border-width property" over a list only two thirds
+     * exercised is the same overclaim one level up.
+     *
+     * THE LOOP RUNS OVER `CENSUS_BORDER_PROPERTIES` ITSELF rather than over a
+     * second list of thirteen names written out here. A hand-copied list is a
+     * census of the real one, and it would have to be kept in step by hand: the
+     * next entry added to the real list would be covered by this test's NAME
+     * and by nothing else, which is precisely the state this block exists to
+     * end. Looping the shipped constant cannot drift from it.
+     *
+     * WHAT THIS LOOP CANNOT CATCH, said plainly rather than left for a later
+     * reader to find out: a property DELETED from the list. The loop shrinks
+     * with it and stays green, because it takes its subject from the same
+     * constant. That is why the hand-named samples above and below are not
+     * redundant with it and must not be folded into it — they name `border`,
+     * `border-top`, `border-bottom`, `border-width` and `border-block` as
+     * literals, so deleting any of those five fails a test that spells it out.
+     * What the loop adds is the other direction: a property that is listed and
+     * never actually read. Watched failing for exactly that, with `outline` and
+     * `border-inline` skipped inside `censusBorderOffenders`: this test failed
+     * naming `border-inline` and all 36 other tests in this file stayed green,
+     * which is the measurement that says no other assertion here covers it.
+     *
+     * Both halves of the predicate per property, and each expectation is the
+     * offender string for that property, so a failure names the property that
+     * stopped being read rather than an index.
+     */
+    for (const prop of CENSUS_BORDER_PROPERTIES) {
+      expect(censusBorderOffenders(`.a { ${prop}: thin solid var(--oc-border); }`)).toEqual([
+        `${prop}: thin solid var(--oc-border)`,
+      ]);
+      expect(censusBorderOffenders(`.a { ${prop}: 1` + `px solid var(--oc-border); }`)).toEqual([
+        `${prop}: 1` + 'px solid var(--oc-border)',
+      ]);
+      // And the tokenised twin of the same declaration passes, per property:
+      // a rule that flagged every value would satisfy the two lines above.
+      expect(
+        censusBorderOffenders(`.a { ${prop}: var(--oc-border-hairline) solid var(--oc-border); }`),
+      ).toEqual([]);
+    }
 
     // THE LOGICAL FORM, and why this list is wider than `BORDER_PROPERTIES`:
     // the scoped rule's unanchored reader cannot see `border-block` at all.
@@ -1515,6 +1869,12 @@ describe('the widened census matchers themselves', () => {
       censusBorderOffenders('.a { border: var(--oc-border-hairline) solid var(--oc-border); }'),
     ).toEqual([]);
     expect(censusBorderOffenders('.a { border: 0; }')).toEqual([]);
+    // The token whose NAME ends in a width keyword, in the exact shape
+    // `helm/Helm.module.css:430` ships it. A substring predicate fails here.
+    expect(
+      censusBorderOffenders('.a { border: var(--oc-border-thick) solid var(--oc-border-strong); }'),
+    ).toEqual([]);
+    expect(censusBorderOffenders('.a { border-width: var(--oc-border-thick); }')).toEqual([]);
     expect(censusBorderOffenders('.a { border-radius: 4' + 'px; }')).toEqual([]);
     expect(censusBorderOffenders('.a { outline-offset: 2' + 'px; }')).toEqual([]);
     // THE NEAR-MISS THE ANCHORED READER IS ACTUALLY FOR. `border-radius` and
@@ -1623,7 +1983,7 @@ describe('the repo-wide token census of this session', () => {
     expect(offenders.sort()).toEqual([]);
   });
 
-  it('gives no listed border-width property a raw length, everywhere, with no exception list', async () => {
+  it('gives no listed border-width property a raw length or a bare width keyword, everywhere, with no exception list', async () => {
     const offenders: string[] = [];
     for (const file of await allModuleStylesheets()) {
       const text = stripCssComments(await read(file));
@@ -1632,9 +1992,12 @@ describe('the repo-wide token census of this session', () => {
       }
     }
     // The pin that used to tolerate five raw `1px` widths in `shell/` was
-    // deleted when they were converted. Nothing replaces it for any property:
-    // an exception list that shrinks to nothing under review, rather than
-    // quietly outliving the problem it described, is the mechanism working.
+    // deleted when they were converted. Nothing replaces it for any property,
+    // and WIDENING THE PREDICATE DID NOT BRING ONE BACK: the six keyword
+    // declarations this predicate newly reaches were converted rather than
+    // tolerated, so this is still compared against the empty list. An exception
+    // list that shrinks to nothing under review, rather than quietly outliving
+    // the problem it described, is the mechanism working.
     expect(offenders.sort()).toEqual([]);
   });
 
