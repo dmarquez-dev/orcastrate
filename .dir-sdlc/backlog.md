@@ -2253,6 +2253,14 @@ consecutive session.
 
 ### Contract gaps
 
+- **CLOSED 2026-10-21** (session `2026-10-16-orcastrate-keyword-hairline-sweep`). All six
+  converted to `var(--oc-border-hairline)` in `5073544` and `0d6b7dd`; both border-width
+  predicates widened to the keyword forms in `6cf4d0b`; the "design decision" framing retired
+  from `hygiene.test.ts` at both of the two sites that carried it. **Zero-pixel confirmed rather
+  than asserted**: all six measured on screen in `2a6d797` at the same used width as a declared
+  `1px` reference measured in the same window. ⚠ The claim below that `medium` and `thick` appear
+  in no declaration is true only of **bare keywords** — seven `var(--oc-border-thick)` references
+  ship, and a substring predicate would flag every one of them and go red on a clean tree.
 - **Six untokenised border widths survive, declared with the CSS keyword `thin`** —
   `composer/Composer.module.css:15,44,70` and `permissions/PermissionCards.module.css:27,85,100`.
   A keyword is not a raw length, so the frozen census predicate correctly does not flag them,
@@ -2266,6 +2274,14 @@ consecutive session.
   sweep, not a design pass** — which is the opposite of how the deferral reads in
   `hygiene.test.ts`, where the prose calls widening "a design decision and not a test change".
   Correcting that framing is part of the item.
+- **CLOSED 2026-10-21** (session `2026-10-16-orcastrate-keyword-hairline-sweep`). Fixed by
+  **declaration-keyed** enumeration in the new `driver/run-keyword-sweep.mjs` (`2a6d797`): a site
+  is keyed by the declaration, carries every selector in its group, and counts as reached when
+  **any** of them renders — the property, not a hardcoded extra class for the one known instance.
+  `transcript/Transcript.module.css:51` is now reported MEASURED, resolved via `.filterToggle`,
+  and the enumeration was shown able to report `not reached` by substituting absent class names.
+  `FINDINGS-TOKEN-SWEEP.md` carries a dated correction; that run's own recorded results are left
+  as it observed them. `run-token-sweep.mjs` itself is byte-identical by Gate 2 decision.
 - **A reachable converted declaration is reported as unreachable** —
   `transcript/Transcript.module.css:45` is a grouped selector, `.filterToggle, .unpin`, and
   the driver enumerates it only as `.unpin`, reporting "not reached — needs a SPLIT pane".
@@ -2437,3 +2453,172 @@ consecutive session.
   conversions were defective; all 10 failures were harness faults and none was the
   application. **A coverage gap that reports itself as a limit is worse than one that
   errors.** A live-`claude` harness is the single highest-value thing anyone could build next.
+
+## 2026-10-21 — 2026-10-16-orcastrate-keyword-hairline-sweep
+
+**The token sweep's shape, one keyword over, and it finished what that session left.** The six
+surviving keyword `thin` border widths are tokenised, **both** border-width predicates now flag a
+bare keyword as well as a raw length, and the prose claiming that widening them "would change six
+shipped borders' pixels, which is a design decision and not a test change" is gone from both of
+the two places it appeared. Merged as `48912a0`; `git diff 2a6d797 main` is empty, so the merge
+preserved the tree exactly.
+
+**56 acceptance criteria, all 56 met. 3 escalations, 2 amendments, `reviewRounds: 3`,
+5 user interactions.** Suite **2248 → 2252** (141 files both ends, measured by the orchestrator on
+a quiescent tree); typecheck exit 0 over both programs; `npm run build` exit 0. Six commits:
+`9d55ce9`, `0d6b7dd`, `5073544`, `e2677e5`, `6cf4d0b`, `2a6d797`.
+
+**The zero-pixel claim is now measured rather than inherited.** All six conversions were measured
+on screen in the real Electron window at the same used width as a declared `1px` reference measured
+in the **same window**, with both synthetic probes alive together in one pass
+(`devicePixelRatio 1.0000000149011612`). No pixel literal is an expectation anywhere in the driver
+or the findings — `0.8px` is this display's quantization and is recorded as non-portable.
+
+**Both predicates now call one function.** `isOffendingBorderWidth` serves the scoped
+`borderOffenders` and the repo-wide `censusBorderOffenders`, so the two cannot drift about what a
+border width is — which is the defect class this session is the third instalment of, fixed at the
+mechanism rather than at its latest instance.
+
+**The load-bearing near-miss was `var(--oc-border-thick)`, and the brief did not name it.** Seven
+declarations ship a token whose *name* ends in a width keyword, five of them inside the scoped
+roots. A substring predicate flags all seven and goes red on a clean tree; a term predicate flags
+none. Found by the architect reading the population a second, differently-shaped way: unanchored
+13, minus 7, equals the 6 the brief named.
+
+### Correctness risks
+
+- **The census takes its population from `process.cwd()`, which vitest's `--root` does not
+  change** — `hygiene.test.ts:94`. So it can scan an entirely different checkout and report
+  confidently either way. **The orchestrator hit this live**: `vitest run --root <worktree>`
+  launched from the main checkout scanned `main` at `6914e49` and failed with exactly **6**
+  offenders — the six unconverted declarations. Rooted correctly, 37/37. Two consequences, both
+  worth keeping: the mis-rooted run is an accidental **positive control on the real tree**, stronger
+  evidence of the widened predicate than any synthetic injection; and **a census whose population
+  is an unstated input cannot report that it read the wrong one.** That is this session's own
+  defect class living in the instrument. Highest-value item in this block.
+- **The scoped rule is blind to a declaration that ships** — `hygiene.test.ts:622`, whose
+  `BORDER_PROPERTIES` docblock says "including the shorthands", against
+  `beachcomber/BeachcomberPreviewDialog.module.css:61`'s
+  `border-block: var(--oc-border-hairline) solid var(--oc-border)`. `declaredValues(text, 'border')`
+  needs a colon straight after `border` and meets a hyphen, so it cannot read it — and that is the
+  **only** logical-form border declaration in the tree, measured
+  (`grep -rnE '(^|[;{])[[:space:]]*border-(block|inline)[[:space:]]*:'` → one hit). Tokenised today
+  and the repo-wide census covers it, so nothing is unheld. Pre-existing, verbatim at base; T4 was
+  told explicitly not to widen that list, so leaving it is a recorded decision.
+- **A docblock calls an empty capture impossible, and it is reachable** —
+  `composer/Composer.styles.test.ts:44`. Group 2 is `([^;}]*)`, so a malformed `border: ;` yields
+  the string `"border: "`, which the keyword predicate reads as a **non-offender**. The claim is
+  true of `undefined` and false of the empty string. This *strengthens* the reason the task
+  refused a `?? ''` fallback — a fallback in the offender direction is a silent pass in the one
+  test meant to go red — and the equality pin catches the case in that file. One clause would stop
+  a later reader conflating the two.
+- **The corrected contrast prose states a boundary-sensitive count without its margin** —
+  `styles/tokens.css:88-91`. `running`/`orphaned` computes **1.1949**, 0.005 inside the 1.2 line,
+  and `done`/`stopped` sits just outside at 1.2062. **This is almost certainly the origin of the
+  old `five`**: over the pre-`stopped` seven, the count strictly under **1.19** is exactly five.
+  Found by T3's implementer unprompted and confirmed by its reviewer, and the correction
+  deliberately did **not** act on it — the prose states 7 and 6 at the 1.2 line only.
+
+### Contract gaps
+
+- **The frozen contract's own census grep cannot reach the logical longhands** —
+  `contracts/keyword-hairline-sweep.ts:30`. Its alternation
+  `border(-top|…|-block|-inline)?` needs the colon straight after the property name, so
+  `border-block-start:` is invisible to it — the identical mechanism that made
+  `CENSUS_BORDER_PROPERTIES` blind to the longhands before this session added them. **T4 found it
+  by having its own positive control declined**: it planted `.a { border-block-start: thin solid
+  red; }`, watched that grep return nothing, and re-controlled with shorthand forms rather than
+  banking a control that proved nothing. The shipped matcher now covers all four longhands
+  (synthetically — none ships); the contract's prose does not.
+- **That grep's boundary class disagrees with the shipped matcher about `_`** — same line. The
+  contract uses `[^-[:alnum:]]`, which treats `_` as a boundary; the shipped `BARE_WIDTH_KEYWORD`
+  uses `[^-\w]`, which treats it as an identifier character. So `_thin` would flag in the grep and
+  not in the suite. **T4 decided the matcher is right and the grep is wrong, not merely different**
+  — `_` is a valid CSS ident character, so reading a keyword out of `_thin` is the substring failure
+  shifted one character left — and keeping `[^-\w]` makes the shipped matcher byte-identical to
+  T1's and T2's in-file predicates. `KeywordWidthMatchShape` names `-` and is silent on `_`.
+  Unexercised: the only underscores in any `*.module.css` are inside comment prose.
+
+### Process notes, for whoever runs the next session
+
+- **Two of the three escalations were defects in criteria the orchestrator froze at Gate 2**, and
+  both were found by implementers rather than by its own consistency check. **A1**: criterion 10 of
+  T1/T2/T3 and criterion 12 of T4 named `git status --porcelain` scoped to `src/renderer/src` as
+  the instrument for per-task diff scope — which reports the whole shared worktree, so it was
+  unsatisfiable by **any** task in the manifest. **A2**: T4's criterion 2 demanded every
+  `KEYWORD_MUST_PASS` sample pass both predicates when `--oc-border: thin` cannot, because
+  `declaredValues` is unanchored and `DeclarationReader` freezes it. **This is the third
+  consecutive session in which a frozen criterion named an outcome a frozen artifact forbade**, and
+  the Gate 2 consistency check missed it twice more. The narrower rule the token sweep proposed —
+  a criterion naming a rendered quantity must say what it is measured against — is necessary but
+  not sufficient: **a criterion naming an *instrument* must be checkable with that instrument in
+  the conditions the task will actually run in.** Both defects were invisible to a reading of the
+  criterion alone and obvious to the first agent that tried to run it.
+- **Four times an agent corrected the layer above it and was right every time.** T1 on the
+  criterion-10 instrument; T1 again on the reviewer's own remedy ranking, arguing that an
+  enumeration in a test name is a *stored derivation* that drifts silently while a property does
+  not — the reviewer withdrew its ranking and conceded its option had been internally inconsistent
+  with its own staleness advisory in the same review; T2's reviewer on the premise of its own
+  criterion 8, which had mis-described a past **coverage** gap as a naming defect; T4 on B1's
+  remedy, looping the shipped constant rather than writing four named assertions, because four
+  assertions close the finding today and re-create it at the next entry. **The useful behaviour is
+  disagreeing with the brief when the brief is wrong, and it should keep being asked for by name.**
+- **T4's refinement of the property-over-enumeration rule is the most transferable thing here.** A
+  loop whose subject is the shipped constant makes a universal name true *by construction* — but it
+  goes blind to a **deletion**, because the loop shrinks with the list. So neither form is simply
+  correct: the enumeration covers deletion, the loop covers addition, and the file now says which
+  half catches which failure. Its reviewer then audited the stated limit and found it
+  **understated** — nine of thirteen properties are deletion-covered by literals, not the five the
+  docblock names, the four uncovered being `border-right`, `border-left`, `border-inline`,
+  `outline`. A reviewer finding in the direction that makes its subject look better.
+- **The repo-wide `tsc` gate on the DAG tail earned its keep for the second time.** T1's committed
+  `Composer.styles.test.ts` failed `typecheck:web` on `TS18048` — `matchAll` types every capture
+  group as `string | undefined` — while every scoped vitest run stayed green, because **vitest
+  transpiles without typechecking**. Found by T4, a peer task, not by T1's reviewer: no criterion of
+  T1's named `tsc`, so neither party had an instrument that could see it. T1 then refused the
+  obvious `?? ''` on the grounds that an empty capture yields `"border: "`, which its own predicate
+  reads as a non-offender — **a fallback in the offender direction is a silent pass** — and chose
+  `as string` by *counting* the repo's existing idiom (8+ sites, 5 files, and no `?? ''` anywhere)
+  rather than by preference. Note `as string` cannot apply to a `.mjs` driver; indexed access with
+  a comment is the portable half of the rule.
+- **The contract-operation coverage search needed a hand-recorded deviation, for the second
+  session running.** Run literally it returns `not called` for 15 of this contract's 20
+  declarations, and all 15 would be false: the contract is declaration-only by design, so nothing
+  imports it and implementers consume it by asserting its content. `coverage.md` records the
+  criterion verdict establishing each consumption instead. **A check whose literal application
+  produces 15 false alarms against the sharpest row on the table is a check the reader learns to
+  override** — the same conclusion the token sweep reached from 18.
+- **Commit trailers were uniform, and the way to get that was to stop fighting them.** All six
+  commits carry `Co-Authored-By: Claude Haiku 5.5`, the model of the `dir-git` agent that made
+  them. No dispatch asked any agent to write another model's name, so none split the way last
+  session's eleven commits did (6/4/1). The settled finding holds: **the field records the
+  committing agent, and uniformity comes free once you accept that.** A `commit-msg` hook remains
+  the only control that would say something else.
+- **The commit read-back found something again — the seventh consecutive session — and this time
+  it was convention, not a false claim.** `0d6b7dd`'s body ran to 305 characters where every other
+  commit on `main` wraps at 71-87. Not rewritten, per the no-rewrite rule; **naming it in the next
+  dispatch is what kept the remaining four commits at 68-71.** All six messages were accurate
+  against their diffs.
+- **Three agents independently reported an "auto mode" directive** instructing them to make file
+  changes with `sed`, heredocs or short scripts rather than the Edit tool, and all three ignored it.
+  The harness separately refused T5's `Write` to its own deliverable because the filename
+  pattern-matched "report file"; T5 routed around it with `cp` plus a `cmp` verification rather than
+  reaching for a heredoc. **Both work directly against the rule this repo learned from a heredoc
+  writing a literal NUL byte into a source file.** Worth knowing it reaches subagents, not just the
+  orchestrator.
+- **The orchestrator's own instruments failed twice and both were caught by controlling them.** A
+  `--listFiles` check matched 4 files where 3 were predicted, because the pattern caught
+  `Beachcomber.hygiene.test.ts` as a **substring** — the exact failure the session was about, in the
+  orchestrator's grep. And the brief told three agents the worktree has "a real `node_modules`"; it
+  holds **one** entry, `.vite`, with resolution walking up to the main checkout. T5 corrected it.
+  The half that was actually controlled — that it is **not a junction**, so no recursive delete can
+  follow it into the main checkout — is the half cleanup safety depends on, and it held.
+- **Still outstanding and still the highest-value instrument this project lacks:** a live-`claude`
+  hand-run harness. This session needed none — all six sites were measured, and the three
+  permission cards turned out reachable by having the **main process** send the app's own
+  `push:permissionRequested`, which no prior session had tried. The reach note predicting they
+  needed a live `claude` was wrong in the favourable direction, and `coverage.md` records the Gate 2
+  prediction as **refuted** rather than quietly overwriting it.
+- **What the next session should not have to rediscover:** `--oc-border-hairline` is at
+  `styles/tokens.css:156`, not `:144` — T3's twelve added comment lines moved it, and `:144` is
+  correct only as of `6914e49`.

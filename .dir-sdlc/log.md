@@ -881,3 +881,69 @@ string. Six commit messages were read back and **all six were accurate against
 their diffs**, ending a four-session streak of drift; two carry the wrong
 attribution trailer, disclosed by `dir-git` itself and left unrewritten by user
 decision at escalation E4.
+
+## 2026-10-21 — 2026-10-16-orcastrate-keyword-hairline-sweep
+
+Standard track. Merged `48912a0`; `git diff 2a6d797 main` empty, so the merge
+preserved the tree exactly. **56 acceptance criteria, all 56 met. 3
+escalations, 2 amendments, `reviewRounds: 3`, 5 user interactions.** Suite
+**2248 → 2252** (141 files at both ends, measured by the orchestrator on a
+quiescent tree); typecheck exit 0 over both programs; `npm run build` exit 0.
+Six commits: `9d55ce9`, `0d6b7dd`, `5073544`, `e2677e5`, `6cf4d0b`, `2a6d797`.
+
+**The keyword border widths are tokenised and the claim that doing so was a
+design decision is retired.** Six `thin` declarations in `composer/` and
+`permissions/` now read `var(--oc-border-hairline)`; both border-width
+predicates flag a bare keyword as well as a raw length; the false deferral
+prose is gone from **both** of the two places it appeared, found by a reviewer
+that searched the file itself rather than taking the implementer's list.
+
+**Zero-pixel is measured, not inherited.** All six sites were measured in the
+real Electron window at the same used width as a declared `1px` reference
+measured in the **same window**, both synthetic probes alive together in one
+pass. 70/70 driver checks, zero unreachable. No pixel literal is an expectation
+anywhere; `0.8px` is recorded as this display's quantization and non-portable.
+
+**Both predicates now call one function**, `isOffendingBorderWidth`, so the
+scoped rule and the repo-wide census cannot drift about what a border width is.
+That is the defect class fixed at its mechanism rather than at its instance —
+this session being the third instalment of it.
+
+**The brief missed the near-miss that mattered.** Seven `var(--oc-border-thick)`
+declarations ship a token whose *name* ends in a width keyword, five inside the
+scoped roots; a substring predicate flags every one and goes red on a clean
+tree. The architect found it by reading the population a second,
+differently-shaped way — unanchored 13, minus 7, equals the 6 the brief named.
+
+**Two of three escalations were defects in criteria the orchestrator froze**,
+both found by implementers rather than by its Gate 2 consistency check: an
+instrument (`git status --porcelain`) that cannot measure per-task scope in a
+shared worktree, and a requirement that every must-pass sample clear both
+predicates when an unanchored frozen reader makes one impossible. **Third
+consecutive session with a frozen criterion naming an outcome a frozen artifact
+forbade.** The lesson sharpens: a criterion naming an *instrument* must be
+checkable with that instrument under the conditions the task will run in.
+
+**Four times an agent corrected the layer above it and was right every time** —
+twice T1, once T2's reviewer on its own criterion's premise, once T4 on its
+reviewer's remedy. One reviewer withdrew its ranking and conceded its option had
+been internally inconsistent with its own advisory in the same review.
+
+**The repo-wide `tsc` gate on the tail earned its keep for the second time**: a
+`TS18048` in T1's committed code, invisible to every scoped vitest run because
+vitest transpiles without typechecking, found by a peer task. T1 then refused
+the obvious `?? ''` because an empty capture reads as a **non-offender** — a
+fallback in the offender direction is a silent pass.
+
+**The orchestrator's own instruments failed twice**, both caught by controlling
+them: a grep matching `Beachcomber.hygiene.test.ts` as a substring where a term
+was meant, and a brief that told three agents the worktree had a real
+`node_modules` when it holds one entry, `.vite`. The half that was controlled —
+not a junction, so cleanup cannot follow it into the main checkout — held.
+
+**All six trailers are uniform** (`Claude Haiku 5.5`, the committing agent's
+model) because no dispatch asked any agent to override its own attribution.
+**The commit read-back found something for the seventh consecutive session** —
+`0d6b7dd`'s 305-character body against a 71-character convention — and naming it
+in the next dispatch kept the remaining four at 68-71. All six messages were
+accurate against their diffs.

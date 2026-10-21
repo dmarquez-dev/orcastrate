@@ -1,0 +1,129 @@
+{
+  "session": "2026-10-16-orcastrate-keyword-hairline-sweep",
+  "createdAt": "2026-10-16T09:45:00.000Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": ["contracts/keyword-hairline-sweep.ts"],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "composer/: convert 3 keyword border widths to the hairline token",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/composer/Composer.module.css",
+        "src/renderer/src/composer/Composer.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "The three border declarations in src/renderer/src/composer/Composer.module.css that carry the keyword `thin` at `6914e49` (lines 15, 44, 70) read `var(--oc-border-hairline)` as this task leaves the file, in the exact text form the frozen contract's `TokenisedBorderWidth` declares: the width term alone is substituted, no shorthand is split into longhands, no `border-width` declaration is added beside an existing shorthand, and no colour term changes.",
+        "Each of the three conversions is zero-pixel in the diff rather than in prose: each changed line differs from its `6914e49` text only by the replacement of the exact substring `thin` with `var(--oc-border-hairline)`, shown from `git diff`, and `--oc-border-hairline` is `1px` at src/renderer/src/styles/tokens.css:144.",
+        "A keyword-width census over this file reports no bare width keyword in any border-width property. The command and its exit code are named, and the instrument is positive-controlled first: inject `border: medium solid red` into this file, run the command, report the hit it finds, then remove the injection. A command reporting nothing is evidence only once it has been seen reporting something.",
+        "That same census is shown NOT to flag the near-miss the frozen contract names as this session's load-bearing one: with a `border: var(--oc-border-thick) solid var(--oc-border)` line temporarily injected into this file, the command reports no hit, and the injection is then removed. A census validates its predicate, not only its total.",
+        "src/renderer/src/composer/Composer.styles.test.ts asserts that each of the three declarations names `var(--oc-border-hairline)` and that the stylesheet text carries no bare `thin`, `medium` or `thick` as a border-width term.",
+        "That assertion is shown able to fail, which test.md's Coverage rule requires of every test in this session ('A test is shown able to fail — seen failing before it is made to pass, or shown to catch the defect it exists for when that defect is injected'): revert one of the three declarations to `thin` by hand, run `npx vitest run src/renderer/src/composer`, report the failure observed, then restore the conversion. 'Verified by inspection' does not satisfy this.",
+        "No test name in src/renderer/src/composer/Composer.styles.test.ts claims more than its assertions check, per test.md's Naming rule ('The name must not claim more than the test checks. A name broader than its assertions misleads every later reader'). Note before deciding that its existing 'hardcodes no colour, font stack, or spacing literal — tokens only' passed on this file while three untokenised keyword border widths stood in it, which is the same blind spot this session exists to close.",
+        "Wherever this task's own report or any comment it writes states the zero-pixel conclusion, it is worded as an engine measurement on one display and not as a standards claim, per the frozen contract's `ZeroPixelClaimStrength`: the CSS specification fixes only the `thin < medium < thick` ordering and leaves the widths UA-defined.",
+        "`npx vitest run src/renderer/src/composer` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the two paths in `owns` and no others, shown by `git diff --name-only 6914e490fc3eca5e95b9022adb55c8bc194f6ae0 -- src/renderer/src/composer`. AMENDED (A1): this criterion previously named `git status --porcelain` scoped to src/renderer/src, which reports the whole shared worktree and therefore lists every concurrent peer's files — unsatisfiable as written by any task in this manifest. The property is unchanged; only the instrument is."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "permissions/: convert 3 keyword border widths to the hairline token",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/permissions/PermissionCards.module.css",
+        "src/renderer/src/permissions/PermissionCards.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "The three border declarations in src/renderer/src/permissions/PermissionCards.module.css that carry the keyword `thin` at `6914e49` (lines 27, 85, 100) read `var(--oc-border-hairline)` as this task leaves the file, in the exact text form the frozen contract's `TokenisedBorderWidth` declares: the width term alone is substituted, no shorthand is split into longhands, no `border-width` declaration is added beside an existing shorthand, and no colour term changes. Line 27's colour term is `var(--oc-status-waiting)` and stays so.",
+        "Each of the three conversions is zero-pixel in the diff rather than in prose: each changed line differs from its `6914e49` text only by the replacement of the exact substring `thin` with `var(--oc-border-hairline)`, shown from `git diff`, and `--oc-border-hairline` is `1px` at src/renderer/src/styles/tokens.css:144.",
+        "A keyword-width census over this file reports no bare width keyword in any border-width property. The command and its exit code are named, and the instrument is positive-controlled first: inject `border: medium solid red` into this file, run the command, report the hit it finds, then remove the injection.",
+        "That same census is shown NOT to flag the near-miss the frozen contract names as this session's load-bearing one: with a `border: var(--oc-border-thick) solid var(--oc-border)` line temporarily injected into this file, the command reports no hit, and the injection is then removed.",
+        "src/renderer/src/permissions/PermissionCards.styles.test.ts asserts that each of the three declarations names `var(--oc-border-hairline)` and that the stylesheet text carries no bare `thin`, `medium` or `thick` as a border-width term.",
+        "That assertion is shown able to fail, per test.md's Coverage rule ('A test is shown able to fail — seen failing before it is made to pass, or shown to catch the defect it exists for when that defect is injected'): revert one of the three declarations to `thin` by hand, run `npx vitest run src/renderer/src/permissions`, report the failure observed, then restore the conversion.",
+        "The existing 'paints nothing modal' assertions in that suite still hold as this task leaves the file, and no conversion introduces a `position: fixed`, a z-index or a backdrop. This criterion deliberately asserts preserved behaviour: criterion 6 of the originating session is enforced against the paint here and nowhere else.",
+        "No test name in src/renderer/src/permissions/PermissionCards.styles.test.ts claims more than its assertions check, per test.md's Naming rule. Note that its existing 'hardcodes no colour, font stack, or spacing literal — tokens only' passed on this file while three untokenised keyword border widths stood in it.",
+        "`npx vitest run src/renderer/src/permissions` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the two paths in `owns` and no others, shown by `git diff --name-only 6914e490fc3eca5e95b9022adb55c8bc194f6ae0 -- src/renderer/src/permissions`. AMENDED (A1): this criterion previously named `git status --porcelain` scoped to src/renderer/src, which reports the whole shared worktree and therefore lists every concurrent peer's files — unsatisfiable as written by any task in this manifest. The property is unchanged; only the instrument is."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "styles/tokens.css: re-derive the shipped-pair contrast count and correct the prose to what is measured",
+      "agent": "dir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/styles/tokens.css"],
+      "dependsOn": [],
+      "acceptance": [
+        "The shipped `--oc-status-*` population is measured, not assumed, and read a second differently-shaped way: `grep -nE '^\\s*--oc-status-[a-z]+\\s*:' src/renderer/src/styles/tokens.css` against `grep -cE '\\-\\-oc-status-[a-z]+' src/renderer/src/contracts/renderer-theme.ts`. Both commands and both results are reported, and a disagreement between them is the finding rather than something to reconcile.",
+        "The derivation instrument is positive-controlled against figures src/renderer/src/styles/tokens.css already states independently, BEFORE its new figures are trusted: the task computes the contrast ratio for `stopped` against `idle` (stated `1.796`), `stopped` against `closed` (stated `3.903`), `stopped` against `waiting` (stated `1.052`) and `closed` against `idle` (stated `2.173`), and reports each computed value beside the stated one. A derivation that cannot reproduce a published figure is not yet an instrument — so a disagreement here is REPORTED AS THE FINDING, with both values and the method, exactly as criterion 1 treats a disagreement between its two population readings. It is not something to reconcile silently, and it does not by itself make this criterion unmet; an unexplained disagreement left unreported does.",
+        "WCAG 2.x contrast ratio over sRGB relative luminance is computed for every unordered pair of the shipped `--oc-status-*` tokens, per the frozen contract's `LightnessMetric`, and the task reports the method, the number of pairs it covered, how many sit under 1.2, and the worst pair with its ratio. The metric is contrast ratio and not CIE lightness despite the prose's wording, which is what the file's own figures are stated in.",
+        "The same derivation is run a second time over only the `--oc-status-*` tokens that pre-dated `--oc-status-stopped`, and that count is reported too. This is the reading that discriminates a wrong original from a correct one counted over a smaller population: `five` was written by the session that added `stopped`.",
+        "The prose inside the `KNOWN AND ACCEPTED (do not re-derive)` block at src/renderer/src/styles/tokens.css:85-89 states the figures this task measured. If the measured count differs from `five`, BOTH numbers are stated with the population each is over, so the correction reads as a measurement rather than as a swapped digit.",
+        "The prose as this task leaves it carries no claim this task falsifies. State the claim and the evidence for each correction rather than a list of strings edited; the obligation is the property, not a list of known instances.",
+        "The corrected prose does not weaken the non-colour-signal rationale standing beside it, per frontend.md's accessibility floor rule 'Color is never the only carrier of meaning'. That rationale — the status label and the dot's own shape carry the meaning — is load-bearing for why a 1.005 pair is accepted at all, and a count correction must not read as removing the argument.",
+        "No token VALUE changes. This task is a count correction and nothing else; the palette-wide separation pass, and the open question of whether the hygiene guard should assert measured separation rather than string inequality, both stay out of scope and stay on the backlog. This criterion deliberately asserts preserved behaviour.",
+        "`npx vitest run src/renderer/src/styles` passes, with the measured file and test counts reported from that run's own output.",
+        "The task's diff touches exactly the one path in `owns` and no others, shown by `git diff --name-only 6914e490fc3eca5e95b9022adb55c8bc194f6ae0 -- src/renderer/src/styles`. AMENDED (A1): this criterion previously named `git status --porcelain` scoped to src/renderer/src, which reports the whole shared worktree and therefore lists every concurrent peer's files — unsatisfiable as written by any task in this manifest. The property is unchanged; only the instrument is. T3's review completed against the earlier text and ruled this met by judging the property, which is what the amended text now names, so no re-review is owed."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "hygiene.test.ts: widen both border-width predicates to the keyword forms and retire the false deferral",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": ["src/renderer/src/__tests__/hygiene.test.ts"],
+      "dependsOn": ["T1", "T2"],
+      "acceptance": [
+        "The repo-wide census predicate flags a bare CSS border-width keyword as an offender, as it already flags a raw length. Every sample in the frozen contract's `KEYWORD_MUST_FLAG` is asserted individually in the matcher self-check block and is flagged, including `medium` and `thick`, which ship in no declaration and so are covered synthetically — a rule named for the keyword forms that reads only `thin` is narrower than its own name.",
+        "Every sample in the frozen contract's `KEYWORD_MUST_PASS` is asserted individually and clears the repo-wide census predicate, and every sample except `--oc-border: thin` clears the scoped predicate too. `border: var(--oc-border-thick) solid var(--oc-border)` is the one that matters and is named as such in the task's report: a predicate that substring-matches a keyword inside a value flags the seven `var(--oc-border-thick)` references this tree ships and goes red on a clean tree, which is the difference between a term match and a substring match. AMENDED (A2): this criterion previously required every sample to pass BOTH predicates. `--oc-border: thin` cannot, and no implementation could make it — the scoped reader `declaredValues` is unanchored (`new RegExp(`${prop}\\s*:\\s*([^;\\n}]*)`)`, no leading boundary), so it reads `border: thin` out of a custom property whose name ends in `border` and returns `thin`, exactly as it already returns `1px` for `--oc-border: 1px`. `DeclarationReader` freezes that reader, so the only routes to the literal criterion were changing a frozen artifact or making the keyword half disagree with the raw-length half about one sample, which is the two-predicates-disagreeing defect this session exists to remove. In place of the literal requirement: the scoped reader's asymmetry on custom properties must be asserted in BOTH directions and for BOTH value kinds, so it is pinned behaviour rather than an undocumented quirk. Found and reported by T4's implementer, which preserved the asymmetry rather than papering over it.",
+        "The widened repo-wide census is shown able to fail on the real tree, per test.md's Coverage rule ('A test is shown able to fail — seen failing before it is made to pass, or shown to catch the defect it exists for when that defect is injected'): inject `border: medium solid red` into a `*.module.css` OUTSIDE `beachcomber/`, `helm/` and `shell/`, run the census test, report the observed failure and the offender line it printed, then remove the injection.",
+        "The scoped rule's `borderOffenders` widens to the keyword forms with the same term-match predicate, per the frozen contract's `ScopedRuleDecision`, and the scoped census passes over `beachcomber/`, `helm/` and `shell/` as this task leaves the tree. The task re-measures for itself how many `var(--oc-border-thick)` references sit inside those three roots and reports the command and the count rather than copying a figure from the contract.",
+        "The scoped widening is shown able to fail by injection too: inject `border-width: thick` into a stylesheet inside one of the three roots, run the scoped test, report the observed failure, then remove the injection. The scoped roots contain none of this session's six conversions, so an un-injected scoped rule proves nothing about the widening.",
+        "As this task leaves src/renderer/src/__tests__/hygiene.test.ts, the file's prose carries no claim this task falsifies. State the claim and the evidence for each correction rather than a list of strings deleted. The obligation is that property, not a list of known instances — note before deciding that the false deferral framing appears in at least two separate places in this file, and that a correction reaching only the paragraph the brief quotes leaves the criterion unmet.",
+        "Any prose this task writes about the keyword conversions being zero-pixel words that as an engine measurement on one display and not as a standards claim, per the frozen contract's `ZeroPixelClaimStrength`.",
+        "No test name in the file claims more than its assertions check, per test.md's Naming rule ('The name must not claim more than the test checks'). Note the direction: the repo-wide border test is currently named for giving no border-width property a raw length, and after this task it also holds the keyword forms, so a name left unchanged would be narrower than its assertions.",
+        "No exception list or tolerated-declaration constant is introduced for any property, and every census assertion in the file still compares its offender list against the empty list. This criterion deliberately asserts preserved behaviour: emptying the last such list was the previous session's purpose and nothing may reintroduce one.",
+        "The census self-check the frozen contract names as `CensusSelfCheck` still holds as this task leaves the file: the scanned file list is non-empty, names files outside the three legacy roots, and is strictly longer than `panelStylesheets()`. Deliberately preserved behaviour — a census that silently scans nothing reports as a pass.",
+        "`npx vitest run src/renderer/src/__tests__/hygiene.test.ts` passes, with the measured test count reported from that run's own output.",
+        "The task's diff touches exactly the one path in `owns` and no others, shown by `git diff --name-only <this task's startRef> -- src/renderer/src/__tests__`. AMENDED (A1): this criterion previously named `git status --porcelain` scoped to src/renderer/src, which reports the whole shared worktree and therefore lists every concurrent peer's files — unsatisfiable as written by any task in this manifest. The property is unchanged; only the instrument is."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Driven hand-run: declaration-keyed site enumeration, the six conversions measured, and the repo-wide tail gates",
+      "agent": "dir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-keyword-sweep.mjs",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-KEYWORD-SWEEP.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-TOKEN-SWEEP.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-keyword-sweep.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-keyword-sweep.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/keyword-sweep/**",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/README.md"
+      ],
+      "dependsOn": ["T1", "T2", "T3", "T4"],
+      "acceptance": [
+        "The driver keys each converted declaration by the DECLARATION and carries every selector in its selector group, and a declaration counts as reached when ANY of those selectors renders, per the frozen contract's `SiteEnumerationRequirement`. The requirement is the property; a map that hardcodes one extra class name for the one known instance does not satisfy it.",
+        "That property is demonstrated on the instance that exposed it: the run reports src/renderer/src/transcript/Transcript.module.css's `.filterToggle, .unpin` declaration (selector at :45-46, declaration at :51) as MEASURED rather than `not reached`, and the report names the measured width and which selector of the group resolved it.",
+        "The enumeration is shown able to report `not reached` rather than defaulting to a pass: replace that group's selector list with class names present nowhere in the bundle, run the driver, report that the site came back `not reached`, then restore the real list. A reachability instrument never seen reporting unreachable has not been shown to discriminate.",
+        "All six converted declarations named in the frozen contract's `KEYWORD_WIDTH_SITES` are enumerated by the driver and each one is EITHER measured on screen OR recorded as unreachable with a reason written before the run. A site that turns out unreachable is a recorded limit and not a criterion unmet — the previous run recorded 18 of them on exactly these terms.",
+        "Every border width the run measures is reported as an equality against a declared `1px` reference measured in the SAME window, per the frozen contract's `MeasurementProtocol`, and no pixel literal appears as an expectation anywhere in the driver or in the findings document. This display's quantization of `1px` is a measured artefact of the window, never a constant to assert against.",
+        "The `thin` / declared-`1px` equality is measured freshly in this session's own window rather than carried over from the previous run: a synthetic element's `border-width: thin` and `border-width: 1px` are measured side by side in that window and both used widths are reported, together with the window's `devicePixelRatio`.",
+        "FINDINGS-KEYWORD-SWEEP.md states the zero-pixel conclusion as an engine measurement on one display and not as a standards claim, per the frozen contract's `ZeroPixelClaimStrength`, and says which display and which window it was measured in.",
+        "FINDINGS-KEYWORD-SWEEP.md states no exhaustive enumeration that no scanner enforces. Two docblocks in this tree already carry one (`pods/PodBar.module.css:1-8` and `pods/DeletePodDialog.module.css:1-5`); where a scanner or command is the operative definition of a claim, the document cites the scanner instead of restating the rule in prose.",
+        "FINDINGS-TOKEN-SWEEP.md gains a dated correction recording that the previous run's `not reached` verdict for that grouped-selector declaration was an artefact of class-keyed enumeration and has now been measured, with a pointer to the run that measured it. The correction does not rewrite that run's own recorded results, which stand as the record of what that run observed.",
+        "`driver/run-token-sweep.mjs` is left byte-identical, named nowhere in `git diff --stat` for this task. DECISION, stated so Gate 2 can overrule it: each session in this directory ships its own driver (`run.mjs`, `run-c3.mjs`, `run-token-sweep.mjs`), a completed driver is the record of its own run, and the enumeration property is held by the new driver plus the correction note above rather than by editing a finished one.",
+        "`npm run typecheck` exits 0 over BOTH programs, run on the quiescent tree after every other task in this manifest has landed, with the command and its exit code named. Vitest transpiles without typechecking, so no scoped suite in this session establishes this.",
+        "`npx vitest run` passes repo-wide on the quiescent tree, with the measured test-file and test counts reported from that run's own output and compared against the 141 files / 2248 tests the kickoff baseline measured.",
+        "`npm run build` exits 0 on the quiescent tree, with the command and exit code named. The driver launches `out/main/index.js`, so the build is a precondition of the run and not a separate nicety.",
+        "The task's diff touches only paths under .dir-sdlc/handruns/2026-09-30-electron-handrun/, shown by `git status --porcelain` scoped to that directory and to src/renderer/src — the second scope reporting nothing."
+      ]
+    }
+  ]
+}

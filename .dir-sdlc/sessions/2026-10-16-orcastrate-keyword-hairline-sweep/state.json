@@ -1,0 +1,114 @@
+{
+  "session": "2026-10-16-orcastrate-keyword-hairline-sweep",
+  "updatedAt": "2026-10-20T11:25:00Z",
+  "phase": "awaiting-final",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\2026-10-16-orcastrate-keyword-hairline-sweep",
+  "branch": "dir/2026-10-16-orcastrate-keyword-hairline-sweep",
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 2, "redispatches": 0, "startRef": "6914e490fc3eca5e95b9022adb55c8bc194f6ae0", "commit": "e2677e5091fb99aa4fd28662b87f11bf0ad1b34f" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6914e490fc3eca5e95b9022adb55c8bc194f6ae0", "commit": "0d6b7dd" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6914e490fc3eca5e95b9022adb55c8bc194f6ae0", "commit": "9d55ce903cf3da9e4f671896e286e5e320106f3a" },
+    { "id": "T4", "status": "done", "revisionRounds": 1, "redispatches": 0, "startRef": "5073544b8a61f1573e0b257608d337042e0cf27c", "commit": "6cf4d0b33e0095e1c16413b80445d639b5b1d69f" },
+    { "id": "T5", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6cf4d0b33e0095e1c16413b80445d639b5b1d69f", "commit": "2a6d7971211a3e0208a80c9031d193f95a83cd4a" }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "Criterion 10 of T1, T2 and T3 and criterion 12 of T4 name `git status --porcelain` scoped to src/renderer/src as the instrument proving a task's diff touches only its owns paths. In a worktree with concurrent peers, porcelain reports the whole tree, so the criterion is unsatisfiable as written by any task in this manifest. Amend the instrument, or leave it frozen and accept each reviewer's ruling?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend the four criteria to name the path-scoped diff `git diff --name-only <startRef> -- <the task's own paths>`, leaving the property identical. Chosen over leaving it frozen because this project's record is that a criterion naming an instrument which cannot deliver gets amended at Gate 3 anyway, after a revision round has already been spent on it.",
+      "options": [
+        {
+          "summary": "Amend the four criteria to the path-scoped diff, property unchanged",
+          "rationale": "The property is satisfiable and all three implementers demonstrated it; only the named instrument cannot show it. Amending pre-review costs one amendment record and avoids a revision round against a criterion no implementer can satisfy.",
+          "evidence": { "kind": "repo", "sources": ["T1's report, finding 3", "the token sweep's T6 criterion 6, amended at Gate 3 for the same class of defect"] }
+        },
+        {
+          "summary": "Leave frozen and accept each reviewer's ruling",
+          "rationale": "T3's reviewer judged the property unprompted and ruled it met, so the others may too. Costs no amendment record, but a stricter reviewer marks it not met and burns a round.",
+          "evidence": { "kind": "repo", "sources": [".dir-sdlc/sessions/2026-10-16-orcastrate-keyword-hairline-sweep/reviews/T3.md"] }
+        },
+        {
+          "summary": "Amend, and additionally require each task's report to carry the path-scoped file list",
+          "rationale": "Makes the scope claim self-evidencing in the artifact rather than re-derivable by a later reader. Slightly larger amendment.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T1",
+      "question": "`npm run typecheck` exits 1 on `Composer.styles.test.ts:44` — T1's already-committed code, where `matchAll` types a capture group as `string | undefined` and `value.trim()` is unsound. Found by T4, not by T1's reviewer. T1 is done at `5073544` with revisionRounds 1 of a cap of 2. Who repairs it: re-dispatch T1 at round 2, extend T5's ownership, or add a task T6?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "answer": "Re-dispatch T1 for revision round 2. T1 owns the file, so ownership stays clean and the fix lands as a second commit on its own paths; the change is one expression and the repo-wide tsc gate on T5 verifies it. Accepted the deviation from one-task-one-commit over amending a frozen manifest's ownership or adding a task after Gate 2.",
+      "options": [
+        {
+          "summary": "Re-dispatch T1 at revision round 2",
+          "rationale": "T1 owns the file and the fix is one expression. Uses its last available round but keeps ownership clean, and T5's repo-wide tsc criterion verifies the result.",
+          "evidence": { "kind": "repo", "sources": ["git show 5073544:src/renderer/src/composer/Composer.styles.test.ts", "npm run typecheck in the worktree, exit 1"] }
+        },
+        {
+          "summary": "Extend T5's ownership to include the file",
+          "rationale": "Puts the fix in the task that already carries the repo-wide tsc criterion, but amends a frozen manifest and places a renderer source file among six hand-run artifact paths.",
+          "evidence": { "kind": "judgment" }
+        },
+        {
+          "summary": "Add a task T6 owning just that file",
+          "rationale": "Leaves T1's rounds untouched and is cleanest conceptually, but adds a task to a frozen manifest after Gate 2 for a one-expression fix.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "taskId": "T4",
+      "question": "T4 criterion 2 requires every `KEYWORD_MUST_PASS` sample to pass BOTH predicates. `--oc-border: thin` cannot: the scoped reader `declaredValues` is unanchored and reads `border: thin` out of a custom property whose name ends in `border`, and `DeclarationReader` freezes that reader. T4 preserved the asymmetry and asserted it in both directions rather than papering over it. Amend the criterion, leave it to the reviewer, or amend `DeclarationReader` itself?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Amend criterion 2 to require every sample clear the repo-wide census predicate, every sample but `--oc-border: thin` clear the scoped one, and the scoped reader's asymmetry on custom properties be asserted in both directions and for both value kinds — which is what T4 built. Chosen over leaving a reviewer to rule on an unsatisfiable literal, and over altering a reader two prior sessions' assertions depend on.",
+      "options": [
+        {
+          "summary": "Amend criterion 2 to record the asymmetry",
+          "rationale": "Same defect class as E1: a criterion naming an outcome a frozen artifact forbids. Makes the record honest and pins the asymmetry as behaviour rather than leaving it an undocumented quirk.",
+          "evidence": { "kind": "repo", "sources": ["hygiene.test.ts:214-220, declaredValues is unanchored", "the file's existing --oc-border: 1px assertion"] }
+        },
+        {
+          "summary": "Leave it and let the reviewer rule",
+          "rationale": "T4 flagged the departure with its reasoning, so a reviewer could rule criterion 2 met on substance. Costs no amendment but risks a blocking finding against a criterion no implementer could satisfy.",
+          "evidence": { "kind": "judgment" }
+        },
+        {
+          "summary": "Amend `DeclarationReader` to allow anchoring the scoped reader",
+          "rationale": "Treats the unanchored reader as the real defect and would make both predicates agree on all seven samples. Largest change: it alters a reader two prior sessions' assertions depend on, and this file deliberately asserts the asymmetry for raw lengths already.",
+          "evidence": { "kind": "repo", "sources": ["contracts/keyword-hairline-sweep.ts, DeclarationReader"] }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E1",
+      "artifact": "manifest.json",
+      "before": "T1 #10, T2 #10, T3 #10 and T4 #12 proved per-task diff scope with `git status --porcelain` scoped to src/renderer/src, which reports the whole shared worktree.",
+      "after": "The same four criteria name `git diff --name-only <startRef> -- <the task's own paths>`, with the amendment and its reason recorded inline in each criterion. The property is unchanged. T5 #14 is deliberately left as written: T5 is the DAG tail and runs with no concurrent peers, so porcelain can show its scope there.",
+      "inFlight": ["T1", "T2"]
+    },
+    {
+      "id": "A2",
+      "escalation": "E3",
+      "artifact": "manifest.json",
+      "before": "T4 #2 required every `KEYWORD_MUST_PASS` sample to be asserted individually and to pass BOTH predicates.",
+      "after": "T4 #2 requires every sample to clear the repo-wide census predicate and every sample except `--oc-border: thin` to clear the scoped predicate, and in place of the literal requirement requires the scoped reader's asymmetry on custom properties to be asserted in both directions and for both value kinds. The reason, the unanchored `declaredValues`, and the attribution to T4's implementer are recorded inline in the criterion.",
+      "inFlight": ["T4"]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 3,
+    "reviewRounds": 3
+  }
+}
