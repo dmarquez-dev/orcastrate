@@ -2,7 +2,7 @@
   "id": "20261029-1730-census-root-hygiene",
   "name": "census-root-hygiene",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-10-29T17:30Z",
   "brief": "Six source-scanning test files under src/renderer/src take their scan root from process.cwd(), so a run whose cwd is a different valid checkout silently measures the wrong tree: the existing non-empty guards only tell 'a tree' from 'no tree'. This session re-roots all six on their own import.meta.url (without a static node: import, which tsconfig.web.json's types: [] and the renderer hygiene forbid), adds a per-file guard that fails with a root-mismatch message when the scanned tree is not the tree containing the file, and adds a repo-level guard against reintroducing a process.cwd() root. The discriminating instrument is a run with cwd in the main checkout and --root on the session worktree, where today's code passes while reading the wrong tree. Bundled into hygiene.test.ts: the BORDER_PROPERTIES docblock/constant mismatch over logical border forms, a retired-test-id exemption that proves purpose rather than presence, and four prose counts corrected to figures measured at 10feee6^ and at HEAD. Suite and repo-wide typecheck stay green.",
   "parent": null,
@@ -35,7 +35,14 @@
       "started": "2026-10-29T18:48:40Z",
       "ended": "2026-10-29T18:53:49Z",
       "outcome": "complete"
+    },
+    {
+      "cc": "829ec9cf-5097-4658-8a76-844a842e6b37",
+      "phase": "wrap",
+      "started": "2026-10-29T18:58:08Z",
+      "ended": "2026-10-29T18:58:45Z",
+      "outcome": "complete"
     }
   ],
-  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
 }
