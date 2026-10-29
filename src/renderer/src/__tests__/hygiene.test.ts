@@ -64,7 +64,9 @@
  * it. `tsconfig.web.json` sets `"types": []`, so a static `node:` import in
  * this tree would not typecheck — and the first rule above forbids one anyway.
  * A dynamic import with a non-literal specifier is untyped, stays out of the
- * module graph, and lives only in this file.
+ * module graph, and lives only in this file. `node:url` is reached the same
+ * way, and the scan root is located from this file's own `import.meta.url`,
+ * never from the runner's working directory (see `ROOT` below).
  *
  * EVERY NEEDLE BELOW IS ASSEMBLED FROM FRAGMENTS so this file is not its own
  * violation, and every matcher is proved against a synthetic sample first —
@@ -72,8 +74,6 @@
  */
 
 import { describe, expect, it } from 'vitest';
-
-declare const process: { cwd(): string };
 
 interface Dirent {
   name: string;
@@ -91,7 +91,28 @@ async function fs(): Promise<FsLike> {
   return (await import(/* @vite-ignore */ NODE_FS)) as FsLike;
 }
 
-const ROOT = process.cwd().replace(/\\/g, '/');
+const NODE_URL = 'node:' + 'url';
+
+interface UrlLike {
+  fileURLToPath(url: URL): string;
+}
+
+const { fileURLToPath } = (await import(/* @vite-ignore */ NODE_URL)) as UrlLike;
+
+/**
+ * Found from this file's own location, never from the runner's working
+ * directory: a run started in another checkout would otherwise scan that
+ * checkout's tree, and pass while measuring the wrong commit. The relative
+ * path is a constant rather than a literal, and that is load-bearing under
+ * jsdom: Vite rewrites `new URL` over a string literal and `import.meta.url`
+ * into a dev-server `http:` URL, which `fileURLToPath` rejects.
+ */
+const UP_TO_REPO = '../../../../';
+const ROOT = fileURLToPath(new URL(UP_TO_REPO, import.meta.url))
+  .replace(/\\/g, '/')
+  .replace(/\/$/, '');
+/** This file's own path, located from itself, for the root-mismatch guard. */
+const SELF = fileURLToPath(new URL(import.meta.url)).replace(/\\/g, '/');
 const SRC_ROOT = `${ROOT}/src`;
 const RENDERER_ROOT = `${ROOT}/src/renderer`;
 const STATE_ROOT = `${RENDERER_ROOT}/src/state`;
@@ -248,6 +269,68 @@ const IO_TOKENS = [
   'mkdir' + 'Sync',
   'rm' + 'Sync',
 ];
+
+// ---------------------------------------------------------------------------
+// The scan root is this checkout
+// ---------------------------------------------------------------------------
+
+describe('the scan root', () => {
+  it('is the checkout this file lives in: the root implies exactly the path of this file', () => {
+    const implied = `${ROOT}/src/renderer/src/__tests__/hygiene.test.ts`;
+    expect(SELF, `root mismatch: scanning ${ROOT}, but this file is ${SELF}`).toBe(implied);
+  });
+});
+
+/**
+ * A CALL to the runner's working directory, in code. Assembled from fragments
+ * like every other needle here, so this file is not its own offender. It needs
+ * the member access AND the call: the ambient declaration these suites used to
+ * carry names the method without calling it through `process`, and is not one.
+ */
+const CWD_CALL = new RegExp(['\\bprocess', '\\s*\\??\\.\\s*', 'cwd', '\\s*\\('].join(''));
+
+/** The six suites re-rooted on their own location in 20261029-1730-census-root-hygiene. */
+const REROOTED_SUITES: readonly string[] = [
+  'src/renderer/src/__tests__/hygiene.test.ts',
+  'src/renderer/src/beachcomber/Beachcomber.hygiene.test.ts',
+  'src/renderer/src/helm/no-paths.test.ts',
+  'src/renderer/src/pods/wording.test.ts',
+  'src/renderer/src/transcript/tool-summary.test.ts',
+  'src/renderer/src/state/isolation.test.ts',
+];
+
+describe('no suite finds its scan root from the working directory', () => {
+  it('flags a working-directory call and clears the ambient declaration that only names it', () => {
+    const call = ['const root = ', 'process', '.', 'cwd', '();'].join('');
+    expect(CWD_CALL.test(call)).toBe(true);
+    expect(CWD_CALL.test('declare const process: { cwd(): string };')).toBe(false);
+    // And the shape `harness.tsx` still declares, with its `on`/`off` members.
+    expect(
+      CWD_CALL.test(
+        [
+          'declare const process: {',
+          "  on(event: 'unhandledRejection', listener: (reason: unknown) => void): void;",
+          "  off(event: 'unhandledRejection', listener: (reason: unknown) => void): void;",
+          '};',
+        ].join('\n'),
+      ),
+    ).toBe(false);
+  });
+
+  it('finds no test file under src/renderer/src that calls it in code', async () => {
+    const files = await filesUnder(`${RENDERER_ROOT}/src`, /\.test\.(ts|tsx)$/);
+    const scanned = files.map(relative);
+    // Non-vacuous over the real tree: each re-rooted suite is in the population,
+    // this file included, so its own needle is shown not to trip it.
+    for (const suite of REROOTED_SUITES) expect(scanned).toContain(suite);
+
+    const offenders: string[] = [];
+    for (const file of files) {
+      if (CWD_CALL.test(stripComments(await read(file)))) offenders.push(relative(file));
+    }
+    expect(offenders).toEqual([]);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // The matchers can fire
@@ -620,7 +703,15 @@ const LETTER_SPACING = 'letter-' + 'spacing';
 const FONT_WEIGHT = 'font-' + 'weight';
 
 /**
- * Every property that declares a border WIDTH, including the shorthands.
+ * The PHYSICAL properties that declare a border width: `border`, its four
+ * side shorthands `border-top`, `border-right`, `border-bottom` and
+ * `border-left`, `border-width`, and `outline`.
+ *
+ * The logical forms are deliberately absent — `border-block`, `border-inline`
+ * and their four longhands `border-block-start`, `border-block-end`,
+ * `border-inline-start` and `border-inline-end`. This list feeds the scoped
+ * second look over three directories, and those six are held repo-wide by
+ * `CENSUS_BORDER_PROPERTIES` below, which lists them.
  *
  * `border-radius` is deliberately absent and cannot be reached by accident:
  * `declaredValues` anchors on `<prop>:`, and `border-radius:` does not match
@@ -847,7 +938,7 @@ describe('the widened matchers themselves', () => {
 describe('panel token hygiene: border widths, tracking and weights (criterion 10)', () => {
   it('finds the panel stylesheets to scan at all', async () => {
     const sheets = await panelStylesheets();
-    // Beachcomber has two, Helm one, the shell four. A rule that scanned an
+    // Beachcomber has two, Helm one, the shell five. A rule that scanned an
     // empty list would report as a pass.
     expect(sheets.length).toBeGreaterThanOrEqual(7);
     expect(sheets.map(relative)).toContain('src/renderer/src/helm/Helm.module.css');
@@ -1075,6 +1166,44 @@ const RETIRED_LITERAL_EXEMPT_FILES: readonly string[] = [
   'src/renderer/src/lanes/LaneRail.test.tsx',
 ];
 
+/**
+ * WHAT THE EXEMPTION LICENSES, held for EVERY occurrence and not for some.
+ *
+ * The exempt file is exempt because it proves the control is GONE, so the only
+ * use it may make of a retired id is the argument of an absence assertion: a
+ * `queryAllByTestId` whose result is asserted to have length zero — the shape
+ * the exempt file ships — or a `queryByTestId` asserted null. A presence query
+ * such as `getByTestId` on a retired id is the defect the deny-list exists for,
+ * and an exemption that only checked the literal was PRESENT would wave it
+ * through as long as the file carried it at all.
+ *
+ * Returns null when the code carries at least one retired literal and every
+ * occurrence of every retired literal sits inside an absence assertion;
+ * otherwise a sentence saying which way it fails. Comments are the caller's to
+ * strip, exactly as for every other rule in this file.
+ */
+function retiredLiteralUseReport(code: string, literals: readonly string[]): string | null {
+  let total = 0;
+  let absent = 0;
+  for (const literal of literals) {
+    total += code.split(literal).length - 1;
+    const quoted = `['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`;
+    const absence = new RegExp(
+      [
+        `expect\\(\\s*(?:screen\\.)?queryAllByTestId\\(\\s*${quoted}\\s*\\)\\s*\\)\\s*\\.toHaveLength\\(\\s*0\\s*\\)`,
+        `expect\\(\\s*(?:screen\\.)?queryByTestId\\(\\s*${quoted}\\s*\\)\\s*\\)\\s*\\.toBeNull\\(\\s*\\)`,
+      ].join('|'),
+      'g',
+    );
+    absent += [...code.matchAll(absence)].length;
+  }
+  if (total === 0) return 'carries no retired literal in CODE';
+  if (absent < total) {
+    return `uses a retired literal outside an absence assertion (${String(total - absent)} of ${String(total)} code occurrences)`;
+  }
+  return null;
+}
+
 describe('the two rules added for previously undetectable failure modes', () => {
   it('catch a synthetic violation of each, and clear the legitimate near-misses', () => {
     // The exact byte that shipped, and the two characters that were meant.
@@ -1098,6 +1227,49 @@ describe('the two rules added for previously undetectable failure modes', () => 
     expect(`getByTestId('${retired}')`).toContain(retired);
     expect('lane-row-select:lane-1').not.toContain(retired);
     expect('lane-row-unread').not.toContain(retired);
+  });
+
+  it('licenses an exempt file to use a retired id only as the argument of an absence assertion, at every occurrence', () => {
+    const retired = RETIRED_TEST_ID_LITERALS[0] as string;
+    const absence = `expect(screen.queryAllByTestId('${retired}')).toHaveLength(0);`;
+    const presence = `expect(screen.getByTestId('${retired}')).toBeInTheDocument();`;
+
+    // The shape the exempt file ships, as its only code occurrence: accepted.
+    expect(retiredLiteralUseReport(absence, RETIRED_TEST_ID_LITERALS)).toBeNull();
+    // Its null-asserting twin is an absence assertion too.
+    expect(
+      retiredLiteralUseReport(
+        `expect(queryByTestId('${retired}')).toBeNull();`,
+        RETIRED_TEST_ID_LITERALS,
+      ),
+    ).toBeNull();
+
+    // A presence query as the only occurrence: rejected, though the literal
+    // is present in code.
+    expect(retiredLiteralUseReport(presence, RETIRED_TEST_ID_LITERALS)).toBe(
+      'uses a retired literal outside an absence assertion (1 of 1 code occurrences)',
+    );
+
+    // One of each: rejected. The rule holds for every occurrence, not some.
+    expect(
+      retiredLiteralUseReport(`${absence}\n${presence}`, RETIRED_TEST_ID_LITERALS),
+    ).toBe('uses a retired literal outside an absence assertion (1 of 2 code occurrences)');
+
+    // A query that is NOT asserted absent is not an absence assertion either.
+    expect(
+      retiredLiteralUseReport(
+        `expect(screen.queryAllByTestId('${retired}')).toHaveLength(1);`,
+        RETIRED_TEST_ID_LITERALS,
+      ),
+    ).not.toBeNull();
+
+    // A stale exemption — no retired literal in code at all — still fails.
+    expect(
+      retiredLiteralUseReport(
+        `expect(screen.queryAllByTestId('lane-row-unread')).toHaveLength(0);`,
+        RETIRED_TEST_ID_LITERALS,
+      ),
+    ).toBe('carries no retired literal in CODE');
   });
 
   it('finds no stray control byte anywhere under src/, tests/ or probe/', async () => {
@@ -1126,17 +1298,17 @@ describe('the two rules added for previously undetectable failure modes', () => 
     const files = await filesUnder(SRC_ROOT, /\.(ts|tsx|css|html)$/);
     expect(files.length).toBeGreaterThan(100);
 
-    // The exemption names a file that EXISTS and that really does carry the
-    // literal. A stale exemption is how a deny-list quietly stops covering
-    // anything, so it is checked rather than trusted.
+    // The exemption names a file that EXISTS, that really does carry the
+    // literal, and that uses it at every code occurrence only to assert the
+    // control is absent. A stale exemption is how a deny-list quietly stops
+    // covering anything, and a used one is how it quietly stops meaning
+    // anything, so both are checked rather than trusted.
     for (const exempt of RETIRED_LITERAL_EXEMPT_FILES) {
       const match = files.find((file) => relative(file) === exempt);
       expect(match, `${exempt} is exempted but not present`).toBeDefined();
       const text = stripComments(await read(match as string));
-      expect(
-        RETIRED_TEST_ID_LITERALS.some((literal) => text.includes(literal)),
-        `${exempt} is exempted but carries no retired literal in CODE`,
-      ).toBe(true);
+      const report = retiredLiteralUseReport(text, RETIRED_TEST_ID_LITERALS);
+      expect(report, `${exempt} is exempted but ${report ?? ''}`).toBeNull();
     }
 
     /*
@@ -1167,11 +1339,12 @@ describe('the two rules added for previously undetectable failure modes', () => 
  * here do not simply extend the ones above.
  *
  * `panelStylesheets()` walks `TOKENISED_STYLE_ROOTS` — `beachcomber/`, `helm/`
- * and `shell/`, three directories. That is why the five bare `font-weight`
- * literals in `lanes/`, `pods/` and `transcript/` were never offenders, never
- * appeared in the exception list the scoped rule pinned at the time, and
- * survived a session whose whole subject was font-weight tokens: the rule was
- * never looking at them. A narrow rule does not report that it is narrow,
+ * and `shell/`, three directories. That is why the fourteen bare `font-weight`
+ * declarations across five files in `lanes/`, `pods/` and `transcript/` —
+ * counted at 10feee6^, the parent of the commit that tokenised them — were
+ * never offenders, never appeared in the exception list the scoped rule
+ * pinned at the time, and survived a session whose whole subject was
+ * font-weight tokens: the rule was never looking at them. A narrow rule does not report that it is narrow,
  * which is the failure mode worth writing a second rule to close.
  *
  * So BOTH rules below walk EVERY `*.module.css` under `src/renderer/src`, and
@@ -1338,8 +1511,9 @@ describe('the census matchers themselves', () => {
   });
 
   it('catches a font weight that is not a --oc-weight-* token, and passes every twin that is', () => {
-    // The ten-times-repeated violation this session converted, and the four
-    // other bare literals the census also found.
+    // The ten-times-repeated violation this session converted, and the five
+    // other bare literals the census also found (four `700`, one `400`, at
+    // 10feee6^).
     expect(weightOffenders(`.a { ${FONT_WEIGHT}: 600; }`)).toEqual([`${FONT_WEIGHT}: 600`]);
     expect(weightOffenders(`.a { ${FONT_WEIGHT}: 700; }`)).toEqual([`${FONT_WEIGHT}: 700`]);
     expect(weightOffenders(`.a { ${FONT_WEIGHT}: 400; }`)).toEqual([`${FONT_WEIGHT}: 400`]);
@@ -1373,8 +1547,9 @@ describe('the theme-contract conversions of this session', () => {
     expect(sheets.length).toBeGreaterThan(0);
 
     // And it must reach OUTSIDE `TOKENISED_STYLE_ROOTS`, which is the entire
-    // point of this section: these three directories hold the five literals
-    // the scoped rule could never see.
+    // point of this section: these three directories held the fourteen bare
+    // declarations, across five files, the scoped rule could never see
+    // (counted at 10feee6^).
     expect(names).toContain('src/renderer/src/lanes/LaneRail.module.css');
     expect(names).toContain('src/renderer/src/pods/PodBar.module.css');
     expect(names).toContain('src/renderer/src/transcript/Transcript.module.css');
@@ -1431,9 +1606,10 @@ describe('the theme-contract conversions of this session', () => {
  *
  * The scoped rule above walks `TOKENISED_STYLE_ROOTS`, three directories. It
  * held border widths and letter-spacings there and nowhere else, and a narrow
- * rule does not report that it is narrow — the same failure mode that let five
- * bare `font-weight` literals outlive a session about font weights. So the two
- * properties join the font-weight census here: EVERY `*.module.css` under
+ * rule does not report that it is narrow — the same failure mode that let
+ * fourteen bare `font-weight` declarations outlive a session about font
+ * weights. So the two properties join the font-weight census here: EVERY
+ * `*.module.css` under
  * `src/renderer/src`, via `allModuleStylesheets()`, with no exception list of
  * any kind and two-sided against the empty list.
  *
