@@ -1,0 +1,20 @@
+{
+  "id": "20261029-1701-dir-backlog-to-sir",
+  "name": "Convert the DIR backlog to a SIR backlog",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-10-29T17:02:23Z",
+  "ended": "2026-10-29T17:17:14Z",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "20780094-8db1-4220-96d8-d67d189b18ce",
+      "phase": "small",
+      "started": "2026-10-29T17:02:23Z",
+      "ended": "2026-10-29T17:17:14Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 2, "escalationsRaised": 0, "reviewRounds": 0 }
+}
