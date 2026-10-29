@@ -44,6 +44,7 @@
 2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Make `src/renderer/src/styles/tokens.test.ts:55` find the end of the `:root` body robustly, since `source.indexOf('}', openIndex)` would silently truncate it at the first token value containing a brace.
 2026-10-15 2026-10-12-orcastrate-token-sweep Enforce or soften the exhaustive enumerations in the docblocks of `src/renderer/src/pods/PodBar.module.css:1-7` and `src/renderer/src/pods/DeletePodDialog.module.css:1-6`, which no scanner checks and which will go stale silently on the next edit.
 2026-10-21 2026-10-16-orcastrate-keyword-hairline-sweep Either narrow the `BORDER_PROPERTIES` docblock at `src/renderer/src/__tests__/hygiene.test.ts:623` ("including the shorthands") or widen the constant at `:630` to the logical forms, but never silently; the one logical-form declaration (`BeachcomberPreviewDialog.module.css:61`) is already held by the repo-wide census.
+2026-10-29 20261029-1730-census-root-hygiene Make `retiredLiteralUseReport` in `src/renderer/src/__tests__/hygiene.test.ts` count `total` and `absent` on the same quote-delimited match. Today `total` counts substrings, so a retired literal that is a substring of a live test id would count as a non-absence occurrence; the only current literal, `lane-row-pin` (`:1163`), is not affected.
 
 ## Prose drift
 

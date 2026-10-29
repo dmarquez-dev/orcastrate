@@ -1,0 +1,41 @@
+{
+  "id": "20261029-1730-census-root-hygiene",
+  "name": "census-root-hygiene",
+  "scope": "standard",
+  "status": "MERGED",
+  "started": "2026-10-29T17:30Z",
+  "brief": "Six source-scanning test files under src/renderer/src take their scan root from process.cwd(), so a run whose cwd is a different valid checkout silently measures the wrong tree: the existing non-empty guards only tell 'a tree' from 'no tree'. This session re-roots all six on their own import.meta.url (without a static node: import, which tsconfig.web.json's types: [] and the renderer hygiene forbid), adds a per-file guard that fails with a root-mismatch message when the scanned tree is not the tree containing the file, and adds a repo-level guard against reintroducing a process.cwd() root. The discriminating instrument is a run with cwd in the main checkout and --root on the session worktree, where today's code passes while reading the wrong tree. Bundled into hygiene.test.ts: the BORDER_PROPERTIES docblock/constant mismatch over logical border forms, a retired-test-id exemption that proves purpose rather than presence, and four prose counts corrected to figures measured at 10feee6^ and at HEAD. Suite and repo-wide typecheck stay green.",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "fe7aa16b-4e10-425a-9e80-ffe7ef87344f",
+      "phase": "discuss",
+      "started": "2026-10-29T17:30Z",
+      "ended": "2026-10-29T17:32:11Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "40940fc1-e2e1-4dee-be12-e5f3a8d041eb",
+      "phase": "spec",
+      "started": "2026-10-29T17:36:42Z",
+      "ended": "2026-10-29T17:56:31Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "5c213613-d263-4b0f-bfca-7bf167bd74ec",
+      "phase": "implement",
+      "started": "2026-10-29T18:19:10Z",
+      "ended": "2026-10-29T18:45:59Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "3a15c82c-5d92-43a6-8bad-375e50f9c02b",
+      "phase": "review",
+      "started": "2026-10-29T18:48:40Z",
+      "ended": "2026-10-29T18:53:49Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

@@ -1,0 +1,66 @@
+{
+  "session": "20261029-1730-census-root-hygiene",
+  "createdAt": "2026-10-29T17:36:42Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Self-locate the six census roots on import.meta.url, each with a root-mismatch guard",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/hygiene.test.ts",
+        "src/renderer/src/beachcomber/Beachcomber.hygiene.test.ts",
+        "src/renderer/src/helm/no-paths.test.ts",
+        "src/renderer/src/pods/wording.test.ts",
+        "src/renderer/src/transcript/tool-summary.test.ts",
+        "src/renderer/src/state/isolation.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "THE SIX FILES, as named in every criterion below: src/renderer/src/__tests__/hygiene.test.ts, src/renderer/src/beachcomber/Beachcomber.hygiene.test.ts, src/renderer/src/helm/no-paths.test.ts, src/renderer/src/pods/wording.test.ts, src/renderer/src/transcript/tool-summary.test.ts, src/renderer/src/state/isolation.test.ts (base 5e5e7d4 roots at :94, :43, :49, :50, :43, :37 respectively). No code in any of the six calls process.cwd(): `grep -nE 'process[.]cwd[(]'` over the six paths in the worktree returns no line, or only lines that are inside comments (each such hit listed in the report and shown to be prose).",
+        "Each of the six derives its scan root from its OWN import.meta.url using the repo idiom fileURLToPath(new URL(<relative>, import.meta.url)) — the Gate 1 decision (discussion.md:34-38; models tests/router/helpers.ts:27 and tests/unit/pod-manager/marker-single-definition.test.ts:47-49) — with fileURLToPath reached through a dynamic import whose specifier is NOT a string literal, because tsconfig.web.json sets \"types\": [] and the renderer rule at hygiene.test.ts:302-313 (base) flags any literal 'node:' specifier that importSpecifiers (:198-211) can read. The same idiom, spelled the same way, in all six files.",
+        "Each root keeps the shape its consumers rely on: forward slashes only and no trailing slash (hygiene.test.ts:184-186 slices ROOT.length + 1; isolation.test.ts:84 slices RENDERER_ROOT.length + 1). isolation.test.ts's RENDERER_ROOT, which today has no backslash normalisation (:37), is normalised the same way as the other five.",
+        "Each of the six files contains a test that compares the path of the file itself, derived from its own import.meta.url, against the path that file's scan root implies for it (ROOT joined with the file's repo-relative path; for isolation.test.ts, RENDERER_ROOT joined with state/isolation.test.ts), and fails with a message containing the words `root mismatch`. NOTE FOR THE IMPLEMENTER, a fact about this geometry: the session worktree is nested inside the main checkout (C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene), so a prefix/startsWith comparison against a cwd-derived root HOLDS in the mismatched geometry and cannot go red; the next criterion would fail such a guard.",
+        "RED STEP, mismatched geometry (test discipline, Coverage: 'A test is shown able to fail'): with the six guards added and the roots STILL derived from process.cwd(), run from cwd = C:/Users/dmarq/Development/Repos/orcastrate (the main checkout) `C:/Users/dmarq/Development/Repos/orcastrate/node_modules/.bin/vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/beachcomber/Beachcomber.hygiene.test.ts src/renderer/src/helm/no-paths.test.ts src/renderer/src/pods/wording.test.ts src/renderer/src/transcript/tool-summary.test.ts src/renderer/src/state/isolation.test.ts`; the report shows the six guard tests failing, one per file, each failure message containing `root mismatch`.",
+        "RED STEP control, correct geometry: in the same pre-conversion state, `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene test -- <the six repo-relative paths>` (cwd = the worktree for the script) passes all six guard tests — so the red in the previous criterion is caused by the geometry and not by a normalisation artefact such as slash direction or drive-letter case.",
+        "GREEN, mismatched geometry, after conversion: the exact mismatched-geometry command named in the RED STEP criterion reports all six files passed and zero failed tests, the six guards included.",
+        "PRESERVED (deliberately satisfied at startRef, stated so): after conversion, the mismatched-geometry run and the correct-geometry run report the same per-file test counts for the six files. Agreement alone cannot discriminate in this session (both trees hold identical content, orchestrator probe 2026-10-29); the green guards in the previous criterion are what show the mismatched run read the worktree's tree.",
+        "src/renderer/src/__tests__/hygiene.test.ts still begins with its `// @vitest-environment jsdom` docblock (base :1) and is among the files the RED and GREEN runs above executed, so the idiom is proven under jsdom and not only under the node environment of the other five.",
+        "The six files' `declare const process: { cwd(): string };` declarations (base: hygiene.test.ts:76, Beachcomber.hygiene.test.ts:25, no-paths.test.ts:31, wording.test.ts:32, tool-summary.test.ts:25, isolation.test.ts:21) are removed, being dead once no file calls cwd: `grep -n 'declare const process'` over the six paths returns nothing.",
+        "`npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene run typecheck` exits 0 (both typecheck:node and typecheck:web) — vitest does not typecheck, and the six are compiled under tsconfig.web.json.",
+        "`npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene test` passes: 141 test files, and a test count equal to the base 2252 (orchestrator probe 2026-10-29) plus the tests this task added, with no existing test removed, skipped or weakened."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Reintroduction guard and four precision fixes in hygiene.test.ts",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": ["src/renderer/src/__tests__/hygiene.test.ts"],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "Line numbers below are at base 5e5e7d4 and shift after T1; each site is also identified by its quoted text. REINTRODUCTION GUARD: hygiene.test.ts carries a test that walks every *.test.ts and *.test.tsx file under src/renderer/src, reads each with comments stripped (as the file's other code rules do, stripComments at :188-191), and fails listing every file whose code calls process.cwd(); on the tree at T2's end it passes.",
+        "The reintroduction guard is non-vacuous over the real tree: it asserts that its scanned population contains each of the six files T1 converted, by repo-relative path — hygiene.test.ts itself included, so the guard's own needle is shown not to trip it (every needle in this file is assembled from fragments, :69-71).",
+        "Positive control: the reintroduction predicate flags a synthetic sample containing a process.cwd() call, asserted in the file.",
+        "Near-miss: the reintroduction predicate does NOT flag a synthetic `declare const process: { cwd(): string };` sample — the declaration shape all six files carried at base and that __tests__/harness.tsx:88 still carries (with on/off members) — asserted in the file.",
+        "DEMONSTRATED DISCRIMINATION (test discipline, Coverage): with a process.cwd() call injected into the CODE of hygiene.test.ts at one named line, `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene test -- src/renderer/src/__tests__/hygiene.test.ts` fails the reintroduction guard naming src/renderer/src/__tests__/hygiene.test.ts; the injection is reverted and the report names the line.",
+        "BORDER_PROPERTIES docblock and constant agree (base :622-638; the docblock reads 'Every property that declares a border WIDTH, including the shorthands.' while the constant omits border-block, border-inline and their four longhands, which CENSUS_BORDER_PROPERTIES at :1506-1520 lists). Direction pinned at Gate 2: the docblock is NARROWED. It no longer claims the shorthands in general; it names the physical properties the constant lists, names border-block, border-inline and their longhands as deliberately absent, and says they are held repo-wide by CENSUS_BORDER_PROPERTIES. The constant's members are unchanged, and the CENSUS_BORDER_PROPERTIES docblock 'WIDER THAN `BORDER_PROPERTIES` ABOVE' (:1468) and the borderOffenders(...border-block...) toEqual([]) assertions at :1680 and :1864 still hold unmodified.",
+        "PRESERVED (satisfied at startRef by the presence-only check, labelled at Gate 2; meaningful only together with the next two criteria). RETIRED-ID SELF-CHECK, shipped shape: the exemption self-check (base :1129-1140, today presence-only via text.includes) accepts a code occurrence of the retired literal that is the argument of an absence assertion, in the shape the exempt file ships (lanes/LaneRail.test.tsx:180, `expect(screen.queryAllByTestId('lane-row-pin')).toHaveLength(0);`, its only code occurrence), and the real exempt file still passes it.",
+        "RETIRED-ID SELF-CHECK, presence use: the self-check's predicate rejects a synthetic exempt-file sample whose only occurrence of the retired literal is a presence query (e.g. a getByTestId call), asserted in the file. At base this sample passes the presence-only check.",
+        "RETIRED-ID SELF-CHECK, every occurrence: the predicate rejects a synthetic sample carrying one absence-assertion occurrence AND one presence-query occurrence of the retired literal — the check holds for every code occurrence, not for some — asserted in the file.",
+        "RETIRED-ID SELF-CHECK, stale exemption (preserved): an exempt file carrying no retired literal in code still fails the self-check, as the base check's 'is exempted but carries no retired literal in CODE' message does at :1138.",
+        "Prose count, base :850 ('Beachcomber has two, Helm one, the shell four.'): the shell count reads five. Measured at HEAD by `find src/renderer/src/shell -name '*.module.css'` → 5 (a11y, EmptyWorkspace, PanelBar, PanelRegion, WorkspaceLayout); beachcomber 2, helm 1. The `toBeGreaterThanOrEqual(7)` floor at :852 is left unchanged (out of scope; a floor, not a total).",
+        "Prose count, base :1170-1171 ('the five bare `font-weight` literals in `lanes/`, `pods/` and `transcript/`'): corrected to fourteen bare declarations across five files, naming that it was counted at 10feee6^. Predicate (orchestrator, 2026-10-29): an anchored font-weight declaration in a *.module.css under those three directories whose value is not var(...), read at 10feee6^; LaneRail 3, DeletePodDialog 2, NewPodDialog 2, PodBar 2, Transcript 5.",
+        "Prose count, base :1341-1342 ('the four other bare literals the census also found'): corrected to five (repo-wide at 10feee6^: 15 bare declarations, ten `600` and five others — four `700`, one `400`; same predicate as the previous criterion, repo-wide).",
+        "Prose count, base :1376-1377 ('these three directories hold the five literals'): corrected to fourteen bare declarations across five files, same predicate and commit as the :1170 criterion.",
+        "Prose count, base :1434-1435 ('the same failure mode that let five bare `font-weight` literals outlive a session'): the same stale figure as :1170, corrected to agree with it. (Beyond the four sites Gate 1 bundled; kept at Gate 2.)",
+        "PRESERVED (satisfied at T2's startRef by T1's GREEN criterion, labelled at Gate 2; it shows T2 did not regress it). GREEN, mismatched geometry, at the DAG tail: from cwd = C:/Users/dmarq/Development/Repos/orcastrate, `C:/Users/dmarq/Development/Repos/orcastrate/node_modules/.bin/vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/beachcomber/Beachcomber.hygiene.test.ts src/renderer/src/helm/no-paths.test.ts src/renderer/src/pods/wording.test.ts src/renderer/src/transcript/tool-summary.test.ts src/renderer/src/state/isolation.test.ts` reports all six files passed, zero failed.",
+        "`npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene run typecheck` exits 0 (typecheck:node and typecheck:web, repo-wide).",
+        "`npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/census-root-hygiene test` passes: 141 test files, and a test count equal to T1's end count plus the tests this task added, with no existing test removed, skipped or weakened."
+      ]
+    }
+  ]
+}

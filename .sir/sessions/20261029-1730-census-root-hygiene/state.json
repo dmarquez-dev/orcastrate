@@ -1,0 +1,30 @@
+{
+  "session": "20261029-1730-census-root-hygiene",
+  "updatedAt": "2026-10-29T18:53:49Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\census-root-hygiene",
+  "branch": "sir/20261029-1730-census-root-hygiene",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false  →  exit=0 (worktree has no node_modules; tsc and every type import resolve through the enclosing main checkout's node_modules)"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "Test Files  141 passed (141)  Tests  2252 passed (2252)  exit=0"
+    },
+    {
+      "command": "<main>/node_modules/.bin/vitest run --root <worktree> <file>  (cwd = main checkout)",
+      "runnable": true,
+      "probe": "pods/wording.test.ts + state/isolation.test.ts: Test Files  2 passed (2)  Tests  7 passed (7)  exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "5e5e7d4922def3845b234b9bdcbb15e4e8851d7b", "commit": "4be18c5683a15f2bf7c289852adbe0be0dea4c5e" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "startRef": "4be18c5683a15f2bf7c289852adbe0be0dea4c5e", "commit": "9cf090d66e23fc432c9974ae603cba4bd69ad0b7" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
