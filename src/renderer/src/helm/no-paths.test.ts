@@ -28,8 +28,6 @@ import {
   stripComments,
 } from './rules';
 
-declare const process: { cwd(): string };
-
 interface Dirent {
   name: string;
   isDirectory(): boolean;
@@ -46,7 +44,28 @@ async function fs(): Promise<FsLike> {
   return (await import(/* @vite-ignore */ NODE_FS)) as FsLike;
 }
 
-const ROOT = process.cwd().replace(/\\/g, '/');
+const NODE_URL = 'node:' + 'url';
+
+interface UrlLike {
+  fileURLToPath(url: URL): string;
+}
+
+const { fileURLToPath } = (await import(/* @vite-ignore */ NODE_URL)) as UrlLike;
+
+/**
+ * Found from this file's own location, never from the runner's working
+ * directory: a run started in another checkout would otherwise scan that
+ * checkout's tree, and pass while measuring the wrong commit. The relative
+ * path is a constant rather than a literal, and that is load-bearing under
+ * jsdom: Vite rewrites `new URL` over a string literal and `import.meta.url`
+ * into a dev-server `http:` URL, which `fileURLToPath` rejects.
+ */
+const UP_TO_REPO = '../../../../';
+const ROOT = fileURLToPath(new URL(UP_TO_REPO, import.meta.url))
+  .replace(/\\/g, '/')
+  .replace(/\/$/, '');
+/** This file's own path, located from itself, for the root-mismatch guard. */
+const SELF = fileURLToPath(new URL(import.meta.url)).replace(/\\/g, '/');
 const HELM_ROOT = `${ROOT}${'/src/renderer/src/helm'}`;
 
 /**
@@ -82,6 +101,13 @@ async function sources(): Promise<{ name: string; text: string }[]> {
     (file) => !isTest(file.name) && !EXCLUDED.includes(file.name),
   );
 }
+
+describe('the scan root', () => {
+  it('is the checkout this file lives in: the root implies exactly the path of this file', () => {
+    const implied = `${ROOT}/src/renderer/src/helm/no-paths.test.ts`;
+    expect(SELF, `root mismatch: scanning ${ROOT}, but this file is ${SELF}`).toBe(implied);
+  });
+});
 
 describe('the Helm panel cannot name a file (criterion 2)', () => {
   it('finds the directory it is supposed to be scanning', async () => {
