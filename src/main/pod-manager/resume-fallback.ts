@@ -62,8 +62,10 @@ export interface ResumeFallbackData {
   podId: PodId;
   /**
    * The session id the CLI refused. Kept because it is the only record that
-   * this Pod's history is split across two Claude Code sessions, and the Pod
-   * row's own `ccSessionId` is overwritten by the fresh session moments later.
+   * this Pod's history is split across two Claude Code sessions: the Pod row's
+   * own `ccSessionId` is cleared to `null` before the fresh retry starts, and
+   * stays `null` if that retry fails, so once the notice is written this field
+   * is the only surviving record of the refused id.
    */
   abandonedCcSessionId: string;
   /** The CLI's own rejection wording, for diagnosis. Not shown as the reason. */

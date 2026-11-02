@@ -93,8 +93,8 @@ function sendToRenderers(channel: string, payload: unknown): void {
 }
 
 /**
- * Opens the OS directory chooser. Criterion 5: this is the ONLY source of a new
- * filesystem path in the application — the renderer never supplies one, and a
+ * Opens the OS directory chooser. This is the ONLY source of a new filesystem
+ * path in the application — the renderer never supplies one, and a
  * cancelled dialog is a normal `{ path: null }` answer, not a failure.
  */
 async function pickDirectory(): Promise<string | null> {
