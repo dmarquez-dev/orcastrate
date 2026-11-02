@@ -57,7 +57,7 @@
   --oc-focus-ring: #6aa9ff;
 
   /* Status. Pod `idle|running|waiting|beached|closed`,
-     Lane `running|done|orphaned`.
+     Lane `running|done|orphaned|stopped`.
      Status is never the only carrier of meaning — every consumer pairs the hue
      with a label or an icon (frontend discipline, accessibility floor). */
   --oc-status-idle: #7c8598;
@@ -77,9 +77,11 @@
      LaneStatus: the Pod that owns this lane was stopped. Warm neutral, so it
      separates from the two quiet neutrals it sits nearest — `idle` (#7c8598,
      cool) and `closed` (#4a5060, dark cool) — by HUE and by LIGHTNESS both:
-     WCAG contrast 1.796 against `idle` and 3.903 against `closed`, so the
-     semantically adjacent pair clears the shipped `closed`/`idle` precedent
-     (2.173). Quiet on purpose — a deliberately stopped lane is a routine
+     WCAG contrast 1.796 against `idle` and 3.903 against `closed`. Against
+     the shipped `closed`/`idle` precedent (2.173), `stopped`/`closed` (3.903)
+     is ABOVE it, but the semantically adjacent `stopped`/`idle` pair (1.796)
+     is BELOW it — that pair separates by hue and lightness, not by more than
+     the precedent. Quiet on purpose — a deliberately stopped lane is a routine
      resting state and must not compete with `waiting`, which needs a human;
      lightening it further pushes against that.
      KNOWN AND ACCEPTED (figures re-derived 2026-10-16, measured not assumed):
@@ -93,7 +95,12 @@
      luminance, re-derived in session
      `2026-10-16-orcastrate-keyword-hairline-sweep` (T3); the 1.796 / 3.903 /
      1.052 / 2.173 figures above were reproduced exactly by that same
-     derivation before its new counts were trusted. The palette is
+     derivation before its new counts were trusted. The SEVEN count sits on
+     a thin margin: the pair nearest 1.2 from below is `running`/`orphaned`
+     at 1.195 (1.1949 to 4 dp), 0.005 inside the threshold, and the nearest
+     above is `done`/`stopped` at 1.206 — re-derived in session
+     `20261102-2224-prose-drift-sweep` (T2) by the same WCAG 2.x
+     derivation, which first reproduced every figure above. The palette is
      hue-differentiated throughout, AND COLOUR IS NEVER THE ONLY CARRIER —
      the status label and the dot's own SHAPE carry the meaning, which is why
      a 1.005 pair is acceptable here at all. Correcting the count neither
