@@ -196,7 +196,11 @@ export interface Pod {
   title: string;
   /** Absolute path. Immutable after creation (spec 4.2). */
   cwd: string;
-  /** Claude Code's own session id, used for `resume`. null before first turn. */
+  /**
+   * Claude Code's own session id, used for `resume`. null before the Pod's
+   * first turn, and null after the CLI rejected a resume of it, until the fresh
+   * session's first id arrives.
+   */
   ccSessionId: string | null;
   permissionMode: PermissionMode;
   /** Keys merged over `process.env` by PodRunner. See pod-runner.ts. */

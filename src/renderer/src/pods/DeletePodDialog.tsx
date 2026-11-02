@@ -96,7 +96,9 @@ export function DeletePodDialog({
 
   /*
    * ABSENT, NOT DISABLED, when there is no session file. `ccSessionId` is null
-   * for a Pod that never reached its first turn, so there is nothing on disk;
+   * for a Pod that never reached its first turn, so there is nothing on disk,
+   * and for one whose resume the CLI rejected, until the fresh session reports
+   * its own id;
    * an unchecked box implying a file exists is a lie about state, and a
    * disabled one still reads as "there is a thing here you may not have".
    */

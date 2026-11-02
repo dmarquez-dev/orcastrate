@@ -70,6 +70,19 @@ export interface FakeRunnerScript {
    * pipeline test stays green against the swapped order.
    */
   onSend?: (text: string) => void;
+  /**
+   * Runs inside `start()`, after `startCalls` and `handlers` are recorded and
+   * before `failStartWith` is consulted. Throwing from it rejects the start.
+   *
+   * Two seams in one. Reading the store from here observes it at the moment a
+   * runner is started, which is the only place "the write happened before the
+   * start" is visible. And throwing on the runner's own `options` lets a double
+   * reject by WHAT it was asked to resume rather than by how many times it has
+   * been asked — the CLI refuses a session id, not an attempt number, and a
+   * double that fails regardless of `resume` also fails the fresh start that
+   * is meant to succeed.
+   */
+  onStart?: (options: PodRunnerOptions) => void;
 }
 
 export interface FakeRunner extends PodRunner {
@@ -104,6 +117,7 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
     async start(handlers: PodRunnerHandlers, _onPermission: PermissionHandler): Promise<void> {
       runner.startCalls += 1;
       runner.handlers = handlers;
+      script.onStart?.(options);
       if (script.failStartWith === undefined) return;
       const used = startFailuresUsed.get(script) ?? 0;
       if (script.failStartTimes !== undefined && used >= script.failStartTimes) return;

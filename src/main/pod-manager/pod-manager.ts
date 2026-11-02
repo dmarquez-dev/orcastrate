@@ -595,6 +595,8 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   async #start(pod: Pod, attemptResume: boolean): Promise<Pod> {
     // A Pod that never reached its first turn has nothing to resume, and asking
     // the CLI to resume nothing is not a thing to fail over — it starts fresh.
+    // So does a Pod whose last resume the CLI rejected: the fallback below
+    // clears the stored id before its retry.
     const resumeSessionId = attemptResume ? pod.ccSessionId : null;
     const matriarchLaneId = this.#ensureMatriarchLane(pod.id);
     this.#reviveMatriarchLane(pod.id, matriarchLaneId);
@@ -709,6 +711,17 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * the retry's cause instead. The event is appended, not derived, so it
    * survives the next restart — the transcript must still explain itself
    * tomorrow.
+   *
+   * THE REJECTED ID IS CLEARED FROM THE ROW BEFORE THE RETRY STARTS, not after
+   * it comes up. The stored `ccSessionId` is what every later `#start(pod,
+   * true)` reads, and the fresh session does not overwrite it until its first
+   * `onSessionId`. Left in place, a close-and-reopen or a Reconnect in that
+   * window re-sends an id the CLI has already refused, is refused again, and
+   * falls back a second time; and a retry that itself fails would leave the
+   * refused id on a beached Pod, so its Reconnect would re-send it too.
+   * Clearing first covers both, because the beach in `#start`'s failure path
+   * then lands on a row that already holds `null`. From here on the refused id
+   * survives ONLY as the notice's `abandonedCcSessionId`.
    */
   async #startFreshAfterRejectedResume(
     pod: Pod,
@@ -719,7 +732,8 @@ export class PodManager implements PodManagerApi, StartupReconciler {
       `[orcastrate] claude code refused to resume session ${abandonedCcSessionId} for pod ` +
         `${pod.id}; starting a fresh session instead: ${cause.message}`,
     );
-    const opened = await this.#start(pod, false);
+    const cleared = this.#store.updatePod(pod.id, { ccSessionId: null });
+    const opened = await this.#start(cleared, false);
     this.#appendResumeFallbackNotice(pod.id, {
       subtypeMarker: RESUME_FALLBACK_SUBTYPE,
       reason: RESUME_FALLBACK_REASON,
