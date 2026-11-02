@@ -182,6 +182,142 @@ describe('criterion 2: a resume the CLI rejects falls back to a fresh session', 
 });
 
 // ---------------------------------------------------------------------------
+// The rejected id is cleared from the Pod row before the retry starts
+// ---------------------------------------------------------------------------
+
+/**
+ * A double that models the CLI: it refuses a start that asks to resume the
+ * rejected id, every time, and accepts any other start. Driven by the runner's
+ * `options.resume` and the error CODE, never by wording, so it does not depend
+ * on how `classifyStartupFailure` reads the CLI's message.
+ */
+function refusesToResume(rejectedId: string): (options: { resume?: string }) => void {
+  return (options) => {
+    if (options.resume === rejectedId) {
+      throw new PodRunnerError('RESUME_FAILED', 'no conversation found');
+    }
+  };
+}
+
+describe('a rejected resume clears the stored ccSessionId before the fresh retry', () => {
+  it('leaves the stored ccSessionId null once the fallback is up, before any onSessionId', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, {
+      failStartWith: new PodRunnerError('RESUME_FAILED', 'no conversation found'),
+      failStartTimes: 1,
+    });
+
+    await h.manager.openPod(podId);
+
+    // THE DEFECT: the row kept the id the CLI had just refused, so anything
+    // that read it before the fresh session announced its own id re-sent it.
+    expect(h.raw.getPod(podId)?.ccSessionId).toBeNull();
+    // The notice is still the record of what was abandoned.
+    expect(fallbackNotices(h, podId)[0]?.abandonedCcSessionId).toBe('cc-gone');
+  });
+
+  it('a close and reopen in that window starts with no `resume`', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, {
+      failStartWith: new PodRunnerError('RESUME_FAILED', 'no conversation found'),
+      failStartTimes: 1,
+    });
+
+    await h.manager.openPod(podId);
+    await h.manager.closePod(podId);
+    h.script(podId, {});
+    await h.manager.openPod(podId);
+
+    expect(h.runners(podId)).toHaveLength(3);
+    expect(h.runner(podId).options.resume).toBeUndefined();
+  });
+
+  it('a close and reopen against a CLI that refuses the id again falls back once, not twice', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, { onStart: refusesToResume('cc-gone') });
+
+    await h.manager.openPod(podId);
+    expect(fallbackNotices(h, podId)).toHaveLength(1);
+    await h.manager.closePod(podId);
+    const reopened = await h.manager.openPod(podId);
+
+    // Re-sending the refused id would be refused again and announce a second
+    // fallback for the same abandoned session.
+    expect(fallbackNotices(h, podId)).toHaveLength(1);
+    expect(reopened.status).toBe('idle');
+    expect(h.raw.getPod(podId)?.status).toBe('idle');
+    await expectOpennessAgrees(h, podId, 'reopen after a rejected resume');
+  });
+
+  it('a reconnect in that window starts with no `resume`', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, {
+      failStartWith: new PodRunnerError('RESUME_FAILED', 'no conversation found'),
+      failStartTimes: 1,
+    });
+
+    await h.manager.openPod(podId);
+    h.script(podId, {});
+    await h.manager.reconnectPod(podId);
+
+    expect(h.runners(podId)).toHaveLength(3);
+    expect(h.runner(podId).options.resume).toBeUndefined();
+  });
+
+  it('a retry that also fails beaches the Pod with its ccSessionId null', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, { failStartWith: new PodRunnerError('RESUME_FAILED', 'no conversation found') });
+
+    await expect(h.manager.openPod(podId)).rejects.toMatchObject({ code: 'RESUME_FAILED' });
+
+    expect(h.raw.getPod(podId)?.status).toBe('beached');
+    // A beached Pod must not keep an id the CLI already refused, or its
+    // Reconnect re-sends it.
+    expect(h.raw.getPod(podId)?.ccSessionId).toBeNull();
+  });
+
+  it('a reconnect after that failed retry starts with no `resume`', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    h.script(podId, { failStartWith: new PodRunnerError('RESUME_FAILED', 'no conversation found') });
+    await expect(h.manager.openPod(podId)).rejects.toMatchObject({ code: 'RESUME_FAILED' });
+
+    h.script(podId, {});
+    await h.manager.reconnectPod(podId);
+
+    expect(h.runners(podId)).toHaveLength(3);
+    expect(h.runner(podId).options.resume).toBeUndefined();
+  });
+
+  it('the stored ccSessionId is already null when the retry runner starts', async () => {
+    const h = harness();
+    const podId = seedPod(h, { status: 'closed', ccSessionId: 'cc-gone' });
+    const refuse = refusesToResume('cc-gone');
+    const seen: { resume: string | undefined; stored: string | null | undefined }[] = [];
+    h.script(podId, {
+      onStart: (options) => {
+        // Read from INSIDE `start()`: the only point where "cleared before the
+        // retry" and "cleared after the retry came up" differ.
+        seen.push({ resume: options.resume, stored: h.raw.getPod(podId)?.ccSessionId });
+        refuse(options);
+      },
+    });
+
+    await h.manager.openPod(podId);
+
+    expect(seen).toEqual([
+      { resume: 'cc-gone', stored: 'cc-gone' },
+      { resume: undefined, stored: null },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criterion 2, the other half — every OTHER start failure still beaches
 // ---------------------------------------------------------------------------
 

@@ -186,7 +186,9 @@ export interface DeletePodRequest {
  *
  *   'not-requested'  `deleteSession` was false. Nothing was attempted.
  *   'no-session'     `ccSessionId` was null — the Pod never reached its first
- *                    turn, so there is nothing on disk. NOT an error.
+ *                    turn, so there is nothing on disk, or the CLI rejected a
+ *                    resume of it and the fresh session has not yet reported
+ *                    its own id. NOT an error.
  *   'not-found'      The file was not where it was expected. Already binned by
  *                    hand, or the CLI wrote it elsewhere. NOT an error.
  *   'trashed'        The trash port resolved. The file is in the recycle bin.

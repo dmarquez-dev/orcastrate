@@ -52,8 +52,9 @@ export function createPodSessionRemover(deps: PodSessionRemoverDeps): PodSession
   const { claudeHome, trashItem, fileExists } = deps;
 
   return async (pod: Pod) => {
-    // Null before the Pod's first turn: there is nothing on disk to remove, and
-    // that is not an error.
+    // Null before the Pod's first turn, and after the CLI rejected a resume of
+    // it until the fresh session reports its own id: there is no session file
+    // this row points at to remove, and that is not an error.
     const ccSessionId = pod.ccSessionId;
     if (ccSessionId === null || ccSessionId.length === 0) {
       return { outcome: 'no-session' as const, error: null };
