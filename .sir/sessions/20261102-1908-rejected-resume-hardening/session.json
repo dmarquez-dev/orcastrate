@@ -1,0 +1,47 @@
+{
+  "id": "20261102-1908-rejected-resume-hardening",
+  "name": "rejected-resume-hardening",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Harden Orcastrate's fallback when the Claude Code CLI rejects a resume. T1 narrows classifyStartupFailure (src/main/pod/errors.ts) so RESUME_FAILED requires CLI wording that names the session: the bare `resume` alternative goes, and the unbounded `session .*not found` is bounded, while the four rejection strings found in the bundled CLI 2.1.235 binary still match; its docblock stops calling the match broad. T2 makes #startFreshAfterRejectedResume (src/main/pod-manager/pod-manager.ts) clear the stored ccSessionId before the fresh retry, so a reopen or Reconnect before the new session id arrives cannot re-send the rejected id or write a second notice, and a failed retry cannot leave it on a beached Pod. Each fix carries regression tests shown red against the unfixed code. T3 removes three .sir/backlog.md lines closed at 77f8fd4 (27, 41, 46), keeps line 47, and gates on the full suite and repo-wide typecheck.",
+  "started": "2026-11-02T19:08:18Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "a2f1779a-55d5-4889-8d11-ecb1ce25c8af",
+      "phase": "discuss",
+      "sir": "1.0.12",
+      "started": "2026-11-02T19:08:18Z",
+      "ended": "2026-11-02T19:08:52Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "81f64049-2e6f-4f3b-935e-32106c2cbeef",
+      "phase": "spec",
+      "sir": "1.0.12",
+      "started": "2026-11-02T19:15:06Z",
+      "ended": "2026-11-02T19:30:26Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "342445d2-3cd5-408d-8638-9f3ff845c9bd",
+      "phase": "implement",
+      "sir": "1.0.12",
+      "started": "2026-11-02T19:36:08Z",
+      "ended": "2026-11-02T19:52:37Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "15aa42c3-297b-45e1-8d0b-937b01ff8695",
+      "phase": "review",
+      "sir": "1.0.12",
+      "started": "2026-11-02T20:01:51Z",
+      "ended": "2026-11-02T20:16:00Z",
+      "outcome": "complete"
+    }
+  ],
+  "pushed": true,
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

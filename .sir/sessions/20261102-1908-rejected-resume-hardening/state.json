@@ -1,0 +1,26 @@
+{
+  "session": "20261102-1908-rejected-resume-hardening",
+  "updatedAt": "2026-11-02T20:16:00Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261102-1908-rejected-resume-hardening",
+  "branch": "sir/20261102-1908-rejected-resume-hardening",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false  →  exit=0; positive control: tsc --listFilesOnly -p tsconfig.node.json from the worktree lists the worktree's src/main/pod/errors.ts (1) and 0 non-node_modules files outside the worktree"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "Tests  2261 passed (2261)  exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "fa113f2bc29f6058879a338f08e32e0394f6818d", "commit": "94a928511e58fa553988a0dba6782cffedd06bea" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "startRef": "fa113f2bc29f6058879a338f08e32e0394f6818d", "commit": "3790f24703de120331769b21552065855f3f3dd7" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "startRef": "3790f24703de120331769b21552065855f3f3dd7", "commit": "bb796d80dd4b89631d24522f3213d31b7ace5515" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}

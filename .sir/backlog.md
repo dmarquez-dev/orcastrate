@@ -93,3 +93,8 @@
 2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Clear the pre-existing `npx prettier --check` warnings on `src/renderer/src/contracts/renderer-panels.ts`, `src/renderer/src/state/panel-store.ts` and `src/renderer/src/helm/HelmPanel.tsx` in a formatting-only change.
 2026-10-15 2026-10-12-orcastrate-token-sweep Decide whether to enforce uniform commit trailers with a tracked `commit-msg` hook plus an install step; `.git/hooks/` holds no non-sample hook, `core.hooksPath` is unset, and the field otherwise records the committing agent's model.
 2026-10-26 dir-handoff-2026-10-26 Build a live-`claude` hand-run harness, checking first whether the app's own IPC can reach a state; still unexercised are `B5`, the same-millisecond backup collision, `D3`, and narrow-window layout.
+
+## Ungrouped (Gate 3 appends land here)
+
+2026-11-02 20261102-1908-rejected-resume-hardening Update the `abandonedCcSessionId` doc at `src/main/pod-manager/resume-fallback.ts:63-67`, which still says the row's id "is overwritten by the fresh session moments later"; since 3790f24 the stored id is nulled before the retry and stays null if the retry fails.
+2026-11-02 20261102-1908-rejected-resume-hardening Extend the `openPod`/`reconnectPod` docblocks in `src/main/pod-manager/pod-manager.ts` (~447/~467), which describe a null `ccSessionId` only as "never reached its first turn", to name the rejected-resume case as well.

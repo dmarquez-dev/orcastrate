@@ -1,0 +1,82 @@
+{
+  "session": "20261102-1908-rejected-resume-hardening",
+  "createdAt": "2026-11-02T19:22:50Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Narrow classifyStartupFailure so RESUME_FAILED requires wording that names the session",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod/errors.ts",
+        "tests/unit/pod/errors.test.ts"
+      ],
+      "acceptance": [
+        "With a resume requested, a startup failure whose message is `Claude Code process exited with code 1. stderr: failed to resume: spawn ENOENT` (the shape the SDK builds: `getProcessExitError` message plus `formatStderrTail`'s `. stderr: <tail>`, node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs) is classified `SPAWN_FAILED`, asserted by a test in tests/unit/pod/errors.test.ts. At fa113f2 the bare `resume` alternative in the regex at src/main/pod/errors.ts:63 classifies it `RESUME_FAILED`. The test is shown able to fail (test discipline, Coverage: 'A test is shown able to fail'): restoring the bare `resume` alternative at that one regex site turns it red, with the command and failure reported.",
+        "With a resume requested, a message of the same SDK shape whose stderr tail is the CLI 2.1.235 string `No conversation found with session ID: 30f2c781-82d3-404f-a84b-c551e77ae658` is classified `RESUME_FAILED`, asserted by its own test. PRESERVED behaviour (already true at fa113f2); shown able to fail by removing from the regex the alternative that accepts this wording.",
+        "With a resume requested, a message of the same SDK shape whose stderr tail is the CLI 2.1.235 string `Session not found in any project directory` is classified `RESUME_FAILED`, asserted by its own test. PRESERVED behaviour (already true at fa113f2); shown able to fail by removing from the regex the alternative that accepts this wording.",
+        "With a resume requested, a message of the same SDK shape whose stderr tail is the CLI 2.1.235 string `Error: Invalid session ID. Must be a valid UUID.` is classified `RESUME_FAILED`, asserted by its own test. PRESERVED behaviour (already true at fa113f2); shown able to fail by removing from the regex the alternative that accepts this wording.",
+        "With a resume requested, a message of the same SDK shape whose stderr tail is the CLI 2.1.235 string `Invalid session_id: contains unsafe characters` is classified `RESUME_FAILED`, asserted by its own test. PRESERVED behaviour (already true at fa113f2); shown able to fail by removing from the regex the alternative that accepts this wording.",
+        "With a resume requested, a message of the same SDK shape whose stderr tail is `session started; working directory not found` (the word `session` and the phrase `not found` in unrelated clauses) is classified `SPAWN_FAILED`, asserted by a test. At fa113f2 the unbounded `session .*not found` alternative at src/main/pod/errors.ts:63 classifies it `RESUME_FAILED`. Shown able to fail against that unbounded alternative, with the command and failure reported.",
+        "The existing tests at tests/unit/pod/errors.test.ts:87-96 (`No conversation found to resume` with a resume id -> `RESUME_FAILED`) and :98-105 (the same message on a fresh Pod -> `SPAWN_FAILED`) remain with their messages and expected codes unchanged and pass. PRESERVED behaviour.",
+        "The docblock of `classifyStartupFailure` (src/main/pod/errors.ts:52-59 at fa113f2) no longer describes the match as broad, and states that `RESUME_FAILED` requires both a requested resume and CLI wording that names the session, which is what the caller's docblock at src/main/pod-manager/pod-manager.ts:671-673 already states. At fa113f2 it reads 'the match is deliberately broad'.",
+        "`classifyStartupFailure`'s exported signature `(err: unknown, resumeRequested: boolean): PodRunnerError` is unchanged, so its three call sites in src/main/pod/pod-runner.ts (:200, :210, :285 at fa113f2) compile untouched. PRESERVED behaviour."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Clear the abandoned ccSessionId before the fresh retry in #startFreshAfterRejectedResume",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/pod-manager.ts",
+        "tests/unit/pod-manager/resume.test.ts",
+        "tests/unit/pod-manager/helpers.ts",
+        "src/shared/contracts/events.ts",
+        "src/shared/contracts/ipc.ts",
+        "src/main/pod-session/remover.ts",
+        "src/renderer/src/pods/DeletePodDialog.tsx"
+      ],
+      "acceptance": [
+        "After `openPod` on a Pod stored with `ccSessionId: 'cc-gone'` whose first start rejects with `RESUME_FAILED` and whose retry comes up, and before any `onSessionId` is delivered, the stored Pod's `ccSessionId` (read through the harness's raw store) is `null`, asserted by a test in tests/unit/pod-manager/resume.test.ts. At fa113f2 it is still `'cc-gone'`, because `#startFreshAfterRejectedResume` (src/main/pod-manager/pod-manager.ts:713-732) never writes it. Shown red against the unfixed code (red step or injected defect), with the command and failure reported (test discipline, Coverage: 'A bug fix arrives with the test that reproduces it').",
+        "In that same state (fallback done, no `onSessionId` yet), `closePod` then `openPod` builds a runner whose `options.resume` is `undefined`, asserted by a test. At fa113f2 `#start(pod, true)` reads the stored `'cc-gone'` (pod-manager.ts:598) and sends it. Shown red against the unfixed code.",
+        "In that same close-and-reopen scenario, driven by a runner double that rejects any start carrying `resume: 'cc-gone'` with `RESUME_FAILED` and accepts a start with no `resume` (modelling the CLI refusing the same id again), the Pod's count of `resume_fallback` notices is exactly 1 after the reopen and the reopened Pod's status is `idle`, asserted by a test. At fa113f2 the reopen re-sends `'cc-gone'`, is rejected, falls back again, and the count is 2. Shown red against the unfixed code. (A double that fails regardless of `resume` cannot make this observation, because it fails the fixed code's resume-less start too.)",
+        "In that same state (fallback done, no `onSessionId` yet), `reconnectPod` builds a runner whose `options.resume` is `undefined`, asserted by a test. At fa113f2 `reconnectPod` (pod-manager.ts:479-484) re-reads the store and sends `'cc-gone'`. Shown red against the unfixed code.",
+        "After `openPod` on a Pod stored with `ccSessionId: 'cc-gone'` whose first start rejects with `RESUME_FAILED` and whose retry ALSO fails (the scenario of resume.test.ts:228-242), the stored Pod is `beached` and its `ccSessionId` is `null`, asserted by a test. At fa113f2 it is `'cc-gone'`. Shown red against the unfixed code.",
+        "After that failed retry, a `reconnectPod` on the beached Pod builds a runner whose `options.resume` is `undefined` (a null id starts fresh, `#start`'s guard at pod-manager.ts:598), asserted by a test. At fa113f2 it sends `'cc-gone'`. Shown red against the unfixed code.",
+        "The clear happens BEFORE the retry starts, per the orchestrator's resolved decision for this session (unknown 2: clear before `#start(pod, false)`): at the moment the retry runner's `start()` is invoked, the stored Pod's `ccSessionId` is already `null`, asserted by a test that reads the store from inside that `start()` call. An implementation that clears only after a successful retry fails this and the failed-retry criterion above. Shown red against the unfixed code.",
+        "The `resume_fallback` notice still records the rejected id: its `abandonedCcSessionId` is `'cc-gone'` (resume.test.ts:158 at fa113f2), and that existing assertion passes unmodified. PRESERVED behaviour.",
+        "After the fresh run's `onSessionId('cc-new')`, a close and reopen resumes `'cc-new'` with the notice count still 1 (resume.test.ts:161-181 at fa113f2), and that existing test passes unmodified. PRESERVED behaviour.",
+        "The docblock of `#startFreshAfterRejectedResume` (pod-manager.ts:697-712 at fa113f2) states that the stored `ccSessionId` is cleared before the retry, why (a reopen in the window must not re-send a rejected id, and a retry that fails must not leave one on a beached Pod), and that the rejected id survives only as the notice's `abandonedCcSessionId`. At fa113f2 it says nothing about the stored id.",
+        "The docblock at pod-manager.ts:668-677 and the guard at :678 still state and implement the narrow test: `RESUME_FAILED` is acted on only when a resume id was supplied and the CLI's wording names the session; neither half is widened. PRESERVED behaviour (agreement with T1's narrowed regex and docblock is what T1's docblock criterion establishes from the other side).",
+        "The `ccSessionId` doc comment at src/shared/contracts/events.ts:199 (at fa113f2: `null before first turn`) states that the id is null both before the Pod's first turn and after the CLI rejected a resume of it (until the fresh session's first id arrives). Comment-only: `git diff fa113f2 -- src/shared/contracts/events.ts` changes no non-comment token. (Gate 2 decision.)",
+        "The `'no-session'` description at src/shared/contracts/ipc.ts:188-189 (at fa113f2: `the Pod never reached its first turn, so there is nothing on disk`) also names the rejected-resume case. Comment-only: `git diff fa113f2 -- src/shared/contracts/ipc.ts` changes no non-comment token. (Gate 2 decision.)",
+        "The comment at src/main/pod-session/remover.ts:55-56 (at fa113f2: `Null before the Pod's first turn`) also names the rejected-resume case. Comment-only: `git diff fa113f2 -- src/main/pod-session/remover.ts` changes no non-comment token. (Gate 2 decision.)",
+        "The comment at src/renderer/src/pods/DeletePodDialog.tsx:98-99 (at fa113f2: `ccSessionId is null for a Pod that never reached its first turn`) also names the rejected-resume case. Comment-only: `git diff fa113f2 -- src/renderer/src/pods/DeletePodDialog.tsx` changes no non-comment token, and the renderer hygiene/wording tests that scan this file still pass. (Gate 2 decision.)"
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Trim three closed backlog lines and run the repo-wide gate",
+      "agent": "sir-architect",
+      "domain": "architecture",
+      "owns": [
+        ".sir/backlog.md"
+      ],
+      "dependsOn": ["T1", "T2"],
+      "acceptance": [
+        "The backlog item at .sir/backlog.md:27 at fa113f2 (`Replace the process.cwd() census root in six test files ...`, session 2026-10-16-orcastrate-keyword-hairline-sweep) is absent, and the task report cites the evidence it closed at merge 77f8fd4: the commit that made the change, and a search for `process.cwd()` over the six named files returning 0, with a positive control showing the same search finds a known occurrence elsewhere.",
+        "The backlog item at .sir/backlog.md:41 at fa113f2 (`Make the retired-test-id exemption self-check ... prove purpose rather than presence`) is absent, and the task report cites the commit reachable from 77f8fd4 that closed it and the file:line in src/renderer/src/__tests__/hygiene.test.ts where the purpose check now lives.",
+        "The backlog item at .sir/backlog.md:46 at fa113f2 (`Either narrow the BORDER_PROPERTIES docblock ...`) is absent, and the task report cites the commit reachable from 77f8fd4 that narrowed the docblock and the file:line of the narrowed docblock in src/renderer/src/__tests__/hygiene.test.ts.",
+        "The backlog item at .sir/backlog.md:47 at fa113f2 (`Make retiredLiteralUseReport ... count total and absent on the same quote-delimited match`) is still present, byte-identical. PRESERVED behaviour.",
+        "The backlog items at .sir/backlog.md:23 (`Narrow the RESUME_FAILED classifier at src/main/pod/errors.ts:63 ...`) and :24 (`Clear the abandoned ccSessionId in #startFreshAfterRejectedResume ...`) at fa113f2 are absent, and the task report cites T1's commit and T2's commit on this session branch as what closed them. (Gate 2 decision: this session closes them, so it removes them.)",
+        "`git diff fa113f2 -- .sir/backlog.md` in the worktree shows exactly five deleted lines (:23, :24, :27, :41, :46 at fa113f2) and zero added lines; every other line is unchanged.",
+        "`npm test` run in the worktree, with T1 and T2 committed, exits 0, and the report names the file and test totals vitest printed (with a populated node_modules; if the suite cannot run, the criterion is reported unavailable, never substituted).",
+        "`npm run typecheck` run in the worktree, with T1 and T2 committed, exits 0 for both `typecheck:node` (which includes tests/**) and `typecheck:web`."
+      ]
+    }
+  ]
+}
