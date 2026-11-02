@@ -226,8 +226,8 @@ export function PodTab({
 
           The motion stays the THIRD carrier of meaning, after the status word
           and the dot's SHAPE: the `srOnly` sentence below still opens with
-          `STATUS_LABEL[status]`, and `prefers-reduced-motion: reduce` stops the
-          pulse without taking the dot away.
+          `POD_STATUS_LABEL[status]`, and `prefers-reduced-motion: reduce`
+          stops the pulse without taking the dot away.
 
           `'running'` alone animates, and NOT `'waiting'`. That state means the
           Pod is blocked on the USER; it already carries the busiest dot shape

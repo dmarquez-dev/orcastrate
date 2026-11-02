@@ -295,7 +295,7 @@ export interface LaneRowVm {
   /** `lane.kind === 'matriarch'`. Pinned to the top of the rail. */
   isMatriarch: boolean;
   /**
-   * AMENDMENT (`contracts/renderer-panes.ts` section 3). The four fields below
+   * AMENDMENT (`contracts/renderer-panes.ts` section 3). The three fields below
    * REPLACE the deleted `selected` and `pinned`.
    *
    * `lane.id === primaryLaneId`. True for exactly one row, and today that row

@@ -416,14 +416,22 @@ export interface HelmView extends Loadable<HelmScope[]> {
    *   - `discard()` — the pending edit is gone, so there is nothing to compare.
    *   - a SUCCESSFUL `save()` — the write resolved the divergence, and
    *     `HelmSaveResult.document` is the new truth.
+   *   - a FAILED `compare()` — the "or the last request failed" case above:
+   *     when the load `compare()` issues fails, any earlier read is cleared
+   *     rather than left in place, since a comparison against contents no
+   *     longer known to be current is worse than none. A `compare()` refused
+   *     before it issues the load (no bridge, no selected scope) does not
+   *     reach this and leaves `incoming` alone.
    *   - the PANEL-CLOSE WHOLE-STATE RESET.
    *     ADDED by session `2026-10-09-orcastrate-theme-contract-decisions`.
-   *     When `helmMounts` reaches 0, `resetHelmForReopen` replaces the WHOLE
-   *     Helm state via `newHelmState(null)`, so `incoming` goes null
-   *     alongside `document` and `draft`. This one is not a targeted clear of
-   *     `incoming` like the four above; it is wholesale replacement, and
-   *     `incoming` falls with everything else. It is named here because the
-   *     list claims to be exhaustive, and without it that claim was false.
+   *     When `helmMounts` reaches 0 AND Helm's `phase` is not `'idle'`,
+   *     `resetHelmForReopen` replaces the WHOLE Helm state via
+   *     `newHelmState(null)`, so `incoming` goes null alongside `document` and
+   *     `draft`. When `phase` is `'idle'` the reset leaves the Helm state as it
+   *     is. This one is not a targeted clear of `incoming` like the five
+   *     above; it is wholesale replacement, and `incoming` falls with
+   *     everything else. It is named here because the list claims to be
+   *     exhaustive, and without it that claim was false.
    *
    * A FAILED `save()` DOES NOT CLEAR IT. A CONFLICT is exactly when the
    * comparison matters most: the draft survives — `save()`'s docblock
