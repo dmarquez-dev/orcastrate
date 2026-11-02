@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import type { PodRunnerErrorCode } from '../../../src/shared/contracts/pod-runner';
 import { PodRunnerError as ContractPodRunnerError } from '../../../src/shared/contracts/pod-runner';
 import { createPodRunnerWith, PodRunnerError } from '../../../src/main/pod';
+import { classifyStartupFailure } from '../../../src/main/pod/errors';
 import { makeFakeSdk, podOptions, recordHandlers, tick } from './helpers';
 
 const ALL_CODES: PodRunnerErrorCode[] = [
@@ -151,6 +152,62 @@ describe('every documented error code is reachable (criterion 9)', () => {
   it('covers every code in the contract union', () => {
     // Guard against a code being added to the contract with no provocation.
     expect(ALL_CODES).toHaveLength(5);
+  });
+});
+
+/**
+ * `classifyStartupFailure` must return `RESUME_FAILED` only when the CLI's
+ * wording names the session. The pod manager reads that code as "start fresh
+ * instead", so a false positive turns a dead binary into a silent new session.
+ *
+ * Messages take the shape the SDK builds: `getProcessExitError`'s
+ * `Claude Code process exited with code N` followed by `formatStderrTail`'s
+ * `. stderr: <tail>` (node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs).
+ */
+describe('classifyStartupFailure with a resume requested', () => {
+  const sdkExit = (stderrTail: string): Error =>
+    new Error(`Claude Code process exited with code 1. stderr: ${stderrTail}`);
+
+  it('a spawn failure that merely mentions "resume" is SPAWN_FAILED', () => {
+    const err = classifyStartupFailure(sdkExit('failed to resume: spawn ENOENT'), true);
+    expect(err.code).toBe('SPAWN_FAILED');
+  });
+
+  it('"session" and "not found" in unrelated clauses is SPAWN_FAILED', () => {
+    const err = classifyStartupFailure(
+      sdkExit('session started; working directory not found'),
+      true,
+    );
+    expect(err.code).toBe('SPAWN_FAILED');
+  });
+
+  it('CLI 2.1.235 "No conversation found with session ID" is RESUME_FAILED', () => {
+    const err = classifyStartupFailure(
+      sdkExit('No conversation found with session ID: 30f2c781-82d3-404f-a84b-c551e77ae658'),
+      true,
+    );
+    expect(err.code).toBe('RESUME_FAILED');
+  });
+
+  it('"Session not found in any project directory" is RESUME_FAILED', () => {
+    const err = classifyStartupFailure(sdkExit('Session not found in any project directory'), true);
+    expect(err.code).toBe('RESUME_FAILED');
+  });
+
+  it('"Invalid session ID. Must be a valid UUID." is RESUME_FAILED', () => {
+    const err = classifyStartupFailure(
+      sdkExit('Error: Invalid session ID. Must be a valid UUID.'),
+      true,
+    );
+    expect(err.code).toBe('RESUME_FAILED');
+  });
+
+  it('"Invalid session_id: contains unsafe characters" is RESUME_FAILED', () => {
+    const err = classifyStartupFailure(
+      sdkExit('Invalid session_id: contains unsafe characters'),
+      true,
+    );
+    expect(err.code).toBe('RESUME_FAILED');
   });
 });
 
