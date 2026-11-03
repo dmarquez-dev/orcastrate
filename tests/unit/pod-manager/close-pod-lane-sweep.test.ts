@@ -33,29 +33,11 @@ function harness(): ManagerHarness {
   return made;
 }
 
+// The never-empty `podEvent` rule — a push hoisted above `#stopRunningLanes`'
+// `stoppedLaneIds.length === 0` guard, say — is enforced by the harness itself,
+// in `dispose()`, over `attempted` rather than `pushed`. See `helpers.ts`.
 afterEach(async () => {
-  while (harnesses.length > 0) {
-    const made = harnesses.pop();
-    // SUITE-WIDE: `PodManager` may never CALL `podEvent` with an empty `events`
-    // array. That channel means "something arrived", and a redundant close that
-    // announced nothing would hand the renderer's merge nothing to merge.
-    //
-    // Read from `attempted`, NOT from `pushed`: `createPushes` drops an empty
-    // batch before `send`, so `pushed` cannot tell a manager that never made
-    // the call from one that made it and had it swallowed one layer down. The
-    // second is the defect this guards — a `#stopRunningLanes` whose
-    // correctness would rest on a filter it does not own. `attempted` is
-    // recorded above that filter, so a push hoisted above the
-    // `stoppedLaneIds.length === 0` guard fails here wherever it was added.
-    for (const entry of made?.attempted ?? []) {
-      if (entry.channel !== EVENT_CHANNELS.podEvent) continue;
-      expect(
-        (entry.payload as PodEventPush).events.length,
-        'a podEvent push carried an empty events array',
-      ).toBeGreaterThan(0);
-    }
-    await made?.dispose();
-  }
+  while (harnesses.length > 0) await harnesses.pop()?.dispose();
 });
 
 /** A Pod as a previous turn left it: open, with two running lanes and one done. */
@@ -317,11 +299,11 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     const firstEndedAt = h.raw.getLane(matriarchId)?.endedAt;
     const firstCalfEndedAt = h.raw.getLane(runningCalfId)?.endedAt;
     const firstEventCount = eventsFor(h, podId).length;
-    const firstLaneChanged = h.pushesOn<LaneChangedPush>(EVENT_CHANNELS.laneChanged).length;
-    const firstPodEvent = h.pushesOn<PodEventPush>(EVENT_CHANNELS.podEvent).length;
-    // The first close DID announce something, so the count below is a real
-    // "no more" and not the trivially-satisfied "never any".
-    expect(firstPodEvent, 'the first stop pushed no podEvent').toBeGreaterThan(0);
+    const firstCounts = h.attemptedCounts();
+    // The first close DID announce something, so the zero deltas below are a
+    // real "no more" and not the trivially-satisfied "never any".
+    expect(firstCounts[EVENT_CHANNELS.podEvent], 'the first stop pushed no podEvent').toBeGreaterThan(0);
+    expect(firstCounts[EVENT_CHANNELS.laneChanged], 'the first stop pushed no laneChanged').toBeGreaterThan(0);
 
     // The clock advances on every read, so a restamp would be visible as a
     // different ISO string rather than as a coincidence.
@@ -334,11 +316,27 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     expect(h.raw.getLane(matriarchId)?.status).toBe('stopped');
     expect(eventsFor(h, podId)).toHaveLength(firstEventCount);
     expect(laneClosedEvents(h, podId)).toHaveLength(2);
-    expect(h.pushesOn<LaneChangedPush>(EVENT_CHANNELS.laneChanged)).toHaveLength(firstLaneChanged);
-    // A second close sweeps nothing, so it announces nothing — on the new
-    // channel too. Counted against the real store, never against a spy told to
-    // expect one call.
-    expect(h.pushesOn<PodEventPush>(EVENT_CHANNELS.podEvent)).toHaveLength(firstPodEvent);
+    // What the second close ATTEMPTED, per channel, over EVERY channel a
+    // `Pushes` method maps to — one whole-record equality, so a push on a
+    // channel this test never named is counted all the same. It sweeps
+    // nothing, so `laneChanged` and `podEvent` stay put. It does re-push
+    // `podStatus`: a 'closed' Pod passes `closePod`'s `!== 'beached'` check,
+    // so the 'closed' write and its push run again. That is the measured
+    // behaviour, stated rather than left uncounted.
+    const secondCounts = h.attemptedCounts();
+    const delta = Object.fromEntries(
+      Object.entries(secondCounts).map(([channel, count]) => [
+        channel,
+        count - (firstCounts[channel] ?? 0),
+      ]),
+    );
+    expect(delta).toEqual({
+      [EVENT_CHANNELS.podEvent]: 0,
+      [EVENT_CHANNELS.podStatus]: 1,
+      [EVENT_CHANNELS.laneChanged]: 0,
+      [EVENT_CHANNELS.permissionRequested]: 0,
+      [EVENT_CHANNELS.permissionResolved]: 0,
+    });
     expect(h.raw.getPod(podId)?.status).toBe('closed');
   });
 });

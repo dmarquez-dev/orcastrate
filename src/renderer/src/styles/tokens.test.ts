@@ -26,6 +26,41 @@ function stripComments(css: string): string {
   return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
+/**
+ * The index of the `}` that closes the block whose `{` sits at `openIndex`,
+ * found by MATCHING BRACES rather than by taking the first `}` after it. A
+ * brace inside a quoted string (a `content`-style token value, say) is text,
+ * not structure, so strings are skipped whole, backslash escapes included.
+ * Returns -1 when the block never closes. Comments are the caller's to strip.
+ */
+function closingBraceIndex(text: string, openIndex: number): number {
+  let depth = 0;
+  for (let i = openIndex; i < text.length; i += 1) {
+    const ch = text[i];
+    if (ch === '"' || ch === "'") {
+      for (i += 1; i < text.length && text[i] !== ch; i += 1) {
+        if (text[i] === '\\') i += 1;
+      }
+      continue;
+    }
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return -1;
+}
+
+/** The text between the `:root` block's braces, exclusive of both. */
+function rootBody(text: string): string {
+  const rootIndex = text.indexOf(':root');
+  const openIndex = rootIndex < 0 ? -1 : text.indexOf('{', rootIndex);
+  const closeIndex = openIndex < 0 ? -1 : closingBraceIndex(text, openIndex);
+  if (closeIndex < 0) throw new Error('no closed :root block');
+  return text.slice(openIndex + 1, closeIndex);
+}
+
 const source = stripComments(tokensCss);
 const declaredNames = [...source.matchAll(/(^|[;{])\s*(--[\w-]+)\s*:/g)].map((m) => m[2] as string);
 const expectedNames = Object.values(TOKENS) as string[];
@@ -51,12 +86,50 @@ describe('tokens.css', () => {
     const rootBlocks = [...source.matchAll(/:root\s*\{/g)];
     expect(rootBlocks).toHaveLength(1);
     // Every declaration must sit inside that one block.
-    const openIndex = source.indexOf('{', source.indexOf(':root'));
-    const closeIndex = source.indexOf('}', openIndex);
-    const body = source.slice(openIndex, closeIndex);
+    const body = rootBody(source);
     for (const name of expectedNames) {
       expect(body.includes(`${name}:`), `${name} is not inside :root`).toBe(true);
     }
+  });
+
+  it('ends the :root body at its matching brace, not at a } inside a quoted token value', () => {
+    const fixture = [
+      ':root {',
+      "  --fx-early: '}';",
+      '  --fx-quoted: "a } b \\" }";',
+      '  --fx-late: 1;',
+      '}',
+    ].join('\n');
+    const body = rootBody(fixture);
+    const missing = ['--fx-early', '--fx-quoted', '--fx-late'].filter(
+      (name) => !body.includes(`${name}:`),
+    );
+    expect(missing, 'declarations that fell outside the :root body').toEqual([]);
+
+    // The first-`}` reading this replaced, run on the same fixture: it stops
+    // inside the first quoted value and loses every declaration after it.
+    const openIndex = fixture.indexOf('{');
+    const firstBrace = fixture.slice(openIndex, fixture.indexOf('}', openIndex));
+    expect(firstBrace.includes('--fx-late:')).toBe(false);
+  });
+
+  it('never extends the :root body past its own close', () => {
+    const fixture = [
+      ':root {',
+      '  --fx-inside: 1;',
+      '}',
+      '',
+      '.after {',
+      '  --fx-outside: 2;',
+      '}',
+    ].join('\n');
+    const body = rootBody(fixture);
+    expect(body.includes('--fx-inside:')).toBe(true);
+    expect(body.includes('--fx-outside:'), '--fx-outside read as inside :root').toBe(false);
+  });
+
+  it('reports a :root block that never closes, rather than reading to end of file', () => {
+    expect(() => rootBody(":root {\n  --fx-open: '}';\n")).toThrow(/no closed :root block/);
   });
 
   it('has no TOKENS entry that duplicates another token name', () => {

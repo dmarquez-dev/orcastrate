@@ -323,3 +323,175 @@ describe('each status has its own dot shape', () => {
     expect(body).toMatch(/border-radius:\s*0/);
   });
 });
+
+/**
+ * THE STYLESHEET'S OWN DOCBLOCK, ENFORCED. `PodBar.module.css:1-8` makes three
+ * claims — the border widths, `.bypassBadge`'s tracking, and exactly which two
+ * declarations still carry a bare length — and each is held below.
+ *
+ * The walk is per DECLARATION over the comment-stripped sheet, using the same
+ * innermost-braces reading as `ruleFor`, so a length in a comment (the
+ * docblock's own prose, the tab-height remark above `.bypassBadge`) is never a
+ * declaration and never counted.
+ */
+interface Declaration {
+  readonly selector: string;
+  readonly property: string;
+  readonly value: string;
+}
+
+function declarationsOf(text: string): Declaration[] {
+  const found: Declaration[] = [];
+  for (const match of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = (match[1] as string).trim().replace(/\s+/g, ' ');
+    for (const one of (match[2] as string).split(';')) {
+      const colon = one.indexOf(':');
+      if (colon < 0) continue;
+      found.push({
+        selector,
+        property: one.slice(0, colon).trim().toLowerCase(),
+        value: one.slice(colon + 1).trim(),
+      });
+    }
+  }
+  return found;
+}
+
+/**
+ * A bare `px`, `rem` or `em` length, negative ones included (`margin: -1px` is
+ * a form this tree writes). The lookbehind keeps a digit or hyphen that is part
+ * of an identifier (`--oc-space-1`) from starting a match, and the optional
+ * sign sits AFTER it, so a minus that follows whitespace or `(` is read as a
+ * sign; the unit list and its word boundary keep a `1.4s` duration and a
+ * unitless `0.5` out.
+ */
+const BARE_LENGTH = /(?<![\w.-])-?(?:\d+(?:\.\d+)?|\.\d+)(?:px|rem|em)\b/;
+
+const bareLengthSites = (text: string): string[] =>
+  declarationsOf(text)
+    .filter((one) => BARE_LENGTH.test(one.value))
+    .map((one) => `${one.selector} { ${one.property} }`);
+
+describe("the docblock's bare-length claim: exactly two box-shadow declarations", () => {
+  const DROP_TARGET = '.tabItemDropTarget';
+  const WAITING_DOT = ".statusDot[data-status='waiting']";
+
+  it('the matcher takes the drop-target edge and skips a token digit, a duration, a unitless opacity and a commented length', () => {
+    // MUST MATCH: the declaration at `.tabItemDropTarget`, read from the sheet.
+    const dropTarget = declarationsOf(css).find(
+      (one) => one.selector === DROP_TARGET && one.property === 'box-shadow',
+    );
+    expect(dropTarget).toBeDefined();
+    expect(BARE_LENGTH.test(dropTarget?.value ?? '')).toBe(true);
+    // And each unit on its own.
+    expect(BARE_LENGTH.test('2' + 'px')).toBe(true);
+    expect(BARE_LENGTH.test('1' + 'rem')).toBe(true);
+    expect(BARE_LENGTH.test('0.5' + 'em')).toBe(true);
+    // And a negative length, the form a sign-blind lookbehind would miss.
+    expect(BARE_LENGTH.test('-1' + 'px')).toBe(true);
+    expect(bareLengthSites('.a { margin: -1' + 'px; }')).toEqual(['.a { margin }']);
+
+    // MUST NOT MATCH. The token digit, the pulse duration, and the drag opacity.
+    expect(BARE_LENGTH.test('var(--oc-space-1)')).toBe(false);
+    expect(BARE_LENGTH.test(ruleFor(".statusDot[data-status='running']") ?? '')).toBe(false);
+    expect(ruleFor(".statusDot[data-status='running']")).toMatch(/\b1\.4s\b/);
+    expect(BARE_LENGTH.test(ruleFor('.tabItemDragging') ?? '')).toBe(false);
+    expect(ruleFor('.tabItemDragging')).toMatch(/opacity:\s*0\.5/);
+
+    // The comment's length: present in the raw sheet, matched by the bare
+    // pattern, and absent from every declaration the walk reads.
+    const commented = '38' + 'px';
+    expect(podBarCss).toContain(commented);
+    expect(BARE_LENGTH.test(commented)).toBe(true);
+    expect(declarationsOf(css).filter((one) => one.value.includes(commented))).toEqual([]);
+  });
+
+  it('finds a bare length in exactly the two box-shadow declarations the docblock names, and nowhere else', () => {
+    expect(bareLengthSites(css)).toEqual([
+      `${DROP_TARGET} { box-shadow }`,
+      `${WAITING_DOT} { box-shadow }`,
+    ]);
+  });
+});
+
+/**
+ * Border-width properties, both physical and logical, and the `-width`
+ * longhands of each. `border-radius`, `-color`, `-style` and `-spacing` carry
+ * no width and are not listed.
+ */
+const BORDER_SHORTHANDS = [
+  'border',
+  'border-top',
+  'border-right',
+  'border-bottom',
+  'border-left',
+  'border-block',
+  'border-block-start',
+  'border-block-end',
+  'border-inline',
+  'border-inline-start',
+  'border-inline-end',
+];
+const BORDER_WIDTH_LONGHANDS = BORDER_SHORTHANDS.map((prop) => `${prop}-width`);
+
+const WIDTH_TOKENS = ['var(--oc-border-hairline)', 'var(--oc-border-thick)'];
+
+/** Whitespace-separated terms of a value, a `var(...)` kept whole. */
+const termsOf = (value: string): string[] => value.match(/var\([^()]*\)|[^\s]+/g) ?? [];
+
+/**
+ * True when a border-width-bearing declaration states its width as one of the
+ * two width tokens or as a bare `0` reset. A shorthand must carry exactly one
+ * width token as a term; a longhand must BE one. Anything else — a raw length,
+ * a `thin` keyword, a token of the wrong family — is an offender.
+ */
+function borderWidthIsTokenised(property: string, value: string): boolean {
+  if (value === '0') return true;
+  if (BORDER_WIDTH_LONGHANDS.includes(property)) return WIDTH_TOKENS.includes(value);
+  return termsOf(value).filter((term) => WIDTH_TOKENS.includes(term)).length === 1;
+}
+
+const borderWidthOffenders = (text: string): string[] =>
+  declarationsOf(text)
+    .filter((one) => [...BORDER_SHORTHANDS, ...BORDER_WIDTH_LONGHANDS].includes(one.property))
+    .filter((one) => !borderWidthIsTokenised(one.property, one.value))
+    .map((one) => `${one.selector} { ${one.property}: ${one.value} }`);
+
+describe("the docblock's border-width claim: hairline, thick, or a bare 0", () => {
+  it('the predicate flags a raw length, a keyword and a wrong-family token, and passes both width tokens and 0', () => {
+    expect(borderWidthOffenders('.a { border: 1' + 'px solid var(--oc-border); }')).toHaveLength(1);
+    expect(borderWidthOffenders('.a { border: thin solid var(--oc-border); }')).toHaveLength(1);
+    expect(borderWidthOffenders('.a { border: var(--oc-space-1) solid red; }')).toHaveLength(1);
+    expect(borderWidthOffenders('.a { border-width: 2' + 'px; }')).toHaveLength(1);
+
+    expect(
+      borderWidthOffenders('.a { border: var(--oc-border-hairline) solid var(--oc-border); }'),
+    ).toEqual([]);
+    expect(borderWidthOffenders('.a { border-width: var(--oc-border-thick); }')).toEqual([]);
+    expect(borderWidthOffenders('.a { border: 0; }')).toEqual([]);
+    expect(borderWidthOffenders('.a { border-radius: 4' + 'px; }')).toEqual([]);
+  });
+
+  it('states every border width in PodBar.module.css as --oc-border-hairline, --oc-border-thick or a bare 0', () => {
+    // Non-vacuous: the population holds all three permitted shapes.
+    const population = declarationsOf(css).filter((one) =>
+      [...BORDER_SHORTHANDS, ...BORDER_WIDTH_LONGHANDS].includes(one.property),
+    );
+    expect(population.some((one) => one.value.startsWith('var(--oc-border-hairline)'))).toBe(true);
+    expect(population.some((one) => one.value === 'var(--oc-border-thick)')).toBe(true);
+    expect(population.some((one) => one.value === '0')).toBe(true);
+
+    expect(borderWidthOffenders(css)).toEqual([]);
+  });
+});
+
+describe("the docblock's tracking claim", () => {
+  it('tracks the bypass badge with --oc-tracking-wide and no other token', () => {
+    // `hygiene.test.ts`'s tracking census accepts ANY `--oc-tracking-*` token,
+    // so it would pass `--oc-tracking-tight` here. This pins the one named.
+    const value = declarationsOf(css).find(
+      (one) => one.selector === '.bypassBadge' && one.property === 'letter-spacing',
+    )?.value;
+    expect(value).toBe('var(--oc-tracking-wide)');
+  });
+});

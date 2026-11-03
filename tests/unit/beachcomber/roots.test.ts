@@ -6,7 +6,7 @@
  * unreadable", which must cost the user that root and nothing else.
  */
 
-import { writeFileSync } from 'node:fs';
+import { statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -126,8 +126,11 @@ describe('per-entry measurement', () => {
     const scan = await createBeachcomberService(makeDeps(home)).scan();
     const entry = entryNamed(scan, 'C--work-measured');
 
-    const transcriptBytes = entry.sizeBytes - 15;
-    expect(transcriptBytes).toBeGreaterThan(0);
+    // Exactly the three files beneath the entry, the nested one included. A
+    // lower bound would stay true if the nested subtree stopped being summed,
+    // because the transcript alone is larger than the 15 bytes it would lose.
+    const transcriptBytes = statSync(join(project, 'session-a.jsonl')).size;
+    expect(entry.sizeBytes).toBe(transcriptBytes + 5 + 10);
     expect(entry.fileCount).toBe(3);
     expect(entry.lastModified).toBe('2026-06-15T09:30:00.000Z');
   });

@@ -17,6 +17,8 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, wr
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 
+import { vi } from 'vitest';
+
 import type {
   HelmChangedPush,
   HelmSaveRequest,
@@ -189,11 +191,25 @@ export async function catchIpcFailure(fn: () => Promise<unknown>): Promise<IpcFa
   throw new Error('expected an IpcFailure, but the call resolved');
 }
 
-/** Lets pending `setImmediate` work (the watcher's coalescing) run to quiescence. */
-export async function settle(turns = 6): Promise<void> {
-  for (let i = 0; i < turns; i += 1) {
-    await new Promise<void>((resolve) => setImmediate(resolve));
-  }
+/**
+ * Resolves as soon as `condition()` holds. If it has not held within
+ * `timeoutMs`, rejects with an error naming `description`, so a push that never
+ * arrives fails legibly instead of running into vitest's per-test timeout
+ * (5000 ms by default; 2000 ms stays under it). How long the watcher took never
+ * decides the result — only whether the condition came to hold.
+ *
+ * Polling is `vi.waitFor`'s, so this file holds no timer of its own and the
+ * hygiene scan's no-sleep rule still covers it.
+ */
+export async function waitFor(condition: () => boolean, description: string, timeoutMs = 2000): Promise<void> {
+  await vi.waitFor(
+    () => {
+      if (!condition()) {
+        throw new Error(`timed out after ${timeoutMs} ms waiting for: ${description}`);
+      }
+    },
+    { timeout: timeoutMs, interval: 5 },
+  );
 }
 
 /** Tears down every service and temp tree. Call from `afterEach`. */
