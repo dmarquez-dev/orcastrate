@@ -22,10 +22,9 @@
  * Default `node` environment: nothing here needs a DOM. A Vite `?raw` text
  * import rather than `node:fs` — no file under `src/renderer/**` may import a
  * `node:` builtin, and `tsconfig.web.json` sets `"types": []` so that it
- * cannot. `activity/raw.d.ts` declares the form today; T3 moves that
- * declaration to `styles/raw.d.ts`. This file adds no second declaration —
- * two ambient `declare module '*.tsx?raw'` blocks in one program is a
- * duplicate declaration.
+ * cannot. `styles/raw.d.ts` declares the form. This file adds no second
+ * declaration — two ambient `declare module '*.tsx?raw'` blocks in one
+ * program is a duplicate declaration.
  */
 
 import { describe, expect, it } from 'vitest';

@@ -307,8 +307,9 @@ describe('the run control names the verb and, for a beached Pod, the cause', () 
 });
 /**
  * The status word each state puts in the tab's screen-reader sentence.
- * Duplicated from `PodTab`'s own `STATUS_LABEL` on purpose: a test that
- * imported the map would pass even if the map itself went blank.
+ * Duplicated on purpose from `POD_STATUS_LABEL`, which `pod-status.ts` exports
+ * and `PodTab` imports: a test that imported the map would pass even if the
+ * map itself went blank.
  *
  * `running` joined the map when the working indicator was collapsed into the
  * status dot: motion is now the only thing that distinguishes a running dot

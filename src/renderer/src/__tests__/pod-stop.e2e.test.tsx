@@ -477,7 +477,7 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe('stopping a running Pod from its tab', () => {
-  it('turns the Matriarch row from Running to Stopped and freezes its duration across two advances of the clock', async () => {
+  it('turns the Matriarch row from Idle to Stopped and freezes its duration across two advances of the clock', async () => {
     const user = userEvent.setup();
     const { world, stoppedLaneId, keptLaneId } = await stopScenario();
     const [stoppedPod, keptPod] = podIds(world);
