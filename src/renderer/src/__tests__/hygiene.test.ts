@@ -1177,8 +1177,10 @@ const RETIRED_LITERAL_EXEMPT_FILES: readonly string[] = [
  * and an exemption that only checked the literal was PRESENT would wave it
  * through as long as the file carried it at all.
  *
- * Returns null when the code carries at least one retired literal and every
- * occurrence of every retired literal sits inside an absence assertion;
+ * An occurrence is the retired literal as a whole quoted string — single,
+ * double or backtick — and not as a prefix of some longer id. Returns null
+ * when the code carries at least one such occurrence and every one of them
+ * sits inside an absence assertion;
  * otherwise a sentence saying which way it fails. Comments are the caller's to
  * strip, exactly as for every other rule in this file.
  */
@@ -1186,8 +1188,12 @@ function retiredLiteralUseReport(code: string, literals: readonly string[]): str
   let total = 0;
   let absent = 0;
   for (const literal of literals) {
-    total += code.split(literal).length - 1;
+    // `total` and `absent` count the SAME quote-delimited match, so an id
+    // that merely starts with a retired literal is no occurrence of it.
+    // Counting substrings here put that longer live id in `total` and never
+    // in `absent`, and an absence assertion beside it read as a violation.
     const quoted = `['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`;
+    total += [...code.matchAll(new RegExp(quoted, 'g'))].length;
     const absence = new RegExp(
       [
         `expect\\(\\s*(?:screen\\.)?queryAllByTestId\\(\\s*${quoted}\\s*\\)\\s*\\)\\s*\\.toHaveLength\\(\\s*0\\s*\\)`,
@@ -1270,6 +1276,34 @@ describe('the two rules added for previously undetectable failure modes', () => 
         RETIRED_TEST_ID_LITERALS,
       ),
     ).toBe('carries no retired literal in CODE');
+  });
+
+  it('counts a retired id only where it is the whole quote-delimited test id, never as the prefix of a longer live one', () => {
+    const retired = RETIRED_TEST_ID_LITERALS[0] as string;
+    // A live id that merely STARTS with the retired one, assembled from
+    // fragments like every other needle here so this file spells neither.
+    const live = `${retired}-` + 'handle';
+    const absence = `expect(screen.queryAllByTestId('${retired}')).toHaveLength(0);`;
+    const liveQuery = `expect(screen.getByTestId('${live}')).toBeInTheDocument();`;
+
+    // The absence assertion is the only occurrence of the retired id as an id;
+    // the live query names a different control and is not a use of it.
+    expect(retiredLiteralUseReport(`${absence}\n${liveQuery}`, RETIRED_TEST_ID_LITERALS)).toBeNull();
+
+    // Still reported: a presence query on the retired id itself, whichever
+    // quote delimits it.
+    expect(
+      retiredLiteralUseReport(
+        `expect(screen.getByTestId("${retired}")).toBeInTheDocument();`,
+        RETIRED_TEST_ID_LITERALS,
+      ),
+    ).toBe('uses a retired literal outside an absence assertion (1 of 1 code occurrences)');
+    expect(
+      retiredLiteralUseReport(
+        `expect(screen.getByTestId(\`${retired}\`)).toBeInTheDocument();`,
+        RETIRED_TEST_ID_LITERALS,
+      ),
+    ).toBe('uses a retired literal outside an absence assertion (1 of 1 code occurrences)');
   });
 
   it('finds no stray control byte anywhere under src/, tests/ or probe/', async () => {
