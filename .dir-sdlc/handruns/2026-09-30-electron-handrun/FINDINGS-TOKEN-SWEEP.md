@@ -18,6 +18,40 @@ of its own so this run neither races nor clobbers C3's, with
 `USERPROFILE`/`APPDATA`/`LOCALAPPDATA`/`TEMP` redirected by `driver/sandbox.mjs` — the
 real `~/.claude` was never read and never written.
 
+## Correction — 2026-11-02: three statements below that the driver and the report do not support
+
+**Everything below this section is left exactly as it stood before this correction was
+added**, including the 2026-10-20 correction that follows. This correction is additive: it
+records what a reading of this run's own driver and report shows, and changes neither. Line
+numbers are at `d500429`.
+
+**Harness defect 2 ("failing loudly on ambiguity instead of dropping the file") is half
+true.** The driver does fail loudly: for every stylesheet whose signature resolves to no
+single hash it fails the check `file hash resolved unambiguously for <file>` and records a
+harness fault (`driver/run-token-sweep.mjs:505-519`). But it still drops the file. The
+sweep-plan loop skips any stylesheet without a hash (`if (!h) continue;`,
+`driver/run-token-sweep.mjs:416`), and the harness fault's own text says so: `dropped from
+the sweep (HARNESS)` (`:517`). What the fix changed is that the drop is now reported, not
+that it no longer happens. In this run every one of the 7 stylesheets resolved
+(`driven-report-token-sweep.md:108-114`), so the drop path did not fire.
+
+**The cause given for the `0.8px` used width ("this display is fractionally scaled", in
+section 3) was not measured by this run.** The run's own report records the window's
+`devicePixelRatio` as `1.0000000149011612` (`driven-report-token-sweep.md:38`), which is not
+a fractional scale. The measured ladder (`1px` -> `0.8px`, ..., `5px` -> `4.8px`) stands as
+measured; its cause is unestablished. The same unsupported premise recurs in "One display,
+one engine" ("this fractionally-scaled display").
+
+**The driver's note that the window/bundle hash agreement "is re-checked at TS-4 where the
+rail renders" (`driver/run-token-sweep.mjs:501`) points to a check that never ran.** The
+TS-4 step (`:674-741`) contains no `.railHeading` hash comparison, and the only
+window/bundle hash comparison in the driver is the TS-0 check at `:494-495`, which runs only
+when a `.railHeading` is already in the DOM. This run's report records the note, not the
+check (`driven-report-token-sweep.md:119`), and no line of the report records the live
+element's class hash. The closing paragraph of "The build under test" — that the live
+element carries the same `_1h7yc_` hash as the bundle rule — therefore rests on a check
+this run did not execute. The driver is byte-frozen history and is not modified.
+
 ## Correction — 2026-10-20: one `not reached` verdict was an artefact of this run's own enumeration
 
 **Everything below this section is left exactly as this run recorded it**, because it is the
