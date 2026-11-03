@@ -134,6 +134,16 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
   };
 }
 
+/**
+ * A further service over an existing harness's deps — same clock, same files —
+ * tracked so `cleanupHelm` disposes it like the harness's own.
+ */
+export function anotherService(deps: HelmServiceDeps): HelmService {
+  const service = createHelmService(deps);
+  services.push(service);
+  return service;
+}
+
 /** Writes a settings file (creating its directory) as some OTHER writer would. */
 export function writeOutOfBand(path: string, contents: unknown): string {
   mkdirSync(join(path, '..'), { recursive: true });

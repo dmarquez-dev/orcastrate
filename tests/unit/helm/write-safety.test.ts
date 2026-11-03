@@ -12,7 +12,7 @@
  * says and would still pass, which is the failure mode the criterion names.
  */
 
-import { mkdirSync, copyFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, copyFileSync, existsSync, writeFileSync } from 'node:fs';
 import { dirname, relative } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -20,6 +20,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { backupPathFor, backupPathForSequence, tempPathFor, writeAtomic } from '../../../src/main/helm';
 
 import {
+  anotherService,
   catchIpcFailure,
   cleanupHelm,
   draftFrom,
@@ -162,6 +163,29 @@ describe('backup', () => {
     // document reflecting what was written.
     expect(first.document.managed.model).toBe('opus');
     expect(second.document.managed.model).toBe('haiku');
+  });
+
+  it('keeps two backups apart when two services save one file in the SAME millisecond', async () => {
+    const h = makeHarness();
+    // Same deps, so the same un-advanced clock and the same settings file. The
+    // ordinal is process-wide: a second service must not restart it at 0 and
+    // let its `copyFileSync` clobber the first service's backup.
+    const other = anotherService(h.deps);
+    const original = writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
+
+    const firstDoc = await h.service.load('user');
+    await h.service.save(draftFrom('user', firstDoc, { managed: { ...firstDoc.managed, model: 'opus' } }));
+    const savedByFirst = readText(h.userSettingsPath);
+
+    const secondDoc = await other.load('user');
+    await other.save(draftFrom('user', secondDoc, { managed: { ...secondDoc.managed, model: 'haiku' } }));
+
+    const zeroth = backupPathFor(h.userSettingsPath, h.clock());
+    const oneth = backupPathForSequence(h.userSettingsPath, h.clock(), 1);
+    expect(existsSync(zeroth)).toBe(true);
+    expect(existsSync(oneth)).toBe(true);
+    expect(readText(zeroth)).toBe(original);
+    expect(readText(oneth)).toBe(savedByFirst);
   });
 
   it('takes the deterministic first name again once the clock moves on', async () => {
