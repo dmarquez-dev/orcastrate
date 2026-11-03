@@ -44,7 +44,7 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * identical and this hash keeps the two suites citing one source.
  *
  * WRITING MIGRATION 5? IT GETS AN ENTRY HERE, at the commit that shipped it,
- * and its version joins the `it.each` list below. This map is the whole
+ * and its version joins the `it.for` list below. This map is the whole
  * tripwire: a migration missing from it is not "passing", it is simply not
  * being checked, and that silence is what let migration 1's live
  * `LANE_STATUSES` interpolation rewrite already-shipped DDL unnoticed.
@@ -67,6 +67,29 @@ const SHIPPED_BLOB: Readonly<Record<number, string>> = {
   3: '16927ac:src/main/store/schema.ts',
   4: 'e15b1c4:src/main/store/schema.ts',
 };
+
+/**
+ * Whether this checkout is a shallow clone, whose truncated history need not
+ * hold the commits `SHIPPED_BLOB` names, so `git show` cannot be relied on.
+ *
+ * That is the ONE condition under which the blob-reading tests skip. It is
+ * asked of git directly rather than inferred from `git show` failing, so a
+ * full clone with a `SHIPPED_BLOB` ref that does not resolve still fails red:
+ * a typo'd or rewritten hash is a broken tripwire, not missing history.
+ */
+const SHALLOW_CLONE =
+  execFileSync('git', ['rev-parse', '--is-shallow-repository'], {
+    cwd: process.cwd(),
+    encoding: 'utf8',
+  }).trim() === 'true';
+
+const SHALLOW_SKIP_NOTE =
+  'shallow clone: the shipped schema.ts blobs in SHIPPED_BLOB are unavailable without full history';
+
+// The skip note renders beside each skipped test only where the reporter lists
+// tests individually, which a non-TTY default-reporter run of a passing file
+// does not. Saying it once on stderr keeps the reason visible there too.
+if (SHALLOW_CLONE) console.warn(`migration-frozen: blob tests skipped — ${SHALLOW_SKIP_NOTE}`);
 
 const migration = (version: number): string => {
   const found = MIGRATIONS.find((m) => m.version === version);
@@ -122,11 +145,13 @@ function shippedMigration(version: number): string {
 }
 
 describe('every shipped migration renders byte-identically to the blob that shipped it', () => {
-  it.each([1, 2, 3, 4])('migration %i', (version) => {
+  it.for([1, 2, 3, 4])('migration %i', (version, ctx) => {
+    ctx.skip(SHALLOW_CLONE, SHALLOW_SKIP_NOTE);
     expect(migration(version)).toBe(shippedMigration(version));
   });
 
-  it('the renderer is not vacuous: it really interpolates something', () => {
+  it('the renderer is not vacuous: it really interpolates something', (ctx) => {
+    ctx.skip(SHALLOW_CLONE, SHALLOW_SKIP_NOTE);
     // If `shippedMigration` silently rendered an empty string or skipped its
     // interpolation the tests above would pass for the wrong reason.
     expect(shippedMigration(1)).toContain(
