@@ -2,9 +2,9 @@
   "id": "20261102-2224-prose-drift-sweep",
   "name": "prose-drift-sweep",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-02T22:24:48Z",
-  "ended": null,
+  "ended": "2026-11-03T00:38:03Z",
   "brief": "Clear the 17 Prose drift items and the 2 Ungrouped documentation items in .sir/backlog.md. Each one corrects a comment, docblock, test title or Markdown line so that it matches the code at main d500429. Prose only: runtime behaviour, test assertions and CSS values stay exactly as they are. Every citation is re-measured against the current tree before it is edited, and an item whose claim no longer holds is closed as already resolved. Any figure that is restated, such as a contrast ratio, a margin or a count, is derived afresh and attributed to the command that produced it. The .dir-sdlc findings file gets a dated correction appended, and its original text is left untouched. Closed backlog lines are removed at Gate 3.",
   "parent": null,
   "children": [],
@@ -40,11 +40,19 @@
       "started": "2026-11-03T00:13:40Z",
       "ended": "2026-11-03T00:26:27Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "bd4688f7-294c-44bc-b2d1-76721d5f6fd8",
+      "sir": "1.0.13",
+      "started": "2026-11-03T00:37:45Z",
+      "ended": "2026-11-03T00:38:03Z",
+      "outcome": "complete"
     }
   ],
   "metrics": {
-    "userInteractions": 1,
-    "escalationsRaised": 0,
+    "userInteractions": 5,
+    "escalationsRaised": 1,
     "reviewRounds": 0
   },
   "pushed": true
