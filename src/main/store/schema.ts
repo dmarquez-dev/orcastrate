@@ -100,10 +100,11 @@ export const EVENT_TYPES = [
 // empty array literal is assignable to ANY array type. So a union that gains a
 // member one of these arrays lacks does NOT break the build here. What this
 // block still catches is the other direction: a BOGUS member in one of the
-// arrays, rejected by the `satisfies` clauses above. The real tripwire for a
-// missing member is `_PodStatusCoveredAtSchemaHead` below, which asserts
-// `never` through a generic CONSTRAINT rather than through an empty array
-// literal, plus the tests in `tests/unit/store/`.
+// arrays, rejected by the `satisfies` clauses above. The real tripwires for a
+// missing member are the schema-head guards below (`_UncoveredAtSchemaHead`,
+// `_PodStatusCoveredAtSchemaHead`, `_LaneStatusCoveredAtSchemaHead`), which
+// assert `never` through a generic CONSTRAINT rather than through an empty
+// array literal, plus the tests in `tests/unit/store/`.
 type _UncoveredPodStatus = Exclude<PodStatus, (typeof POD_STATUSES)[number]>;
 type _UncoveredLaneStatus = Exclude<LaneStatus, (typeof LANE_STATUSES)[number]>;
 type _UncoveredLaneKind = Exclude<LaneKind, (typeof LANE_KINDS)[number]>;
@@ -189,22 +190,75 @@ const MIGRATION_1_POD_STATUSES = ['idle', 'running', 'waiting', 'beached'] as co
  * which is what proves this pin is correct. That test was seen FAILING on this
  * exact clause before the pin landed.
  *
- * STILL UNPINNED, and deliberately so: `LANE_KINDS` and `EVENT_TYPES` are also
- * interpolated into migration 1 and carry the identical latent bug. Pinning
- * them in the same change would rewrite migration 1's rendered text for a
- * second reason inside one diff and make a byte-identity failure impossible to
- * attribute. The backlog carries the item.
+ * `LANE_KINDS` and `EVENT_TYPES` were left interpolated into migration 1 by
+ * that change, deliberately, so that a byte-identity failure would stay
+ * attributable to one pin at a time. They carried the identical latent bug and
+ * are now pinned too: see `MIGRATION_1_LANE_KINDS` and
+ * `MIGRATION_1_EVENT_TYPES` below.
  */
 const MIGRATION_1_LANE_STATUSES = ['running', 'done', 'orphaned'] as const;
 
 /**
- * FROZEN once shipped. The permission-mode list migration 2 widens the CHECK
- * constraint to. Same rule as above: a fifth mode is migration 3, not an edit
- * here.
+ * FROZEN. The exact lane-kind list migration 1 shipped with, in the exact order
+ * it shipped in.
  *
- * `_UncoveredAtSchemaHead` below fails the build if the contract union gains a
- * member this list does not carry, which is the signal to write that next
- * migration.
+ * The fourth instance of the same story. Migration 1 interpolated the live
+ * `LANE_KINDS`, so appending a kind would have rewritten migration 1's TEXT for
+ * every future fresh database while leaving every already-migrated database on
+ * the old text. Pinning the literal is the fix. NEVER edit this array — a
+ * change to the kind set is a NEW migration (migration 4 already writes its own
+ * lane-kind list out literally).
+ *
+ * Bare `as const`, with NO `satisfies readonly LaneKind[]` clause, for the
+ * reason `MIGRATION_1_POD_STATUSES` gives: it must NOT track the contract
+ * union.
+ *
+ * `tests/unit/store/migration-frozen.test.ts` asserts migration 1's rendered
+ * SQL is byte-identical to the shipped blob. That test was seen FAILING with
+ * `'whale'` appended to the live `LANE_KINDS` before this pin landed, and
+ * passing with it after.
+ */
+const MIGRATION_1_LANE_KINDS = ['matriarch', 'calf'] as const;
+
+/**
+ * FROZEN. The exact event-type list migration 1 shipped with, in the exact
+ * order it shipped in.
+ *
+ * Same story as `MIGRATION_1_LANE_KINDS`, for `events.type`. Migration 1
+ * interpolated the live `EVENT_TYPES`; it now interpolates this pin. NEVER
+ * edit this array — a thirteenth event type the store must persist is a NEW
+ * migration that rebuilds `events`.
+ *
+ * Bare `as const`, with NO `satisfies readonly EventType[]` clause, for the
+ * same reason as the other migration-1 pins.
+ *
+ * `tests/unit/store/migration-frozen.test.ts` was seen FAILING with
+ * `'whale_song'` appended to the live `EVENT_TYPES` before this pin landed,
+ * and passing with it after.
+ */
+const MIGRATION_1_EVENT_TYPES = [
+  'user_message',
+  'assistant_text',
+  'thinking',
+  'tool_use',
+  'tool_result',
+  'lane_opened',
+  'lane_closed',
+  'permission_request',
+  'permission_decision',
+  'system',
+  'error',
+  'malformed',
+] as const;
+
+/**
+ * FROZEN once shipped. The permission-mode list migration 2 widens the CHECK
+ * constraint to. Same rule as above: a new mode is a new migration, not an
+ * edit here.
+ *
+ * This is NOT the permission-mode schema head any more: migration 3 rebuilt
+ * `pods` with `MIGRATION_3_PERMISSION_MODES`, and `_UncoveredAtSchemaHead`
+ * below is keyed to that list, not to this one.
  */
 const MIGRATION_2_PERMISSION_MODES = [
   'default',
@@ -249,11 +303,34 @@ const MIGRATION_3_POD_STATUSES = [
 ] as const satisfies readonly PodStatus[];
 
 /**
- * Resolves to `never` while the newest migration's CHECK constraint still
- * covers every member of the contract union. If it stops doing so the build
- * breaks here — add a migration, do not edit `MIGRATION_2_PERMISSION_MODES`.
+ * Fails the build unless `T` is `never`.
+ *
+ * The schema-head guards below route their `Exclude` through this generic
+ * CONSTRAINT rather than assigning `[]` to an `Uncovered[]`. An empty array
+ * literal is assignable to any array type, so the array form never fails when
+ * the union gains an uncovered member; a non-`never` type ARGUMENT is rejected
+ * at the type level with no value to be vacuously empty.
  */
-type _UncoveredAtSchemaHead = Exclude<PermissionMode, (typeof MIGRATION_2_PERMISSION_MODES)[number]>;
+type _AssertNever<T extends never> = T;
+
+/**
+ * Resolves to `never` while the permission-mode schema head — migration 3,
+ * which rebuilt `pods` with `MIGRATION_3_PERMISSION_MODES` — still covers every
+ * member of the contract union. A fifth `PermissionMode` breaks the build HERE
+ * and demands a new migration that rebuilds `pods`; do not edit
+ * `MIGRATION_3_PERMISSION_MODES`.
+ *
+ * HISTORY. This guard was once `Exclude<...>` keyed to migration 2's list and
+ * enforced by `const x: _UncoveredAtSchemaHead[] = []` alone, which is the
+ * vacuous empty-array form described on `_AssertNever`: a fifth mode did NOT
+ * fail it. It was re-keyed to migration 3 and routed through `_AssertNever`.
+ * Verified by experiment — a temporary `| 'dontAsk'` on the contract's
+ * `PermissionMode` fails `typecheck:node` with TS2344 AT THIS DECLARATION, and
+ * at the old spelling raised no error in this file at all.
+ */
+type _UncoveredAtSchemaHead = _AssertNever<
+  Exclude<PermissionMode, (typeof MIGRATION_3_PERMISSION_MODES)[number]>
+>;
 const _schemaHeadExhaustive: _UncoveredAtSchemaHead[] = [];
 void _schemaHeadExhaustive;
 
@@ -264,15 +341,7 @@ void _schemaHeadExhaustive;
  * is the only runtime enforcement of the status set in the entire product
  * (`rows.ts` casts `row.status as PodStatus` unchecked), so this is the last
  * line of defence before shipping.
- *
- * IT IS SPELLED DIFFERENTLY FROM `_UncoveredAtSchemaHead` ABOVE, ON PURPOSE.
- * That one assigns `[]` to an `Uncovered[]`, and an empty array literal is
- * assignable to any array type — so it does not actually fail when the union
- * gains an uncovered member. Routing the `Exclude` through a generic
- * CONSTRAINT (`T extends never`) is what makes the failure real: a non-`never`
- * argument is rejected at the type level with no value to be vacuously empty.
  */
-type _AssertNever<T extends never> = T;
 type _PodStatusCoveredAtSchemaHead = _AssertNever<
   Exclude<PodStatus, (typeof MIGRATION_3_POD_STATUSES)[number]>
 >;
@@ -303,11 +372,10 @@ const MIGRATION_4_LANE_STATUSES = [
  * (`rows.ts` casts `row.status as LaneStatus` unchecked), so this is the last
  * line of defence before shipping.
  *
- * It uses the `_AssertNever<T extends never>` spelling above and NOT the
- * `_UncoveredAtSchemaHead` empty-array-literal spelling, for the reason that
- * guard's own docblock gives: an empty array literal is assignable to any array
- * type, so that form is vacuous. This one was verified by experiment — a
- * temporary fifth `LaneStatus` member fails `typecheck:node` AT THIS LINE.
+ * It uses the `_AssertNever<T extends never>` spelling, NOT a bare empty-array
+ * assignment, for the reason `_AssertNever`'s docblock gives. This one was
+ * verified by experiment — a temporary fifth `LaneStatus` member fails
+ * `typecheck:node` AT THIS LINE.
  */
 type _LaneStatusCoveredAtSchemaHead = _AssertNever<
   Exclude<LaneStatus, (typeof MIGRATION_4_LANE_STATUSES)[number]>
@@ -341,7 +409,7 @@ CREATE TABLE pods (
 CREATE TABLE lanes (
   id             TEXT    PRIMARY KEY,
   pod_id         TEXT    NOT NULL REFERENCES pods(id) ON DELETE CASCADE,
-  kind           TEXT    NOT NULL CHECK (kind IN ${sqlIn(LANE_KINDS)}),
+  kind           TEXT    NOT NULL CHECK (kind IN ${sqlIn(MIGRATION_1_LANE_KINDS)}),
   tool_use_id    TEXT,
   agent_id       TEXT,
   parent_lane_id TEXT    REFERENCES lanes(id) ON DELETE CASCADE,
@@ -379,7 +447,7 @@ CREATE TABLE events (
   pod_id     TEXT    NOT NULL REFERENCES pods(id) ON DELETE CASCADE,
   lane_id    TEXT    NOT NULL REFERENCES lanes(id) ON DELETE CASCADE,
   seq        INTEGER NOT NULL CHECK (seq > 0),
-  type       TEXT    NOT NULL CHECK (type IN ${sqlIn(EVENT_TYPES)}),
+  type       TEXT    NOT NULL CHECK (type IN ${sqlIn(MIGRATION_1_EVENT_TYPES)}),
   payload    TEXT    NOT NULL,
   raw        TEXT,
   created_at TEXT    NOT NULL,

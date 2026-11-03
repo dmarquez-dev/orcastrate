@@ -13,7 +13,7 @@
  * executable warning and asserts that it fires on the clean form.
  *
  * So every rule below carries a `violation` that it MUST flag and a `clean`
- * that it MUST NOT, and `discrimination.test.ts` runs that matrix. A rule
+ * that it MUST NOT, and `discrimination.test.tsx` runs that matrix. A rule
  * whose pattern is weakened, or replaced by one that cannot fire, fails there
  * — against its own sample, with no reference to today's source. That is the
  * durable form of "this assertion discriminates": a later reader runs one

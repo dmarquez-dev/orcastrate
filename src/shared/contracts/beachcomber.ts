@@ -63,8 +63,12 @@
  *
  *   - `pathSource: 'session-record'` — read from the first record carrying a
  *     `cwd`. Authoritative.
- *   - `pathSource: 'decoded-name'` — no such record exists. A GUESS, and it is
- *     presented as one.
+ *   - `pathSource: 'decoded-name'` — a `projects` entry with no such record.
+ *     A GUESS, and it is presented as one. Only a `projects` entry ever
+ *     carries it.
+ *   - `pathSource: 'absolute-path'` — an entry whose `displayPath` is its own
+ *     absolute path under `~/.claude`, which every entry of a non-`projects`
+ *     root is. Not a guess, and not a working directory either.
  *
  * AND THE RULE THAT FOLLOWS FROM IT: `orphan` may only ever be true when
  * `pathSource === 'session-record'`. A decoded-name row is never called an
@@ -72,12 +76,13 @@
  * itself is a guess.
  *
  * ===========================================================================
- * PROVENANCE — one approved amendment since the freeze
+ * PROVENANCE — two approved amendments since the freeze
  * ===========================================================================
  *
- * Frozen 2026-08-19. AMENDED by session `2026-09-04-orcastrate-correctness-sweep`
- * (section 8 of its contract), comment text only — no type, field, name,
- * signature, union member or constant changed.
+ * Frozen 2026-08-19. FIRST AMENDED by session
+ * `2026-09-04-orcastrate-correctness-sweep` (section 8 of its contract),
+ * comment text only — no type, field, name, signature, union member or
+ * constant changed.
  *
  * WHAT CHANGED AND WHY. `BeachcomberPreview.refused`'s docblock said the array
  * carried "Ids main will not act on: blocked by a Pod, OR UNKNOWN TO THIS
@@ -91,6 +96,18 @@
  * whatever directory has since taken its place — and would contradict the
  * header above. So the prose was the thing that was wrong, and the prose is the
  * thing that changed.
+ *
+ * SECOND AMENDMENT, by session `20261103-1947-correctness-sweep` (item D4,
+ * approved at its Gate 2): the union member `'absolute-path'` was added to
+ * `BeachcomberPathSource`, and the docblocks on it and on `displayPath` were
+ * rewritten to match. WHY. Every entry of the three non-`projects` roots
+ * carried `'decoded-name'`, whose definition above is "A GUESS" — yet its
+ * `displayPath` is the entry's own location under `~/.claude`, which is not a
+ * guess at all, and the renderer, keying its "path not verified" caveat on
+ * `'decoded-name'`, told the user otherwise on every such row. The new member
+ * names what that path really is. `'decoded-name'` now belongs to `projects`
+ * alone, and the orphan rule is unchanged: `orphan` is still only ever true
+ * for `'session-record'`.
  *
  * Anything beyond comment text in this file remains a contract-change
  * escalation.
@@ -146,7 +163,7 @@ export interface BeachcomberRootSummary {
 export type BeachcomberEntryId = string;
 
 /** Where `displayPath` came from, and therefore how much it can be trusted. */
-export type BeachcomberPathSource = 'session-record' | 'decoded-name';
+export type BeachcomberPathSource = 'session-record' | 'decoded-name' | 'absolute-path';
 
 /**
  * Why an entry cannot be selected. `null` means selectable.
@@ -166,8 +183,10 @@ export interface BeachcomberEntry {
    */
   name: string;
   /**
-   * For `projects`: the working directory this state belongs to. For the other
-   * three roots: the entry's own path under `~/.claude`.
+   * For `projects`: the working directory this state belongs to — recorded
+   * (`'session-record'`) or, with no session record, decoded from the name
+   * (`'decoded-name'`). For the other three roots: the entry's own absolute
+   * path under `~/.claude`, always `'absolute-path'`.
    *
    * DISPLAY ONLY. The renderer shows it and does nothing else with it.
    */

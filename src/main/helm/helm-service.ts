@@ -73,14 +73,18 @@ function asIoFailure(err: unknown): unknown {
   return err;
 }
 
+/**
+ * Distinctness for two backups of the same file inside one millisecond. ONE
+ * sequence, shared by every Helm service in this process, so two services
+ * saving the same file at one stamp draw distinct ordinals instead of each
+ * starting at 0 and clobbering the other's backup. Never read off the disk
+ * (`atomic-write.ts`). Two PROCESSES are not covered: each holds its own count,
+ * and nothing here coordinates between them.
+ */
+const backups = new BackupSequence();
+
 class Helm implements HelmService {
   private readonly watcher: HelmWatcher;
-
-  /**
-   * Distinctness for two backups of the same file inside one millisecond. Held
-   * per service instance and never read off the disk (`atomic-write.ts`).
-   */
-  private readonly backups = new BackupSequence();
 
   constructor(private readonly deps: HelmServiceDeps) {
     this.watcher = new HelmWatcher({ now: deps.now, emitChanged: deps.emitChanged });
@@ -214,7 +218,7 @@ class Helm implements HelmService {
       ensureDirectory(entry.path);
 
       // ---- rule 2: if this throws, nothing below it runs ------------------
-      backupPath = backupBeforeWrite(entry.path, this.deps.now(), this.backups);
+      backupPath = backupBeforeWrite(entry.path, this.deps.now(), backups);
 
       // ---- rule 1 ----------------------------------------------------------
       writeAtomic(entry.path, content, this.deps.now());

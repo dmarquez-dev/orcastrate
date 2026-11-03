@@ -118,6 +118,28 @@ describe('an unverified path is labelled a guess (AC5)', () => {
     expect(screen.queryByTestId(PANEL_TEST_IDS.beachcomberRowUnverified)).toBeNull();
   });
 
+  it('renders neither a notice nor an orphan marker for an absolute path under ~/.claude', () => {
+    // A non-projects entry's path is its own location, not a guess — and not a
+    // working directory either, so it is never an orphan even if one is claimed.
+    renderRow(
+      makeRow(
+        makeEntry({
+          id: 'snapshot',
+          root: 'shellSnapshots',
+          name: 'snapshot-1.sh',
+          displayPath: 'C:\\Users\\dmarq\\.claude\\shell-snapshots\\snapshot-1.sh',
+          pathSource: 'absolute-path',
+          sessionCount: null,
+          orphan: true,
+        }),
+      ),
+    );
+
+    const element = screen.getByTestId(testId(PANEL_TEST_IDS.beachcomberRow, 'snapshot'));
+    expect(within(element).queryByTestId(PANEL_TEST_IDS.beachcomberRowUnverified)).toBeNull();
+    expect(within(element).queryByTestId(PANEL_TEST_IDS.beachcomberRowOrphan)).toBeNull();
+  });
+
   it('marks a verified orphan as text rather than as a colour', () => {
     renderRow(makeRow(makeEntry({ id: 'gone', orphan: true, pathSource: 'session-record' })));
 

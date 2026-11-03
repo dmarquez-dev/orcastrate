@@ -111,7 +111,6 @@ const ACTION_NAMES = [
   'setComposerText',
   'sendComposer',
   'interruptPod',
-  'setPermissionMode',
   'steerFromLane',
   // The pane model: `selectLane`, `pinLane` and `unpinLane` are DELETED and
   // these two replace them (`contracts/renderer-panes.ts` section 2).

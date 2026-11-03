@@ -25,8 +25,9 @@ import { STARTUP_RECONCILIATION_SUBTYPE } from '@shared/startup-reconciliation-n
  * `(typeof CONVERSATION_EVENT_TYPES)[number]` is `EventType`, so the
  * `Exclude` below collapses to `never` no matter what the arrays actually
  * contain and the guard proves nothing. That is the same class of inert guard
- * as `_UncoveredAtSchemaHead` in `src/main/store/schema.ts`, arriving by a
- * different route.
+ * that `_UncoveredAtSchemaHead` in `src/main/store/schema.ts` used to be
+ * (before it was routed through `_AssertNever`), arriving by a different
+ * route.
  *
  * So the literal tuple is bound to a module-private const first — the
  * `as const satisfies readonly EventType[]` spelling `schema.ts` already uses
@@ -126,9 +127,10 @@ type _UnpartitionedEventType = Exclude<
  * SPELLED AS A GENERIC CONSTRAINT ON PURPOSE, and NOT as
  * `const x: _Unpartitioned[] = []`. An empty array literal is assignable to
  * ANY array type, so the array form is satisfied vacuously and never fails —
- * exactly the inert `_UncoveredAtSchemaHead` spelling in
- * `src/main/store/schema.ts:210-212`, which T0 of the previous session proved
- * by experiment does not fire. Routing the `Exclude` through `T extends never`
+ * which is how `_UncoveredAtSchemaHead` in `src/main/store/schema.ts` was
+ * once spelled, until T0 of the previous session proved by experiment that
+ * it did not fire (it has since been routed through `_AssertNever` there
+ * too). Routing the `Exclude` through `T extends never`
  * leaves no value to be vacuously empty: a non-`never` argument is rejected at
  * the type level.
  *
@@ -155,8 +157,9 @@ export type _EventTypeSetsAreDisjoint = _AssertNever<
  *     '"thirteenth_event_type"' does not satisfy the constraint 'never'.
  *   const x: Exclude<_Local, ...>[] = [] ->  NO ERROR AT ALL.
  *
- * The second line is the spelling in `src/main/store/schema.ts:210-212`. It is
- * why this file does not use it.
+ * The second line is the spelling `_UncoveredAtSchemaHead` in
+ * `src/main/store/schema.ts` had at the time. It is why this file does not
+ * use it.
  *
  * RE-PROVED 2026-08-21, BECAUSE THE TUPLE CONTENTS CHANGED. A guard that held
  * over a 6/2/4 partition is not thereby known to hold over a 4/2/6 one, and a

@@ -26,7 +26,6 @@ import type {
   Lane,
   LaneId,
   NormalizedEvent,
-  PermissionMode,
   Pod,
   PodId,
   Timestamp,
@@ -669,20 +668,6 @@ export class WorkspaceStateStore {
         if (api === null) return store.failClosed<void>();
         const result = await safeInvoke(() => api.pods.interrupt(podId));
         return result.ok ? { ok: true, value: undefined } : result;
-      },
-
-      async setPermissionMode(podId: PodId, mode: PermissionMode): Promise<ActionResult<void>> {
-        const api = store.api;
-        if (api === null) return store.failClosed<void>();
-        const result = await safeInvoke(() => api.pods.setPermissionMode(podId, mode));
-        if (!result.ok) return result;
-        store.update((state) => ({
-          ...state,
-          pods: state.pods.map((pod) =>
-            pod.id === podId ? { ...pod, permissionMode: mode } : pod,
-          ),
-        }));
-        return { ok: true, value: undefined };
       },
 
       /** Prefill only. Writes the string and sends NOTHING. */

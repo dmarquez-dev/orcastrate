@@ -119,6 +119,45 @@ describe('a decoded projects entry is blocked by encoding the Pod cwd (R2)', () 
   });
 });
 
+describe('the Pod named is the exact match, whatever the list order (D3)', () => {
+  // B matches the decoded GUESS only: its cwd normalizes onto the guess, and
+  // its trailing separator makes its encoding gain a trailing `-`, so it never
+  // matches the name on disk. A matches the name on disk only.
+  const guessPod: PodDirectory = {
+    podId: 'pod-000b',
+    title: 'Holds the decoded guess',
+    cwd: `${decodeDirectoryName(AMBIGUOUS_DIR)}\\`,
+  };
+  const exactPod: PodDirectory = {
+    podId: 'pod-000a',
+    title: 'Holds the real cwd',
+    cwd: AMBIGUOUS_CWD,
+  };
+
+  function blockerAmong(pods: readonly PodDirectory[]): PodDirectory | null {
+    return podBlockerFor({
+      root: 'projects',
+      name: AMBIGUOUS_DIR,
+      pathSource: 'decoded-name',
+      displayPath: decodeDirectoryName(AMBIGUOUS_DIR),
+      pods,
+    });
+  }
+
+  it('separates the two Pods: each matches by exactly one comparison', () => {
+    expect(encodeCwdForProjects(guessPod.cwd)).toBe(`${AMBIGUOUS_DIR}-`);
+    expect(encodeCwdForProjects(exactPod.cwd)).toBe(AMBIGUOUS_DIR);
+  });
+
+  it('names the encoding match even when the guess match comes first', () => {
+    expect(blockerAmong([guessPod, exactPod])?.podId).toBe('pod-000a');
+  });
+
+  it('still blocks by the normalized match when no Pod matches by encoding', () => {
+    expect(blockerAmong([guessPod])?.podId).toBe('pod-000b');
+  });
+});
+
 describe('the root matters as much as the pathSource (R4)', () => {
   it('does not encode a Pod cwd against a shell-snapshot, file-history or paste-cache name', async () => {
     const home = makeClaudeHome();
@@ -132,7 +171,7 @@ describe('the root matters as much as the pathSource (R4)', () => {
 
     for (const root of ['shellSnapshots', 'fileHistory', 'pasteCache'] as const) {
       const entry = scan.entries.find((e) => e.root === root && e.name === AMBIGUOUS_DIR);
-      expect(entry?.pathSource).toBe('decoded-name');
+      expect(entry?.pathSource).toBe('absolute-path');
       expect(entry?.blocked).toBeNull();
       expect(entry?.blockedBy).toBeNull();
     }

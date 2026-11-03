@@ -641,4 +641,36 @@ describe('a failure lands on exactly one surface', () => {
     ).toHaveLength(1);
     expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonTable)).not.toBeNull();
   });
+
+  it('keeps a failed comparison on screen once the draft it was about is gone', () => {
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    // The draft goes away while the failure stands. The comparison surface
+    // rides with the draft, so it unmounts; the sentence must land in the
+    // banner rather than nowhere.
+    update({ draft: null });
+
+    expect(occurrences(COMPARE_FAILURE)).toBe(1);
+  });
+
+  it('prints a scope-list failure once when it lands after a comparison was asked for', () => {
+    const failure = 'EIO: i/o error, scandir';
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    // A failed scope refresh writes one sentence to both `error` and
+    // `actionError`; it is the load error, not the comparison's.
+    update({ phase: 'error', error: ipcError('IO', failure), actionError: failure });
+
+    expect(occurrences(failure)).toBe(1);
+  });
 });

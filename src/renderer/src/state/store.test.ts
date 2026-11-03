@@ -118,6 +118,8 @@ function forceRuntime(
  * Every invoke channel, paired with the action that reaches it. `laneList` and
  * `appRoutingMode` have no action of their own — they are read by the
  * provider's lifecycle — and are asserted separately below.
+ * `podSetPermissionMode` has no renderer action at all and is named in the
+ * coverage sweep instead.
  */
 interface ChannelCase {
   channel: InvokeChannelKey;
@@ -185,13 +187,6 @@ const ACTION_CASES: ChannelCase[] = [
     run: (store) => store.actions.interruptPod(POD),
     reject: (api) => {
       api.pods.interrupt = boom;
-    },
-  },
-  {
-    channel: 'podSetPermissionMode',
-    run: (store) => store.actions.setPermissionMode(POD, 'acceptEdits'),
-    reject: (api) => {
-      api.pods.setPermissionMode = boom;
     },
   },
   {
@@ -305,6 +300,12 @@ describe('error discipline (criterion 3)', () => {
     for (const testCase of PANEL_ACTION_CASES) covered.add(testCase.channel);
     covered.add('laneList');
     covered.add('appRoutingMode');
+    // No renderer action reaches this channel. The store's permission-mode
+    // action had no caller (no affordance changes an existing Pod's mode; the
+    // dialog's mode picker is create-time only) and was removed, while the
+    // channel, preload method and main handler stay. Naming it here keeps the
+    // equality below exact instead of letting the channel fall out silently.
+    covered.add('podSetPermissionMode');
     expect([...covered].sort()).toEqual(
       (Object.keys(INVOKE_CHANNELS) as InvokeChannelKey[]).sort(),
     );
@@ -1129,7 +1130,6 @@ describe('the pane model (criterion 10)', () => {
       setComposerText: [POD, 'hello'],
       sendComposer: [POD],
       interruptPod: [POD],
-      setPermissionMode: [POD, 'plan'],
       steerFromLane: [POD, 'lane-a'],
       showLane: [POD, 'lane-a'],
       hideLane: [POD, 'lane-a'],
@@ -1548,24 +1548,6 @@ describe('pod actions', () => {
     store.actions.setActivePod('second');
     await store.actions.refreshPods();
     expect(store.getState().activePodId).toBe('second');
-    store.stop();
-  });
-
-  it('sets permissionMode locally only after main accepts it', async () => {
-    const pods: Pod[] = [makeStubPod({ id: POD })];
-    const api = stubOrcastrateApi({ pods: { list: async () => ({ ok: true, value: pods }) } });
-    const store = makeStore(api);
-    store.start();
-    await flush();
-
-    const error: IpcError = ipcError('INVALID_ARGUMENT', 'unsupported mode');
-    api.failInvoke('podSetPermissionMode', error);
-    expect((await store.actions.setPermissionMode(POD, 'plan')).ok).toBe(false);
-    expect(store.getState().pods[0]?.permissionMode).toBe('default');
-
-    api.clearInvokeFailure('podSetPermissionMode');
-    expect((await store.actions.setPermissionMode(POD, 'plan')).ok).toBe(true);
-    expect(store.getState().pods[0]?.permissionMode).toBe('plan');
     store.stop();
   });
 });

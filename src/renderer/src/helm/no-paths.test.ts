@@ -8,7 +8,7 @@
  * shape of rule as `state/isolation.test.ts`, aimed at a different invariant.
  *
  * THE RULES THEMSELVES LIVE IN `rules.ts`, each with a counterexample, and
- * `discrimination.test.ts` proves every one of them can fire. This file is
+ * `discrimination.test.tsx` proves every one of them can fire. This file is
  * only the sweep: it applies them to the real files. Splitting the two is what
  * stops a rule that silently matches nothing from passing here forever.
  *

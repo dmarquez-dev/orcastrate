@@ -53,10 +53,11 @@ const BARE_WIDTH_KEYWORD = /(?:^|[^-\w])(?:thin|medium|thick)(?:[^-\w]|$)/;
  * of an alternation — so any match at all carries both. `matchAll` widens
  * every group to `string | undefined` regardless of the pattern, so the
  * guarantee has to be asserted rather than inferred. It is asserted, and not
- * defended with a `?? ''` fallback: an empty string here would silently
- * become the declaration `"border: "` and read as a non-offender, turning an
- * impossible case into a quiet pass in the one test that is meant to catch
- * untokenised widths.
+ * defended with a `?? ''` fallback: the fallback would turn an `undefined`
+ * capture into an empty string, which would silently become the declaration
+ * `"border: "` and read as a non-offender, turning the impossible case — an
+ * `undefined` capture, not an empty one — into a quiet pass in the one test
+ * that is meant to catch untokenised widths.
  *
  * AN EMPTY CAPTURE IS A DIFFERENT CASE, AND IT IS REACHABLE: `[^;}]*` may
  * match nothing, so the second group can be the empty string even though it
