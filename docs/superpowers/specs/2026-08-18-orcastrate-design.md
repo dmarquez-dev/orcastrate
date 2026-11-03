@@ -234,7 +234,11 @@ Orcastrate's history silently break on a CC upgrade.
 Resume therefore runs on two tracks: Claude Code restores its own conversation
 context from `resume`; Orcastrate restores the visible transcript from
 its own store. The two are independent, and a mismatch degrades to "CC remembers
-more than the UI shows", never to data loss.
+more than the UI shows", never to data loss. The one exception is section 8's
+row for Claude Code refusing the stored `cc_session_id` at resume: the Pod
+continues as a fresh Claude Code session, so there CC remembers *less* than the
+UI shows — the earlier conversation is still in Orcastrate's transcript, but
+not in CC's context.
 
 Both routes back into a persisted Pod resume: **Open** (a `closed` Pod) and
 **Reconnect** (a **Beached** one) each start against the stored

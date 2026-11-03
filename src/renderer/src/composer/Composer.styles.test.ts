@@ -57,6 +57,13 @@ const BARE_WIDTH_KEYWORD = /(?:^|[^-\w])(?:thin|medium|thick)(?:[^-\w]|$)/;
  * become the declaration `"border: "` and read as a non-offender, turning an
  * impossible case into a quiet pass in the one test that is meant to catch
  * untokenised widths.
+ *
+ * AN EMPTY CAPTURE IS A DIFFERENT CASE, AND IT IS REACHABLE: `[^;}]*` may
+ * match nothing, so the second group can be the empty string even though it
+ * can never be `undefined`. `.a{border:;}` captures `['border', '']` and
+ * yields the declaration `"border: "`, which the bare-keyword test reads as a
+ * non-offender. The assertion above rules out `undefined` only; it does not,
+ * and is not meant to, reject an empty value.
  */
 const borderWidthDeclarations = (): string[] =>
   [...css.matchAll(BORDER_WIDTH_DECL)].map(

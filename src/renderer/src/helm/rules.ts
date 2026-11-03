@@ -3,11 +3,14 @@
  *
  * WHY THIS FILE EXISTS. `no-paths.test.ts` and `Helm.styles.test.ts` assert
  * that the real source and the real stylesheet break none of these rules. That
- * is only worth something if the rules CAN break — and one of them could not:
- * the stylesheet suite shipped for one run with `font-weight:\s*(?!var\()`,
- * which matches nothing, because `\s*` consumes nothing and the lookahead then
- * sees a space. It passed against a file that would also have passed with a
- * hardcoded weight in it.
+ * is only worth something if the rules CAN break — and one of them could not
+ * tell a violation from a clean line: the stylesheet suite shipped for one run
+ * with `font-weight:\s*(?!var\()`, which FIRES on a tokenised declaration such
+ * as `font-weight: var(--oc-weight-bold);`, because `\s*` backtracks to zero
+ * and the lookahead then sees a space rather than `var(`. A pattern that fires
+ * on the clean form as readily as on a hardcoded weight does not discriminate
+ * between them. `__tests__/hygiene.test.ts` keeps that pattern as an
+ * executable warning and asserts that it fires on the clean form.
  *
  * So every rule below carries a `violation` that it MUST flag and a `clean`
  * that it MUST NOT, and `discrimination.test.ts` runs that matrix. A rule

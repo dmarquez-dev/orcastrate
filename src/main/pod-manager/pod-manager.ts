@@ -445,7 +445,10 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * memory of the conversation the transcript was still showing. Design 4.2
    * defines `resume` as "the session id, set when reopening a persisted Pod";
    * this is that. A Pod with no `ccSessionId` still starts fresh, which is
-   * `#start`'s own guard and not a special case here.
+   * `#start`'s own guard and not a special case here. That covers both a Pod
+   * that never reached its first turn and a Pod whose stored id the CLI
+   * refused on an earlier resume: `#startFreshAfterRejectedResume` cleared
+   * that id to `null`, so it too starts fresh.
    */
   async openPod(podId: PodId): Promise<Pod> {
     const pod = this.#requirePod(podId);
@@ -465,7 +468,9 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * Criterion 10: re-open a Beached Pod against Claude Code's own session id,
    * passed as the SDK's `resume` option (the contract's correction #3 — it is
    * `resume`, not `resumeSessionId`). A Pod that never reached its first turn
-   * has no `ccSessionId`; that reconnects as a fresh session rather than
+   * has no `ccSessionId`, and neither does a Pod whose stored id the CLI
+   * refused on an earlier resume, because `#startFreshAfterRejectedResume`
+   * cleared it to `null`; either reconnects as a fresh session rather than
    * failing, because there is nothing to resume.
    *
    * IT NO LONGER DIFFERS FROM `openPod` IN WHAT IT STARTS — both resume. What
