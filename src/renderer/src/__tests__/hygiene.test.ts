@@ -806,8 +806,8 @@ function isTokenValue(value: string): boolean {
  * lookahead sees a space rather than `var(`, and the rule fires on a
  * perfectly tokenised declaration. `helm/rules.ts` hit this and fixed it by
  * moving the whitespace inside the lookahead (`prop:(?!\s*var\()`), which is
- * correct — its own header describes the symptom in the opposite direction,
- * but the pattern it ships discriminates.
+ * correct, and its own header now describes the symptom the same way round:
+ * the broken pattern fires on the clean declaration.
  *
  * Reading the declared VALUE avoids the class of bug entirely, and it also
  * lets an offender say what it actually found instead of only where.
