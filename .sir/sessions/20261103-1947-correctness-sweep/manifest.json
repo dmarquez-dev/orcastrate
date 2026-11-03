@@ -1,0 +1,166 @@
+{
+  "session": "20261103-1947-correctness-sweep",
+  "createdAt": "2026-11-03T20:07:25Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Helm backup ordinal shared by every Helm service in the process (D1)",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/helm/helm-service.ts",
+        "src/main/helm/atomic-write.ts",
+        "tests/unit/helm/write-safety.test.ts",
+        "tests/unit/helm/helpers.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (red step). tests/unit/helm/write-safety.test.ts gains a test that builds TWO Helm services over ONE settings file — the harness service from `makeHarness()` plus a second from `createHelmService(h.deps)` (so both share `h.clock`, which is not advanced) — writes the user settings file out of band, saves it through the first service, re-loads and saves it through the second, and asserts that BOTH `backupPathFor(h.userSettingsPath, h.clock())` and `backupPathForSequence(h.userSettingsPath, h.clock(), 1)` exist, the first holding the out-of-band original and the second holding the first service's saved content. The implementer runs `npm --prefix <worktree> test -- tests/unit/helm/write-safety.test.ts` with the test written and before the fix, and reports the failure observed (predicted: the `.1.bak` path is absent and the `.bak` file holds the first save's content, because the second service's per-instance `BackupSequence` restarted at 0 and `copyFileSync` clobbered); then reports the same command passing after the fix.",
+        "C2. After the fix every `Helm` instance created in one process draws its backup ordinal from ONE `BackupSequence` instance (module-level in helm-service.ts, or one equivalent shared instance); `new BackupSequence()` is no longer evaluated per `Helm` construction. Evidence: `grep -n \"new BackupSequence\" src/main/helm/helm-service.ts src/main/helm/atomic-write.ts` shows exactly one construction site, and it is not inside a class body or constructor.",
+        "C3. The docblock on the sequence (helm-service.ts:79-82 at df6c3d2, which reads `Distinctness for two backups of the same file inside one millisecond. Held` / `per service instance and never read off the disk (`atomic-write.ts`).`) states that the sequence is shared by every Helm service in the process and that two processes are not covered; `grep -c \"per service instance\" src/main/helm/helm-service.ts` returns 0 (1 at df6c3d2).",
+        "C4 (preserved behaviour, deliberately true at startRef). Every pre-existing test in tests/unit/helm/ still passes, in particular `does not step past an obstruction onto a suffixed name` in write-safety.test.ts (an obstruction at the sequence-0 name still aborts the save with no `.1.bak`): `npm --prefix <worktree> test -- tests/unit/helm` exits 0.",
+        "C5. The sequence still never consults the filesystem to choose a name (rule 2 in the atomic-write.ts header, :33-40 at df6c3d2): `BackupSequence.next`/`record` contain no `helmFs` or `fs` call after the change.",
+        "C6. The task creates no new test file, and its report states its net test-count delta measured from the vitest summary of `npm --prefix <worktree> test -- tests/unit/helm` before and after its change."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Beachcomber: exact Pod identity in podBlockerFor (D3) and an 'absolute-path' pathSource for non-projects roots (D4)",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/beachcomber/paths.ts",
+        "src/main/beachcomber/service.ts",
+        "src/shared/contracts/beachcomber.ts",
+        "tests/unit/beachcomber/pod-blocking-encoding.test.ts",
+        "tests/unit/beachcomber/roots.test.ts",
+        "src/renderer/src/beachcomber/BeachcomberRow.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberRow.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D3, red step). tests/unit/beachcomber/pod-blocking-encoding.test.ts gains a pure-call test: `podBlockerFor({ root: 'projects', name: AMBIGUOUS_DIR, pathSource: 'decoded-name', displayPath: decodeDirectoryName(AMBIGUOUS_DIR), pods: [B, A] })` where pod B's cwd is `decodeDirectoryName(AMBIGUOUS_DIR)` with ONE trailing backslash appended (normalized-path match only: its encoding gains a trailing `-`) and pod A's cwd is `AMBIGUOUS_CWD` (encoding match only), returns A. Run `npm --prefix <worktree> test -- tests/unit/beachcomber/pod-blocking-encoding.test.ts` before the fix and report the failure (predicted: returns B, the first Pod in list order, per paths.ts:117-120 at df6c3d2); then passing after.",
+        "C2 (D3, preserved behaviour). Blocked-ness is unchanged: the same call with `pods: [B]` alone returns B (normalized fallback still blocks), asserted in the same file; and every pre-existing test in tests/unit/beachcomber/ passes.",
+        "C3 (D3). When `compareByEncoding` is false (any non-`projects` root, or `pathSource !== 'decoded-name'`) the normalized comparison is the only comparison and the first matching Pod in list order is returned, exactly as at df6c3d2. The podBlockerFor docblock (paths.ts:72-111 at df6c3d2) states the identity rule: when both comparisons could match different Pods, the encoding match is returned because it is exact, and the normalized match is used only when no Pod matches by encoding.",
+        "C4 (D4). `BeachcomberPathSource` in src/shared/contracts/beachcomber.ts is `'session-record' | 'decoded-name' | 'absolute-path'`, and its docblocks (header :64-72 and the `displayPath` field docblock :168-175 at df6c3d2) define `'absolute-path'` as an entry whose displayPath is its own absolute path under `~/.claude` (every non-`projects` root) and restrict `'decoded-name'` to a `projects` entry with no session record. The orphan rule (`orphan` only ever true for `'session-record'`) is unchanged.",
+        "C5 (D4, red step). `buildEntry` in service.ts sets `pathSource: 'absolute-path'` for every entry of a root other than `projects`. The existing assertions that state `'decoded-name'` for non-projects entries — roots.test.ts:171 (`reports the entry path as the display path for the three non-project roots`) and pod-blocking-encoding.test.ts:135 (the `shellSnapshots`/`fileHistory`/`pasteCache` loop) — are changed to expect `'absolute-path'`; run `npm --prefix <worktree> test -- tests/unit/beachcomber` with the changed assertions before the service fix and report both failures, then passing after.",
+        "C6 (D4, preserved behaviour). A `projects` entry with no session record still carries `'decoded-name'` (path-resolution.test.ts:125 and :139 at df6c3d2 still pass unmodified), `podBlockerFor`'s `compareByEncoding` still requires `root === 'projects'`, and the pure-call test `refuses the encoding comparison for every non-projects root, as a pure call` (pod-blocking-encoding.test.ts:141 at df6c3d2) still passes.",
+        "C7 (D4, new-member coverage — the sibling members are already tested at BeachcomberRow.test.tsx:115-118 and :105-113). BeachcomberRow.test.tsx gains a test that a row whose entry has `pathSource: 'absolute-path'` renders no `PANEL_TEST_IDS.beachcomberRowUnverified` notice and no `PANEL_TEST_IDS.beachcomberRowOrphan` marker even with `orphan: true`. Discrimination is demonstrated by injecting, at BeachcomberRow.tsx:44 only (one occurrence of `entry.pathSource === 'decoded-name'` in the file), the replacement `entry.pathSource !== 'session-record'`, running `npm --prefix <worktree> test -- src/renderer/src/beachcomber/BeachcomberRow.test.tsx`, reporting the failure, reverting, and reporting the window. BeachcomberRow.tsx is byte-identical to df6c3d2 at task end (it is owned only for this injection).",
+        "C8 (D4, docblocks). No docblock in the owned files still says a non-projects entry carries `'decoded-name'`: paths.ts:101-105 at df6c3d2 (`BOTH HALVES OF THE `projects` CONDITION MATTER. Every non-`projects` entry` / `also carries `pathSource: 'decoded-name'` …`) and service.ts:40-43 at df6c3d2 (`their entries report their own location and carry `'decoded-name'`,`) are rewritten; `grep -c \"Every non-\\`projects\\` entry\" src/main/beachcomber/paths.ts` and `grep -c \"carry \\`'decoded-name'\\`\" src/main/beachcomber/service.ts` each return 0 (each 1 at df6c3d2).",
+        "C9 (repo convention, beachcomber.ts:74-96 at df6c3d2: 'Anything beyond comment text in this file remains a contract-change escalation'). The file's PROVENANCE block records a second amendment by session `20261103-1947-correctness-sweep` naming the added `'absolute-path'` union member and why; its heading no longer reads `PROVENANCE — one approved amendment since the freeze` (grep count 0, 1 at df6c3d2).",
+        "C10. `npm --prefix <worktree> run typecheck` exits 0 (the union change reaches both the node and web projects).",
+        "C11. The task creates no new test file, and its report states its net test-count delta measured from the vitest summaries of the test files it touched, before and after."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Schema guards: _UncoveredAtSchemaHead fires against migration 3 (D5); MIGRATION_1 pins LANE_KINDS and EVENT_TYPES (D6)",
+      "agent": "sir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/main/store/schema.ts",
+        "src/shared/contracts/events.ts",
+        "src/renderer/src/transcript/transcript-filter.ts"
+      ],
+      "dependsOn": ["T1", "T2", "T4", "T5", "T6"],
+      "acceptance": [
+        "C1 (D5). `_UncoveredAtSchemaHead` in schema.ts is spelled with the file's existing `_AssertNever<T extends never>` over `Exclude<PermissionMode, (typeof MIGRATION_3_PERMISSION_MODES)[number]>`; `grep -c \"MIGRATION_3_PERMISSION_MODES)\\[number\\]\" src/main/store/schema.ts` returns 1 (0 at df6c3d2), and the `_UncoveredAtSchemaHead` alias is routed through `_AssertNever` rather than being the bare `Exclude` alias; a companion `const … : _UncoveredAtSchemaHead[] = []` may remain, exactly as `_podStatusSchemaHead` accompanies `_PodStatusCoveredAtSchemaHead` (schema.ts:276-280 at df6c3d2).",
+        "C2 (D5, compile-failure positive control; vitest does not typecheck). With the temporary injection of replacing events.ts:157 `export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';` by `export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions' | 'dontAsk';` (one site; `dontAsk` is a real SDK mode the repo rejects, tests/unit/pod/options.test.ts:94-98), `npm --prefix <worktree> run typecheck:node` reports an error TS2344 located in src/main/store/schema.ts on a line of the `_UncoveredAtSchemaHead` declaration. Other files may also error on this injection; the criterion is an error at the guard, never only there. The red step is the same injection run BEFORE the fix, reporting the count of errors located in schema.ts (predicted 0: the base spelling is an empty array literal keyed to migration 2). The injection is reverted, events.ts is byte-identical to df6c3d2 at task end, and the report names the window (repo-wide typecheck is red for every peer while it is live).",
+        "C3 (D5, preserved). Without the injection `npm --prefix <worktree> run typecheck:node` exits 0.",
+        "C4 (D5, prose). The docblock on the guard (schema.ts:251-255 at df6c3d2, ending `add a migration, do not edit `MIGRATION_2_PERMISSION_MODES`.`), the `MIGRATION_2_PERMISSION_MODES` docblock (:200-208, `_UncoveredAtSchemaHead` below fails the build …), and the paragraphs at :268-273 (`IT IS SPELLED DIFFERENTLY FROM `_UncoveredAtSchemaHead` ABOVE, ON PURPOSE.`) and :306-310 (`… NOT the` / `_UncoveredAtSchemaHead` empty-array-literal spelling …) no longer describe the guard as keyed to migration 2 or as the vacuous empty-array spelling. Evidence: `grep -c` on schema.ts returns 0 for each of `do not edit \\`MIGRATION_2_PERMISSION_MODES\\``, `IT IS SPELLED DIFFERENTLY FROM \\`_UncoveredAtSchemaHead\\``, and `\\`_UncoveredAtSchemaHead\\` empty-array-literal spelling` (each 1 at df6c3d2).",
+        "C5 (D5, prose outside schema.ts that the fix falsifies). transcript-filter.ts no longer presents `_UncoveredAtSchemaHead` as a CURRENTLY inert guard at its three sites (df6c3d2 :27-29 `That is the same class of inert guard` / `as `_UncoveredAtSchemaHead` …`, :129-130 `exactly the inert `_UncoveredAtSchemaHead` spelling in` / ``src/main/store/schema.ts:210-212` …`, and :158 `The second line is the spelling in `src/main/store/schema.ts:210-212`.`); each is removed or restated as history. `grep -c \"schema.ts:210-212\"` returns 0 (2 at df6c3d2) and `grep -c \"exactly the inert \\`_UncoveredAtSchemaHead\\` spelling\"` returns 0 (1 at df6c3d2) on that file. Comment-only: no code line of transcript-filter.ts changes.",
+        "C6 (D6). MIGRATION_1 interpolates migration-local frozen literals `MIGRATION_1_LANE_KINDS` and `MIGRATION_1_EVENT_TYPES`, declared bare `as const` with no `satisfies` clause (as `MIGRATION_1_POD_STATUSES` and `MIGRATION_1_LANE_STATUSES` are, schema.ts:159-161 and :182-185 at df6c3d2), holding today's values in today's order; `grep -c \"sqlIn(LANE_KINDS)\"` and `grep -c \"sqlIn(EVENT_TYPES)\"` on schema.ts each return 0 (1 at df6c3d2).",
+        "C7 (D6, database discipline 'A released migration is never edited' — the pin must not change what migration 1 renders). `npm --prefix <worktree> test -- tests/unit/store` exits 0, including migration-frozen.test.ts `every shipped migration renders byte-identically to the blob that shipped it` and migration-2.test.ts `renders byte-identically to the version that shipped` (preserved behaviour, deliberately true at startRef).",
+        "C8 (D6, positive control for LANE_KINDS). With `'whale'` appended to the live `LANE_KINDS` array (schema.ts:64, one site), `npm --prefix <worktree> test -- tests/unit/store/migration-frozen.test.ts` FAILS before the pin (red step, reported) and PASSES after it; injection reverted and the window reported.",
+        "C9 (D6, positive control for EVENT_TYPES). With `'whale_song'` appended to the live `EVENT_TYPES` array (schema.ts:81-94, one site), the same command FAILS before the pin (reported) and PASSES after it; injection reverted and the window reported.",
+        "C10 (D6, prose). The `STILL UNPINNED, and deliberately so:` paragraph (schema.ts:192-196 at df6c3d2) is removed or rewritten to record that both are now pinned; `grep -c \"STILL UNPINNED\" src/main/store/schema.ts` returns 0 (1 at df6c3d2).",
+        "C11. The task adds no test file; its report states its net test-count delta (predicted 0)."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Helm one-surface invariant by shape (D2) and rules.ts file-name fix (P3)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/HelmPanel.tsx",
+        "src/renderer/src/helm/HelmPanel.test.tsx",
+        "src/renderer/src/helm/rules.ts",
+        "src/renderer/src/helm/Helm.styles.test.ts",
+        "src/renderer/src/helm/no-paths.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D2 hole 1, red step). HelmPanel.test.tsx gains, in `a failure lands on exactly one surface`, a test that renders with `conflict`, `actionError: F` and `dirty: true`, clicks `HELM_SAFETY_TEST_IDS.compare`, then plays `update({ draft: null })`, and asserts `occurrences(F)` is 1. Run `npm --prefix <worktree> test -- src/renderer/src/helm/HelmPanel.test.tsx` before the fix and report the failure (predicted 0: the latch keeps `compareError` set, HelmNotices receives null at HelmPanel.tsx:84, and no comparison is mounted at :152); passing after.",
+        "C2 (D2 hole 2, red step). A second test renders the same way, clicks compare, then plays `update({ phase: 'error', error: ipcError('IO', S), actionError: S })` and asserts `occurrences(S)` is 1. Same command before the fix, failure reported (predicted 2: once in the comparison, once as HelmNotices' `loadError`); passing after.",
+        "C3 (frontend discipline 'Derived values are computed, never stored'). `compareError` remains derived at render from the `lastAction` latch and `view` — it is non-null only when the comparison surface is mounted (`draft !== null`) and the message is not the load error (`view.actionError !== (view.error?.message ?? null)`) — and the task adds no `useState`, `useRef` or effect to hold it.",
+        "C4 (preserved behaviour). Every pre-existing test in HelmPanel.test.tsx passes with its assertions unmodified, including `prints a failed comparison verbatim, in the surface that failed` and the four existing `a failure lands on exactly one surface` tests.",
+        "C5. The `ONE MESSAGE, ONE PLACE` comment above `compareError` (HelmPanel.tsx:68-71 at df6c3d2) states both conditions and that the rule now holds by the expression rather than by a reachability argument; the :119-151 comment is left true (its unreachability bullet concerns `incoming`, not the error).",
+        "C6 (P3, widened at Gate 2 to the two sibling sites). rules.ts:16, Helm.styles.test.ts:10 and no-paths.test.ts:11 name `discrimination.test.tsx`. Base lines (df6c3d2): rules.ts:16 ` * that it MUST NOT, and `discrimination.test.ts` runs that matrix. A rule`; Helm.styles.test.ts:10 ` * `discrimination.test.ts` proves every one of them can fire. This file only`; no-paths.test.ts:11 ` * `discrimination.test.ts` proves every one of them can fire. This file is`. Census: `grep -c \"discrimination.test.ts\\`\"` returns 0 on each of the three files (1 each, 3 total, at df6c3d2 — `git grep -n 'discrimination\\.test\\.ts\\b' df6c3d2 -- src tests` minus `.tsx` lines printed exactly these 3), and `grep -c \"discrimination.test.tsx\"` returns at least 1 on each. Predicate checked: the base lines match the first pattern; the corrected `discrimination.test.tsx`` does not (the character after `ts` is `x`, not a backtick). Comment-only: no code line of the three files changes.",
+        "C7. `npm --prefix <worktree> test -- src/renderer/src/helm` exits 0 and `npm --prefix <worktree> run typecheck:web` exits 0. The task creates no new test file and reports its net test-count delta (predicted +2)."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Remove the renderer store's uncalled setPermissionMode action (D7)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/state/store.ts",
+        "src/renderer/src/state/store.test.ts",
+        "src/renderer/src/state/workspace-provider.test.tsx",
+        "src/renderer/src/contracts/renderer-state.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. The `setPermissionMode` action is gone from store.ts (df6c3d2 :674-686) and from the `RendererActions` contract in renderer-state.ts (df6c3d2 :592). Census: `grep -rn \"setPermissionMode\" src/renderer/src/state src/renderer/src/contracts` prints 0 lines (9 at df6c3d2, by `git grep -c` per file: renderer-state.ts 1, store.ts 2, store.test.ts 5, workspace-provider.test.tsx 1). Predicate checked: store.ts:674 `async setPermissionMode(podId` matches; the channel key `'podSetPermissionMode'` (store.test.ts:191, capital S) does not.",
+        "C2. `npm --prefix <worktree> run typecheck:web` exits 0 — the evidence that no renderer code still calls the removed member.",
+        "C3 (preserved). The `PermissionMode` type import is removed from store.ts and renderer-state.ts only where no other use remains in that file (the tsconfigs set `noUnusedLocals: false`, so typecheck will not flag a leftover).",
+        "C4. store.test.ts's `covers every invoke channel between the action table and the lifecycle reads` still asserts equality with every `INVOKE_CHANNELS` key, and now accounts for `podSetPermissionMode` by name as a channel no renderer action reaches (with a comment saying why), not through an `ACTION_CASES` row. Discrimination: with the `podInterrupt` row (store.test.ts:183-189 at df6c3d2, one site) temporarily deleted, `npm --prefix <worktree> test -- src/renderer/src/state/store.test.ts` fails on that test; reverted, window reported.",
+        "C5. The `podSetPermissionMode` `ACTION_CASES` row, the `setPermissionMode` entry of the `NO ACTION MOVES primaryLaneId OFF THE MATRIARCH` args map, the test `sets permissionMode locally only after main accepts it`, and `'setPermissionMode'` in workspace-provider.test.tsx's `ACTION_NAMES` are removed; `npm --prefix <worktree> test -- src/renderer/src/state` exits 0.",
+        "C6 (preserved; not owned). failure-paths.e2e.test.tsx still lists `podSetPermissionMode` on `UNREACHABLE_CHANNELS` and passes: `npm --prefix <worktree> test -- src/renderer/src/__tests__/failure-paths.e2e.test.tsx` exits 0. The IPC channel, preload method, main handler and runner method are untouched.",
+        "C7. The task creates no new test file and reports its net test-count delta (predicted -3: the removed `ACTION_CASES` row generates 2 tests through the loop at store.test.ts:343, plus the 1 removed test)."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Cite aria-current='false' (D8); PANEL-CLOSE names the no-bridge return (P1); reword the Composer 'impossible case' (P2)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/shell/PanelBar.tsx",
+        "src/renderer/src/contracts/renderer-panels.ts",
+        "src/renderer/src/composer/Composer.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D8). A comment immediately preceding the `aria-current={open === key}` attribute in PanelBar.tsx cites `https://www.w3.org/TR/wai-aria-1.2/#aria-current` and states that `false` is one of the attribute's listed values and its default ('Does not represent the current item within a set'). `grep -c \"https://www.w3.org/TR/wai-aria-1.2/#aria-current\" src/renderer/src/shell/PanelBar.tsx` returns 1 (0 at df6c3d2).",
+        "C2 (D8, preserved). The attribute is kept as is: `grep -cF \"aria-current={open === key}\" src/renderer/src/shell/PanelBar.tsx` returns 1 (1 at df6c3d2; Panels.styles.test.ts:109 quotes it), and `npm --prefix <worktree> test -- src/renderer/src/shell` exits 0.",
+        "C3 (P1). The PANEL-CLOSE WHOLE-STATE RESET entry in renderer-panels.ts (df6c3d2 :425-434, which says only `When `phase` is `'idle'` the reset leaves the Helm state as` / `is.`) also names the second early return in `resetHelmForReopen`, `if (this.api === null) return;` at panel-store.ts:336, and states that with no bridge the reset leaves the Helm state as it is. `grep -c \"this.api === null\" src/renderer/src/contracts/renderer-panels.ts` returns 1 (0 at df6c3d2). Comment-only.",
+        "C4 (P2). The sentence at Composer.styles.test.ts:55-59 (df6c3d2: `It is asserted, and not` / `defended with a `?? ''` fallback: an empty string here would silently` / `become the declaration `\"border: \"` and read as a non-offender, turning an` / `impossible case into a quiet pass in the one test that is meant to catch` / `untokenised widths.`) names the impossible case explicitly as an `undefined` capture, so it cannot be read as covering an empty value; every remaining occurrence of `impossible` in the file sits in a sentence that names `undefined`. Comment-only.",
+        "C5 (P2, preserved). The `AN EMPTY CAPTURE IS A DIFFERENT CASE, AND IT IS REACHABLE` paragraph (:61-66 at df6c3d2) is unchanged (`grep -c` returns 1, as at df6c3d2) and `npm --prefix <worktree> test -- src/renderer/src/composer/Composer.styles.test.ts` exits 0.",
+        "C6. `npm --prefix <worktree> run typecheck:web` exits 0. No test is added or removed (net delta 0)."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "DAG tail: repo-wide typecheck and full suite at the session tip",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "(none: verification only, writes no file)"
+      ],
+      "dependsOn": ["T1", "T2", "T3", "T4", "T5", "T6"],
+      "acceptance": [
+        "C1. `npm --prefix <worktree> run typecheck` (typecheck:node then typecheck:web) exits 0 at the tip carrying T1-T6. Vitest does not typecheck, so this is the only check on the D4 union change, the D5 guard and the D7 removal across both projects.",
+        "C2. `npm --prefix <worktree> test` exits 0 at the same tip.",
+        "C3. The vitest summary reports 145 test files: the base's 145 (measured at df6c3d2 by `npm --prefix <worktree> test`, recorded in state.json) plus 0, because no task creates a test file (each of T1-T6 states so). If any task did, this figure is re-derived from that report, not edited to match.",
+        "C4. The vitest summary's test count equals 2329 (base, same measurement) plus the sum of the net deltas reported by T1-T6, with the arithmetic shown in the report; a mismatch is reported as a finding, not reconciled.",
+        "C5. The task modifies no file."
+      ]
+    }
+  ]
+}

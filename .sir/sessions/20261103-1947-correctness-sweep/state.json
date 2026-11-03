@@ -1,0 +1,88 @@
+{
+  "session": "20261103-1947-correctness-sweep",
+  "updatedAt": "2026-11-03T21:28:24Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261103-1947-correctness-sweep",
+  "branch": "agent/20261103-1947-correctness-sweep",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.node.json --composite false / > tsc --noEmit -p tsconfig.web.json --composite false / exit=0 (worktree resolves the main checkout's node_modules by parent-directory lookup; its own node_modules holds only vitest's .vite cache)"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "Test Files  145 passed (145) / Tests  2329 passed (2329) / exit=0"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "df6c3d2d74d034ff3eb8463c8b5e631bf27af4f8",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "f1305be73b1834ee7df888fb67218aa7e3b1d622"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "df6c3d2d74d034ff3eb8463c8b5e631bf27af4f8",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "e6985fdbffb932bba53978a3a53e4264024c42f7"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "64afbbf4ff9f1f18091d4a0ede6175fac5519993",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "53d2b1b5f96301fb5290567b193406cc856baff3"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "df6c3d2d74d034ff3eb8463c8b5e631bf27af4f8",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "53b170ec272e06752e4418f225d3602de246f1b4"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "df6c3d2d74d034ff3eb8463c8b5e631bf27af4f8",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "64afbbf4ff9f1f18091d4a0ede6175fac5519993"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "df6c3d2d74d034ff3eb8463c8b5e631bf27af4f8",
+      "model": "opus",
+      "redispatches": 0,
+      "commit": "9e8c91421efe2142fc1dba53cf8e401e509a2b77"
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "53d2b1b5f96301fb5290567b193406cc856baff3",
+      "model": "opus",
+      "redispatches": 0
+    }
+  ],
+  "escalations": [],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}

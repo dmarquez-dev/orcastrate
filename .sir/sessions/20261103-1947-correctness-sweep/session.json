@@ -1,0 +1,47 @@
+{
+  "id": "20261103-1947-correctness-sweep",
+  "name": "correctness-sweep",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Clear the 8 Correctness items and 3 Ungrouped prose items in .sir/backlog.md. Runtime fixes: Helm's backup ordinal becomes process-wide so two Helm services on one file cannot clobber a backup inside one millisecond (D1); HelmPanel's one-surface rule holds by compareError's own definition rather than reachability (D2); podBlockerFor names the exact (encoding) match over a decoded guess (D3); non-projects Beachcomber entries get a new 'absolute-path' pathSource so the 'path is a guess' caveat stops rendering for them (D4); the renderer's uncalled setPermissionMode action is removed (D7). Guards: _UncoveredAtSchemaHead is respelled through _AssertNever against migration 3 so it actually breaks the build (D5); MIGRATION_1 pins its lane-kind and event-type lists (D6). Comment-only: cite WAI-ARIA for aria-current='false' (D8) and fix three docblocks (P1-P3). Seven tasks; the tail runs repo-wide typecheck and the full suite.",
+  "started": "2026-11-03T19:47:29Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "pushed": true,
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "8274ed3a-1f51-472b-8214-3fcde9d99570",
+      "sir": "1.0.15",
+      "started": "2026-11-03T19:47:29Z",
+      "ended": "2026-11-03T19:50:02Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "e9d41f4f-bbdf-4747-bb21-b98cf117eac3",
+      "sir": "1.0.15",
+      "started": "2026-11-03T19:52:35Z",
+      "ended": "2026-11-03T20:30:14Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "4be57d16-c617-4d62-97fa-a793bd389cfc",
+      "sir": "1.0.15",
+      "started": "2026-11-03T20:31:18Z",
+      "ended": "2026-11-03T20:58:00Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "a261fda0-af61-4ed7-965a-87b8ac15120e",
+      "sir": "1.0.15",
+      "started": "2026-11-03T21:20:01Z",
+      "ended": "2026-11-03T21:28:24Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

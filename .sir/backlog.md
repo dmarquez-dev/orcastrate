@@ -14,15 +14,6 @@
 
 ## Correctness
 
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Make Helm's backup ordinal safe across service instances: `BackupSequence` is per-instance state (`src/main/helm/helm-service.ts:83`), so two `Helm` services on one settings file could still collide inside one millisecond; nothing constructs two today.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Make Helm's "a failure renders on exactly one surface" invariant hold by the code's shape rather than a reachability argument, closing the two currently-unreachable holes at `src/renderer/src/helm/HelmPanel.tsx:84` and `:152`.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Decide which Pod `podBlockerFor` should name when one Pod matches by encoding and another by normalized path (`src/main/beachcomber/paths.ts:117-120`); blocked-ness is correct, only the banner's identity changed.
-2026-10-07 dir-handrun-2026-10-07 Stop labelling true absolute paths as guesses: `buildEntry` gives every non-`projects` root `pathSource: 'decoded-name'` (`src/main/beachcomber/service.ts:177-179`), so the "path is a guess" caveat renders wrongly under three of the four roots.
-2026-10-09 dir-audit-2026-10-09 Make `_UncoveredAtSchemaHead` actually break the build: the empty-array spelling at `src/main/store/schema.ts:256-257` is inert, and its docblock (`:252-255`) also keys it to migration 2's list where migration 3 is the schema head.
-2026-10-09 dir-audit-2026-10-09 Pin `MIGRATION_1`'s live `LANE_KINDS` (`src/main/store/schema.ts:344`) and `EVENT_TYPES` (`:382`) interpolations as the other enums are; latent, since `migration-frozen.test.ts` catches a widened union.
-2026-10-09 dir-audit-2026-10-09 Wire or remove the renderer store's `setPermissionMode` action (`src/renderer/src/state/store.ts:674`), which no component calls.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Verify or drop `aria-current="false"` on every closed panel button (`src/renderer/src/shell/PanelBar.tsx:89`), whose ARIA validity was never checked; one citation or omitting the attribute closes it.
-
 ## Tests and guards
 
 ## Prose drift
@@ -62,10 +53,8 @@
 
 ## Ungrouped (Gate 3 appends land here)
 
-2026-11-03 20261102-2224-prose-drift-sweep Make the PANEL-CLOSE entry at `src/renderer/src/contracts/renderer-panels.ts:425-434` name the second early return in `resetHelmForReopen`, taken when `this.api === null` (`src/renderer/src/state/panel-store.ts:336`).
-2026-11-03 20261102-2224-prose-drift-sweep Reword the "impossible case" sentence at `src/renderer/src/composer/Composer.styles.test.ts:56-59` so it cannot be read as covering empty values, since the paragraph at `:61-66` shows `"border: "` is reachable without the `?? ''` fallback.
-2026-11-03 20261102-2224-prose-drift-sweep Correct `discrimination.test.ts` to `discrimination.test.tsx` in the docblock at `src/renderer/src/helm/rules.ts:16`.
 2026-11-03 20261103-1657-tests-and-guards-sweep Make the retired-id offender scan at `src/renderer/src/__tests__/hygiene.test.ts:1331` match the quote-delimited literal rather than `text.includes(literal)`, which flags a live id that merely extends a retired one (the same shape D15 fixed in `retiredLiteralUseReport`).
 2026-11-03 20261103-1657-tests-and-guards-sweep Relax or document the border-width predicate in `src/renderer/src/pods/PodBar.styles.test.ts` (the test at `:469`), which rejects a multi-value longhand such as `border-width: var(--oc-border-hairline) 0` that the `PodBar.module.css` docblock permits; no such declaration exists today.
 2026-11-03 20261103-1657-tests-and-guards-sweep Make `tests/unit/store/migration-2.test.ts:104` skip in a shallow clone as `migration-frozen.test.ts` now does, since it also shells out to `git show`, unless the Cosmetic line deleting that test lands first.
 2026-11-03 20261103-1657-tests-and-guards-sweep Decide whether `closePod` on an already-closed Pod should stop re-pushing `podStatus 'closed'` (`src/main/pod-manager/pod-manager.ts:511-518`); harmless today, and `tests/unit/pod-manager/close-pod-lane-sweep.test.ts`'s whole-record count pins the re-push, so changing it means updating that expectation.
+2026-11-03 20261103-1947-correctness-sweep Give the renderer stub's three non-`projects` Beachcomber rows (`src/renderer/src/test-utils/stub-api.ts:256-288`) `pathSource: 'absolute-path'`; they carry `'session-record'`, which matches neither the old base nor the new D4 rule.
