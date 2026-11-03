@@ -1,0 +1,178 @@
+{
+  "session": "20261103-1657-tests-and-guards-sweep",
+  "createdAt": "2026-11-03T17:15:41Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Helm watcher tests wait on a condition, not settle(turns = 6)",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/helm/helpers.ts",
+        "tests/unit/helm/watcher.test.ts",
+        "src/main/helm/watcher.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D10 positive waits (test.md Determinism: 'No sleeping. Wait on the condition, with a timeout'): every assertion in `tests/unit/helm/watcher.test.ts` that a push ARRIVED (a pushes length of 1 or more, or a field of a received push) is preceded by a wait that resolves as soon as the asserted condition holds and, if it does not hold within a bounded timeout, fails with a message naming that condition. No such assertion depends on a fixed number of event-loop turns. At ce1cd36 every one of them follows `settle()`, which is `settle(turns = 6)` at `tests/unit/helm/helpers.ts:193-197`: six `setImmediate` turns whether or not a watcher event arrived (`grep -c 'settle(' tests/unit/helm/watcher.test.ts` returns 25 at ce1cd36).",
+        "D10 negative waits: every assertion in `watcher.test.ts` that NO push arrived is preceded by a mechanism that establishes a push would have been observed had one been made. Where a watch is still live, that mechanism is a barrier: a later out-of-band change on the watched path, whose own push is awaited by condition before the absence is asserted on everything that came before it. Where the test leaves no watch live (`watch(null)`, `dispose`, an absent directory), it is an assertion that every handle the test opened was closed before the out-of-band write, using the file's existing `trackWatchers` (`watcher.test.ts:48-63` at ce1cd36), or that no handle was opened. The report lists each no-push test by name with the mechanism it uses, and names any residual window that the mechanism does not close.",
+        "D10 helper: `tests/unit/helm/helpers.ts` exports no wait whose completion is a fixed count of event-loop turns, or, if it still exports one, `watcher.test.ts` no longer imports it.",
+        "D10 latency control (G1): first inject a delay of at least 50 ms (a timer) in front of the watcher's push in `src/main/helm/watcher.ts`, naming the site as file:line, while `watcher.test.ts` is still at its ce1cd36 content. `npx --prefix <worktree> vitest run --root <worktree> tests/unit/helm/watcher.test.ts` must then be RED; report the failing test names and their count. Then, under the same injection, the task's rewritten file must be GREEN. The injection is reverted afterwards.",
+        "D10 discrimination control (G1): with the watcher's push suppressed entirely, injected in `src/main/helm/watcher.ts` at a named file:line, every test in the rewritten file that asserts a push arrived FAILS with its timeout message naming its condition. None hangs past vitest's per-test timeout and none passes. The report quotes one such message and the failed count. The injection is reverted afterwards.",
+        "D10 stability (test.md Determinism: 'A test that fails intermittently is treated as a failing test'): the same scoped command over `tests/unit/helm/watcher.test.ts` passes on 5 consecutive runs, and the report quotes each run's 'Tests' line. Every run shows at least 11 tests passed and 0 failed or skipped; 11 is the ce1cd36 count, measured by `npx --prefix <worktree> vitest run --root <worktree> tests/unit/helm/watcher.test.ts`.",
+        "`npx --prefix <worktree> vitest run --root <worktree> tests/unit/helm` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines.",
+        "G4: the task's diff modifies only `tests/unit/helm/helpers.ts` and `tests/unit/helm/watcher.test.ts`. `src/main/helm/watcher.ts` is owned for positive-control injection only, and at task head it is byte-identical to ce1cd36 (the task diff has no hunk in it)."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "IPC: widen the leaf import scan and test the duplicate-registration guard directly",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/ipc/failure-leaf.test.ts",
+        "tests/unit/ipc/duplicate-registration.test.ts",
+        "src/main/ipc/failure.ts",
+        "src/main/ipc/handlers.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D2 import forms: the scan in `tests/unit/ipc/failure-leaf.test.ts` (`importStatements`, :43-48 at ce1cd36, whose regex at :47 requires a single-quoted specifier followed by `;`) recognises three more forms, each asserted on a fixture string: a bare side-effect import (`import '../pod';`), a double-quoted specifier (`import { X } from \"../pod\";`), and a semicolon-less statement ending its line. At ce1cd36 the scan returns no statement for any of the three. Census validation, by eye on fixtures: the shipped statement of `src/main/ipc/failure.ts` must match. Three near-misses must NOT match: a line-comment import (`// import x from '../pod';`), an import inside a block comment, and a line that opens with an identifier beginning `import`, such as `importStatements(source);`.",
+        "D2 zero is a failure: each per-statement assertion loop in the file (:75-79, :81-88 and :146-150 at ce1cd36) fails when its statement list is empty, instead of passing over zero statements. The X4 filters (`:144` and `:159`, which match `from '<specifier>';` only) recognise the same specifier when it is written with double quotes or without a semicolon.",
+        "D2 injected defect (G1): add a type-only import that the ce1cd36 regex cannot see to `src/main/ipc/failure.ts`, for example `import type { PodRunnerError } from \"../pod\";` (double-quoted, erased at runtime), and name the site. With the test file still at ce1cd36, `npx --prefix <worktree> vitest run --root <worktree> tests/unit/ipc/failure-leaf.test.ts` must be GREEN, because :69's length is still 1 and the loops see one statement. The task's file must be RED under the same injection, and the report quotes the failure. Repeat with a semicolon-less single-quoted type import and report that result too. Both injections are reverted afterwards.",
+        "D5: a direct test, in its own new file `tests/unit/ipc/duplicate-registration.test.ts` so that its setup leaks into no other suite, makes `registerIpcHandlers` (`src/main/ipc/handlers.ts:98` at ce1cd36) register one wire name twice. It asserts that the call throws an Error whose message names that channel (`ipc channel <name> already has a handler`, `handlers.ts:107`), and that `ipcMain.handle` received that channel exactly once, so the guard fires before a second handler can replace the first. The duplicate is produced test-side, for example with a module mock of `src/shared/contracts/ipc` that gives two `INVOKE_CHANNELS` keys the same wire name. Premise, with citation: at ce1cd36 the guard is unreachable from outside, because `register` is an inner function (`handlers.ts:102`) and every registration names a distinct `INVOKE_CHANNELS` member. `tests/unit/ipc/channels.test.ts:84-90` says so in a comment.",
+        "D5 injected defect (G1): delete the duplicate guard at `handlers.ts:106-108`. The new test must then be RED, and the report quotes the failure. Under the same injection, `npx --prefix <worktree> vitest run --root <worktree> tests/unit/ipc/channels.test.ts` must be GREEN with 21 tests, the count at ce1cd36 measured by the same command. The injection is reverted afterwards.",
+        "`npx --prefix <worktree> vitest run --root <worktree> tests/unit/ipc` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. `failure-leaf.test.ts` reports at least 11 tests, its ce1cd36 count measured by the same command scoped to that file.",
+        "G4: the task's diff modifies `tests/unit/ipc/failure-leaf.test.ts` and adds `tests/unit/ipc/duplicate-registration.test.ts`, and nothing else. `src/main/ipc/failure.ts` and `src/main/ipc/handlers.ts` are owned for positive-control injection only, and both are byte-identical to ce1cd36 at task head."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Pod-manager harness: fix recordAttempts' trap and count every push channel",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/pod-manager/helpers.ts",
+        "tests/unit/pod-manager/close-pod-lane-sweep.test.ts",
+        "tests/unit/pod-manager/record-attempts.test.ts",
+        "src/main/pod-manager/pod-manager.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D6 forwarding: the proxy `recordAttempts` returns (`tests/unit/pod-manager/helpers.ts:250-262` at ce1cd36) passes every argument the caller supplied, in order, to the underlying method, with `this` bound to the target. A test in the new file `tests/unit/pod-manager/record-attempts.test.ts` asserts this through a method on a fake target that takes two arguments. At ce1cd36 the trap's wrapper takes one parameter (`helpers.ts:258`) and drops the second. What `attempted` records stays `{ channel, payload }`, with the first argument as the payload.",
+        "D6 stable identity: on one proxy, reading the same method property twice returns the identical function (`===`). This is asserted for each of the five `Pushes` methods (`src/main/pod-manager/pushes.ts:25-31`: `podEvent`, `podStatus`, `laneChanged`, `permissionRequested`, `permissionResolved`), or the report names any method left uncovered and why. At ce1cd36 every read returns a fresh closure (`helpers.ts:258-261`).",
+        "D6 red step (G1): the new test file is run against ce1cd36's `recordAttempts`, before the trap is changed, and the report quotes the failing assertions for both forwarding and identity.",
+        "D7 harness-wide rule (assumption A-D7, see report): the rule that a `podEvent` is never ATTEMPTED with an empty `events` array is enforced for every harness that `makeManagerHarness` builds. That reaches every test file that builds one, without editing them. Census: `grep -rl makeManagerHarness tests --include=*.test.ts` returns 5 files at ce1cd36 (close-pod-lane-sweep, lifecycle, resume, startup-reconciliation, user-prompt); `tests/unit/pod-manager/helpers.ts` defines the function and is the near-miss, not a user. At ce1cd36 the rule lives only in `close-pod-lane-sweep.test.ts:36-59`'s `afterEach`, over that file's own harnesses. The rule reads `attempted`, not `pushed`, for the reason given at `close-pod-lane-sweep.test.ts:43-49`. All 5 files stay green at task head; if any goes red, that is a production finding to escalate and is not to be fixed in the test.",
+        "D7 every channel counted: the harness exposes a per-channel count of attempted pushes. Its keys are every channel that a `Pushes` method maps to, derived at runtime from the object `createPushes` returns rather than typed out by hand, and an untouched channel reads 0. closePod's idempotence test (`close-pod-lane-sweep.test.ts:311-344` at ce1cd36, 'criterion 5') asserts the second `closePod`'s per-channel delta over EVERY channel as one whole-record equality. At ce1cd36 it counts `laneChanged` and `podEvent` only (:320-321 and :337-341), although the second close also pushes `podStatus`: `pod-manager.ts:518` is reached because a 'closed' Pod passes the `!== 'beached'` check at :511. The expected record states that delta exactly as measured.",
+        "D7 injected defect, harness-wide rule (G1): inject an attempted `podEvent` with `events: []` into a `PodManager` method other than `closePod`, naming the method and file:line in `src/main/pod-manager/pod-manager.ts`. With `helpers.ts` and `close-pod-lane-sweep.test.ts` still at ce1cd36, `npx --prefix <worktree> vitest run --root <worktree> tests/unit/pod-manager` must be GREEN. If it is red, the report says which test reached the injection, and a different method is chosen. Under the task's harness and the same injection, the run must be RED, and the report names the failing files. The injection is reverted afterwards.",
+        "D7 injected defect, whole-record count (G1): inject one extra push in `closePod`'s redundant-close path, on a channel that ce1cd36's criterion 5 does not count (`podStatus` or a `permission*` channel), naming the site. ce1cd36's `close-pod-lane-sweep.test.ts` must be GREEN under it and the task's version must be RED. The injection is reverted afterwards.",
+        "Isolation (test.md Isolation: 'Tests do not share mutable state, and they pass in any order'): `npx --prefix <worktree> vitest run --root <worktree> tests/unit/pod-manager --sequence.shuffle` passes at task head, and the report quotes the seed vitest printed together with the 'Tests' line.",
+        "`npx --prefix <worktree> vitest run --root <worktree> tests/unit/pod-manager` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. `close-pod-lane-sweep.test.ts` reports at least 10 tests, its ce1cd36 count measured by the same command.",
+        "G4: the task's diff modifies `tests/unit/pod-manager/helpers.ts` and `tests/unit/pod-manager/close-pod-lane-sweep.test.ts` and adds `tests/unit/pod-manager/record-attempts.test.ts`, and nothing else. `src/main/pod-manager/pod-manager.ts` is owned for positive-control injection only, and it is byte-identical to ce1cd36 at task head."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Exact recursive sizeBytes, shallow-clone skip for migration-frozen, recording integrity",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/beachcomber/roots.test.ts",
+        "tests/unit/store/migration-frozen.test.ts",
+        "tests/unit/fixtures/recordings-integrity.test.ts",
+        "src/main/beachcomber/walk.ts",
+        "probe/evidence/foreground-shipped.ndjson"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D8: the recursive-measurement test in `tests/unit/beachcomber/roots.test.ts` ('totals size, file count and the newest mtime recursively beneath the entry', :116-133 at ce1cd36) asserts that `entry.sizeBytes` EQUALS the sum of the byte sizes of the three files beneath the entry: the session transcript `makeProject` wrote, `a.txt` (5 bytes) and `nested/deeper/b.txt` (10 bytes). There is no subtraction and no inequality. At ce1cd36, :129-130 asserts only `sizeBytes - 15 > 0`.",
+        "D8 injected defect (G1): make `src/main/beachcomber/walk.ts` stop adding the sizes found in nested directories, naming the site as file:line. ce1cd36's `roots.test.ts` must be GREEN under the injection, and the report gives the transcript's byte size that keeps `sizeBytes - 15 > 0` true. The task's version must be RED. The injection is reverted afterwards.",
+        "D9 shallow skip (orchestrator decision: a conditional skip, not a try/catch pass): when the repository's history is unavailable because the clone is shallow, `tests/unit/store/migration-frozen.test.ts` reports its blob-reading tests as SKIPPED, not failed. The skip carries a reason, visible in vitest's default-reporter output, saying that the shipped `schema.ts` blobs are unavailable in a shallow clone. Evidence: run the file with git pointed at a depth-1 clone of this repository (for example `git clone --depth 1 file://<main checkout>`, made in the implementer's scratch directory, with `GIT_DIR` set to it). The report quotes the skip output, 0 failed, and the exact commands. The same run against ce1cd36's test file FAILS, and the report quotes the error. At ce1cd36, `:100` calls `git show` unconditionally.",
+        "D9 the skip does not swallow a real fault: in a full clone, a `SHIPPED_BLOB` ref (`migration-frozen.test.ts:64-69` at ce1cd36) that does not resolve still FAILS red and is not skipped. Evidence: replace one entry with a hash that does not exist in this worktree, which is a full clone (`git -C <worktree> rev-parse --is-shallow-repository` prints `false` at ce1cd36). The report quotes the failure, and the change is reverted afterwards.",
+        "D9 full clone still asserts: in this worktree, `npx --prefix <worktree> vitest run --root <worktree> tests/unit/store/migration-frozen.test.ts` reports 6 passed and 0 skipped. 6 is the ce1cd36 count, measured by the same command.",
+        "D11 integrity (orchestrator decision: SHA-256 over content with CRLF normalised to LF): a new test `tests/unit/fixtures/recordings-integrity.test.ts` checks every recording against a frozen table that maps each repo-relative path to a SHA-256. Each hash is computed over the file's BYTES with each 0x0D 0x0A pair replaced by 0x0A. The replacement is done on bytes and not on a decoded string, because a recording's fidelity can include bytes that a UTF-8 decode would replace. Each frozen hash equals `git show ce1cd36:<path> | sha256sum`, which is the LF blob an autocrlf=false checkout writes. The reviewer can recompute that independently, and it shows the criterion holds under both autocrlf settings: this worktree is autocrlf=true, and `git ls-files --eol` reports all 10 recordings as `i/lf w/crlf`.",
+        "D11 census: the test derives its recording set by walking `tests/fixtures/protocol` and `probe/evidence` for names that end in `.ndjson`, and it asserts that this derived set equals the table's key set, so an unlisted new recording fails and a deleted recording fails. Census validation: `tests/fixtures/protocol/05-malformed.ndjson` must be in the set. `tests/fixtures/protocol/findings.json` and `probe/evidence/foreground-analysis.json` are near-misses that must not be. At ce1cd36 the derived set has 10 members, by `git ls-files '*.ndjson' | wc -l` and by `find tests/fixtures/protocol probe/evidence -name '*.ndjson' | wc -l`, which agree. The test's scan root comes from `import.meta.url` and not from the working directory, following the `tests/router/helpers.ts:27` idiom under the default node environment (lessons.md, 2026-10-29).",
+        "D11 injected defect (G1): change one content byte of `probe/evidence/foreground-shipped.ndjson`. The new test must be RED and name that file. At ce1cd36 nothing under `src/` or `tests/` reads it, by `grep -rln 'foreground-shipped' src tests`, which returns no file (exit 1) at ce1cd36. `probe/evidence/` itself is named under `src` and `tests` only in the docblock comment at `src/renderer/src/__tests__/hygiene.test.ts:1038`. Near-miss control: converting the same file's line endings between CRLF and LF, with no other change, leaves the test GREEN. Both edits are reverted afterwards, and the file is byte-identical to ce1cd36 at task head.",
+        "`npx --prefix <worktree> vitest run --root <worktree> tests/unit/beachcomber tests/unit/store tests/unit/fixtures` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. `roots.test.ts` reports at least 9 tests, its ce1cd36 count measured by the same command.",
+        "G4: the task's diff modifies `tests/unit/beachcomber/roots.test.ts` and `tests/unit/store/migration-frozen.test.ts` and adds `tests/unit/fixtures/recordings-integrity.test.ts`, and nothing else. `src/main/beachcomber/walk.ts` and `probe/evidence/foreground-shipped.ndjson` are owned for positive-control injection only, and both are byte-identical to ce1cd36 at task head."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Renderer: pin the orphan marker's position and stop absentControlLabels broadening",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/beachcomber/BeachcomberRow.test.tsx",
+        "src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberRow.tsx",
+        "src/renderer/src/helm/HelmActionBar.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D3 (worked, not reported unreachable): a test in `BeachcomberRow.test.tsx` renders a row whose path comes from a session record and which is both orphaned and blocked. It asserts that the orphan marker comes AFTER the display path in document order, and the full order it pins is: select input, display path, facts line, blocked reason, orphan marker. That is the order `BeachcomberRow.tsx:61-140` renders at ce1cd36. Why this is reachable, with citations: the mutual exclusivity at `:44-45` is between the unverified notice and the orphan marker, while the display path at `:100` renders unconditionally, so every orphan row renders both a path and a marker (`makeRow(makeEntry({ orphan: true, pathSource: 'session-record' }))`, as `BeachcomberRow.test.tsx:122` already does). At ce1cd36 no test asserts the orphan marker's position: the V4 ordering test (`:205-220`) renders `orphan: false`.",
+        "D3 injected defect (G1): move the orphan block (`BeachcomberRow.tsx:134-140`) above the path paragraph (`:100`). ce1cd36's `BeachcomberRow.test.tsx` must be GREEN under it, with 14 tests (the ce1cd36 count, measured by `npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/beachcomber/BeachcomberRow.test.tsx`). The task's version must be RED. The injection is reverted afterwards.",
+        "D4: in 'names none of the absent Helm controls in its empty state when a draft is on screen with no conflict' (`correctness-sweep.e2e.test.tsx:233-270` at ce1cd36), the set of Helm control labels absent from the screen must equal exactly `[COPY.compare]`, the control that only the conflict banner renders. If Helm stops rendering Save, Discard or Reload, the test therefore fails with a message naming the missing label, and it no longer goes on to assert over a broadened list. At ce1cd36, `:263` asserts only `toContain(COPY.compare)`.",
+        "D4 injected defect, Save (G1): stop `HelmActionBar.tsx` rendering the Save button (its label at `:76` at ce1cd36). ce1cd36's `correctness-sweep.e2e.test.tsx` must be GREEN on that test under the injection, and the task's version must be RED with a message naming the Save label. The injection is reverted afterwards.",
+        "D4 injected defect, Discard (G1): stop `HelmActionBar.tsx` rendering the Discard button (its label at `:85` at ce1cd36). ce1cd36's test must be GREEN under the injection, and the task's version must be RED with a message naming the Discard label. The injection is reverted afterwards.",
+        "D4 injected defect, Reload (G1): stop `HelmActionBar.tsx` rendering the Reload button (its label at `:94` at ce1cd36). ce1cd36's test must be GREEN under the injection, and the task's version must be RED with a message naming the Reload label. The injection is reverted afterwards. Should any of the three injections make the scenario unreachable rather than broaden the list, the report says so for that label.",
+        "`npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/beachcomber/BeachcomberRow.test.tsx src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. The two files report at least 14 and at least 4 tests, their ce1cd36 counts measured by the same command.",
+        "G4: the task's diff modifies only the two test files. `BeachcomberRow.tsx` and `HelmActionBar.tsx` are owned for positive-control injection only, and both are byte-identical to ce1cd36 at task head."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Stylesheet guards: PanelBar open state, robust :root body, PodBar/DeletePodDialog docblock claims",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/shell/Panels.styles.test.ts",
+        "src/renderer/src/styles/tokens.test.ts",
+        "src/renderer/src/pods/PodBar.styles.test.ts",
+        "src/renderer/src/pods/DeletePodDialog.styles.test.ts",
+        "src/renderer/src/shell/PanelBar.module.css",
+        "src/renderer/src/pods/PodBar.module.css",
+        "src/renderer/src/pods/DeletePodDialog.module.css"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "D12: a stylesheet-level test in `src/renderer/src/shell/Panels.styles.test.ts` fails unless `PanelBar.module.css` has a rule whose selector is `.button` qualified by `aria-current` EQUAL to `true` (`PanelBar.module.css:43` at ce1cd36), and unless that rule's `background` differs from both `.button`'s (`transparent`, :30) and `.button:hover`'s (`var(--oc-bg-hover)`, :39). At ce1cd36 this file asserts nothing about that rule; its `.panelBar` anchor appears only at :27 and :37.",
+        "D12 injected defect, class revert (G1): change the selector at `PanelBar.module.css:43` to a class such as `.buttonOpen`. ce1cd36's `Panels.styles.test.ts` must be GREEN under it, with 10 tests (the ce1cd36 count, measured by `npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/shell/Panels.styles.test.ts`). The task's version must be RED. The injection is reverted afterwards.",
+        "D12 injected defect, value dropped (G1): change `:43` to `.button[aria-current]`. That selector would also paint closed buttons, because `PanelBar.tsx:89` renders `aria-current={open === key}` and so sets 'false' on them. ce1cd36's test must be GREEN under it and the task's version must be RED. The injection is reverted afterwards.",
+        "D12 injected defect, paint removed (G1): delete the `background` declaration from the `:43` rule. ce1cd36's test must be GREEN under it and the task's version must be RED. The injection is reverted afterwards.",
+        "D13: `src/renderer/src/styles/tokens.test.ts` finds the end of the `:root` body by matching braces, so a `}` inside a token value (inside a quoted string) does not end the body. A fixture in which such a value comes before later declarations yields a body that contains every declaration of the block. Red step (G1): ce1cd36's `source.indexOf('}', openIndex)` (`tokens.test.ts:55`) is run on the same fixture, and the report shows the later declaration missing from the body it returns.",
+        "D13 near-miss: in a fixture with a declaration AFTER the real close of `:root`, the finder reports that declaration as outside the block, so the body never extends past its own close. 'declares them all inside a single :root block' still passes against the real `tokens.css` for every `TOKENS` name.",
+        "D14 PodBar bare lengths (orchestrator decision: enforce, not soften; the docblock text is unchanged): a test fails unless the declarations in `PodBar.module.css` that carry a bare `px`, `rem` or `em` length, with comments stripped, are EXACTLY two, as the docblock at `:4-7` claims: the `box-shadow` of `.tabItemDropTarget` (`:75`) and the `box-shadow` of `.statusDot[data-status='waiting']` (`:162`). The claim holds at ce1cd36 by two measurements: a per-declaration node walk with comments stripped, and `grep -nE '[0-9](px|rem|em)' src/renderer/src/pods/PodBar.module.css`, whose only other hit is the comment at :198. Census validation: `:75` must match. Four near-misses must NOT match: the `--oc-space-1` token's digit, `1.4s` (`:146`), `opacity: 0.5`, and the comment's `38px` (`:198`). Injected defect (G1): a third bare-`px` declaration added anywhere in the file turns the test RED, and the report names the site.",
+        "D14 PodBar border widths: the claim at `PodBar.module.css:2-3`, that every border width is `--oc-border-hairline`, `--oc-border-thick` or a bare `0`, is enforced by a named test, new or existing, cited as file:line at head. Injected defect (G1): change `.newPod`'s border (`:331`) to `1px solid var(--oc-border-strong)`. That test must then be RED, and the report quotes the failure. The injection is reverted afterwards.",
+        "D14 PodBar tracking: the claim at `:3-4` that `.bypassBadge`'s letter-spacing is `--oc-tracking-wide` (`:212`) is enforced by a test. The tracking census in `hygiene.test.ts` accepts any `--oc-tracking-*` token (see `hygiene.test.ts:1816-1817`), so it does not cover this claim. Injected defect (G1): changing `:212` to `var(--oc-tracking-tight)` turns that test RED. The injection is reverted afterwards.",
+        "D14 DeletePodDialog lengths: a new `src/renderer/src/pods/DeletePodDialog.styles.test.ts` fails if any declaration in `DeletePodDialog.module.css`, with comments stripped, carries a bare `px`, `rem` or `em` length, which is the claim at `:3-4`. The matcher is shown on a fixture sample for each of the three units. Injected defect (G1): `padding: 4px` added to `.button` (`:78`) turns it RED. The injection is reverted afterwards.",
+        "D14 DeletePodDialog raw values: the same file fails unless every numeric literal outside a `var(...)` in `DeletePodDialog.module.css` belongs to a `z-index`, an `opacity`, a `100%` value or a bare `0`, which is the claim at `:5-6`. At ce1cd36 the claim holds, measured by a node walk with comments stripped: `z-index: 1` (:11), `inset: 0`, `width: 100%`, `max-height: 100%`, four `margin: 0`, and `opacity: 0.6`. Near-miss: the digits inside `var(--oc-space-6)` must not count. Injected defect (G1): `line-height: 1.4` added to any rule turns it RED. The injection is reverted afterwards.",
+        "New fixture strings that contain a bare length or other needle follow the needle-assembly convention wherever a scanner in `src/renderer/src/__tests__/hygiene.test.ts` would read them (that file's docblock at :1157-1161, and its practice at :1962). `npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/__tests__/hygiene.test.ts` passes at task head.",
+        "`npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/shell/Panels.styles.test.ts src/renderer/src/styles/tokens.test.ts src/renderer/src/pods/PodBar.styles.test.ts src/renderer/src/pods/DeletePodDialog.styles.test.ts src/renderer/src/styles/status-motion.styles.test.ts` exits 0 at task head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. The three modified files report at least 10, 9 and 31 tests respectively, their ce1cd36 counts measured by the same command scoped to them.",
+        "G4: the task's diff modifies the three existing test files and adds `DeletePodDialog.styles.test.ts`, and nothing else. The three `.module.css` files are owned for positive-control injection only, and all three are byte-identical to ce1cd36 at task head. The docblocks at `PodBar.module.css:1-8` and `DeletePodDialog.module.css:1-7` are therefore unchanged."
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "retiredLiteralUseReport counts total and absent on the same match; session tail: typecheck and full suite",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/hygiene.test.ts"
+      ],
+      "dependsOn": ["T1", "T3", "T4", "T5", "T6", "T7"],
+      "acceptance": [
+        "D15: `retiredLiteralUseReport` (`src/renderer/src/__tests__/hygiene.test.ts:1185-1206` at ce1cd36) counts `total` on the same quote-delimited match that `absent` uses. A retired literal that occurs only as a proper prefix of a longer live test id is therefore not counted. Fixture: an absence assertion on the retired id together with a presence query on a live id that extends it, with both ids assembled from fragments. The function must return `null` for it. Red step (G1): at ce1cd36 the same input returns 'uses a retired literal outside an absence assertion (1 of 2 code occurrences)', because `:1189` counts substrings, and the report quotes what was observed.",
+        "D15 preserved behaviour: a presence query whose retired id is double-quoted is still reported, and so is one whose retired id is backtick-quoted, each as '(1 of 1 code occurrences)', shown by a fixture for each. Every existing assertion in 'licenses an exempt file to use a retired id only as the argument of an absence assertion, at every occurrence' (`:1232-1273` at ce1cd36) still passes unchanged. 'finds no reference to a retired test id outside the one ratified proof' (`:1294`) still passes, which means no code in `hygiene.test.ts` spells the retired literal contiguously (the needle-assembly discipline, `:1157-1161`).",
+        "`npx --prefix <worktree> vitest run --root <worktree> src/renderer/src/__tests__/hygiene.test.ts` exits 0 with 0 failed and 0 skipped, and reports at least 41 tests, its ce1cd36 count measured by the same command.",
+        "G2: `npm --prefix <worktree> run typecheck` exits 0 at T8 head. That head includes every other task's commit. This check is repo-wide because vitest does not typecheck.",
+        "G3: `npm --prefix <worktree> test` exits 0 at T8 head with 0 failed and 0 skipped, and the report quotes the 'Test Files' and 'Tests' lines. 'Test Files' equals 141 plus the number of `*.test.ts(x)` files the session's diff adds. 141 was measured at ce1cd36 by the orchestrator's probe of the same command, and the added files are the ones named in each task's G4 criterion. 'Tests' is at least 2274, the ce1cd36 count from the same probe.",
+        "G3 no test removed: every test file the session modified reports at least its ce1cd36 test count. Each count below was measured at ce1cd36 by `npx --prefix <worktree> vitest run --root <worktree> <file>`: failure-leaf 11, watcher 11, close-pod-lane-sweep 10, roots 9, migration-frozen 6, BeachcomberRow 14, correctness-sweep.e2e 4, Panels.styles 10, tokens 9, PodBar.styles 31, hygiene 41. The report quotes each file's head count from the full-suite output.",
+        "G4 session-wide: at T8 head, the session's diff against ce1cd36 changes no file under `src/` other than `*.test.ts` and `*.test.tsx` files, and changes no `.ndjson` recording. The orchestrator measures this from the diff, because neither the implementer nor the reviewer runs git."
+      ]
+    }
+  ]
+}

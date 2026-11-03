@@ -1,0 +1,51 @@
+{
+  "id": "20261103-1657-tests-and-guards-sweep",
+  "name": "tests-and-guards-sweep",
+  "scope": "standard",
+  "status": "MERGED",
+  "pushed": true,
+  "brief": "Clear the 15 open Tests and guards items in .sir/backlog.md so each test or guard catches the regression it exists for. Seven sir-test-engineer tasks at main ce1cd36, with D1 (Helm save's empty-serialization acknowledgement) closed as moot at Gate 2 because serializeSettings never returns '': Helm watcher tests wait on a condition rather than a fixed turn count (T1); the IPC leaf import scan widened and the duplicate-registration guard tested directly (T3); the pod-manager harness's recordAttempts trap fixed and every push channel counted (T4); exact recursive sizeBytes, a shallow-clone skip for migration-frozen, and SHA-256 integrity over the 10 .ndjson recordings (T5); the orphan marker's position pinned and absentControlLabels made exact (T6); stylesheet guards for PanelBar's open state, a brace-matched :root body, and enforcement of the PodBar and DeletePodDialog docblock claims (T7); and retiredLiteralUseReport's count fixed plus the repo-wide typecheck and full suite (T8). Each worked item is shown to bite through a named injected defect. Production files are injection-only and revert byte-for-byte, so there is no runtime change.",
+  "started": "2026-11-03T16:57:05Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "28a787ea-7cc2-4c5e-a337-05da6c4c364a",
+      "sir": "1.0.14",
+      "started": "2026-11-03T16:57:05Z",
+      "ended": "2026-11-03T16:57:40Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "d646296f-7142-405e-8723-e1886434d7b0",
+      "sir": "1.0.14",
+      "started": "2026-11-03T16:59:18Z",
+      "ended": "2026-11-03T17:24:34Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "4379fa3a-8cb3-40ef-929f-7989b376521c",
+      "sir": "1.0.14",
+      "started": "2026-11-03T17:28:24Z",
+      "ended": "2026-11-03T17:56:14Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "5131179b-d0b8-4a81-a943-e2dc093efcd2",
+      "sir": "1.0.14",
+      "started": "2026-11-03T17:58:15Z",
+      "ended": "2026-11-03T18:02:08Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}

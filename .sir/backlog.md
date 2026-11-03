@@ -25,22 +25,6 @@
 
 ## Tests and guards
 
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Pin Helm's empty-serialization acknowledgement: `src/main/helm/helm-service.ts:231` is correctly unconditional, but `tests/unit/helm/watcher.test.ts:249-256` never calls `save`, so reintroducing a `content === '' ? null` branch turns nothing red.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Widen the leaf scan's import regex at `tests/unit/ipc/failure-leaf.test.ts:47`, which misses bare side-effect, double-quoted and semicolon-less imports and would then pass reporting zero imports.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Pin the orphan marker's position relative to the path in `src/renderer/src/beachcomber/BeachcomberRow.tsx:134`, noting it is close to untestable while `unverified` and `orphan` (`:44-45`) are mutually exclusive.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Strengthen `absentControlLabels` at `src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx:257-264`, which resolves to one entry today and silently broadens if Helm stops rendering Save, Discard or Reload.
-2026-10-09 dir-audit-2026-10-09 Add a direct test for the IPC duplicate-registration guard: `register` is an inner function of `registerIpcHandlers` (`src/main/ipc/handlers.ts:102`) and `tests/unit/ipc/channels.test.ts:84` mentions it only in a comment.
-2026-10-09 dir-audit-2026-10-09 Fix `recordAttempts`' Proxy trap (`tests/unit/pod-manager/helpers.ts:236-249`), which forwards exactly one argument and returns a fresh closure per property access.
-2026-10-09 dir-audit-2026-10-09 Add a general assertion that every push channel a pod-manager method touches is counted; today only `closePod` is held to it.
-2026-10-09 dir-audit-2026-10-09 Tighten `tests/unit/beachcomber/roots.test.ts:129-130`, which asserts recursive `sizeBytes` only as `> 0` after subtracting 15.
-2026-10-09 dir-audit-2026-10-09 Make `tests/unit/store/migration-frozen.test.ts:100` skip rather than go red in a shallow clone, since it shells out to `git show`; the repo has no CI today.
-2026-10-09 dir-audit-2026-10-09 Replace the fixed turn count Helm's watcher tests wait on (`settle(turns = 6)`, `tests/unit/helm/helpers.ts:193`) with a condition, since they depend on `fs.watch` landing within it.
-2026-10-09 2026-10-09-orcastrate-guard-hardening Add a checksum or byte-length assertion over the ten `.ndjson` recordings in `tests/fixtures/protocol/` and `probe/evidence/`, which have had no integrity signal since the control-byte rule excluded them.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Guard `PanelBar`'s open-state selector at the stylesheet level: `src/renderer/src/shell/Panels.styles.test.ts:21,27` imports `PanelBar.module.css` but asserts only on `.panelBar`, so a revert of `[aria-current='true']` goes unseen.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Make `src/renderer/src/styles/tokens.test.ts:55` find the end of the `:root` body robustly, since `source.indexOf('}', openIndex)` would silently truncate it at the first token value containing a brace.
-2026-10-15 2026-10-12-orcastrate-token-sweep Enforce or soften the exhaustive enumerations in the docblocks of `src/renderer/src/pods/PodBar.module.css:1-7` and `src/renderer/src/pods/DeletePodDialog.module.css:1-6`, which no scanner checks and which will go stale silently on the next edit.
-2026-10-29 20261029-1730-census-root-hygiene Make `retiredLiteralUseReport` in `src/renderer/src/__tests__/hygiene.test.ts` count `total` and `absent` on the same quote-delimited match. Today `total` counts substrings, so a retired literal that is a substring of a live test id would count as a non-absence occurrence; the only current literal, `lane-row-pin` (`:1163`), is not affected.
-
 ## Prose drift
 
 ## Cosmetic and structural
@@ -81,3 +65,7 @@
 2026-11-03 20261102-2224-prose-drift-sweep Make the PANEL-CLOSE entry at `src/renderer/src/contracts/renderer-panels.ts:425-434` name the second early return in `resetHelmForReopen`, taken when `this.api === null` (`src/renderer/src/state/panel-store.ts:336`).
 2026-11-03 20261102-2224-prose-drift-sweep Reword the "impossible case" sentence at `src/renderer/src/composer/Composer.styles.test.ts:56-59` so it cannot be read as covering empty values, since the paragraph at `:61-66` shows `"border: "` is reachable without the `?? ''` fallback.
 2026-11-03 20261102-2224-prose-drift-sweep Correct `discrimination.test.ts` to `discrimination.test.tsx` in the docblock at `src/renderer/src/helm/rules.ts:16`.
+2026-11-03 20261103-1657-tests-and-guards-sweep Make the retired-id offender scan at `src/renderer/src/__tests__/hygiene.test.ts:1331` match the quote-delimited literal rather than `text.includes(literal)`, which flags a live id that merely extends a retired one (the same shape D15 fixed in `retiredLiteralUseReport`).
+2026-11-03 20261103-1657-tests-and-guards-sweep Relax or document the border-width predicate in `src/renderer/src/pods/PodBar.styles.test.ts` (the test at `:469`), which rejects a multi-value longhand such as `border-width: var(--oc-border-hairline) 0` that the `PodBar.module.css` docblock permits; no such declaration exists today.
+2026-11-03 20261103-1657-tests-and-guards-sweep Make `tests/unit/store/migration-2.test.ts:104` skip in a shallow clone as `migration-frozen.test.ts` now does, since it also shells out to `git show`, unless the Cosmetic line deleting that test lands first.
+2026-11-03 20261103-1657-tests-and-guards-sweep Decide whether `closePod` on an already-closed Pod should stop re-pushing `podStatus 'closed'` (`src/main/pod-manager/pod-manager.ts:511-518`); harmless today, and `tests/unit/pod-manager/close-pod-lane-sweep.test.ts`'s whole-record count pins the re-push, so changing it means updating that expectation.
