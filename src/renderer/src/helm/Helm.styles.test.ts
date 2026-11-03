@@ -7,7 +7,7 @@
  * is the only way the rule can fire.
  *
  * THE RULES LIVE IN `rules.ts`, each with a counterexample, and
- * `discrimination.test.ts` proves every one of them can fire. This file only
+ * `discrimination.test.tsx` proves every one of them can fire. This file only
  * applies them. The split is not tidiness: this suite once shipped a rule that
  * matched nothing and passed anyway, and the sample matrix is what makes that
  * impossible to repeat.

@@ -69,8 +69,23 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
   // when the comparison surface is the one showing this message, the generic
   // error banner stays out of the way. Derived at render from the latch and
   // the view, and stored nowhere.
+  //
+  // THE RULE HOLDS BY THIS EXPRESSION, not by an argument that some state is
+  // unreachable. Beyond the latch, two conditions decide it:
+  //   - `draft !== null`: the comparison surface mounts only with a draft
+  //     (below). Without one, claiming the message would suppress the banner
+  //     and leave the sentence on no surface at all.
+  //   - `view.actionError !== loadError`: a failed scope refresh writes one
+  //     sentence to both `error` and `actionError`. That sentence is the load
+  //     error, which the notices already print; claiming it here would print
+  //     it a second time inside the comparison.
+  const loadError = view.error?.message ?? null;
   const compareError =
-    lastAction === 'compare' && !view.comparing && view.incoming === null
+    lastAction === 'compare' &&
+    !view.comparing &&
+    view.incoming === null &&
+    draft !== null &&
+    view.actionError !== loadError
       ? view.actionError
       : null;
 
@@ -85,7 +100,7 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
         backupDisplayPath={savedHere?.backupDisplayPath ?? null}
         conflict={view.conflict}
         conflictDisplayPath={selectedScope?.displayPath ?? null}
-        loadError={view.error?.message ?? null}
+        loadError={loadError}
         parseError={parseError}
         stale={view.stale}
         comparing={view.comparing}
