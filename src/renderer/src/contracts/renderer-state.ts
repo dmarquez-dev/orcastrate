@@ -37,7 +37,6 @@ import type {
   LaneId,
   LaneStatus,
   NormalizedEvent,
-  PermissionMode,
   Pod,
   PodId,
   PodStatus,
@@ -588,8 +587,6 @@ export interface WorkspaceActions {
    * and its card clears itself.
    */
   interruptPod(podId: PodId): Promise<ActionResult<void>>;
-
-  setPermissionMode(podId: PodId, mode: PermissionMode): Promise<ActionResult<void>>;
 
   /** Writes the Steer prefill into the Pod composer. No send, no protocol. */
   steerFromLane(podId: PodId, laneId: LaneId): void;
