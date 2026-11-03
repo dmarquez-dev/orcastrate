@@ -25,7 +25,7 @@ import type {
   PodId,
   PodStatus,
 } from '../../../src/shared/contracts/events';
-import type { PodStatusPush } from '../../../src/shared/contracts/ipc';
+import type { PodEventPush, PodStatusPush } from '../../../src/shared/contracts/ipc';
 import { EVENT_CHANNELS } from '../../../src/shared/contracts/ipc';
 import type {
   CreatePodRunner,
@@ -246,21 +246,75 @@ export interface Pushed {
  * This proxy sits ABOVE the filter, so `attempted` is what `PodManager` ACTUALLY
  * called. `pushed` keeps its old meaning — what reached the renderer — and every
  * existing assertion over it is unaffected.
+ *
+ * TRANSPARENT: the wrapper hands the underlying method EVERY argument it was
+ * given, with `this` bound to the target, and returns what it returned. What it
+ * RECORDS is the channel and the first argument, which is the payload on every
+ * `Pushes` method. And ONE wrapper per method, built on first read and returned
+ * on every read after, so `proxy.podEvent === proxy.podEvent` — a caller that
+ * caches or compares a method by identity sees the same function a plain
+ * object would give it. The cache is keyed by the property and re-validated
+ * against the target's current value, so a replaced method is re-wrapped
+ * rather than shadowed by a stale wrapper.
  */
-function recordAttempts(pushes: Pushes, attempted: Pushed[]): Pushes {
+export function recordAttempts(pushes: Pushes, attempted: Pushed[]): Pushes {
+  type Method = (...args: unknown[]) => unknown;
+  const wrappers = new Map<PropertyKey, { value: Method; wrapper: Method }>();
   return new Proxy(pushes, {
     get(target, property, receiver) {
-      const value = Reflect.get(target, property, receiver) as unknown;
-      if (typeof value !== 'function') return value;
+      const read = Reflect.get(target, property, receiver) as unknown;
+      if (typeof read !== 'function') return read;
+      const value = read as Method;
+      const cached = wrappers.get(property);
+      if (cached !== undefined && cached.value === value) return cached.wrapper;
       // The method names on `Pushes` are the `EVENT_CHANNELS` keys, so the
       // recorded channel is the same string `send` would have been handed.
-      const channel = (EVENT_CHANNELS as Record<string, string>)[property as string];
-      return (payload: unknown): void => {
-        attempted.push({ channel: channel ?? String(property), payload });
-        (value as (p: unknown) => void).call(target, payload);
+      const channel = channelOf(property);
+      const wrapper: Method = (...args) => {
+        attempted.push({ channel, payload: args[0] });
+        return Reflect.apply(value, target, args);
       };
+      wrappers.set(property, { value, wrapper });
+      return wrapper;
     },
   });
+}
+
+/** The channel a `Pushes` method sends on: its `EVENT_CHANNELS` value, else its own name. */
+function channelOf(property: PropertyKey): string {
+  return (EVENT_CHANNELS as Record<string, string>)[property as string] ?? String(property);
+}
+
+/**
+ * Every channel a `Pushes` method maps to, read off the object `createPushes`
+ * actually returns rather than typed out here, so a sixth method is counted the
+ * moment it exists.
+ */
+function pushChannels(): string[] {
+  return Object.keys(createPushes(() => {})).map(channelOf);
+}
+
+/**
+ * HARNESS-WIDE: `PodManager` may never CALL `podEvent` with an empty `events`
+ * array. That channel means "something arrived", and a push that announced
+ * nothing would hand the renderer's merge nothing to merge.
+ *
+ * Read from `attempted`, NOT from `pushed`: `createPushes` drops an empty batch
+ * before `send`, so `pushed` cannot tell a manager that never made the call
+ * from one that made it and had it swallowed one layer down. The second is the
+ * defect this guards — a method whose correctness would rest on a filter it
+ * does not own. `attempted` is recorded above that filter, so a push added
+ * anywhere in `PodManager` fails here, whichever method it was added to.
+ *
+ * Checked in `dispose()`, which every test file that builds a harness awaits in
+ * its `afterEach`; a throw there fails the test that built the harness.
+ */
+function emptyPodEventAttempts(attempted: readonly Pushed[]): Pushed[] {
+  return attempted.filter(
+    (entry) =>
+      entry.channel === EVENT_CHANNELS.podEvent &&
+      (entry.payload as PodEventPush).events.length === 0,
+  );
 }
 
 export interface ManagerHarness {
@@ -278,6 +332,14 @@ export interface ManagerHarness {
    * opposed to not delivered.
    */
   attempted: Pushed[];
+  /**
+   * How many pushes `PodManager` has ATTEMPTED so far, per channel. Keyed by
+   * every channel a `Pushes` method maps to, derived from `createPushes` at
+   * runtime; a channel never called reads 0. Snapshot it before and after an
+   * action and compare the whole record, so a push on a channel the test did
+   * not think of is still counted.
+   */
+  attemptedCounts(): Record<string, number>;
   pushesOn<T>(channel: string): T[];
   statusPushes(podId: PodId): PodStatusPush[];
   logged: { level: 'warn' | 'error'; args: unknown[] }[];
@@ -345,6 +407,12 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
     manager,
     pushed,
     attempted,
+    attemptedCounts() {
+      const counts: Record<string, number> = {};
+      for (const channel of pushChannels()) counts[channel] = 0;
+      for (const entry of attempted) counts[entry.channel] = (counts[entry.channel] ?? 0) + 1;
+      return counts;
+    },
     logged,
     now,
     pushesOn<T>(channel: string): T[] {
@@ -367,8 +435,20 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
       scripts.set(podId, next);
     },
     async dispose() {
-      await manager.disposeAll();
-      raw.close();
+      try {
+        await manager.disposeAll();
+      } finally {
+        raw.close();
+      }
+      // After `disposeAll`, so a push made while tearing down is held to the
+      // rule too; after `close`, so a violation never leaks the store.
+      const empty = emptyPodEventAttempts(attempted);
+      if (empty.length > 0) {
+        throw new Error(
+          `PodManager attempted ${empty.length} podEvent push(es) with an empty events array ` +
+            `(pods: ${empty.map((entry) => (entry.payload as PodEventPush).podId).join(', ')})`,
+        );
+      }
     },
   };
 }
