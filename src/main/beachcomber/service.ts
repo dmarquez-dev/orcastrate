@@ -37,10 +37,11 @@
  *                      delete live state, and this is the line that makes one
  *                      impossible rather than unlikely.
  *
- * The other three roots hold state that is not keyed by a working directory at
- * all; their entries report their own location and carry `'decoded-name'`,
- * which is the contract's value for "not read from a session record" and which
- * keeps them permanently outside orphan reporting.
+ *   'absolute-path'  — the entry's own location under `~/.claude`. Every entry
+ *                      of the other three roots, whose state is not keyed by a
+ *                      working directory at all. Not a guess, so it carries no
+ *                      "not verified" caveat; and not a working directory, so
+ *                      `orphan` is FORCED false here too.
  */
 
 import { lstat, readdir } from 'node:fs/promises';
@@ -174,9 +175,8 @@ export function createBeachcomberService(deps: BeachcomberServiceDeps): Beachcom
     // THE INVARIANT: only a recorded path may ever be called missing.
     const orphan = resolved.recorded ? !(await pathExists(resolved.displayPath)) : false;
 
-    const pathSource: BeachcomberEntry['pathSource'] = resolved.recorded
-      ? 'session-record'
-      : 'decoded-name';
+    const pathSource: BeachcomberEntry['pathSource'] =
+      root !== 'projects' ? 'absolute-path' : resolved.recorded ? 'session-record' : 'decoded-name';
 
     // The blocking rule is a pure function of these fields — see
     // `podBlockerFor` in `./paths`, where the argument for comparing a decoded

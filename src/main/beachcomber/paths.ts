@@ -98,11 +98,20 @@ export interface PodBlockingSubject {
  * matched by the normalized side, while the encoder would have produced
  * `my-project` and missed it.)
  *
- * BOTH HALVES OF THE `projects` CONDITION MATTER. Every non-`projects` entry
- * also carries `pathSource: 'decoded-name'` — with an absolute path under
- * `~/.claude` as its `displayPath`, which is not a guess at all. Keying on
- * `pathSource` alone would encode a Pod's cwd and compare it against a
- * shell-snapshot file name, which means nothing.
+ * WHICH POD IS NAMED: THE EXACT MATCH. When both comparisons could match, and
+ * match DIFFERENT Pods, the encoding match is returned, whatever the list
+ * order — it is exact, while the normalized side compared against a guess. The
+ * normalized match is returned only when no Pod matches by encoding. This
+ * changes which Pod the refusal names, never whether there is one: an entry is
+ * blocked exactly when either comparison matches any Pod. When the encoding
+ * comparison does not run, the normalized comparison is the only one and the
+ * first matching Pod in list order is returned.
+ *
+ * BOTH HALVES OF THE `projects` CONDITION MATTER. A non-`projects` entry
+ * carries `pathSource: 'absolute-path'`, so `pathSource` alone would already
+ * keep it out today — but the root check is what guarantees a Pod's cwd is
+ * never encoded and compared against a shell-snapshot file name, which means
+ * nothing, whatever `pathSource` a caller passes.
  *
  * CASE IS FOLDED, for the reason `normalizeForCompare` above already gives:
  * this app is Windows-first, and for a guard whose whole purpose is to block a
@@ -114,11 +123,15 @@ export function podBlockerFor(subject: PodBlockingSubject): PodDirectory | null 
   const compareByEncoding = subject.root === 'projects' && subject.pathSource === 'decoded-name';
   const nameKey = subject.name.toLowerCase();
 
+  let normalizedMatch: PodDirectory | null = null;
   for (const pod of subject.pods) {
-    if (normalizeForCompare(pod.cwd) === pathKey) return pod;
     if (compareByEncoding && encodeCwdForProjects(pod.cwd).toLowerCase() === nameKey) return pod;
+    if (normalizedMatch === null && normalizeForCompare(pod.cwd) === pathKey) {
+      normalizedMatch = pod;
+      if (!compareByEncoding) return pod;
+    }
   }
-  return null;
+  return normalizedMatch;
 }
 
 export function decodeDirectoryName(name: string): string {

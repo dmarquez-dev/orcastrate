@@ -168,7 +168,7 @@ describe('per-entry measurement', () => {
     const entry = entryNamed(scan, 'edit-1.txt');
 
     expect(entry.displayPath).toBe(join(home, 'file-history', 'edit-1.txt'));
-    expect(entry.pathSource).toBe('decoded-name');
+    expect(entry.pathSource).toBe('absolute-path');
     expect(entry.orphan).toBe(false);
   });
 });
