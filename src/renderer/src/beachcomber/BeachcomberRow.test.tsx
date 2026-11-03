@@ -219,6 +219,40 @@ describe('the notice that the path is a guess arrives before the guess (T5)', ()
     expect(ordered.filter((at) => at < 0)).toEqual([]);
   });
 
+  it('renders the orphan marker after the display path, last in a blocked orphan row', () => {
+    // An orphan's path is read from a session record, so it carries no
+    // unverified notice — but it still renders its path, unconditionally. The
+    // marker qualifies that path, so it must not arrive ahead of it.
+    const row = makeBlockedRow({ orphan: true, pathSource: 'session-record' });
+    renderRow(row);
+
+    const element = rowElement('entry-blocked');
+    const path = within(element).getByText(row.entry.displayPath);
+    const orphan = within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowOrphan);
+
+    expect(
+      path.compareDocumentPosition(orphan) & Node.DOCUMENT_POSITION_FOLLOWING,
+      'the orphan marker follows the display path',
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    const ordered = [
+      positionOf(
+        element,
+        within(element).getByTestId<HTMLInputElement>(PANEL_TEST_IDS.beachcomberRowSelect),
+        'the select input',
+      ),
+      positionOf(element, path, 'the display path'),
+      positionOf(element, within(element).getByText(/modified 2026-08-18/), 'the facts line'),
+      positionOf(
+        element,
+        within(element).getByTestId(PANEL_TEST_IDS.beachcomberRowBlocked),
+        'the blocked reason',
+      ),
+      positionOf(element, orphan, 'the orphan marker'),
+    ];
+    expect(ordered).toEqual([...ordered].sort((a, b) => a - b));
+  });
+
   it('keeps the checkbox described by both notices when blocked and unverified (V3)', () => {
     renderRow(makeBlockedRow({ pathSource: 'decoded-name' }));
 

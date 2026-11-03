@@ -258,9 +258,16 @@ describe('the comparison empty state names no control that is not on screen', ()
       (label) => !renderedControlText.some((text) => text.includes(label)),
     );
 
-    // Not vacuous: the Compare control IS absent here, so this list is the
-    // reason the assertion below has something to say.
-    expect(absentControlLabels).toContain(COPY.compare);
+    // Not vacuous, and not broadened: with a draft and no conflict, Compare —
+    // which only the conflict banner renders — is the ONE absent control. Were
+    // Save, Discard or Reload to vanish, that label would join this list and
+    // the loop below would quietly assert over more than the scenario is
+    // about; so the list is pinned exactly, and a missing control is named
+    // here rather than absorbed.
+    expect(
+      absentControlLabels,
+      'the Helm controls absent with a draft and no conflict are exactly the Compare control',
+    ).toEqual([COPY.compare]);
     for (const label of absentControlLabels) {
       expect(emptyText, `the empty state names the unreachable control "${label}"`).not.toContain(
         label,
