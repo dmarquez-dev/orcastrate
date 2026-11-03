@@ -3,3 +3,4 @@
 2026-11-02T20:21Z  WRAP      20261102-1908-rejected-resume-hardening  rejected-resume-hardening  standard  userInteractions=4 escalationsRaised=0 reviewRounds=0  sir=1.0.12
 2026-11-03T00:38Z  WRAP      20261102-2224-prose-drift-sweep  prose-drift-sweep  standard  userInteractions=5 escalationsRaised=1 reviewRounds=0  sir=1.0.13
 2026-11-03  20261103-1657-tests-and-guards-sweep  tests-and-guards-sweep  standard  userInteractions=4 escalationsRaised=1 reviewRounds=1  sir=1.0.14  closed: all 15 Tests and guards items (D2-D15 worked; D1 closed as moot under E1)
+2026-11-03  20261103-1947-correctness-sweep  correctness-sweep  standard  userInteractions=4 escalationsRaised=0 reviewRounds=0  sir=1.0.15  closed: all 8 Correctness items and 3 Ungrouped prose items (11 entries); appended 1 (stub-api pathSource)
