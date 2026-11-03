@@ -43,24 +43,6 @@
 
 ## Prose drift
 
-2026-10-09 dir-audit-2026-10-09 Correct "The four fields below" at `src/renderer/src/contracts/renderer-state.ts:298`; three remain (`inPrimaryPane`, `inFollowerPane`, `focusedFollower`).
-2026-10-09 dir-audit-2026-10-09 Correct the `srOnly` comment at `src/renderer/src/pods/PodTab.tsx:229`, which names `STATUS_LABEL[status]` where the symbol is `POD_STATUS_LABEL` (`:7`, `:239`).
-2026-10-09 dir-audit-2026-10-09 Correct "Duplicated from `PodTab`'s own `STATUS_LABEL`" at `src/renderer/src/pods/PodTab.test.tsx:310`; the symbol is `POD_STATUS_LABEL`.
-2026-10-09 dir-audit-2026-10-09 Rename the test at `src/renderer/src/__tests__/pod-stop.e2e.test.tsx:480`, which still says "from Running to Stopped" though the row reads `Idle` before the stop.
-2026-10-09 dir-audit-2026-10-09 Fix the future-tense claim at `src/renderer/src/pods/PodTab.source.test.ts:25-26` that `activity/raw.d.ts` declares the form and T3 will move it; the move to `styles/raw.d.ts` is done.
-2026-10-09 dir-audit-2026-10-09 Correct `src/renderer/src/helm/rules.ts:7-10`, which states the old lookahead bug backwards ("matches nothing") where measured it fires on clean code.
-2026-10-09 dir-audit-2026-10-09 Remove the stale "Criterion 5" task-numbering reference at `src/main/index.ts:96`.
-2026-10-09 dir-audit-2026-10-09 Add `stopped` to the Status block header at `src/renderer/src/styles/tokens.css:60`, which lists three lane statuses where there are four.
-2026-10-09 dir-audit-2026-10-09 Fix the overstatement at `src/renderer/src/styles/tokens.css:80-82`, which says the value clears the shipped `closed`/`idle` precedent (2.173) while naming `stopped`/`idle` at 1.796.
-2026-10-09 dir-audit-2026-10-09 Cross-reference §4.4's "never to data loss" (`docs/superpowers/specs/2026-08-18-orcastrate-design.md:237`) to the §8 row that carries the exception.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Name the failed-`compare()` clearing write (`src/renderer/src/state/panel-store.ts:663`) in the `incoming` clearing list at `src/renderer/src/contracts/renderer-panels.ts:411-426`, or cross-reference the preamble at `:406`, so the list reads complete on its own.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Make the panel-close entry at `src/renderer/src/contracts/renderer-panels.ts:419-426` state the phase guard the code applies (`src/renderer/src/state/panel-store.ts:337`); precision only.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Correct "Beachcomber has two, Helm one, the shell four" at `src/renderer/src/__tests__/hygiene.test.ts:850`; the shell has five module stylesheets.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Tighten the loose "five literals" counts at `src/renderer/src/__tests__/hygiene.test.ts:1170` and `:1376` (14 bare declarations across 5 files) and "the four other bare literals" at `:1341-1342` (five).
-2026-10-15 2026-10-12-orcastrate-token-sweep Add a dated correction to `.dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-TOKEN-SWEEP.md` for `:272` ("fails loudly instead of dropping the file", where the plan loop still skips) and `:147` (fractional scaling stated as cause, unmeasured), noting the byte-frozen driver's pointer at `driver/run-token-sweep.mjs:501` to a TS-4 hash check that never ran.
-2026-10-21 2026-10-16-orcastrate-keyword-hairline-sweep Add one clause to the docblock at `src/renderer/src/composer/Composer.styles.test.ts:51-53` distinguishing `undefined` (impossible) from the empty capture `"border: "` (reachable, read as a non-offender); low value, bundle it.
-2026-10-21 2026-10-16-orcastrate-keyword-hairline-sweep State the margin of the boundary-sensitive contrast count at `src/renderer/src/styles/tokens.css:88-92` (`running`/`orphaned` 1.1949 is 0.005 inside 1.2), deriving any changed figure afresh rather than editing it in.
-
 ## Cosmetic and structural
 
 2026-09-30 2026-09-04-orcastrate-correctness-sweep Move the orphaned `decodeDirectoryName` docblock at `src/main/beachcomber/paths.ts:53-58` back above its function at `:124`.
@@ -96,5 +78,6 @@
 
 ## Ungrouped (Gate 3 appends land here)
 
-2026-11-02 20261102-1908-rejected-resume-hardening Update the `abandonedCcSessionId` doc at `src/main/pod-manager/resume-fallback.ts:63-67`, which still says the row's id "is overwritten by the fresh session moments later"; since 3790f24 the stored id is nulled before the retry and stays null if the retry fails.
-2026-11-02 20261102-1908-rejected-resume-hardening Extend the `openPod`/`reconnectPod` docblocks in `src/main/pod-manager/pod-manager.ts` (~447/~467), which describe a null `ccSessionId` only as "never reached its first turn", to name the rejected-resume case as well.
+2026-11-03 20261102-2224-prose-drift-sweep Make the PANEL-CLOSE entry at `src/renderer/src/contracts/renderer-panels.ts:425-434` name the second early return in `resetHelmForReopen`, taken when `this.api === null` (`src/renderer/src/state/panel-store.ts:336`).
+2026-11-03 20261102-2224-prose-drift-sweep Reword the "impossible case" sentence at `src/renderer/src/composer/Composer.styles.test.ts:56-59` so it cannot be read as covering empty values, since the paragraph at `:61-66` shows `"border: "` is reachable without the `?? ''` fallback.
+2026-11-03 20261102-2224-prose-drift-sweep Correct `discrimination.test.ts` to `discrimination.test.tsx` in the docblock at `src/renderer/src/helm/rules.ts:16`.

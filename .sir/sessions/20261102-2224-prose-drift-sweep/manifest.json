@@ -1,0 +1,123 @@
+{
+  "session": "20261102-2224-prose-drift-sweep",
+  "createdAt": "2026-11-02T23:01:39Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Renderer contract and PodTab comments: field count, label symbol, incoming clearing list",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-state.ts",
+        "src/renderer/src/contracts/renderer-panels.ts",
+        "src/renderer/src/pods/PodTab.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "Backlog 'four fields below': the AMENDMENT docblock in `src/renderer/src/contracts/renderer-state.ts` that opens at d500429:298 states that THREE fields follow, matching the three it introduces (`inPrimaryPane` d500429:304, `inFollowerPane` :306, `focusedFollower` :313). At d500429 it reads 'The four fields below'; at head that phrase is absent from the file.",
+        "Backlog `srOnly` comment: the comment in `src/renderer/src/pods/PodTab.tsx` at d500429:228-229 names the expression the `srOnly` sentence actually opens with, `POD_STATUS_LABEL[status]` (d500429:239; imported at :7). Census: `grep -cE '(^|[^_A-Z])STATUS_LABEL' src/renderer/src/pods/PodTab.tsx` returns 0 at head (it returns 1 at d500429, the match being :229 - the case that must match); the near-miss that must not match is `POD_STATUS_LABEL` at :7 and :239. The corrected comment contains the text `POD_STATUS_LABEL[status]`.",
+        "Backlog failed-`compare()` clearing write: the EXHAUSTIVE `incoming` clearing list in `HelmView`'s docblock (`src/renderer/src/contracts/renderer-panels.ts` d500429:410-426) names the FAILED `compare()` - the IPC-load-failure branch whose `incoming: null` write is `src/renderer/src/state/panel-store.ts:663` at d500429 - as a clearing event, either as its own list entry or as an explicit cross-reference from the list to the preamble's 'or the last request failed' (d500429:406). Any count of the list's targeted entries (d500429:424 says 'the four above') states the number of targeted-clear entries the list holds at head.",
+        "Backlog panel-close phase guard: the PANEL-CLOSE WHOLE-STATE RESET entry (d500429:419-426 of `renderer-panels.ts`) states that `resetHelmForReopen` replaces the Helm state only when Helm's `phase` is not `'idle'`, the guard the code applies at `src/renderer/src/state/panel-store.ts:337` (d500429). At d500429 the entry says only 'When `helmMounts` reaches 0, `resetHelmForReopen` replaces the WHOLE Helm state'.",
+        "No executable change (discussion Decision 'Prose only'): for each owned file the task changed, N(file at d500429) is byte-identical to N(file at task head), where N = remove every match of `/\\/\\*[\\s\\S]*?\\*\\//g`; then replace `/(^|[^:])\\/\\/.*$/gm` with `$1` (the line-comment strip `src/renderer/src/helm/rules.ts:51` ships); then replace `/\\s+/g` with one space. Evidence: the implementer copies each owned file into its scratch directory before editing, runs N on copy and edited file with a named `node` command, and reports identical output per file; and shows N discriminates by reporting that a scratch copy with one non-comment character changed (e.g. one letter of an identifier) yields different output.",
+        "`npx vitest run src/renderer/src/pods/PodTab.source.test.ts src/renderer/src/__tests__/hygiene.test.ts` exits 0 at task head with 0 failed; the report quotes vitest's 'Test Files' and 'Tests' summary lines, which must show 2 files run and a nonzero test count (an exit 0 that ran nothing does not meet this)."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "tokens.css status comments: lane list, stopped/idle comparison, boundary margin",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/styles/tokens.css"],
+      "dependsOn": [],
+      "acceptance": [
+        "Backlog Status header: the Status block comment in `src/renderer/src/styles/tokens.css` (d500429:59-62) lists the Lane statuses as exactly the four members of `LaneStatus` (`src/shared/contracts/events.ts:122` at d500429: `running`, `done`, `orphaned`, `stopped`), and its Pod list remains exactly the five members of `PodStatus` (`events.ts:99`). At d500429 the Lane list is `running|done|orphaned`.",
+        "Backlog 1.796-vs-2.173 overstatement: the `stopped` AMENDMENT comment (d500429:76-104) no longer states that the pair it names at 1.796 (`stopped`/`idle`) clears the shipped `closed`/`idle` precedent (2.173); at d500429 :80-82 says 'so the semantically adjacent pair clears the shipped `closed`/`idle` precedent (2.173)'. Any sentence at head that compares a `stopped` pair with 2.173 names that pair explicitly and states a comparison true of the figures: `stopped`/`idle` 1.796 is BELOW 2.173, `stopped`/`closed` 3.903 is ABOVE it.",
+        "Backlog boundary margin: the KNOWN AND ACCEPTED part of the same comment states the margin of the 'SEVEN of the 28 pairs under 1.2' count by naming `running`/`orphaned` as the pair nearest 1.2 from below, at 1.195 (1.1949 to 4 dp), i.e. 0.005 inside the 1.2 threshold. The figures are derived afresh in this session (discussion Decision on restated figures), by a WCAG 2.x contrast computation over sRGB relative luminance applied to every `--oc-status-*` declaration in this file; the report names the exact command and quotes its output for this pair. The comment attributes the new figure to session `20261102-2224-prose-drift-sweep` in the same way it attributes its existing figures to `2026-10-16-orcastrate-keyword-hairline-sweep`.",
+        "Preserved figures: the same derivation, run in this session, reproduces every figure the comment already states - 1.796 (stopped/idle), 3.903 (stopped/closed), 1.052 (stopped/waiting), 2.173 (closed/idle), 1.005 (idle/beached), 7 of 28 pairs under 1.2 over the 8 `--oc-status-*` tokens, and 6 of 21 over the 7 excluding `stopped` - and each remains in the comment at head. Predicate check for the token census: the declaration-matching pattern must match `  --oc-status-idle: #7c8598;` (d500429:63) and must NOT match the comment text '`--oc-status-*` tokens' (d500429:89); the report states the token count it matched (8) and the pair count (28).",
+        "No executable change and no CSS value changed (discussion Decision 'Prose only'): N(tokens.css at d500429) is byte-identical to N(tokens.css at task head), where N = remove every match of `/\\/\\*[\\s\\S]*?\\*\\//g`, then replace `/\\s+/g` with one space. Evidence: a pre-edit copy in the implementer's scratch directory compared with a named `node` command; discrimination shown by reporting that a scratch copy with one hex digit of `--oc-status-idle` changed yields different output, while a copy with only comment text changed (e.g. the d500429:60 Lane list) yields identical output.",
+        "`npx vitest run src/renderer/src/styles/tokens.test.ts src/renderer/src/styles/status-motion.styles.test.ts src/renderer/src/lanes/LaneRail.styles.test.ts src/renderer/src/__tests__/hygiene.test.ts` exits 0 at task head with 0 failed; the report quotes vitest's 'Test Files' and 'Tests' summary lines, showing 4 files run and a nonzero test count."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Test prose: label symbol, pod-stop test title, raw.d.ts tense, Composer empty-capture clause",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/pods/PodTab.test.tsx",
+        "src/renderer/src/pods/PodTab.source.test.ts",
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx",
+        "src/renderer/src/composer/Composer.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "Backlog `STATUS_LABEL` in PodTab.test.tsx: the `STATUS_WORD` docblock (d500429:308-317 of `src/renderer/src/pods/PodTab.test.tsx`) names the map it duplicates as `POD_STATUS_LABEL` and attributes it to `pod-status.ts` (exported at `src/renderer/src/pods/pod-status.ts:15`, imported by `PodTab.tsx:7`, both at d500429), not as `PodTab`'s own. Census: `grep -cE '(^|[^_A-Z])STATUS_LABEL' src/renderer/src/pods/PodTab.test.tsx` returns 0 at head (1 at d500429, :310 - the case that must match; `POD_STATUS_LABEL` is the near-miss that must not).",
+        "Backlog pod-stop test title (test discipline, Naming: 'The name must not claim more than the test checks'): the `it` title at `src/renderer/src/__tests__/pod-stop.e2e.test.tsx` d500429:480 names the before-stop state the test asserts - `Idle` (`data-pod-status` `idle` and `POD_STATUS_LABEL.idle`, d500429:501-505) - in place of 'Running'. At head the string 'from Running to Stopped' occurs nowhere in the file, and `npx vitest run src/renderer/src/__tests__/pod-stop.e2e.test.tsx -t \"from Idle to Stopped\"` reports exactly 1 test passed (or, if the implementer words the title differently, the same command with a `-t` substring of the new title, quoted in the report, reports exactly 1 passed).",
+        "Backlog raw.d.ts tense: the file docblock of `src/renderer/src/pods/PodTab.source.test.ts` (d500429:22-28) states in the present tense that `styles/raw.d.ts` declares the `*.tsx?raw` form (`src/renderer/src/styles/raw.d.ts:28` at d500429); `src/renderer/src/activity/raw.d.ts` does not exist at d500429. At head the docblock no longer says `activity/raw.d.ts` declares the form or that 'T3 moves' it, and still says this file adds no second declaration.",
+        "Backlog Composer empty capture: the docblock at `src/renderer/src/composer/Composer.styles.test.ts` d500429:43-60 gains a clause distinguishing the two cases: a group being `undefined` is impossible (as it already argues), whereas the second group capturing the EMPTY string is reachable - `BORDER_WIDTH_DECL` applied to `.a{border:;}` captures `['border', '']` (measured at d500429 with `node -e`) - and yields the declaration `\"border: \"`, which the bare-keyword test reads as a non-offender. The report names the command used to observe the empty capture.",
+        "No executable change other than one test-name string (discussion Decision 'Prose only'): for each owned file the task changed, N(file at d500429) is byte-identical to N(file at task head), where N = remove every match of `/\\/\\*[\\s\\S]*?\\*\\//g`; then replace `/(^|[^:])\\/\\/.*$/gm` with `$1`; then replace `/\\s+/g` with one space. The single permitted exception is `pod-stop.e2e.test.tsx`, for which N(head) equals N(d500429) with the one string literal `'turns the Matriarch row from Running to Stopped and freezes its duration across two advances of the clock'` replaced by the new title literal and nothing else. Evidence: pre-edit copies in the implementer's scratch directory compared with a named `node` command, plus a discrimination check showing a scratch copy with one changed assertion character yields different output.",
+        "`npx vitest run src/renderer/src/pods/PodTab.test.tsx src/renderer/src/pods/PodTab.source.test.ts src/renderer/src/__tests__/pod-stop.e2e.test.tsx src/renderer/src/composer/Composer.styles.test.ts` exits 0 at task head with 0 failed; the report quotes vitest's 'Test Files' and 'Tests' summary lines, showing 4 files run and a nonzero test count."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Helm rules header: state the old lookahead bug the right way round; keep hygiene's description of it true",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/helm/rules.ts",
+        "src/renderer/src/__tests__/hygiene.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "Backlog rules.ts lookahead: the file docblock of `src/renderer/src/helm/rules.ts` (d500429:1-28) no longer says the shipped `font-weight:\\s*(?!var\\()` pattern 'matches nothing' (d500429:8); it states the measured behaviour - the pattern FIRES on a tokenised declaration such as `font-weight: var(--oc-weight-bold);`, because `\\s*` backtracks to zero and the lookahead then sees a space - which is what `src/renderer/src/__tests__/hygiene.test.ts:931` at d500429 asserts (`expect(broken.test(clean)).toBe(true)`). The report names the `node -e` command that shows `/font-weight:\\s*(?!var\\()/.test('font-weight: var(--oc-weight-bold);')` is `true`.",
+        "Consequential prose kept true: `hygiene.test.ts` d500429:807-810 says `helm/rules.ts`'s 'own header describes the symptom in the opposite direction'. Once the criterion above is met that sentence is false, so at head it no longer asserts that `rules.ts`'s header describes the symptom backwards (it may say the header was corrected, or drop the clause). This sentence is the only part of `hygiene.test.ts` this task changes.",
+        "Already-resolved items stay resolved (preserved state; backlog lines for `hygiene.test.ts:850`, `:1170`, `:1376` and `:1341-1342`, fixed by commit 9cf090d): at head `hygiene.test.ts` still says 'Beachcomber has two, Helm one, the shell five' above the `panelStylesheets()` length assertion (d500429:941), matching the module-stylesheet counts 2/1/5 under `beachcomber/`, `helm/` and `shell/` (`find src/renderer/src/<dir> -name '*.module.css' | wc -l`); still says 'fourteen bare `font-weight` declarations across five files' at d500429:1342-1343, and 'the fourteen bare declarations, across five files' at :1550-1551 (amended by A1 and A2, escalation E5); and still says 'the five other bare literals ... (four `700`, one `400`, at 10feee6^)' at d500429:1514-1516. None of these lines is edited.",
+        "No executable change (discussion Decision 'Prose only'): for each owned file the task changed, N(file at d500429) is byte-identical to N(file at task head), where N = remove every match of `/\\/\\*[\\s\\S]*?\\*\\//g`; then replace `/(^|[^:])\\/\\/.*$/gm` with `$1`; then replace `/\\s+/g` with one space. Evidence: pre-edit copies in the implementer's scratch directory compared with a named `node` command, and a discrimination check showing that a scratch copy of `rules.ts` with one character of a rule's `violation` sample changed yields different output.",
+        "`npx vitest run src/renderer/src/helm/discrimination.test.tsx src/renderer/src/helm/no-paths.test.ts src/renderer/src/helm/Helm.styles.test.ts src/renderer/src/__tests__/hygiene.test.ts` exits 0 at task head with 0 failed; the report quotes vitest's 'Test Files' and 'Tests' summary lines, showing 4 files run and a nonzero test count."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Main-process docblocks: drop stale criterion number, rejected-resume ccSessionId wording",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/index.ts",
+        "src/main/pod-manager/resume-fallback.ts",
+        "src/main/pod-manager/pod-manager.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "Backlog stale 'Criterion 5': the `pickDirectory` docblock in `src/main/index.ts` (d500429:95-99) no longer carries the task-numbering reference 'Criterion 5' and still states that the chooser is the only source of a new filesystem path and that a cancelled dialog is a normal `{ path: null }` answer. `grep -c 'Criterion [0-9]' src/main/index.ts` returns 0 at head (1 at d500429, :96).",
+        "Backlog `abandonedCcSessionId` doc: the field docblock in `src/main/pod-manager/resume-fallback.ts` (d500429:63-67) no longer says the row's `ccSessionId` 'is overwritten by the fresh session moments later'; it states that the stored id is cleared to null before the retry starts (`this.#store.updatePod(pod.id, { ccSessionId: null })`, `src/main/pod-manager/pod-manager.ts:735` at d500429) and stays null if the retry fails, so the notice's `abandonedCcSessionId` is the only surviving record of the refused id (as `pod-manager.ts:723-724` says).",
+        "Backlog openPod/reconnectPod docblocks: the `openPod` docblock (`pod-manager.ts` d500429:438-449, whose null-`ccSessionId` sentence is :447-448) and the `reconnectPod` docblock (d500429:464-478, which says at :467-469 that a Pod with no `ccSessionId` is one that 'never reached its first turn') each name, besides the never-reached-its-first-turn case, the rejected-resume case: a Pod whose stored id the CLI refused, which `#startFreshAfterRejectedResume` cleared to null (d500429:715-724, :735), so it too starts fresh. At d500429 neither docblock mentions a rejected resume.",
+        "No executable change (discussion Decision 'Prose only'): for each owned file the task changed, N(file at d500429) is byte-identical to N(file at task head), where N = remove every match of `/\\/\\*[\\s\\S]*?\\*\\//g`; then replace `/(^|[^:])\\/\\/.*$/gm` with `$1`; then replace `/\\s+/g` with one space. Evidence: pre-edit copies in the implementer's scratch directory compared with a named `node` command, and a discrimination check showing that a scratch copy with one non-comment character changed yields different output.",
+        "`npx vitest run tests/unit/pod-manager` exits 0 at task head with 0 failed; the report quotes vitest's 'Test Files' and 'Tests' summary lines, showing a nonzero file and test count."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Docs: design-spec cross-reference, dated hand-run correction; repo-wide typecheck and suite",
+      "agent": "sir-architect",
+      "domain": "architecture",
+      "owns": [
+        "docs/superpowers/specs/2026-08-18-orcastrate-design.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-TOKEN-SWEEP.md"
+      ],
+      "dependsOn": ["T1", "T2", "T3", "T4", "T5"],
+      "acceptance": [
+        "Backlog section 4.4 cross-reference: in `docs/superpowers/specs/2026-08-18-orcastrate-design.md`, the paragraph of section 4.4 that ends 'never to data loss.' (d500429:233-237) cross-references the section 8 row 'Claude Code refuses the stored `cc_session_id` at resume' (d500429:390) as the exception - the one case where CC remembers LESS than the UI shows - using the document's own 'section 8' wording (as at d500429:220). At d500429 the paragraph contains no reference to section 8. No other paragraph of the document changes.",
+        "Backlog FINDINGS correction, :272: `.dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-TOKEN-SWEEP.md` gains a new section headed `## Correction — 2026-11-02: ...` that states :272's 'failing loudly on ambiguity instead of dropping the file' is half true: the driver does fail a check and records a harness fault on an ambiguous hash (`driver/run-token-sweep.mjs:505-519`), but its sweep-plan loop still drops that stylesheet (`if (!h) continue;`, `driver/run-token-sweep.mjs:416`). Lines cited are at d500429.",
+        "Backlog FINDINGS correction, :147: the same new section states that :147's cause ('this display is fractionally scaled') was not measured by the run; the run's own report records `devicePixelRatio` `1.0000000149011612` (`driven-report-token-sweep.md:38` at d500429), so the cause of the 0.8px used width remains unestablished.",
+        "Backlog FINDINGS correction, TS-4 pointer: the same new section notes that the byte-frozen driver's note at `driver/run-token-sweep.mjs:501` ('the window/bundle hash agreement is re-checked at TS-4 where the rail renders') points to a check that never ran: the TS-4 step (`:674-741` at d500429) contains no `.railHeading` hash comparison, and the only window/bundle hash comparison in the driver is at `:494-495`. The report names the command used for that census, its must-match case (`:494`, 'the live .railHeading element carries the SAME file hash') and its near-miss (`:788`, TS-5's `.railHeading` on-screen check, which measures layout, not hash). The driver file is not modified.",
+        "FINDINGS original text untouched (discussion Decision '.dir-sdlc/ is history'): the diff of `FINDINGS-TOKEN-SWEEP.md` from d500429 contains added lines only - no deleted or modified line - and the new section sits immediately above the existing `## Correction — 2026-10-20` section (d500429:21), so that section's 'Everything below this section is left exactly as this run recorded it' (d500429:23) remains true; the new section carries an equivalent statement about itself.",
+        "Repo-wide typecheck at the DAG tail (lesson: scoped vitest runs do not typecheck): with T1-T5 committed, `npm run typecheck` exits 0 at T6's head; the report quotes its final output lines.",
+        "Full suite at the DAG tail: with T1-T5 committed, `npm test` exits 0 with 0 failed at T6's head; the report quotes vitest's 'Test Files' and 'Tests' summary lines, both nonzero."
+      ]
+    }
+  ]
+}
