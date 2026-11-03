@@ -428,7 +428,9 @@ export interface HelmView extends Loadable<HelmScope[]> {
    *     `resetHelmForReopen` replaces the WHOLE Helm state via
    *     `newHelmState(null)`, so `incoming` goes null alongside `document` and
    *     `draft`. When `phase` is `'idle'` the reset leaves the Helm state as it
-   *     is. This one is not a targeted clear of `incoming` like the five
+   *     is. With no bridge it also leaves the Helm state as it is:
+   *     `resetHelmForReopen` opens with `if (this.api === null) return;`, so
+   *     `incoming` is not cleared when the store has no API. This one is not a targeted clear of `incoming` like the five
    *     above; it is wholesale replacement, and `incoming` falls with
    *     everything else. It is named here because the list claims to be
    *     exhaustive, and without it that claim was false.

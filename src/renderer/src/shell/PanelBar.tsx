@@ -86,6 +86,11 @@ export function PanelBar({ open, onOpen, onClose }: PanelBarProps): JSX.Element 
         <span key={key}>
           <button
             aria-describedby={`${descriptionId}-${key}`}
+            // `false` ON THE CLOSED BUTTONS IS VALID, NOT NOISE. React renders
+            // this boolean as the string "true" or "false", and WAI-ARIA 1.2
+            // https://www.w3.org/TR/wai-aria-1.2/#aria-current lists `false`
+            // as one of the attribute's values and as its default: "Does not
+            // represent the current item within a set."
             aria-current={open === key}
             className={styles.button}
             data-testid={testId(PANEL_TEST_IDS.panelBarOpen, key)}
