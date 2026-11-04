@@ -182,6 +182,55 @@ describe('focus (accessibility floor)', () => {
   });
 });
 
+describe('focus when the Pod changes while the dialog is open', () => {
+  it('moves focus back onto the dialog element when it switches to a Pod with a different id', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} />);
+    const dialog = screen.getByTestId(DELETE_POD_TEST_IDS.dialog);
+
+    screen.getByTestId(DELETE_POD_TEST_IDS.cancel).focus();
+    // Vacuity guard: focus is somewhere else before the switch.
+    expect(document.activeElement).not.toBe(dialog);
+
+    // Straight from A to B, never through `pod={null}`.
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITHOUT_SESSION} />);
+
+    expect(screen.getByText('Bravo')).toBeDefined();
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.dialog));
+  });
+
+  it('leaves focus where it is when it rerenders with a new object for the same Pod id', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} />);
+    const cancel = screen.getByTestId(DELETE_POD_TEST_IDS.cancel);
+    cancel.focus();
+    expect(document.activeElement).toBe(cancel);
+
+    const sameIdNewObject = { ...WITH_SESSION, title: 'Alpha (renamed)' };
+    expect(sameIdNewObject).not.toBe(WITH_SESSION);
+    expect(sameIdNewObject.id).toBe(WITH_SESSION.id);
+    rerender(<Harness fallbackRef={fallbackRef} pod={sameIdNewObject} />);
+
+    expect(screen.getByText('Alpha (renamed)')).toBeDefined();
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.cancel));
+  });
+
+  it('still returns focus to the original opener on close after switching Pods while open', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} pod={null} />);
+
+    const opener = screen.getByTestId(OPENER_ID);
+    opener.focus();
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} />);
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITHOUT_SESSION} />);
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.dialog));
+
+    rerender(<Harness fallbackRef={fallbackRef} pod={null} />);
+    expect(screen.queryByTestId(DELETE_POD_TEST_IDS.dialog)).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+});
+
 describe('the confirmation states what it destroys', () => {
   it('renders nothing when there is no Pod pending', () => {
     renderDialog({ pod: null });
