@@ -1,0 +1,47 @@
+{
+  "id": "20261103-2240-cosmetic-structural-sweep",
+  "name": "cosmetic-structural-sweep",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Clear the 11 Cosmetic-and-structural backlog items and 3 Ungrouped test-guard items (C1-C11, U1-U3), each re-measured against main e2e81e1. Main side: move an orphaned docblock (C1), merge two re-exports (C3), and add displayPath to BeachcomberPreviewRefusal so a refusal names its entry (C5). Renderer: route the select-all label through copy.ts (C4) and render the refusal's path; collapse Helm's three-valued lastAction latch to a boolean and test its untested release sites (C2); move lane hover onto the full swimlane, give a hovered selected Matriarch the --oc-bg-selected surface, and add flex: none to the status dot (C6-C8); move useDialogFocus to shell/ and adopt it in both always-mounted Pod dialogs, adding Tab trap and focus restore (C11). Tests: narrow the LaneRow no-clock guard (C9), make the retired-id scan quote-delimited (U1), relax the PodBar border-width predicate to multi-value longhands (U2), and delete the migration-1 byte-identity test that migration-frozen subsumes (C10), which makes U3 moot. Seven work tasks and a typecheck-plus-full-suite tail.",
+  "started": "2026-11-03T22:40:02Z",
+  "ended": null,
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "ccd5c386-d322-4baa-9895-a2fc5d7f53d3",
+      "sir": "1.0.18",
+      "started": "2026-11-03T22:40:02Z",
+      "ended": "2026-11-03T23:36:16Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "09c71905-69f9-4d4e-846a-2f397b27d8e2",
+      "sir": "1.0.18",
+      "started": "2026-11-03T23:39:25Z",
+      "ended": "2026-11-04T00:39:39Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "3340ac5f-995d-489c-9530-0888bba76fe3",
+      "sir": "1.0.18",
+      "started": "2026-11-04T00:41:14Z",
+      "ended": "2026-11-04T01:28:59Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "1651ba71-88fe-4579-8921-78b94df32252",
+      "sir": "1.0.18",
+      "started": "2026-11-04T01:34:32Z",
+      "ended": "2026-11-04T01:43:50Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

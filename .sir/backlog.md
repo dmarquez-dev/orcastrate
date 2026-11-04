@@ -20,18 +20,6 @@
 
 ## Cosmetic and structural
 
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Move the orphaned `decodeDirectoryName` docblock at `src/main/beachcomber/paths.ts:53-58` back above its function at `:124`.
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Collapse or test `lastAction`'s three values at `src/renderer/src/helm/HelmPanel.tsx:62`; only `'compare'` is tested and `'other'` and `null` behave identically.
-2026-10-09 dir-audit-2026-10-09 Merge the two consecutive `./validate` re-exports at `src/main/ipc/index.ts:9-15`.
-2026-10-09 dir-audit-2026-10-09 Route the "Select all in …" sentence at `src/renderer/src/beachcomber/BeachcomberGroupHeader.tsx:63` through `copy.ts` like every other user-visible string.
-2026-10-09 dir-audit-2026-10-09 Make a Beachcomber refusal name the entry it refers to; `src/renderer/src/beachcomber/BeachcomberRefusals.tsx:36-38` renders only `{refusal.reason}`.
-2026-10-09 dir-audit-2026-10-09 Give the selected Matriarch a distinct hover surface: `.rowMain:hover` (`src/renderer/src/lanes/LaneRail.module.css:163-165`) paints `--oc-bg-hover`, which `:138` and `:142` already use for that row, so hover feedback vanishes there.
-2026-10-09 dir-audit-2026-10-09 Make lane hover paint the full-width swimlane rather than an inner rectangle; `.rowMain:hover` (`src/renderer/src/lanes/LaneRail.module.css:163-165`) paints only the button box.
-2026-10-09 dir-audit-2026-10-09 Add `flex: none` to the lane status `.dot` (`src/renderer/src/lanes/LaneRail.module.css:216`) as `PodBar.module.css:123` has on its status dot.
-2026-10-09 dir-audit-2026-10-09 Narrow `src/renderer/src/lanes/LaneRow.source.test.ts:45`, which bars `useState`/`useEffect`/`useRef` more broadly than its criterion and will go red on a legitimate future `useRef`.
-2026-10-09 dir-audit-2026-10-09 Delete the migration-1 byte-identity test at `tests/unit/store/migration-2.test.ts:104`, which `migration-frozen.test.ts` fully subsumes.
-2026-10-09 dir-audit-2026-10-09 Move `use-dialog-focus.ts` from `beachcomber/` to `shell/` and adopt it in `DeletePodDialog` and `NewPodDialog`, which have none of its three behaviours; its one consumer is `BeachcomberPreviewDialog.tsx:45`.
-
 ## Design decisions
 
 2026-09-01 2026-08-31-orcastrate-helm-draft-safety Decide whether to restore the re-click-to-close gesture on `PanelBar`'s per-panel button, removed because the frozen contract forbade a dialog on re-click; the strip close button and Escape both survive.
@@ -53,8 +41,7 @@
 
 ## Ungrouped (Gate 3 appends land here)
 
-2026-11-03 20261103-1657-tests-and-guards-sweep Make the retired-id offender scan at `src/renderer/src/__tests__/hygiene.test.ts:1331` match the quote-delimited literal rather than `text.includes(literal)`, which flags a live id that merely extends a retired one (the same shape D15 fixed in `retiredLiteralUseReport`).
-2026-11-03 20261103-1657-tests-and-guards-sweep Relax or document the border-width predicate in `src/renderer/src/pods/PodBar.styles.test.ts` (the test at `:469`), which rejects a multi-value longhand such as `border-width: var(--oc-border-hairline) 0` that the `PodBar.module.css` docblock permits; no such declaration exists today.
-2026-11-03 20261103-1657-tests-and-guards-sweep Make `tests/unit/store/migration-2.test.ts:104` skip in a shallow clone as `migration-frozen.test.ts` now does, since it also shells out to `git show`, unless the Cosmetic line deleting that test lands first.
 2026-11-03 20261103-1657-tests-and-guards-sweep Decide whether `closePod` on an already-closed Pod should stop re-pushing `podStatus 'closed'` (`src/main/pod-manager/pod-manager.ts:511-518`); harmless today, and `tests/unit/pod-manager/close-pod-lane-sweep.test.ts`'s whole-record count pins the re-push, so changing it means updating that expectation.
 2026-11-03 20261103-1947-correctness-sweep Give the renderer stub's three non-`projects` Beachcomber rows (`src/renderer/src/test-utils/stub-api.ts:256-288`) `pathSource: 'absolute-path'`; they carry `'session-record'`, which matches neither the old base nor the new D4 rule.
+2026-11-04 20261103-2240-cosmetic-structural-sweep Give `PodsChrome`'s `tabIndex={-1}` focus-fallback container (`src/renderer/src/pods/PodsChrome.tsx:206`) a visible focus style, since focus lands there after a Pod delete or create and the frontend discipline requires that focus be visible.
+2026-11-04 20261103-2240-cosmetic-structural-sweep Decide whether `DeletePodDialog` should re-focus when `podId` changes without passing through null (`src/renderer/src/pods/DeletePodDialog.tsx:96` moves focus only on open, where base did so on every `podId` change); `PodsChrome` never switches that way today.

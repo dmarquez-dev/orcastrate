@@ -1,0 +1,212 @@
+{
+  "session": "20261103-2240-cosmetic-structural-sweep",
+  "createdAt": "2026-11-03T23:39:25Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": ["contracts/README.md", "contracts/beachcomber-refusal.ts"],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Main-side tidy and the refusal's displayPath (C1, C3, C5 producer)",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/beachcomber/paths.ts",
+        "src/main/ipc/index.ts",
+        "src/shared/contracts/beachcomber.ts",
+        "src/main/beachcomber/service.ts",
+        "tests/unit/beachcomber/pod-blocking.test.ts",
+        "src/renderer/src/test-utils/stub-api.ts",
+        "src/renderer/src/test-utils/stub-api.test.ts",
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberPanel.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberPreviewDialog.test.tsx"
+      ],
+      "dependsOn": ["T6", "T7"],
+      "acceptance": [
+        "C1-a. In `src/main/beachcomber/paths.ts`, the docblock whose first text line is ` * Best-effort inverse of the directory-name encoding. AMBIGUOUS BY` (base e2e81e1 lines 53-58, `/**` at 53 and ` */` at 58) closes with ` */` on the line immediately before `export function decodeDirectoryName(name: string): string {`. Evidence: `grep -n -B6 \"^export function decodeDirectoryName\" src/main/beachcomber/paths.ts` in the worktree. The six docblock lines are byte-identical to base lines 53-58; only their position changes.",
+        "C1-b. In `src/main/beachcomber/paths.ts`, no docblock is orphaned above the `PodBlockingSubject` docblock. The line immediately before the `/**` (base line 59) that opens the docblock beginning ` * Everything `podBlockerFor` is allowed to look at` is not ` */`. At base it is ` */`, on line 58. Evidence: `grep -n -B2 \"Everything .podBlockerFor. is allowed to look at\" src/main/beachcomber/paths.ts`.",
+        "C3. `src/main/ipc/index.ts` contains exactly one statement that re-exports from `'./validate'`. Evidence: `grep -c \"from './validate'\" src/main/ipc/index.ts` prints 1 (base prints 2, at lines 9 and 15). That one statement exports the same seven names it exported at base: `MAX_READ_LIMIT`, `MAX_BEACHCOMBER_IDS`, `isAbsolutePath`, `requireBeachcomberPreviewRequest`, `requireBeachcomberTrashRequest`, `requireHelmSaveRequest`, `requireHelmScopeId`.",
+        "C5-shape. `BeachcomberPreviewRefusal` in `src/shared/contracts/beachcomber.ts` declares a required, non-nullable `displayPath: string`, with a docblock saying it is the refused entry's own `displayPath` and is treated as prose, never parsed, per the frozen `contracts/beachcomber-refusal.ts`. This file is the source-tree owner of that declaration, and no other file re-declares the interface. Evidence: read the interface, and `grep -rn \"interface BeachcomberPreviewRefusal\" src tests` returns exactly one line.",
+        "C5-preview. In `tests/unit/beachcomber/pod-blocking.test.ts`, the test 'refuses a blocked entry in preview with a message naming the Pod and what to do' asserts that `preview.refused[0]?.displayPath` equals `blocked.displayPath`. Evidence: `npm test -- tests/unit/beachcomber/pod-blocking.test.ts` passes. Discrimination: inject `displayPath: entry.name` in place of the real value inside `refusalFor` in `src/main/beachcomber/service.ts` (one site, and type-neutral), re-run the same command, and observe this assertion fail. Then revert. The reviewer can repeat the injection.",
+        "C5-trash. The test 'never hands a blocked path to the trash port, not even once' in the same file asserts that the refusal in `result.refused` carries `blocked.displayPath`. Evidence and discrimination: the same command and the same single-site injection as C5-preview, with this assertion observed failing.",
+        "C5-fixtures. Every object literal in the tree that is typed as a `BeachcomberPreviewRefusal` carries `displayPath`. This includes the fixtures at base `BeachcomberPanel.test.tsx:251`, `BeachcomberPreviewDialog.test.tsx:111-112`, `failure-paths.e2e.test.tsx:1107` and `:1189`, and the two `preview.refused.push` sites in `stub-api.ts` (base :362 and :366). The stub's blocked-entry refusal uses that entry's `displayPath`. Evidence: `npm run typecheck` exits 0. This is repo-wide, and T1 runs with no peer in flight (it depends on T6 and T7, and T2-T4 depend on it).",
+        "C5-preserved (deliberately preserved behaviour). A refusal's `reason` text is unchanged: `refusalFor` builds the same sentence as base `service.ts:310`. Evidence: the existing `reason` assertions at base `pod-blocking.test.ts:86-88` pass unmodified under `npm test -- tests/unit/beachcomber`.",
+        "T1-scope. Every test file T1 owns passes. Evidence: `npm test -- tests/unit/beachcomber src/renderer/src/test-utils src/renderer/src/beachcomber src/renderer/src/__tests__/failure-paths.e2e.test.tsx` exits 0."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Beachcomber copy and refusal rendering (C4, C5 consumer)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/beachcomber/copy.ts",
+        "src/renderer/src/beachcomber/BeachcomberGroupHeader.tsx",
+        "src/renderer/src/beachcomber/BeachcomberGroupHeader.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberRefusals.tsx",
+        "src/renderer/src/beachcomber/Beachcomber.module.css",
+        "src/renderer/src/beachcomber/BeachcomberPanel.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberPreviewDialog.test.tsx"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "C4-copy. `src/renderer/src/beachcomber/copy.ts` exports a function, a sibling of `COPY`, that takes a group heading and returns the select-all label. This follows the repo's one parameterised-copy precedent, `scopeOptionText` at `src/renderer/src/helm/copy.ts:30`, and the `copy.ts` docblock's rule that every sentence the panel says lives in that file. `COPY` keeps only string values. Evidence: a test in `BeachcomberGroupHeader.test.tsx` asserts that, for a heading such as `Claude Code projects`, the function returns exactly `'Select all in ' + heading`, compared with `toBe`. Shown able to fail: change the function's wording, observe the failure, revert.",
+        "C4-source. `BeachcomberGroupHeader.tsx` no longer composes the sentence. Evidence: `grep -c \"Select all in\" src/renderer/src/beachcomber/BeachcomberGroupHeader.tsx` prints 0 (base prints 1, at line 63), and the label's text comes from the C4-copy function. This encodes the `copy.ts` docblock rule, `Every sentence the Beachcomber panel says, in one place`.",
+        "C4-preserved (deliberately preserved behaviour). The rendered label is byte-identical to base. In `BeachcomberGroupHeader.test.tsx`, rendering `BeachcomberGroupHeader` for a group whose `heading` is H gives the `<label>` associated with the group toggle a `textContent` of exactly `Select all in ` + H. Evidence: `npm test -- src/renderer/src/beachcomber/BeachcomberGroupHeader.test.tsx` passes. Discrimination: inject a changed word into the C4-copy function, observe the failure, revert.",
+        "C5-preview-render. In the preview dialog, each refusal names its entry. In `BeachcomberPreviewDialog.test.tsx`, the test 'lists every refusal with its reason' asserts that, for each refusal fixture, the refusal's `<li>` inside `PANEL_TEST_IDS.beachcomberPreviewRefused` contains the fixture's `displayPath` text. Each fixture's `displayPath` is distinct from its `reason`. Evidence: `npm test -- src/renderer/src/beachcomber/BeachcomberPreviewDialog.test.tsx` passes. Discrimination: inject a removal of the displayPath element from `BeachcomberRefusals.tsx`, observe the failure, revert.",
+        "C5-result-render. In the last-cleanup result, each refusal names its entry. In `BeachcomberPanel.test.tsx`, the test 'names what was trashed and what failed, with the OS message verbatim' asserts that the result's refused list shows the fixture refusal's `displayPath`. Evidence: `npm test -- src/renderer/src/beachcomber/BeachcomberPanel.test.tsx` passes. Discrimination: the same single-site injection as C5-preview-render.",
+        "C5-structure. `BeachcomberRefusals.tsx` renders `displayPath` and `reason` in separate elements inside each `<li>`. This follows the precedent of the trash-failure row at base `BeachcomberResult.tsx:59-65`, where the path sits in its own span and the message is beside it. The existing exact-text `getByText(<reason>)` assertions therefore still find the reason as an element's whole text. Evidence: the assertions at base `BeachcomberPreviewDialog.test.tsx:116-119`, `BeachcomberPanel.test.tsx:265` and `failure-paths.e2e.test.tsx:1122-1125` pass with their expected strings unchanged. Any CSS class added for the path element is declared in `Beachcomber.module.css` with tokens only. No new user-visible sentence is introduced, so nothing new needs a `copy.ts` entry.",
+        "T2-scope. `npm test -- src/renderer/src/beachcomber` exits 0, including `Beachcomber.hygiene.test.ts`, whose rules include the 140-line component cap."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Helm lastAction collapsed to a two-valued latch, with release tests (C2)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/HelmPanel.tsx",
+        "src/renderer/src/helm/HelmPanel.test.tsx"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "C2-collapse. The comparison latch in `HelmPanel.tsx` is two-valued. Evidence: its `useState` holds a boolean, not the base type `'compare' | 'other' | null` (base line 62), and `grep -c \"'other'\" src/renderer/src/helm/HelmPanel.tsx` prints 0 (base prints 5). The comment above the latch (base lines 48-61) describes it as recording whether the most recent action was a comparison, and names no third state.",
+        "C2-select. Choosing a scope releases the comparison's claim. A new test in `HelmPanel.test.tsx`, under 'a failure lands on exactly one surface', does the following: render with a conflict and a failing comparison, click compare, then choose a scope through the scope picker, then `update({ actionError: <a different failure> })`. It asserts that the new failure appears once, inside `PANEL_TEST_IDS.helmError`, and that `HELM_SAFETY_TEST_IDS.comparisonError` is absent. Evidence: `npm test -- src/renderer/src/helm/HelmPanel.test.tsx` passes. Discrimination: delete only the latch-release call inside the scope picker's `onSelect` handler (one site, base line 121; the same call text also occurs in the discard, reload and save handlers, which stay untouched), re-run, observe this test fail, revert. The reviewer can repeat it.",
+        "C2-discard. The same shape as C2-select, with Discard as the releasing action. Evidence: the same command. Discrimination: delete only the release call in `onDiscard` (base line 200), observe this test fail, revert.",
+        "C2-reload. The same shape as C2-select, with Reload as the releasing action. Evidence: the same command. Discrimination: delete only the release call in `onReload` (base line 204), observe this test fail, revert.",
+        "C2-preserved (deliberately preserved behaviour). Every test in the describe 'a failure lands on exactly one surface' (base `HelmPanel.test.tsx:576-675`, including 'puts a save that fails after a failed comparison in the banner, not the comparison' at :603) passes with its assertions unweakened. Evidence: `npm test -- src/renderer/src/helm` exits 0."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Lane rail hover on the swimlane, the Matriarch's hover surface, and the dot's flex (C6, C7, C8)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/lanes/LaneRail.module.css",
+        "src/renderer/src/lanes/LaneRail.styles.test.ts"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "C67-resolver. The assertions below are evaluated by resolving, for a stated row state, which `background` declaration in `LaneRail.module.css` wins: by selector specificity, then by source order. jsdom computes no CSS-module cascade (`LaneRail.styles.test.ts` docblock), so the cascade has to be resolved from the sheet's text. Whatever does the resolving carries positive controls on inline fixture sheets, each with its predicted winner stated in the test. They are: (1) of two equal-specificity rules, the later one wins; (2) a higher-specificity earlier rule beats a lower-specificity later one; (3) a `:hover` rule does not apply to an unhovered state; (4) a near-miss selector, `.rowMain:hover`, is not treated as matching the `.row` element. This encodes the session decision that every new stylesheet scanner carries both a must-match fixture and a near-miss fixture. Evidence: `npm test -- src/renderer/src/lanes/LaneRail.styles.test.ts` passes.",
+        "C7-inner. No hover background is painted on the inner button. `LaneRail.module.css` has no `.rowMain:hover` rule, and no rule whose selector contains both `.rowMain` and `:hover` declares `background`. Base has one, at lines 163-165. This encodes the `.row` docblock at base lines 77-88: the `<li>` swimlane, not `.rowMain`, is where a row-wide background belongs. Evidence: a test in `LaneRail.styles.test.ts`, run by the same command.",
+        "C7-calf. An unselected Calf row, hovered, resolves its `.row` background to `var(--oc-bg-hover)`. At base it resolves to no `.row` background. Evidence: the C67-resolver test command. Discrimination: delete the new row-hover rule, observe the failure, revert.",
+        "C7-matriarch. An unselected Matriarch row (`data-matriarch='true'`), hovered, resolves to `var(--oc-bg-hover)`. At base it resolves to `var(--oc-bg-raised)`, from base line 100. Evidence: the same command. Discrimination: delete or reorder the rule that paints the hovered unselected Matriarch so that `.row[data-matriarch='true']` wins, observe the failure, revert.",
+        "C7-selected-primary (deliberately preserved behaviour). A primary-pane Calf (`data-in-primary-pane='true'`), hovered, still resolves to `var(--oc-bg-selected)`. A selected row keeps reading as selected while hovered, following the PodBar precedent `.tabItemActive:hover` at `PodBar.module.css:69-71`. Evidence: the same command. Discrimination: delete the rule that keeps a hovered selected row selected, observe the failure, revert.",
+        "C7-selected-follower (deliberately preserved behaviour). A follower-pane Calf (`data-in-follower-pane='true'`), hovered, still resolves to `var(--oc-bg-selected)`. Evidence and discrimination: the same as C7-selected-primary.",
+        "C6-primary. A primary-pane Matriarch, hovered, resolves to `var(--oc-bg-selected)`. That is a surface distinct from both its selected `--oc-bg-hover` and its unselected `--oc-bg-raised`. At base it resolves to `var(--oc-bg-hover)`, from base line 138, so hover feedback vanishes. Evidence: the same command. Discrimination: delete the Matriarch selected-hover rule, observe the failure, revert.",
+        "C6-follower. A follower-pane Matriarch, hovered, resolves to `var(--oc-bg-selected)`. At base it resolves to `var(--oc-bg-hover)`, from base line 142. Evidence and discrimination: the same as C6-primary.",
+        "C67-background-only. Every rule whose selector targets `.row` with `:hover` declares `background` and no other property. Hovering therefore cannot overpaint the follower edge or the focused-follower ring (`box-shadow`, base lines 126 and 146). This follows `PodBar.module.css:59-60` ('It sets `background` only… so it cannot sit on top of a focused control's focus ring') and encodes the frontend discipline rule 'Focus is visible'. Evidence: a test in `LaneRail.styles.test.ts`.",
+        "C6-comment. The comment above the selected-Matriarch rules (base `LaneRail.module.css:129-136`) no longer says the Matriarch 'darkens rather than brightening on selection': by `styles/tokens.css:27-28` its move from `--oc-bg-raised` (#22262e) to `--oc-bg-hover` (#2b303a) brightens. The comment states the move correctly and also names the hovered selected Matriarch's surface from C6. Evidence: `grep -c \"darkens rather than brightening\" src/renderer/src/lanes/LaneRail.module.css` prints 0 (base prints 1), and read the comment. Added at Gate 2.",
+        "C8. The `.dot` rule in `LaneRail.module.css` declares `flex: none`, matching `.statusDot` at `PodBar.module.css:120-123`. Base `.dot` (lines 216-221) has no `flex`. Evidence: a test asserting `block('.dot')` matches `/flex:\\s*none/`, in `LaneRail.styles.test.ts`. Shown able to fail: run it against the rule without the declaration.",
+        "T4-preserved (deliberately preserved behaviour). The existing assertions in the describes '(criterion 3)', '(criterion 4)' and '(criterion 5)' of `LaneRail.styles.test.ts` (opening at base lines 101, 141 and 184) are neither removed nor weakened. That includes the three distinct unhovered surfaces at :144-154, where the selected Matriarch is `--oc-bg-hover`. They all pass, and the sheet still hardcodes no colour. Evidence: `npm test -- src/renderer/src/lanes` exits 0."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "useDialogFocus moved to shell/ and adopted by both Pod dialogs (C11)",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/beachcomber/use-dialog-focus.ts",
+        "src/renderer/src/shell/use-dialog-focus.ts",
+        "src/renderer/src/shell/use-dialog-focus.test.tsx",
+        "src/renderer/src/beachcomber/BeachcomberPreviewDialog.tsx",
+        "src/renderer/src/pods/DeletePodDialog.tsx",
+        "src/renderer/src/pods/DeletePodDialog.test.tsx",
+        "src/renderer/src/pods/NewPodDialog.tsx",
+        "src/renderer/src/pods/NewPodDialog.test.tsx",
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/pod-lifecycle.test.tsx"
+      ],
+      "dependsOn": ["T2", "T3", "T4"],
+      "acceptance": [
+        "C11-move. `src/renderer/src/shell/use-dialog-focus.ts` exists and exports `useDialogFocus`. `src/renderer/src/beachcomber/use-dialog-focus.ts` no longer exists. Every importer OUTSIDE `src/renderer/src/shell/` imports the hook from `../shell/use-dialog-focus`, the relative form other `shell/` imports already use (for example `../shell/contract-runtime`); a file inside `shell/` (such as `shell/use-dialog-focus.test.tsx`) imports it as `./use-dialog-focus`. Evidence: `grep -rn \"use-dialog-focus'\" src` lists only `../shell/use-dialog-focus` specifiers from files outside `shell/` and only `./use-dialog-focus` specifiers from files inside it, and no specifier names `beachcomber/use-dialog-focus`. The hook's docblock no longer describes it as Beachcomber's alone.",
+        "C11-always-mounted. The hook captures the opener when the dialog OPENS, not when its component mounts, and restores when the dialog CLOSES, not only on unmount. Both Pod dialogs are always mounted (`PodsChrome.tsx:219,228` at base) and return null while closed, so the hook as it stands at base (`useEffect` with mount/unmount capture and restore, base lines 54-66) cannot serve them. Evidence: C11-D-restore and C11-N-restore below, each of which mounts the dialog closed before the opener is focused.",
+        "C11-beachcomber (deliberately preserved behaviour). Beachcomber's focus behaviour is unchanged. Evidence: `npm test -- src/renderer/src/beachcomber/BeachcomberPreviewDialog.test.tsx` passes, with that file not modified by T5 (T5 does not own it). That includes 'has an accessible name and receives focus when it opens', the trap test, 'returns focus to the control that opened it' and 'puts focus somewhere visible when the opener is gone by the time it closes' (base :178-260).",
+        "C11-D-open (deliberately preserved behaviour). When `DeletePodDialog` opens, focus is on the dialog element (`DELETE_POD_TEST_IDS.dialog`), as base `DeletePodDialog.tsx:89-93` does. Base has no test of this. Evidence: a new test in `DeletePodDialog.test.tsx`, run by `npm test -- src/renderer/src/pods`. Discrimination: remove the open-focus call, observe the failure, revert.",
+        "C11-D-trap-forward. In `DeletePodDialog`, Tab from the last focusable control (Delete) moves focus to the first focusable control inside the dialog. Evidence: a test in `DeletePodDialog.test.tsx` using `userEvent` `tab()`. The test renders a focusable control OUTSIDE the dialog (after it in document order) and asserts focus never lands on it, because `userEvent.tab()` wraps around the document and, with the dialog rendered alone, would wrap to the dialog's first control at base and pass vacuously. With that outside control present it fails at base, where focus leaves the dialog. Encodes the frontend discipline rule 'Focus … moves predictably after an action that changes what is on screen'.",
+        "C11-D-trap-backward. In `DeletePodDialog`, Shift+Tab from the first focusable control, or from the dialog element itself, moves focus to the last focusable control. Evidence: a test in `DeletePodDialog.test.tsx` that renders a focusable control OUTSIDE the dialog (before it in document order) and asserts focus never lands on it. With that outside control present it fails at base.",
+        "C11-D-restore. In `DeletePodDialog.test.tsx`, a test does the following: render the dialog CLOSED (`pod={null}`) beside an opener button, focus the opener, rerender with a Pod, then rerender with `pod={null}`. It asserts that `document.activeElement` is the opener. Evidence: `npm test -- src/renderer/src/pods`. It fails at base, where focus is lost to `<body>`. Discrimination: inject a mount-time capture (the base hook's shape), observe the failure, revert.",
+        "C11-D-fallback. In `DeletePodDialog.test.tsx`, a test does the following: open the dialog from an opener, remove that opener (unmount it, as a successful delete removes the tab's delete control), then close. It asserts that focus is on the fallback element passed to the dialog, and not on `<body>`. Evidence: the same command. It fails at base.",
+        "C11-D-wired. Driven through the real `App` in `pod-lifecycle.test.tsx`: after a delete that succeeds, the dialog closes and the Pod's tab is gone, and `document.activeElement` is the outermost element `PodsChrome` renders. That element is made programmatically focusable with `tabIndex={-1}`, the precedent `BeachcomberPanel.tsx:40-41,78` follows for its `fallbackFocusRef`. Focus is not on `<body>`. Evidence: `npm test -- src/renderer/src/pods/pod-lifecycle.test.tsx`. It fails at base.",
+        "C11-N-open (deliberately preserved behaviour). When `NewPodDialog` opens, focus is on the title field (`TEST_IDS.newPodTitleInput`). Evidence: the existing test 'focuses the title field when it opens' (base `NewPodDialog.test.tsx:216-219`) passes unweakened. If the hook gains an initial-focus option to serve this, Beachcomber does not pass it and keeps focusing its dialog element (C11-beachcomber).",
+        "C11-N-trap-forward. In `NewPodDialog`, Tab from the last enabled focusable control moves focus to the first (the title field). Evidence: a test in `NewPodDialog.test.tsx` that renders a focusable control OUTSIDE the dialog (after it in document order) and asserts focus never lands on it, so `userEvent.tab()`'s document wrap cannot make it pass vacuously. With that outside control present it fails at base.",
+        "C11-N-trap-backward. In `NewPodDialog`, Shift+Tab from the title field moves focus to the last enabled focusable control. Evidence: a test in `NewPodDialog.test.tsx` that renders a focusable control OUTSIDE the dialog (before it in document order) and asserts focus never lands on it. With that outside control present it fails at base.",
+        "C11-N-restore. In `NewPodDialog.test.tsx`, a test does the following: render with `open={false}` beside an opener, focus the opener, rerender with `open={true}`, then with `open={false}`. It asserts that focus is on the opener. Evidence: `npm test -- src/renderer/src/pods`. It fails at base. Discrimination: the same mount-time-capture injection as C11-D-restore.",
+        "C11-N-fallback. In `NewPodDialog.test.tsx`: the opener is removed before the dialog closes, and focus lands on the fallback element passed to the dialog, not on `<body>`. Evidence: the same command. It fails at base.",
+        "C11-N-wired. Driven through the real `App` in `pod-lifecycle.test.tsx`: open New Pod from the empty-workspace control (`EmptyWorkspace`, which unmounts once a Pod is active), then create a Pod. `document.activeElement` is then PodsChrome's outermost element, not `<body>`. Evidence: `npm test -- src/renderer/src/pods/pod-lifecycle.test.tsx`. It fails at base.",
+        "C11-props. The fallback reaches each Pod dialog as an internal prop. For New Pod it goes on `NewPodDialogInternalProps`, the existing extension at `NewPodDialog.tsx:29`, and `NewPodDialogProps` in `src/renderer/src/contracts/renderer-view.ts` is not modified (T5 does not own it).",
+        "T5-typecheck. `npm run typecheck` exits 0. The move changes an import surface. T5 runs after every task that injects defects into production files (T1-T4), so no peer's injection is live during this repo-wide command.",
+        "T5-scope. `npm test -- src/renderer/src/pods src/renderer/src/beachcomber src/renderer/src/shell` exits 0."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Test-guard narrowing and relaxing (C9, U1, U2)",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/lanes/LaneRow.source.test.ts",
+        "src/renderer/src/__tests__/hygiene.test.ts",
+        "src/renderer/src/pods/PodBar.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C9-bars. The test 'takes elapsedMs pre-computed off the view model and only formats it' in `LaneRow.source.test.ts` applies one named predicate that flags exactly the React hooks by which a row could hold, tick or subscribe to its own elapsed value: `useState`, `useReducer`, `useSyncExternalStore`, `useEffect` and `useLayoutEffect`, each matched as a whole identifier. This follows the suite's criterion 'no timer and no clock' (file docblock lines 4-10). Evidence: a must-match fixture table in that file, one source fixture per barred hook (5 fixtures), with each predicted and asserted to match. Run by `npm test -- src/renderer/src/lanes/LaneRow.source.test.ts`.",
+        "C9-allows. The same predicate does not flag the hooks a timer-free row may legitimately use. Near-miss fixtures `const ref = useRef<HTMLButtonElement>(null);`, a `useMemo(...)` call and a `useId()` call are each predicted and asserted not to match. This fails at base, where the inline regex `/useState|useEffect|useRef/` (base line 45) matches the `useRef` fixture. Evidence: the same command.",
+        "C9-real (deliberately preserved behaviour). The predicate applied to the real `LaneRow.tsx` source finds 0 matches, the predicted count. At base `grep -nE \"\\buse[A-Z]\\w*\" src/renderer/src/lanes/LaneRow.tsx` prints nothing, and React's only import there is `memo`. The fixture tests and the real-source test call the same predicate, not a copy of it. Evidence: the same command.",
+        "U1-quoted. The retired-id offender scan in `hygiene.test.ts` ('finds no reference to a retired test id outside the one ratified proof'; base line 1360 is `if (text.includes(literal))`) matches a retired literal only as a whole quote-delimited string, single, double or backtick. That is the shape `retiredLiteralUseReport` builds at base line 1195. The scan goes through one named predicate, and the real-tree loop and the fixtures below both call it. Evidence: `npm test -- src/renderer/src/__tests__/hygiene.test.ts` passes.",
+        "U1-must-match. Fixtures in `hygiene.test.ts`: code carrying the retired id quoted with `'`, with `\"` and with a backtick is each flagged as 1 offence, as predicted and asserted. Needles are assembled from fragments, so the file is not its own violation. Evidence: the same command. Discrimination: break the predicate's quote alternation, observe the failure, revert.",
+        "U1-near-miss. A fixture carrying a live id that extends the retired one (assembled as the retired id + `'-x'`, inside quotes) is flagged as 0 offences, as predicted and asserted. This fails at base, where `text.includes` flags it. Evidence: the same command.",
+        "U1-real (deliberately preserved behaviour). The real-tree scan still walks more than 100 files and reports `[]` offenders. The predicted count of 0 was measured at base two ways: `git grep -n \"'lane-row-pin'\" -- src` (quote-delimited; the only occurrence is single-quoted) and `git grep -n lane-row-pin -- src` (substring) each return the single line `src/renderer/src/lanes/LaneRail.test.tsx:180`, which is the exempt file. Evidence: the same command.",
+        "U2-two-term. In `PodBar.styles.test.ts`, `borderWidthOffenders('.a { border-width: var(--oc-border-hairline) 0; }')` returns `[]`. It returns 1 offender at base, because `borderWidthIsTokenised` (base lines 448-452) requires a longhand's whole value to be one token. This matches the `PodBar.module.css:2-4` docblock ('Every border width here is `--oc-border-hairline`, `--oc-border-thick` or a bare `0` reset'). Evidence: `npm test -- src/renderer/src/pods/PodBar.styles.test.ts` passes.",
+        "U2-four-term. `borderWidthOffenders('.a { border-width: 0 var(--oc-border-thick) 0 var(--oc-border-hairline); }')` returns `[]`. Evidence: the same command.",
+        "U2-raw-length. A multi-value `border-width` with a raw length term (`var(--oc-border-hairline) ` + `'1' + 'px'`) returns 1 offender. Evidence: the same command.",
+        "U2-wrong-family. A multi-value `border-width` with a wrong-family token (`var(--oc-space-1) 0`) returns 1 offender. Evidence: the same command.",
+        "U2-too-many. A `border-width` with five terms (`0 0 0 0 0`) returns 1 offender, because `border-width` takes 1-4 values. Evidence: the same command.",
+        "U2-per-side. A per-side longhand with two terms (`border-top-width: var(--oc-border-hairline) 0`) returns 1 offender, because per-side longhands stay single-valued. Evidence: the same command.",
+        "U2-axis. The logical axis longhands `border-block-width` and `border-inline-width` accept 1-2 terms, each a width token or `0`. A two-term `border-inline-width: var(--oc-border-hairline) 0` returns `[]`, and a three-term one returns 1 offender. Evidence: the same command.",
+        "U2-doc-and-real (deliberately preserved behaviour). The predicate's docblock (base lines 442-447) states the multi-value rule. The existing fixtures at base :462-472 still pass unchanged, and `borderWidthOffenders(css)` over the real `PodBar.module.css` is still `[]`. Evidence: the same command.",
+        "T6-scope. The three owned files pass together: `npm test -- src/renderer/src/lanes/LaneRow.source.test.ts src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/pods/PodBar.styles.test.ts` exits 0. Every injection T6 makes is into a predicate in a file it owns, not into production code."
+      ]
+    },
+    {
+      "id": "T7",
+      "title": "Delete the subsumed migration-1 byte-identity test (C10; U3 moot)",
+      "agent": "sir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "tests/unit/store/migration-2.test.ts",
+        "tests/unit/store/migration-3.test.ts",
+        "tests/unit/store/migration-frozen.test.ts",
+        "src/main/store/schema.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C10-delete. `tests/unit/store/migration-2.test.ts` no longer contains the test 'renders byte-identically to the version that shipped' (base lines 104-106). Evidence: `grep -c \"renders byte-identically to the version that shipped\" tests/unit/store/migration-2.test.ts` prints 0 (base prints 1).",
+        "C10-orphans. Nothing the deleted test alone used remains in `migration-2.test.ts`: `grep -c` for each of `execFileSync`, `SHIPPED_MIGRATION_1_BLOB`, `ENUM_NAMES`, `shippedMigration1` and `child_process` prints 0. At base the line counts are 2, 3, 4, 2 and 1. tsc runs with `noUnusedLocals: false` (`tsconfig.node.json:37`), so it would not catch these.",
+        "C10-kept (deliberately preserved behaviour). The describe 'migration 1 is frozen (criterion 4)' keeps its two other tests, 'still names exactly the three modes it shipped with, not the four we now expose' and 'widening happens in migration 2, which is the head of the list'. `npm test -- tests/unit/store/migration-2.test.ts` reports 10 tests passed. Base has 11 `it(` lines (3 + 5 + 3 across its three describes, by `grep -cE \"^\\s*it\\(\"`), minus the 1 deleted.",
+        "C10-subsumed (deliberately preserved behaviour). `migration-frozen.test.ts` still renders migration 1 from `96f6e925f75c9b101903116a0522c98971e0f347:src/main/store/schema.ts` (base line 65), the same blob as the deleted test's `SHIPPED_MIGRATION_1_BLOB` (base `migration-2.test.ts:58`). Its 'migration 1' case and its non-vacuity test pass. Evidence: `npm test -- tests/unit/store/migration-frozen.test.ts` exits 0 in this full-history worktree, with those tests run and not skipped.",
+        "C10-prose-m2. The header docblock of `migration-2.test.ts` (base lines 4-12, item 1) no longer says this file diffs migration 1 against the shipped blob. It names `migration-frozen.test.ts` as the file that does. Evidence: read the docblock.",
+        "C10-prose-frozen. In `migration-frozen.test.ts`, the docblock sentence at base lines 41-44 ('Migration 1's entry repeats the hash `migration-2.test.ts` already uses…') no longer claims that `migration-2.test.ts` uses the hash. The historical sentence at base line 5 ('`migration-2.test.ts` established the shape') may stay. Evidence: read the docblock.",
+        "C10-prose-m3. In `migration-3.test.ts`, the docblock at base lines 26-29 ('Migration 1's byte-identity tripwire lives in `migration-2.test.ts`…') names `migration-frozen.test.ts` instead. Evidence: read the docblock.",
+        "C10-prose-schema. In `src/main/store/schema.ts`, the comment at base lines 164-166 ('`tests/unit/store/migration-2.test.ts` asserts migration 1's rendered SQL is byte-identical…') names `migration-frozen.test.ts` instead. The schema.ts change is comment-only, and no migration's rendered SQL changes. This encodes the database discipline rule 'A released migration is never edited', and the evidence is that `migration-frozen.test.ts` passes for migrations 1-4, as in C10-subsumed.",
+        "U3-moot. U3, which asked for a shallow-clone skip on the deleted test, is moot: the test no longer exists. Evidence: C10-delete. The closure is reported, not worked."
+      ]
+    },
+    {
+      "id": "T8",
+      "title": "DAG tail: repo-wide typecheck and full suite",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [],
+      "dependsOn": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+      "acceptance": [
+        "Tail-typecheck. `npm run typecheck`, which runs `typecheck:node` then `typecheck:web`, exits 0 in the worktree with every task merged in. vitest does not typecheck (`.sir/lessons.md` and project memory), and C3, C5 and C11 change import and type surfaces.",
+        "Tail-suite. `npm test` (`vitest run`) exits 0 with 0 failed tests in the worktree. Base e2e81e1 measured 145 files and 2333 tests passed. The report states the new totals and attributes the difference to the tasks that added or removed tests (T7 removes exactly 1)."
+      ]
+    }
+  ]
+}

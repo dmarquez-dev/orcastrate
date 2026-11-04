@@ -1,0 +1,31 @@
+{
+  "session": "20261103-2240-cosmetic-structural-sweep",
+  "updatedAt": "2026-11-04T01:43:50Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261103-2240-cosmetic-structural-sweep",
+  "branch": "agent/20261103-2240-cosmetic-structural-sweep",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.node.json --composite false / > tsc --noEmit -p tsconfig.web.json --composite false / exit=0 (worktree has no node_modules of its own; it resolves the main checkout's by parent-directory lookup)"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "Test Files  145 passed (145) / Tests  2333 passed (2333) / exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "84d0a1f2a72093d8bfc97e2743c8541d0a365356", "commit": "6c026bf22c1ef57f3c30d53dc934055a8af287a7", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6c026bf22c1ef57f3c30d53dc934055a8af287a7", "commit": "f5b4a6cfcf5207d77177a9639231a697d45134c1", "model": "opus" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6c026bf22c1ef57f3c30d53dc934055a8af287a7", "commit": "4d3d51d5c58856c1918f25402d67e68a1e044a23", "model": "opus" },
+    { "id": "T4", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "6c026bf22c1ef57f3c30d53dc934055a8af287a7", "commit": "97f60e325c3e2632db6f1d9e5a10467f79d33bcb", "model": "opus" },
+    { "id": "T5", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "97f60e325c3e2632db6f1d9e5a10467f79d33bcb", "commit": "d90d008beaa09d75f09c4e290273e41a4570dfdd", "model": "opus" },
+    { "id": "T6", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "e2e81e1766f6b0540d8729ec7b61ec7ec1254897", "commit": "84d0a1f2a72093d8bfc97e2743c8541d0a365356", "model": "opus" },
+    { "id": "T7", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "e2e81e1766f6b0540d8729ec7b61ec7ec1254897", "commit": "cddbe3133837686ca373bbafe0e25edb63536544", "model": "opus" },
+    { "id": "T8", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "d90d008beaa09d75f09c4e290273e41a4570dfdd", "model": "opus" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
