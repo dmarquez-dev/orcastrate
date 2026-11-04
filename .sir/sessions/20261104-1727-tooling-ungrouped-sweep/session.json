@@ -2,9 +2,9 @@
   "id": "20261104-1727-tooling-ungrouped-sweep",
   "name": "tooling-ungrouped-sweep",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-04T17:27:28Z",
-  "ended": null,
+  "ended": "2026-11-04T18:28:56Z",
   "brief": "Close the remaining Tooling and Ungrouped backlog items except the live-claude hand-run harness. Add a project frontend discipline fragment requiring a named-error guard under noUncheckedIndexedAccess and register it in .sir/config.json; give the renderer stub's three non-projects Beachcomber rows pathSource 'absolute-path'; give PodsChrome's tabIndex=-1 focus-fallback container an inset focus-visible ring using the existing focus-ring tokens; make closePod skip the sweep, updatePod and podStatus push for an already-closed Pod and update the whole-record test count; make DeletePodDialog re-focus when podId changes A to B while open. The commit-msg hook item closes as declined. The Prettier item's premise was found false at spec time (the repo has no formatter config, so every tracked TS file fails a default check) and is decided at Gate 2. Gate 3 removes the closed items from .sir/backlog.md.",
   "pushed": true,
   "parent": null,
@@ -41,7 +41,15 @@
       "started": "2026-11-04T18:18:25Z",
       "ended": "2026-11-04T18:25:34Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "6164f4aa-d097-498d-a71c-9cb39d1cc237",
+      "sir": "1.0.20",
+      "started": "2026-11-04T18:28:21Z",
+      "ended": "2026-11-04T18:28:56Z",
+      "outcome": "complete"
     }
   ],
-  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
 }
