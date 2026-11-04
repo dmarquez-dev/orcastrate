@@ -83,6 +83,7 @@ describe('blocking the directory behind a known Pod', () => {
     expect(preview.items).toHaveLength(0);
     expect(preview.refused).toHaveLength(1);
     expect(preview.refused[0]?.id).toBe(blocked.id);
+    expect(preview.refused[0]?.displayPath).toBe(blocked.displayPath);
     expect(preview.refused[0]?.reason).toContain('Refactor the router');
     expect(preview.refused[0]?.reason).toContain('pod-0001');
     expect(preview.refused[0]?.reason).toMatch(/delete that pod/i);
@@ -101,6 +102,7 @@ describe('blocking the directory behind a known Pod', () => {
     const result = await service.trash({ scanId: scan.scanId, ids: [blocked.id, free.id] });
 
     expect(result.refused.map((refusal) => refusal.id)).toEqual([blocked.id]);
+    expect(result.refused[0]?.displayPath).toBe(blocked.displayPath);
     expect(result.trashed).toEqual([free.id]);
     expect(trash.calls).toHaveLength(1);
     expect(trash.calls.some((path) => path.includes('router'))).toBe(false);

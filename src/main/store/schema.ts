@@ -161,7 +161,7 @@ const MIGRATION_1_PERMISSION_MODES = ['default', 'plan', 'bypassPermissions'] as
  * whole point is that it must NOT track the contract union.
  * `MIGRATION_1_PERMISSION_MODES` is bare for the same reason.
  *
- * `tests/unit/store/migration-2.test.ts` asserts migration 1's rendered SQL is
+ * `tests/unit/store/migration-frozen.test.ts` asserts migration 1's rendered SQL is
  * byte-identical to the text of the immutable blob that shipped it, which is
  * what proves this pin is correct.
  */

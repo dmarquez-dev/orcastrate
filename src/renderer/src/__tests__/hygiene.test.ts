@@ -1184,6 +1184,20 @@ const RETIRED_LITERAL_EXEMPT_FILES: readonly string[] = [
  * otherwise a sentence saying which way it fails. Comments are the caller's to
  * strip, exactly as for every other rule in this file.
  */
+/**
+ * The regex source matching `literal` as a whole quote-delimited string —
+ * single, double or backtick — and never as a prefix of a longer id.
+ */
+const quotedLiteralSource = (literal: string): string =>
+  `['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`;
+
+/**
+ * How many times `code` names `literal` as a whole quoted string. The one
+ * predicate both the real-tree offender scan and its fixtures call.
+ */
+const retiredLiteralOccurrences = (code: string, literal: string): number =>
+  [...code.matchAll(new RegExp(quotedLiteralSource(literal), 'g'))].length;
+
 function retiredLiteralUseReport(code: string, literals: readonly string[]): string | null {
   let total = 0;
   let absent = 0;
@@ -1192,8 +1206,8 @@ function retiredLiteralUseReport(code: string, literals: readonly string[]): str
     // that merely starts with a retired literal is no occurrence of it.
     // Counting substrings here put that longer live id in `total` and never
     // in `absent`, and an absence assertion beside it read as a violation.
-    const quoted = `['"\`]${literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"\`]`;
-    total += [...code.matchAll(new RegExp(quoted, 'g'))].length;
+    const quoted = quotedLiteralSource(literal);
+    total += retiredLiteralOccurrences(code, literal);
     const absence = new RegExp(
       [
         `expect\\(\\s*(?:screen\\.)?queryAllByTestId\\(\\s*${quoted}\\s*\\)\\s*\\)\\s*\\.toHaveLength\\(\\s*0\\s*\\)`,
@@ -1306,6 +1320,19 @@ describe('the two rules added for previously undetectable failure modes', () => 
     ).toBe('uses a retired literal outside an absence assertion (1 of 1 code occurrences)');
   });
 
+  it('flags the retired id once per whole quoted occurrence, in any quote, and never inside a longer live id', () => {
+    const retired = RETIRED_TEST_ID_LITERALS[0] as string;
+    // Each fixture is code a non-exempt file could carry; each needle is
+    // assembled from fragments, so this file is not its own violation.
+    expect(retiredLiteralOccurrences(`getByTestId('${retired}')`, retired)).toBe(1);
+    expect(retiredLiteralOccurrences(`getByTestId("${retired}")`, retired)).toBe(1);
+    expect(retiredLiteralOccurrences(`getByTestId(\`${retired}\`)`, retired)).toBe(1);
+
+    // A live id that extends the retired one is a different control: no offence.
+    const live = retired + '-x';
+    expect(retiredLiteralOccurrences(`getByTestId('${live}')`, retired)).toBe(0);
+  });
+
   it('finds no stray control byte anywhere under src/, tests/ or probe/', async () => {
     const offenders: string[] = [];
     for (const { path, label, floor } of CONTROL_BYTE_ROOTS) {
@@ -1357,7 +1384,9 @@ describe('the two rules added for previously undetectable failure modes', () => 
       if (RETIRED_LITERAL_EXEMPT_FILES.includes(relative(file))) continue;
       const text = stripComments(await read(file));
       for (const literal of RETIRED_TEST_ID_LITERALS) {
-        if (text.includes(literal)) offenders.push(`${relative(file)}: ${literal}`);
+        if (retiredLiteralOccurrences(text, literal) > 0) {
+          offenders.push(`${relative(file)}: ${literal}`);
+        }
       }
     }
     expect(offenders).toEqual([]);

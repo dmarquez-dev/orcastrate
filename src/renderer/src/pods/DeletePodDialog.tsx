@@ -1,6 +1,7 @@
-import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from 'react';
+import { useEffect, useId, useState, type JSX, type KeyboardEvent, type RefObject } from 'react';
 
 import type { Pod } from '@shared/contracts/events';
+import { useDialogFocus } from '../shell/use-dialog-focus';
 import styles from './DeletePodDialog.module.css';
 
 /**
@@ -60,6 +61,12 @@ export interface DeletePodDialogProps {
    * error text) would be a parse of a platform message.
    */
   podDeleted: boolean;
+  /**
+   * Where focus goes on close if the control that opened this is gone — which
+   * is exactly what a successful delete does to it, by removing its tab.
+   * Internal, like `podDeleted`.
+   */
+  fallbackFocusRef: RefObject<HTMLElement | null>;
   onCancel(): void;
   onConfirm(deleteSession: boolean): void;
 }
@@ -73,23 +80,26 @@ export function DeletePodDialog({
   submitting,
   error,
   podDeleted,
+  fallbackFocusRef,
   onCancel,
   onConfirm,
 }: DeletePodDialogProps): JSX.Element | null {
   const [deleteSession, setDeleteSession] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const headingId = useId();
   const historyId = useId();
   const podId = pod?.id ?? null;
 
+  // Focus moves to the dialog ELEMENT on open, so the user hears what is about
+  // to be destroyed before reaching a button; it is trapped inside while open
+  // and returned on close. This component is always mounted and renders null
+  // while closed, which is why the hook is told when it is open.
+  const { dialogRef, onKeyDown } = useDialogFocus(fallbackFocusRef, { open: podId !== null });
+
   // Reset on each fresh open — the checkbox DEFAULTS OFF, every time, and a
-  // decision made about one Pod must never carry into another. Focus moves to
-  // the dialog so the user hears what is about to be destroyed before reaching
-  // a button.
+  // decision made about one Pod must never carry into another.
   useEffect(() => {
     if (podId === null) return;
     setDeleteSession(false);
-    dialogRef.current?.focus();
   }, [podId]);
 
   if (pod === null) return null;
@@ -108,7 +118,9 @@ export function DeletePodDialog({
     if (event.key === 'Escape') {
       event.stopPropagation();
       onCancel();
+      return;
     }
+    onKeyDown(event);
   }
 
   return (

@@ -17,6 +17,10 @@ export interface BeachcomberRefusalsProps {
  * confirm button, so the trash step never has to surprise anyone. The same
  * component serves the preview and the result, because the two lists mean the
  * same thing and phrasing them differently would suggest they do not.
+ *
+ * Each refusal names its entry: the path sits in its own element and the
+ * reason beside it, as in the result's failure rows, so neither is a fragment
+ * of the other's text.
  */
 export function BeachcomberRefusals({
   refused,
@@ -34,7 +38,8 @@ export function BeachcomberRefusals({
       <ul className={styles.refusalList}>
         {refused.map((refusal) => (
           <li className={styles.refusal} key={refusal.id}>
-            {refusal.reason}
+            <span className={styles.refusalPath}>{refusal.displayPath}</span>
+            <span className={styles.refusalReason}>{refusal.reason}</span>
           </li>
         ))}
       </ul>

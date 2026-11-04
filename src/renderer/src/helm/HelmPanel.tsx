@@ -45,23 +45,24 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
     actions.edit({ managed });
   };
 
-  // CLIENT INTERACTION STATE, and the only state this file holds: WHICH action
-  // the user asked for most recently. `actionError` has one writer and many
-  // causes — a refused save sets it too — and the view keeps no record of
-  // which cause wrote it, so this cannot be derived from `view`; it is the
-  // user's own interaction and is set only from a click, never from a render.
+  // CLIENT INTERACTION STATE, and the only state this file holds: WHETHER the
+  // most recent action the user asked for was a comparison. `actionError` has
+  // one writer and many causes — a refused save sets it too — and the view
+  // keeps no record of which cause wrote it, so this cannot be derived from
+  // `view`; it is the user's own interaction and is set only from a click,
+  // never from a render.
   //
   // IT IS A LATCH THAT RESETS, AND THAT IS THE FIX. Its predecessor was a
   // one-way `compareRequested` flag: once a comparison had failed, `incoming`
   // stayed null and the flag stayed true, so every LATER unrelated failure —
   // a refused save, an `EPERM` on reload — was routed into the comparison
-  // surface. Recording the last action instead means the next action takes the
-  // claim with it. (Defect introduced by session
-  // 2026-08-31-orcastrate-helm-draft-safety, fixed by
-  // 2026-09-04-orcastrate-correctness-sweep.)
-  const [lastAction, setLastAction] = useState<'compare' | 'other' | null>(null);
+  // surface. Comparing sets the latch; every other action the panel offers
+  // clears it as it starts, so the next action takes the claim with it.
+  // (Defect introduced by session 2026-08-31-orcastrate-helm-draft-safety,
+  // fixed by 2026-09-04-orcastrate-correctness-sweep.)
+  const [lastActionWasCompare, setLastActionWasCompare] = useState<boolean>(false);
   const onCompare = (): void => {
-    setLastAction('compare');
+    setLastActionWasCompare(true);
     void actions.compare();
   };
 
@@ -81,7 +82,7 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
   //     it a second time inside the comparison.
   const loadError = view.error?.message ?? null;
   const compareError =
-    lastAction === 'compare' &&
+    lastActionWasCompare &&
     !view.comparing &&
     view.incoming === null &&
     draft !== null &&
@@ -118,7 +119,7 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
       <HelmScopePicker
         disabled={view.loadingDocument || view.saving}
         onSelect={(scopeId) => {
-          setLastAction('other');
+          setLastActionWasCompare(false);
           void actions.selectScope(scopeId);
         }}
         scopes={view.value}
@@ -197,15 +198,15 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
         canReload={view.selectedScopeId !== null}
         dirty={view.dirty}
         onDiscard={() => {
-          setLastAction('other');
+          setLastActionWasCompare(false);
           actions.discard();
         }}
         onReload={() => {
-          setLastAction('other');
+          setLastActionWasCompare(false);
           void actions.reload();
         }}
         onSave={() => {
-          setLastAction('other');
+          setLastActionWasCompare(false);
           void actions.save();
         }}
         saving={view.saving}

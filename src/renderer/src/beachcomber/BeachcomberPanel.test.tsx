@@ -248,7 +248,13 @@ describe('the result reports both halves (AC9)', () => {
             message: 'EBUSY: resource busy or locked, unlink',
           },
         ],
-        refused: [{ id: 'd', reason: 'A Pod is using this directory.' }],
+        refused: [
+          {
+            id: 'd',
+            displayPath: 'C:\\Users\\dmarq\\Repos\\router',
+            reason: 'A Pod is using this directory.',
+          },
+        ],
       }),
     });
 
@@ -263,6 +269,9 @@ describe('the result reports both halves (AC9)', () => {
       'EBUSY: resource busy or locked, unlink',
     ]);
     expect(within(result).getByText('A Pod is using this directory.')).toBeDefined();
+    // Each refusal names its entry, not only why it was refused.
+    const refusedList = within(result).getByTestId(`${PANEL_TEST_IDS.beachcomberResult}-refused`);
+    expect(within(refusedList).getByText('C:\\Users\\dmarq\\Repos\\router')).toBeDefined();
   });
 
   it('reads as a clean success only when nothing failed', () => {

@@ -1,4 +1,4 @@
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 
 import type { Pod, PodId } from '@shared/contracts/events';
 import { usePods, useWorkspaceActions } from '../state';
@@ -8,6 +8,12 @@ import { NewPodDialog } from './NewPodDialog';
 import { PodBarPanel } from './PodBarPanel';
 import { runControlFor } from './run-control';
 import styles from './PodsChrome.module.css';
+
+/**
+ * Local, like `POD_TAB_OPEN_TEST_ID`: it crosses no task boundary. The tests
+ * use it to name where focus lands when a dialog's opener is gone.
+ */
+export const PODS_CHROME_TEST_ID = 'pods-chrome';
 
 export interface PodsChromeProps {
   /** Owned by `App`, because the first-run empty state opens it too. */
@@ -34,6 +40,12 @@ export function PodsChrome({
   const [createError, setCreateError] = useState<string | null>(null);
   const [openError, setOpenError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // The focus destination of last resort for both dialogs, the same role
+  // `BeachcomberPanel`'s `panelRef` plays for its preview. Each dialog can
+  // remove the control that opened it — a delete takes the tab, a create
+  // unmounts the empty workspace — and focus must land somewhere visible.
+  const chromeRef = useRef<HTMLDivElement>(null);
 
   /*
    * The delete confirmation's state. `pendingDelete` holds the POD ITSELF, not
@@ -187,7 +199,12 @@ export function PodsChrome({
   }
 
   return (
-    <div className={styles.chrome}>
+    <div
+      className={styles.chrome}
+      data-testid={PODS_CHROME_TEST_ID}
+      ref={chromeRef}
+      tabIndex={-1}
+    >
       <PodBarPanel
         onClose={handleStop}
         onDelete={handleRequestDelete}
@@ -219,6 +236,7 @@ export function PodsChrome({
       <NewPodDialog
         browse={actions.pickDirectory}
         error={createError}
+        fallbackFocusRef={chromeRef}
         onCancel={handleCancel}
         onCreate={handleCreate}
         open={dialogOpen}
@@ -227,6 +245,7 @@ export function PodsChrome({
 
       <DeletePodDialog
         error={deleteError}
+        fallbackFocusRef={chromeRef}
         onCancel={handleCancelDelete}
         onConfirm={handleConfirmDelete}
         pod={pendingDelete}

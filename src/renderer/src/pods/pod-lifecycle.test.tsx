@@ -46,6 +46,7 @@ import {
 } from '../test-utils';
 import { DELETE_POD_TEST_IDS } from './DeletePodDialog';
 import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID, POD_TAB_STOP_TEST_ID } from './PodTab';
+import { PODS_CHROME_TEST_ID } from './PodsChrome';
 
 beforeAll(() => {
   registerWorkspaceProvider(WorkspaceProvider);
@@ -473,5 +474,60 @@ describe('deleting a Pod goes through a confirmation', () => {
     // Selecting and running the Pod touched the delete channel not at all.
     expect(api.calls.podDelete).toEqual([]);
     expect(screen.queryByTestId(DELETE_POD_TEST_IDS.dialog)).toBeNull();
+  });
+});
+
+/**
+ * WHERE FOCUS LANDS WHEN THE CONTROL THAT OPENED A DIALOG IS GONE. Both Pod
+ * dialogs can remove their own opener: a delete takes the tab, and its delete
+ * control, with it; a create makes a Pod active, which unmounts the empty
+ * workspace whose control opened New Pod. Focus must not fall to `<body>`.
+ */
+describe('focus after a dialog removes its own opener', () => {
+  it('lands on the Pod chrome after a delete that succeeds', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [DELETABLE] }) },
+    });
+    renderWithWorkspace(<App />, { api });
+
+    await openConfirmation(user);
+    await user.click(screen.getByTestId(DELETE_POD_TEST_IDS.confirm));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(DELETE_POD_TEST_IDS.dialog)).toBeNull();
+    });
+    expect(screen.queryByTestId(testId(TEST_IDS.podTab, DELETABLE.id))).toBeNull();
+    expect(document.activeElement).toBe(screen.getByTestId(PODS_CHROME_TEST_ID));
+    // Vacuity guard for the line above.
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
+  it('lands on the Pod chrome after a create opened from the empty workspace', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi();
+    renderWithWorkspace(<App />, { api });
+
+    const empty = (await screen.findByText('No Pod open')).closest('section');
+    expect(empty).not.toBeNull();
+    await user.click(within(empty as HTMLElement).getByRole('button', { name: 'New Pod' }));
+
+    await user.type(screen.getByTestId(TEST_IDS.newPodTitleInput), 'Fresh Pod');
+    await user.click(screen.getByTestId(TEST_IDS.newPodBrowseButton));
+    await waitFor(() => {
+      expect(screen.getByTestId(TEST_IDS.newPodCwdDisplay).textContent).toBe('/stub/workspace');
+    });
+    await user.click(screen.getByTestId(TEST_IDS.newPodSubmit));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(TEST_IDS.newPodDialog)).toBeNull();
+    });
+    // The opener is gone: the workspace is no longer empty.
+    await waitFor(() => {
+      expect(screen.queryByText('No Pod open')).toBeNull();
+    });
+    expect(document.activeElement).toBe(screen.getByTestId(PODS_CHROME_TEST_ID));
+    // Vacuity guard for the line above.
+    expect(document.activeElement).not.toBe(document.body);
   });
 });

@@ -246,6 +246,14 @@ export interface BeachcomberPreviewItem {
 
 export interface BeachcomberPreviewRefusal {
   id: BeachcomberEntryId;
+  /**
+   * The refused entry's own `BeachcomberEntry.displayPath`, copied verbatim by
+   * main when it builds the refusal. Never null, never `undefined`. Treated as
+   * PROSE by the renderer — never parsed, joined, split or resolved — exactly
+   * as `BeachcomberEntry.displayPath` and `BeachcomberTrashFailure.displayPath`
+   * already are.
+   */
+  displayPath: string;
   /** User-facing, and it says what to do about it. */
   reason: string;
 }

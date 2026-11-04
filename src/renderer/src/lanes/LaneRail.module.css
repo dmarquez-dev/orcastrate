@@ -127,12 +127,50 @@
 }
 
 /*
+ * HOVER, on the swimlane — the same `<li>` the selection sits on, for the same
+ * reason (see `.row` above): a hover background on the inner `.rowMain` button
+ * stopped at that button's box and left Steer outside it.
+ *
+ * Every row hover rule here sets `background` only. No border, outline or
+ * inset shadow, so hovering can never sit on top of the follower edge or the
+ * focused-follower ring, which are both `box-shadow` (`PodBar.module.css`'s
+ * `.tabItem:hover` makes the same promise).
+ *
+ * `.row:hover` has the same specificity as `.row[data-matriarch='true']`, so it
+ * is declared AFTER it: a hovered unselected Matriarch lifts off its
+ * `--oc-bg-raised` the way a Calf lifts off the panel.
+ */
+.row:hover {
+  background: var(--oc-bg-hover);
+}
+
+/* A selected Calf stays reading as selected while the pointer is over it —
+   `--oc-bg-hover` is a step BELOW `--oc-bg-selected`, so without these
+   hovering would dim it (`PodBar.module.css`'s `.tabItemActive:hover`). */
+.row[data-in-primary-pane='true']:hover {
+  background: var(--oc-bg-selected);
+}
+
+.row[data-in-follower-pane='true']:hover {
+  background: var(--oc-bg-selected);
+}
+
+/*
  * THE MATRIARCH'S HIGHLIGHT IS DARKER THAN A CALF'S. Three distinct surfaces,
  * all from the frozen `TOKENS` map: `--oc-bg-panel` unselected, `--oc-bg-hover`
  * for a selected Matriarch, `--oc-bg-selected` for a selected Calf. The
- * Matriarch already sits on `--oc-bg-raised` unselected, so it darkens rather
- * than brightening on selection and keeps reading as the trunk of the list
- * instead of competing with the Calf that was just clicked.
+ * Matriarch already sits on `--oc-bg-raised` unselected, so selection
+ * brightens it one step, `--oc-bg-raised` to `--oc-bg-hover` — a smaller lift
+ * than a Calf's, which keeps it reading as the trunk of the list instead of
+ * competing with the Calf that was just clicked.
+ *
+ * These come AFTER the selected-Calf hover rules above, which have the same
+ * specificity, so a hovered selected Matriarch is never painted by those.
+ *
+ * Hovered, a selected Matriarch moves one step further, to `--oc-bg-selected`.
+ * Its selected surface is already `--oc-bg-hover`, so the plain hover colour
+ * would show no change at all; the next step up on the ramp is the one surface
+ * distinct from both its selected and its unselected state.
  */
 .row[data-matriarch='true'][data-in-primary-pane='true'] {
   background: var(--oc-bg-hover);
@@ -140,6 +178,14 @@
 
 .row[data-matriarch='true'][data-in-follower-pane='true'] {
   background: var(--oc-bg-hover);
+}
+
+.row[data-matriarch='true'][data-in-primary-pane='true']:hover {
+  background: var(--oc-bg-selected);
+}
+
+.row[data-matriarch='true'][data-in-follower-pane='true']:hover {
+  background: var(--oc-bg-selected);
 }
 
 .row[data-focused-follower='true'] {
@@ -158,10 +204,6 @@
   color: var(--oc-fg-primary);
   text-align: left;
   cursor: pointer;
-}
-
-.rowMain:hover {
-  background: var(--oc-bg-hover);
 }
 
 .agentType {
@@ -212,10 +254,14 @@
 /*
  * Status hue AND status word, always together. The dot alone would make color
  * the only carrier of meaning, which the accessibility floor forbids.
+ *
+ * `flex: none` so a long status word cannot squeeze the dot in the
+ * `inline-flex` `.status` — `PodBar.module.css`'s `.statusDot` does the same.
  */
 .dot {
   width: var(--oc-space-2);
   height: var(--oc-space-2);
+  flex: none;
   border-radius: 50%;
   background: var(--oc-status-idle);
 }

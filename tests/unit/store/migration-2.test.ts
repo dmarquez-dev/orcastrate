@@ -6,10 +6,11 @@
  *  1. Migration 1 was NOT edited. Its `CHECK (permission_mode IN ...)` clause
  *     used to interpolate the live `PERMISSION_MODES` constant, so widening
  *     that constant would have silently rewritten DDL already applied to user
- *     databases. The list is now pinned, and the first test proves the pinning
- *     changed nothing by diffing migration 1's rendered SQL against the schema.ts
- *     blob of the immutable commit that shipped migration 1 (see
- *     `SHIPPED_MIGRATION_1_BLOB`).
+ *     databases. The list is now pinned. The proof that the pinning changed
+ *     nothing — diffing migration 1's rendered SQL against the schema.ts blob of
+ *     the immutable commit that shipped it — lives in `migration-frozen.test.ts`,
+ *     which does that for every shipped migration. This file keeps only the
+ *     narrower checks on migration 1's permission-mode clause.
  *
  *  2. Migration 2 rebuilds the `pods` table (SQLite cannot alter a CHECK
  *     constraint in place) and `lanes`/`events` reference `pods(id)` ON DELETE
@@ -17,8 +18,6 @@
  *     pods` step would cascade the entire store away. That is exercised against
  *     a real v1 database holding pods, lanes and events, not reasoned about.
  */
-
-import { execFileSync } from 'node:child_process';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -39,72 +38,11 @@ const migration = (version: number): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Criterion 4 — migration 1 is byte-identical to the version that shipped
+// Criterion 4 — migration 1 is frozen. Its byte-identity against the shipped
+// blob is asserted in `migration-frozen.test.ts`; these are the narrower checks.
 // ---------------------------------------------------------------------------
 
-/**
- * The commit that shipped migration 1 (`chore: record DIR session artifacts for
- * 2026-08-18-orcastrate-mvp`, the head of `main` when migration 2 was written).
- *
- * This is deliberately an immutable commit hash and NOT `main`. `main` is a
- * moving ref: the moment this branch merges, `main:src/main/store/schema.ts`
- * becomes *this* branch's schema.ts, whose `MIGRATION_1` interpolates
- * `MIGRATION_1_PERMISSION_MODES` — a name that is not in `ENUM_NAMES`, so the
- * renderer below would throw `ReferenceError` and turn the suite red for the
- * next session. Any later commit touching schema.ts has the same effect. A
- * frozen blob cannot drift, and "the version that shipped" is exactly the
- * semantics criterion 4 asks for.
- */
-const SHIPPED_MIGRATION_1_BLOB = '96f6e925f75c9b101903116a0522c98971e0f347:src/main/store/schema.ts';
-
-/** The enum array names migration 1's template interpolates. */
-const ENUM_NAMES = [
-  'POD_STATUSES',
-  'LANE_STATUSES',
-  'LANE_KINDS',
-  'PERMISSION_MODES',
-  'EVENT_TYPES',
-] as const;
-
-/**
- * Renders migration 1 exactly as the shipped module rendered it, from the
- * shipped module's own text: the template literal and the enum arrays it
- * interpolated are both read out of the git blob, then evaluated with the same
- * `sqlIn` the module used. Nothing about the current file's constants leaks in,
- * which is the whole point — that is what makes a widened
- * `PERMISSION_MODES` visible as a diff instead of invisible.
- */
-function shippedMigration1(): string {
-  const source = execFileSync('git', ['show', SHIPPED_MIGRATION_1_BLOB], {
-    cwd: process.cwd(),
-    encoding: 'utf8',
-    maxBuffer: 8 * 1024 * 1024,
-  });
-
-  const values = ENUM_NAMES.map((name) => {
-    const match = new RegExp(`export const ${name} = (\\[[\\s\\S]*?\\]) as const`).exec(source);
-    if (match?.[1] === undefined) throw new Error(`could not read ${name} from the shipped schema.ts blob`);
-    const json = match[1].replace(/'/g, '"').replace(/,(\s*])/g, '$1');
-    return JSON.parse(json) as string[];
-  });
-
-  const template = /const MIGRATION_1 = `([\s\S]*?)`;/.exec(source);
-  if (template?.[1] === undefined) throw new Error("could not read MIGRATION_1 from the shipped schema.ts blob");
-
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-  const render = new Function('sqlIn', ...ENUM_NAMES, `return \`${template[1]}\`;`) as (
-    fn: typeof sqlIn,
-    ...enums: string[][]
-  ) => string;
-
-  return render(sqlIn, ...values);
-}
-
 describe('migration 1 is frozen (criterion 4)', () => {
-  it('renders byte-identically to the version that shipped', () => {
-    expect(migration(1)).toBe(shippedMigration1());
-  });
-
   it('still names exactly the three modes it shipped with, not the four we now expose', () => {
     expect(migration(1)).toContain(
       `CHECK (permission_mode IN ${sqlIn(['default', 'plan', 'bypassPermissions'])})`,

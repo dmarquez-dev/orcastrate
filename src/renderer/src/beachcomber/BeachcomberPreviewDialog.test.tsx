@@ -105,20 +105,31 @@ describe('the preview shows exactly what will be removed (AC7)', () => {
   });
 
   it('lists every refusal with its reason', () => {
-    renderWithPreview(
-      makePreview({
-        refused: [
-          { id: 'entry-9', reason: 'Refactor the router uses this directory.' },
-          { id: 'entry-8', reason: 'This entry is not part of the current scan. Rescan first.' },
-        ],
-      }),
-    );
+    const fixtures = [
+      {
+        id: 'entry-9',
+        displayPath: 'C:\\Users\\dmarq\\Repos\\router',
+        reason: 'Refactor the router uses this directory.',
+      },
+      {
+        id: 'entry-8',
+        displayPath: 'C:\\Users\\dmarq\\Repos\\gone',
+        reason: 'This entry is not part of the current scan. Rescan first.',
+      },
+    ];
+    renderWithPreview(makePreview({ refused: fixtures }));
 
     const refused = screen.getByTestId(PANEL_TEST_IDS.beachcomberPreviewRefused);
     expect(within(refused).getByText('Refactor the router uses this directory.')).toBeDefined();
     expect(
       within(refused).getByText('This entry is not part of the current scan. Rescan first.'),
     ).toBeDefined();
+
+    // Each refusal names its entry: the `<li>` holding the reason holds the path.
+    for (const fixture of fixtures) {
+      const item = within(refused).getByText(fixture.reason).closest('li');
+      expect(item?.textContent).toContain(fixture.displayPath);
+    }
   });
 
   it('marks an item that changed since the scan', () => {

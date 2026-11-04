@@ -23,7 +23,7 @@
  *     `'sunk'` is still refused. The negative half is what distinguishes a
  *     rebuilt constraint from a quietly dropped one.
  *
- * Migration 1's byte-identity tripwire lives in `migration-2.test.ts` and is
+ * Migration 1's byte-identity tripwire lives in `migration-frozen.test.ts` and is
  * deliberately not duplicated: that file renders migration 1 from the immutable
  * shipped blob, and it passing WITH `PodStatus` widened is the evidence that
  * `MIGRATION_1_POD_STATUSES` was pinned correctly.

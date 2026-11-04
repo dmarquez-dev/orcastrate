@@ -350,6 +350,7 @@ describe('the stub defaults are rich enough to build on', () => {
       }),
     );
     expect(preview.refused.map((r) => r.id)).toEqual([blocked?.id]);
+    expect(preview.refused[0]?.displayPath).toBe(blocked?.displayPath);
     expect(preview.items.map((i) => i.id)).toEqual([free?.id]);
     expect(preview.refused[0]?.reason.length ?? 0).toBeGreaterThan(0);
   });

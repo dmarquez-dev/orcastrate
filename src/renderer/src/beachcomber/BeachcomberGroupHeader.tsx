@@ -2,6 +2,7 @@ import { useEffect, useRef, type JSX } from 'react';
 
 import type { BeachcomberRootKey } from '@shared/contracts/beachcomber';
 import { PANEL_TEST_IDS, type BeachcomberGroupVm } from '../contracts/renderer-panels';
+import { selectAllLabel } from './copy';
 import { formatBytes, formatCount } from './format';
 import styles from './Beachcomber.module.css';
 
@@ -60,7 +61,7 @@ export function BeachcomberGroupHeader({
           type="checkbox"
         />
         <label className={styles.groupToggleLabel} htmlFor={toggleId}>
-          {`Select all in ${group.heading}`}
+          {selectAllLabel(group.heading)}
         </label>
       </div>
 
