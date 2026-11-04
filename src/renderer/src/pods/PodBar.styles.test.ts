@@ -440,13 +440,38 @@ const WIDTH_TOKENS = ['var(--oc-border-hairline)', 'var(--oc-border-thick)'];
 const termsOf = (value: string): string[] => value.match(/var\([^()]*\)|[^\s]+/g) ?? [];
 
 /**
+ * How many terms each multi-value width longhand takes: `border-width` is
+ * per-edge shorthand syntax (1-4 values), and the logical axis longhands set a
+ * start and an end (1-2). Every other `-width` longhand names one side and
+ * stays single-valued.
+ */
+const MULTI_VALUE_WIDTH_MAX_TERMS: Readonly<Record<string, number>> = {
+  'border-width': 4,
+  'border-block-width': 2,
+  'border-inline-width': 2,
+};
+
+/**
  * True when a border-width-bearing declaration states its width as one of the
  * two width tokens or as a bare `0` reset. A shorthand must carry exactly one
- * width token as a term; a longhand must BE one. Anything else — a raw length,
- * a `thin` keyword, a token of the wrong family — is an offender.
+ * width token as a term. A single-side longhand must BE one. A multi-value
+ * longhand — `border-width` with 1-4 terms, `border-block-width` or
+ * `border-inline-width` with 1-2 — must have every term a width token or a
+ * bare `0`, so `var(--oc-border-hairline) 0` passes. Anything else — a raw
+ * length, a `thin` keyword, a token of the wrong family, too many terms — is
+ * an offender.
  */
 function borderWidthIsTokenised(property: string, value: string): boolean {
   if (value === '0') return true;
+  const maxTerms = MULTI_VALUE_WIDTH_MAX_TERMS[property];
+  if (maxTerms !== undefined) {
+    const terms = termsOf(value);
+    return (
+      terms.length >= 1 &&
+      terms.length <= maxTerms &&
+      terms.every((term) => term === '0' || WIDTH_TOKENS.includes(term))
+    );
+  }
   if (BORDER_WIDTH_LONGHANDS.includes(property)) return WIDTH_TOKENS.includes(value);
   return termsOf(value).filter((term) => WIDTH_TOKENS.includes(term)).length === 1;
 }
@@ -470,6 +495,38 @@ describe("the docblock's border-width claim: hairline, thick, or a bare 0", () =
     expect(borderWidthOffenders('.a { border-width: var(--oc-border-thick); }')).toEqual([]);
     expect(borderWidthOffenders('.a { border: 0; }')).toEqual([]);
     expect(borderWidthOffenders('.a { border-radius: 4' + 'px; }')).toEqual([]);
+  });
+
+  it('passes a multi-value border-width whose every term is a width token or 0, and flags any other term or count', () => {
+    expect(borderWidthOffenders('.a { border-width: var(--oc-border-hairline) 0; }')).toEqual([]);
+    expect(
+      borderWidthOffenders(
+        '.a { border-width: 0 var(--oc-border-thick) 0 var(--oc-border-hairline); }',
+      ),
+    ).toEqual([]);
+
+    // A raw length term, a wrong-family token, and five terms where 1-4 are allowed.
+    expect(
+      borderWidthOffenders('.a { border-width: var(--oc-border-hairline) ' + '1' + 'px; }'),
+    ).toHaveLength(1);
+    expect(borderWidthOffenders('.a { border-width: var(--oc-space-1) 0; }')).toHaveLength(1);
+    expect(borderWidthOffenders('.a { border-width: 0 0 0 0 0; }')).toHaveLength(1);
+  });
+
+  it('keeps a per-side width longhand single-valued, and lets an axis longhand take 1-2 terms', () => {
+    expect(
+      borderWidthOffenders('.a { border-top-width: var(--oc-border-hairline) 0; }'),
+    ).toHaveLength(1);
+
+    expect(
+      borderWidthOffenders('.a { border-inline-width: var(--oc-border-hairline) 0; }'),
+    ).toEqual([]);
+    expect(
+      borderWidthOffenders('.a { border-block-width: var(--oc-border-thick) 0; }'),
+    ).toEqual([]);
+    expect(
+      borderWidthOffenders('.a { border-inline-width: var(--oc-border-hairline) 0 0; }'),
+    ).toHaveLength(1);
   });
 
   it('states every border width in PodBar.module.css as --oc-border-hairline, --oc-border-thick or a bare 0', () => {

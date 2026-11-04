@@ -24,6 +24,45 @@ import { describe, expect, it } from 'vitest';
 
 import laneRowSource from './LaneRow.tsx?raw';
 
+/**
+ * The React hooks through which a row could hold, tick or subscribe to its own
+ * elapsed value — state (`useState`, `useReducer`), an external store
+ * (`useSyncExternalStore`) or an effect that schedules (`useEffect`,
+ * `useLayoutEffect`) — each matched as a whole identifier. Hooks that hold no
+ * clock (`useRef`, `useMemo`, `useId`) are not barred: the rule is "no timer
+ * and no clock", not "no hooks".
+ */
+const BARRED_HOOK =
+  /\b(?:useState|useReducer|useSyncExternalStore|useEffect|useLayoutEffect)\b/g;
+
+/** Every barred-hook identifier the source names, in order. */
+const barredHookUses = (source: string): string[] =>
+  [...source.matchAll(BARRED_HOOK)].map((match) => match[0]);
+
+describe('the barred-hook predicate', () => {
+  it.each([
+    ['useState', 'const [now, setNow] = useState(0);'],
+    ['useReducer', 'const [tick, bump] = useReducer((n: number) => n + 1, 0);'],
+    ['useSyncExternalStore', 'const now = useSyncExternalStore(subscribe, getSnapshot);'],
+    ['useEffect', 'useEffect(() => { schedule(); }, []);'],
+    ['useLayoutEffect', 'React.useLayoutEffect(() => { schedule(); });'],
+  ])('flags %s', (hook, fixture) => {
+    expect(barredHookUses(fixture)).toEqual([hook]);
+  });
+
+  it.each([
+    ['useRef', 'const ref = useRef<HTMLButtonElement>(null);'],
+    ['useMemo', 'const label = useMemo(() => formatElapsed(ms), [ms]);'],
+    ['useId', 'const id = useId();'],
+  ])('does not flag %s, which holds no clock', (_hook, fixture) => {
+    expect(barredHookUses(fixture)).toEqual([]);
+  });
+
+  it('matches a barred hook only as a whole identifier, not as the prefix of a longer one', () => {
+    expect(barredHookUses('const machine = useStateMachine(config);')).toEqual([]);
+  });
+});
+
 describe('LaneRow holds no timer and no clock (criterion 8)', () => {
   it('was read as text, not as a module proxy', () => {
     expect(typeof laneRowSource).toBe('string');
@@ -42,7 +81,7 @@ describe('LaneRow holds no timer and no clock (criterion 8)', () => {
   });
 
   it('takes elapsedMs pre-computed off the view model and only formats it', () => {
-    expect(laneRowSource).not.toMatch(/useState|useEffect|useRef/);
+    expect(barredHookUses(laneRowSource)).toEqual([]);
   });
 });
 
