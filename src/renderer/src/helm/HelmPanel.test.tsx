@@ -624,6 +624,76 @@ describe('a failure lands on exactly one surface', () => {
     expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonError)).toBeNull();
   });
 
+  // Every action other than Compare releases the comparison's claim as it
+  // starts. Save is covered above; these three cover the remaining releasing
+  // actions, each driven through its own control, so deleting any one
+  // handler's release fails exactly one test here.
+  function expectReleasedToBanner(failure: string): void {
+    expect(occurrences(failure)).toBe(1);
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmError);
+    expect(within(banner).getAllByText(failure)).toHaveLength(1);
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.comparisonError)).toBeNull();
+  }
+
+  it('puts a failure after choosing a scope in the banner, not the comparison', () => {
+    const SELECT_FAILURE = 'EACCES: permission denied, open project settings';
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+
+    fireEvent.change(screen.getByTestId(PANEL_TEST_IDS.helmScopeSelect), {
+      target: { value: 'project:pod-1' },
+    });
+    update({ actionError: SELECT_FAILURE });
+
+    expectReleasedToBanner(SELECT_FAILURE);
+  });
+
+  it('puts a failure after Discard in the banner, not the comparison', () => {
+    const DISCARD_FAILURE = 'EBUSY: resource busy or locked, discard';
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+
+    fireEvent.click(screen.getByTestId(PANEL_TEST_IDS.helmDiscard));
+    update({ actionError: DISCARD_FAILURE });
+
+    expectReleasedToBanner(DISCARD_FAILURE);
+  });
+
+  it('puts a failure after Reload in the banner, not the comparison', () => {
+    const RELOAD_FAILURE = 'EPERM: operation not permitted, open';
+    const { update } = renderPanel({
+      conflict: CONFLICT,
+      actionError: COMPARE_FAILURE,
+      dirty: true,
+    });
+
+    fireEvent.click(screen.getByTestId(HELM_SAFETY_TEST_IDS.compare));
+    expect(screen.getByTestId(HELM_SAFETY_TEST_IDS.comparisonError).textContent).toBe(
+      COMPARE_FAILURE,
+    );
+
+    fireEvent.click(screen.getByTestId(PANEL_TEST_IDS.helmReload));
+    update({ actionError: RELOAD_FAILURE });
+
+    expectReleasedToBanner(RELOAD_FAILURE);
+  });
+
   it('puts a save that fails after a comparison that SUCCEEDED in the banner, keeping the table', () => {
     const incoming = makeStubHelmDocument('user');
     const { update } = renderPanel({ conflict: CONFLICT, dirty: true });
