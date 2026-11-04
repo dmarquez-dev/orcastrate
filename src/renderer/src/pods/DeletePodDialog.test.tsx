@@ -4,9 +4,12 @@
  * this component owns only what it says and what value it hands back.
  */
 
+import { createRef, type RefObject } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Pod } from '@shared/contracts/events';
 import { makeStubPod } from '../test-utils';
 import { DeletePodDialog, DELETE_POD_TEST_IDS } from './DeletePodDialog';
 
@@ -32,6 +35,7 @@ function renderDialog(overrides: Partial<Parameters<typeof DeletePodDialog>[0]> 
   const result = render(
     <DeletePodDialog
       error={null}
+      fallbackFocusRef={createRef<HTMLElement>()}
       onCancel={onCancel}
       onConfirm={onConfirm}
       pod={WITH_SESSION}
@@ -42,6 +46,141 @@ function renderDialog(overrides: Partial<Parameters<typeof DeletePodDialog>[0]> 
   );
   return { ...result, onConfirm, onCancel };
 }
+
+const OPENER_ID = 'test-opener';
+const FALLBACK_ID = 'test-fallback';
+const OUTSIDE_ID = 'test-outside';
+
+/**
+ * The dialog the way `PodsChrome` mounts it: ALWAYS, returning null while
+ * `pod` is null, beside the control that opens it and a focusable fallback.
+ * `withOpener` false is the opener gone — a successful delete removes the tab
+ * that carried the delete control.
+ */
+function Harness({
+  pod,
+  withOpener = true,
+  fallbackRef,
+}: {
+  pod: Pod | null;
+  withOpener?: boolean;
+  fallbackRef: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div data-testid={FALLBACK_ID} ref={fallbackRef} tabIndex={-1}>
+      {withOpener ? (
+        <button data-testid={OPENER_ID} type="button">
+          Delete Alpha
+        </button>
+      ) : null}
+      <DeletePodDialog
+        error={null}
+        fallbackFocusRef={fallbackRef}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        pod={pod}
+        podDeleted={false}
+        submitting={false}
+      />
+    </div>
+  );
+}
+
+/**
+ * The dialog with a focusable control OUTSIDE it, on the side Tab would leave
+ * by. Without one, `userEvent.tab()` wraps around the document and lands back
+ * on the dialog's own first control whether or not anything traps focus.
+ */
+function renderWithOutside(side: 'before' | 'after') {
+  const outside = (
+    <button data-testid={OUTSIDE_ID} type="button">
+      Outside
+    </button>
+  );
+  render(
+    <>
+      {side === 'before' ? outside : null}
+      <DeletePodDialog
+        error={null}
+        fallbackFocusRef={createRef<HTMLElement>()}
+        onCancel={vi.fn()}
+        onConfirm={vi.fn()}
+        pod={WITH_SESSION}
+        podDeleted={false}
+        submitting={false}
+      />
+      {side === 'after' ? outside : null}
+    </>,
+  );
+}
+
+describe('focus (accessibility floor)', () => {
+  it('moves focus onto the dialog element when it opens', () => {
+    renderDialog();
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.dialog));
+  });
+
+  it('keeps Tab inside: forward from the last control wraps to the first', async () => {
+    const user = userEvent.setup();
+    renderWithOutside('after');
+    const dialog = screen.getByTestId(DELETE_POD_TEST_IDS.dialog);
+
+    screen.getByTestId(DELETE_POD_TEST_IDS.confirm).focus();
+    await user.tab();
+
+    expect(document.activeElement).not.toBe(screen.getByTestId(OUTSIDE_ID));
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.session));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('keeps Tab inside: backward from the dialog and from the first control wraps to the last', async () => {
+    const user = userEvent.setup();
+    renderWithOutside('before');
+    const dialog = screen.getByTestId(DELETE_POD_TEST_IDS.dialog);
+    const outside = screen.getByTestId(OUTSIDE_ID);
+    const confirm = screen.getByTestId(DELETE_POD_TEST_IDS.confirm);
+
+    dialog.focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).not.toBe(outside);
+    expect(document.activeElement).toBe(confirm);
+
+    screen.getByTestId(DELETE_POD_TEST_IDS.session).focus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).not.toBe(outside);
+    expect(document.activeElement).toBe(confirm);
+  });
+
+  it('returns focus to the opener when it closes, though it was mounted closed', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} pod={null} />);
+
+    const opener = screen.getByTestId(OPENER_ID);
+    opener.focus();
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} />);
+    expect(document.activeElement).toBe(screen.getByTestId(DELETE_POD_TEST_IDS.dialog));
+
+    rerender(<Harness fallbackRef={fallbackRef} pod={null} />);
+    expect(screen.queryByTestId(DELETE_POD_TEST_IDS.dialog)).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('puts focus on the fallback when the opener is gone by the time it closes', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} pod={null} />);
+
+    screen.getByTestId(OPENER_ID).focus();
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} />);
+    // The delete succeeded: the tab, and its delete control, went first.
+    rerender(<Harness fallbackRef={fallbackRef} pod={WITH_SESSION} withOpener={false} />);
+    rerender(<Harness fallbackRef={fallbackRef} pod={null} withOpener={false} />);
+
+    expect(screen.queryByTestId(OPENER_ID)).toBeNull();
+    expect(document.activeElement).toBe(screen.getByTestId(FALLBACK_ID));
+    // Vacuity guard for the line above.
+    expect(document.activeElement).not.toBe(document.body);
+  });
+});
 
 describe('the confirmation states what it destroys', () => {
   it('renders nothing when there is no Pod pending', () => {
@@ -120,6 +259,7 @@ describe('the session checkbox', () => {
     rerender(
       <DeletePodDialog
         error={null}
+        fallbackFocusRef={createRef<HTMLElement>()}
         onCancel={vi.fn()}
         onConfirm={vi.fn()}
         pod={other}

@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
+import { createRef, type RefObject } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { PermissionMode } from '@shared/contracts/events';
@@ -28,6 +30,7 @@ function renderDialog(overrides: Partial<Parameters<typeof NewPodDialog>[0]> = {
     <NewPodDialog
       browse={browse}
       error={null}
+      fallbackFocusRef={createRef<HTMLElement>()}
       onCancel={onCancel}
       onCreate={onCreate}
       open
@@ -37,6 +40,131 @@ function renderDialog(overrides: Partial<Parameters<typeof NewPodDialog>[0]> = {
   );
   return { ...result, onCreate, onCancel, browse };
 }
+
+const OPENER_ID = 'test-opener';
+const FALLBACK_ID = 'test-fallback';
+const OUTSIDE_ID = 'test-outside';
+
+/**
+ * The dialog the way `PodsChrome` mounts it: ALWAYS, returning null while
+ * closed, beside the control that opens it and a focusable fallback.
+ * `withOpener` false is the opener gone — the empty-workspace control unmounts
+ * once the new Pod is active.
+ */
+function Harness({
+  open,
+  withOpener = true,
+  fallbackRef,
+}: {
+  open: boolean;
+  withOpener?: boolean;
+  fallbackRef: RefObject<HTMLDivElement | null>;
+}) {
+  return (
+    <div data-testid={FALLBACK_ID} ref={fallbackRef} tabIndex={-1}>
+      {withOpener ? (
+        <button data-testid={OPENER_ID} type="button">
+          New Pod
+        </button>
+      ) : null}
+      <NewPodDialog
+        browse={pickResolving(PICKED)}
+        error={null}
+        fallbackFocusRef={fallbackRef}
+        onCancel={vi.fn()}
+        onCreate={vi.fn()}
+        open={open}
+        submitting={false}
+      />
+    </div>
+  );
+}
+
+/**
+ * The dialog with a focusable control OUTSIDE it, on the side Tab would leave
+ * by. Without one, `userEvent.tab()` wraps around the document and lands back
+ * on the dialog's own first control whether or not anything traps focus.
+ */
+function renderWithOutside(side: 'before' | 'after') {
+  const outside = (
+    <button data-testid={OUTSIDE_ID} type="button">
+      Outside
+    </button>
+  );
+  render(
+    <>
+      {side === 'before' ? outside : null}
+      <NewPodDialog
+        browse={pickResolving(PICKED)}
+        error={null}
+        fallbackFocusRef={createRef<HTMLElement>()}
+        onCancel={vi.fn()}
+        onCreate={vi.fn()}
+        open
+        submitting={false}
+      />
+      {side === 'after' ? outside : null}
+    </>,
+  );
+}
+
+describe('NewPodDialog focus (accessibility floor)', () => {
+  it('keeps Tab inside: forward from the last enabled control wraps to the title field', async () => {
+    const user = userEvent.setup();
+    renderWithOutside('after');
+    const dialog = screen.getByTestId(TEST_IDS.newPodDialog);
+
+    // Create is disabled with an empty draft, so Cancel is the last enabled
+    // control — the one Tab leaves from.
+    expect((screen.getByTestId(TEST_IDS.newPodSubmit) as HTMLButtonElement).disabled).toBe(true);
+    screen.getByRole('button', { name: 'Cancel' }).focus();
+    await user.tab();
+
+    expect(document.activeElement).not.toBe(screen.getByTestId(OUTSIDE_ID));
+    expect(document.activeElement).toBe(screen.getByTestId(TEST_IDS.newPodTitleInput));
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
+
+  it('keeps Tab inside: backward from the title field wraps to the last enabled control', async () => {
+    const user = userEvent.setup();
+    renderWithOutside('before');
+
+    expect(document.activeElement).toBe(screen.getByTestId(TEST_IDS.newPodTitleInput));
+    await user.tab({ shift: true });
+
+    expect(document.activeElement).not.toBe(screen.getByTestId(OUTSIDE_ID));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+  });
+
+  it('returns focus to the opener when it closes, though it was mounted closed', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} open={false} />);
+
+    const opener = screen.getByTestId(OPENER_ID);
+    opener.focus();
+    rerender(<Harness fallbackRef={fallbackRef} open />);
+    expect(document.activeElement).toBe(screen.getByTestId(TEST_IDS.newPodTitleInput));
+
+    rerender(<Harness fallbackRef={fallbackRef} open={false} />);
+    expect(screen.queryByTestId(TEST_IDS.newPodDialog)).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('puts focus on the fallback when the opener is gone by the time it closes', () => {
+    const fallbackRef = createRef<HTMLDivElement>();
+    const { rerender } = render(<Harness fallbackRef={fallbackRef} open={false} />);
+
+    screen.getByTestId(OPENER_ID).focus();
+    rerender(<Harness fallbackRef={fallbackRef} open />);
+    rerender(<Harness fallbackRef={fallbackRef} open withOpener={false} />);
+    rerender(<Harness fallbackRef={fallbackRef} open={false} withOpener={false} />);
+
+    expect(screen.queryByTestId(OPENER_ID)).toBeNull();
+    expect(document.activeElement).toBe(screen.getByTestId(FALLBACK_ID));
+    // Vacuity guard for the line above.
+    expect(document.activeElement).not.toBe(document.body);
+  });
+});
 
 async function fillValidDraft(browse: ReturnType<typeof pickResolving>): Promise<void> {
   fireEvent.change(screen.getByTestId(TEST_IDS.newPodTitleInput), {
@@ -171,6 +299,7 @@ describe('NewPodDialog', () => {
       <NewPodDialog
         browse={browse}
         error={message}
+        fallbackFocusRef={createRef<HTMLElement>()}
         onCancel={vi.fn()}
         onCreate={vi.fn()}
         open

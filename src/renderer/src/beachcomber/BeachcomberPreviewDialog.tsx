@@ -2,11 +2,11 @@ import { useId, type JSX, type KeyboardEvent, type RefObject } from 'react';
 
 import type { BeachcomberPreview } from '@shared/contracts/beachcomber';
 import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
+import { useDialogFocus } from '../shell/use-dialog-focus';
 import { BeachcomberPreviewItem } from './BeachcomberPreviewItem';
 import { BeachcomberRefusals } from './BeachcomberRefusals';
 import { BEACHCOMBER_LOCAL_TEST_IDS, COPY } from './copy';
 import { formatBytes, formatCount } from './format';
-import { useDialogFocus } from './use-dialog-focus';
 import styles from './BeachcomberPreviewDialog.module.css';
 
 export interface BeachcomberPreviewDialogProps {
@@ -29,7 +29,7 @@ export interface BeachcomberPreviewDialogProps {
  * route to one.
  *
  * Focus: opens onto the dialog, is trapped inside it, returns on close, and
- * Escape cancels. See `use-dialog-focus.ts` for why the return target is
+ * Escape cancels. See `shell/use-dialog-focus.ts` for why the return target is
  * conditional.
  */
 export function BeachcomberPreviewDialog({

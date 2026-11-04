@@ -1,4 +1,12 @@
-import { useEffect, useRef, useState, type FormEvent, type JSX, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+  type JSX,
+  type KeyboardEvent,
+  type RefObject,
+} from 'react';
 
 import type { PermissionMode } from '@shared/contracts/events';
 import type { ActionResult } from '../contracts/renderer-state';
@@ -9,6 +17,7 @@ import {
   type NewPodDialogProps,
 } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
+import { useDialogFocus } from '../shell/use-dialog-focus';
 import a11y from '../shell/a11y.module.css';
 import styles from './NewPodDialog.module.css';
 
@@ -19,15 +28,20 @@ interface EnvRow {
 }
 
 /**
- * `NewPodDialogProps` plus one internal prop.
+ * `NewPodDialogProps` plus two internal props.
  *
  * `browse` is `WorkspaceActions.pickDirectory`, injected rather than pulled
  * from the hook, which is the only reason this component can be tested without
  * T5's provider. The frozen contract governs the crossing props; a component's
  * internal props are its own business (`renderer-view.ts` header).
+ *
+ * `fallbackFocusRef` is where focus goes on close if the control that opened
+ * the dialog is gone — creating a Pod from the empty workspace unmounts the
+ * empty workspace, and its New Pod control with it.
  */
 export interface NewPodDialogInternalProps extends NewPodDialogProps {
   browse(): Promise<ActionResult<{ path: string | null }>>;
+  fallbackFocusRef: RefObject<HTMLElement | null>;
 }
 
 const DEFAULT_MODE: PermissionMode = PERMISSION_MODE_OPTIONS[0]?.mode ?? 'default';
@@ -50,6 +64,7 @@ export function NewPodDialog({
   error,
   submitting,
   browse,
+  fallbackFocusRef,
 }: NewPodDialogInternalProps): JSX.Element | null {
   const [title, setTitle] = useState('');
   const [cwd, setCwd] = useState<string | null>(null);
@@ -63,8 +78,16 @@ export function NewPodDialog({
   const nextEnvId = useRef(1);
   const wasOpen = useRef(false);
 
-  // Reset on each fresh open, and focus the first field. Focus must move
-  // predictably after an action that changes what is on screen.
+  // Focus moves to the FIRST FIELD on open — this dialog's first job is input —
+  // is trapped inside while open, and is returned on close. This component is
+  // always mounted and renders null while closed, which is why the hook is
+  // told when it is open.
+  const { dialogRef, onKeyDown } = useDialogFocus(fallbackFocusRef, {
+    open,
+    initialFocus: titleRef,
+  });
+
+  // Reset on each fresh open.
   useEffect(() => {
     if (open && !wasOpen.current) {
       setTitle('');
@@ -75,7 +98,6 @@ export function NewPodDialog({
       setBrowseError(null);
       setBrowsing(false);
       nextEnvId.current = 1;
-      titleRef.current?.focus();
     }
     wasOpen.current = open;
   }, [open]);
@@ -121,7 +143,9 @@ export function NewPodDialog({
     if (event.key === 'Escape') {
       event.stopPropagation();
       onCancel();
+      return;
     }
+    onKeyDown(event);
   }
 
   return (
@@ -132,6 +156,7 @@ export function NewPodDialog({
         className={styles.dialog}
         data-testid={TEST_IDS.newPodDialog}
         onKeyDown={handleKeyDown}
+        ref={dialogRef}
         role="dialog"
       >
         <h2 className={styles.heading} id="new-pod-heading">
