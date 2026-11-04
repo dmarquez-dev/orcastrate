@@ -431,3 +431,263 @@ describe('the Pod-governed status dot draws the Pod tab’s five shapes', () => 
     ]);
   });
 });
+
+/**
+ * WHICH `background` A ROW STATE ENDS UP WITH (session 20261103-2240, C6/C7).
+ *
+ * jsdom computes no CSS Module cascade (see the docblock at the top of this
+ * file), so the winner is resolved here from the sheet's TEXT: of every rule
+ * whose subject matches the stated row state and that declares `background`,
+ * the highest specificity wins, and among equals the LATER one in source order.
+ *
+ * Scope, deliberately narrow: top-level rules only (at-rule blocks are skipped
+ * — the one at-rule body that holds rules here is the reduced-motion query,
+ * which declares `animation` only), and a selector is matched against ONE
+ * element. A selector with a combinator whose subject compound would otherwise
+ * match throws, rather than being silently treated as matching or not: this
+ * resolver does not model ancestors, so it refuses to guess about one.
+ */
+interface RowState {
+  readonly classes: readonly string[];
+  readonly attrs: Readonly<Record<string, string>>;
+  readonly hover: boolean;
+}
+
+interface Compound {
+  readonly classes: string[];
+  readonly attrs: { name: string; value: string | null }[];
+  readonly pseudos: string[];
+}
+
+/** Top-level `{ selectorList, body, index }` rules, at-rule blocks removed. */
+function topLevelRules(source: string): { selectors: string[]; body: string; index: number }[] {
+  const text = strip(source);
+  const rules: { selectors: string[]; body: string; index: number }[] = [];
+  let i = 0;
+  let index = 0;
+  while (i < text.length) {
+    const open = text.indexOf('{', i);
+    if (open < 0) break;
+    const prelude = text.slice(i, open).trim();
+    // Brace-balanced end of this block.
+    let depth = 0;
+    let close = open;
+    for (; close < text.length; close += 1) {
+      if (text[close] === '{') depth += 1;
+      else if (text[close] === '}') {
+        depth -= 1;
+        if (depth === 0) break;
+      }
+    }
+    if (!prelude.startsWith('@')) {
+      rules.push({
+        selectors: prelude.split(',').map((s) => s.trim()),
+        body: text.slice(open + 1, close),
+        index,
+      });
+      index += 1;
+    }
+    i = close + 1;
+  }
+  return rules;
+}
+
+function parseCompound(compound: string): Compound {
+  const out: Compound = { classes: [], attrs: [], pseudos: [] };
+  const token = /\.([\w-]+)|\[([\w-]+)(?:=(['"])(.*?)\3)?\]|:([\w-]+)/y;
+  let at = 0;
+  while (at < compound.length) {
+    token.lastIndex = at;
+    const m = token.exec(compound);
+    if (m === null) {
+      throw new Error(`resolver cannot parse \`${compound}\` at offset ${at}`);
+    }
+    if (m[1] !== undefined) out.classes.push(m[1]);
+    else if (m[2] !== undefined) out.attrs.push({ name: m[2], value: m[4] ?? null });
+    else out.pseudos.push(m[5] as string);
+    at = token.lastIndex;
+  }
+  return out;
+}
+
+/** Specificity of one compound as a single comparable number (no ids, no types here). */
+const specificityOf = (c: Compound): number => c.classes.length + c.attrs.length + c.pseudos.length;
+
+function subjectMatches(c: Compound, state: RowState): boolean {
+  for (const pseudo of c.pseudos) {
+    if (pseudo !== 'hover') throw new Error(`resolver does not model :${pseudo}`);
+  }
+  return (
+    c.classes.every((cls) => state.classes.includes(cls)) &&
+    c.attrs.every((a) =>
+      a.value === null ? a.name in state.attrs : state.attrs[a.name] === a.value,
+    ) &&
+    (!c.pseudos.includes('hover') || state.hover)
+  );
+}
+
+/** The winning `background` value for `state`, or null when no rule paints one. */
+function resolveBackground(source: string, state: RowState): string | null {
+  let winner: { value: string; specificity: number; index: number } | null = null;
+  for (const rule of topLevelRules(source)) {
+    const decl = /(^|;)\s*background\s*:\s*([^;]+?)\s*(;|$)/.exec(rule.body);
+    if (decl === null) continue;
+    for (const selector of rule.selectors) {
+      const compounds = selector.split(/\s*[\s>+~]\s*/).filter((s) => s !== '');
+      const subject = parseCompound(compounds[compounds.length - 1] as string);
+      if (!subjectMatches(subject, state)) continue;
+      if (compounds.length > 1) {
+        throw new Error(`resolver does not model the combinator in \`${selector}\``);
+      }
+      const specificity = specificityOf(subject);
+      if (
+        winner === null ||
+        specificity > winner.specificity ||
+        (specificity === winner.specificity && rule.index >= winner.index)
+      ) {
+        winner = { value: decl[2] as string, specificity, index: rule.index };
+      }
+    }
+  }
+  return winner?.value ?? null;
+}
+
+const rowState = (attrs: Record<string, string>, hover: boolean): RowState => ({
+  classes: ['row'],
+  attrs,
+  hover,
+});
+
+describe('the background resolver (C67-resolver) — positive controls on inline fixtures', () => {
+  it('(1) of two equal-specificity rules, the LATER one wins', () => {
+    const sheet = `
+      .row[data-a='1'] { background: var(--earlier); }
+      .row[data-b='1'] { background: var(--later); }
+    `;
+    // Predicted winner: var(--later). Both are (0,2,0); source order decides.
+    expect(resolveBackground(sheet, rowState({ 'data-a': '1', 'data-b': '1' }, false))).toBe(
+      'var(--later)',
+    );
+  });
+
+  it('(2) a higher-specificity EARLIER rule beats a lower-specificity later one', () => {
+    const sheet = `
+      .row[data-a='1'][data-b='1'] { background: var(--specific-earlier); }
+      .row { background: var(--plain-later); }
+    `;
+    // Predicted winner: var(--specific-earlier). (0,3,0) beats (0,1,0) despite order.
+    expect(resolveBackground(sheet, rowState({ 'data-a': '1', 'data-b': '1' }, false))).toBe(
+      'var(--specific-earlier)',
+    );
+  });
+
+  it('(3) a :hover rule does not apply to an UNHOVERED state', () => {
+    const sheet = `
+      .row { background: var(--rest); }
+      .row:hover { background: var(--hovered); }
+    `;
+    // Predicted winners: var(--rest) unhovered, var(--hovered) hovered.
+    expect(resolveBackground(sheet, rowState({}, false))).toBe('var(--rest)');
+    expect(resolveBackground(sheet, rowState({}, true))).toBe('var(--hovered)');
+    // ...and with only the hover rule, an unhovered row is painted by nothing.
+    expect(resolveBackground('.row:hover { background: var(--hovered); }', rowState({}, false))).toBe(
+      null,
+    );
+  });
+
+  it('(4) the near-miss `.rowMain:hover` is NOT treated as matching the `.row` element', () => {
+    const sheet = `
+      .row { background: var(--row); }
+      .rowMain:hover { background: var(--inner-button); }
+    `;
+    // Predicted winner: var(--row). A substring match on `.row` would pick the
+    // later `.rowMain:hover` and report var(--inner-button).
+    expect(resolveBackground(sheet, rowState({}, true))).toBe('var(--row)');
+  });
+});
+
+describe('a hovered row paints the swimlane, not the inner button (C7)', () => {
+  const HOVER = 'var(--oc-bg-hover)';
+  const SELECTED = 'var(--oc-bg-selected)';
+
+  it('C7-inner: no hover background on `.rowMain`', () => {
+    const rules = topLevelRules(railCss);
+    const innerHover = rules.filter((r) =>
+      r.selectors.some((s) => /\.rowMain(?![\w-])/.test(s) && s.includes(':hover')),
+    );
+    expect(rules.some((r) => r.selectors.includes('.rowMain:hover'))).toBe(false);
+    expect(innerHover.filter((r) => /(^|;)\s*background\s*:/.test(r.body))).toEqual([]);
+  });
+
+  it('C7-calf: an unselected Calf, hovered, resolves to --oc-bg-hover', () => {
+    expect(resolveBackground(railCss, rowState({}, true))).toBe(HOVER);
+    // Unhovered it is still painted by no `.row` rule — the rail shows through.
+    expect(resolveBackground(railCss, rowState({}, false))).toBe(null);
+  });
+
+  it('C7-matriarch: an unselected Matriarch, hovered, resolves to --oc-bg-hover', () => {
+    expect(resolveBackground(railCss, rowState({ 'data-matriarch': 'true' }, true))).toBe(HOVER);
+    expect(resolveBackground(railCss, rowState({ 'data-matriarch': 'true' }, false))).toBe(
+      'var(--oc-bg-raised)',
+    );
+  });
+
+  it('C7-selected-primary: a primary-pane Calf stays selected while hovered', () => {
+    expect(resolveBackground(railCss, rowState({ 'data-in-primary-pane': 'true' }, true))).toBe(
+      SELECTED,
+    );
+  });
+
+  it('C7-selected-follower: a follower-pane Calf stays selected while hovered', () => {
+    expect(resolveBackground(railCss, rowState({ 'data-in-follower-pane': 'true' }, true))).toBe(
+      SELECTED,
+    );
+  });
+});
+
+describe("a hovered selected Matriarch moves to its own surface (C6)", () => {
+  it('C6-primary: a primary-pane Matriarch, hovered, resolves to --oc-bg-selected', () => {
+    const attrs = { 'data-matriarch': 'true', 'data-in-primary-pane': 'true' };
+    expect(resolveBackground(railCss, rowState(attrs, true))).toBe('var(--oc-bg-selected)');
+    // Unhovered it is unchanged (criterion 4 above): --oc-bg-hover.
+    expect(resolveBackground(railCss, rowState(attrs, false))).toBe('var(--oc-bg-hover)');
+  });
+
+  it('C6-follower: a follower-pane Matriarch, hovered, resolves to --oc-bg-selected', () => {
+    const attrs = { 'data-matriarch': 'true', 'data-in-follower-pane': 'true' };
+    expect(resolveBackground(railCss, rowState(attrs, true))).toBe('var(--oc-bg-selected)');
+    expect(resolveBackground(railCss, rowState(attrs, false))).toBe('var(--oc-bg-hover)');
+  });
+});
+
+describe('row hover rules set background and nothing else (C67-background-only)', () => {
+  /** A selector targeting the `.row` element itself (not `.rowMain`, `.rowAction`) with `:hover`. */
+  const isRowHover = (selector: string): boolean =>
+    /\.row(?![\w-])/.test(selector) && selector.includes(':hover');
+
+  it('validates its predicate: `.row:hover` matches, `.rowAction:hover` does not', () => {
+    expect(isRowHover(".row[data-in-primary-pane='true']:hover")).toBe(true);
+    expect(isRowHover('.row:hover')).toBe(true);
+    expect(isRowHover('.rowAction:hover')).toBe(false);
+    expect(isRowHover('.rowMain:hover')).toBe(false);
+  });
+
+  it('every `.row` hover rule declares `background` only, so it cannot overpaint a box-shadow edge or ring', () => {
+    const hoverRules = topLevelRules(railCss).filter((r) => r.selectors.some(isRowHover));
+    // Plain hover, two selected-Calf holds, two selected-Matriarch surfaces.
+    expect(hoverRules.length).toBe(5);
+    for (const rule of hoverRules) {
+      const properties = [...rule.body.matchAll(/([-\w]+)\s*:/g)].map((m) => m[1] as string);
+      expect({ selectors: rule.selectors, properties }).toEqual({
+        selectors: rule.selectors,
+        properties: ['background'],
+      });
+    }
+  });
+});
+
+describe('the lane status dot never shrinks in its flex row (C8)', () => {
+  it('declares `flex: none` on `.dot`, as `.statusDot` does in PodBar.module.css', () => {
+    expect(block('.dot')).toMatch(/flex:\s*none/);
+  });
+});
