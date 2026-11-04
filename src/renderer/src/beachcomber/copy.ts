@@ -41,6 +41,15 @@ export const COPY = {
 } as const;
 
 /**
+ * The group toggle's label. A function rather than a `COPY` entry because the
+ * sentence names the group, and `COPY` holds only fixed strings; the heading
+ * itself is still read off `BeachcomberGroupVm`, never rebuilt here.
+ */
+export function selectAllLabel(heading: string): string {
+  return `Select all in ${heading}`;
+}
+
+/**
  * Test ids for elements the frozen `PANEL_TEST_IDS` does not name. Exactly the
  * rule `LANE_ROW_SELECT_TEST_ID` follows: the contract lists the ids that CROSS
  * a task boundary, and these three do not — they exist so this directory's own

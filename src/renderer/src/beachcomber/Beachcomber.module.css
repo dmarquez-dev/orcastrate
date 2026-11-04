@@ -388,6 +388,21 @@
 }
 
 .refusal {
+  display: flex;
+  flex-direction: column;
   color: var(--oc-fg-primary);
+  font-size: var(--oc-text-sm);
+  gap: var(--oc-space-1);
+}
+
+.refusalPath {
+  color: var(--oc-fg-primary);
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.refusalReason {
+  color: var(--oc-fg-muted);
   font-size: var(--oc-text-sm);
 }
