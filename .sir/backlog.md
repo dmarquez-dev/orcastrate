@@ -31,17 +31,10 @@
 2026-10-09 dir-audit-2026-10-09 Decide on adopting terminal-started Claude Code sessions, deferred by the MVP.
 2026-10-09 dir-audit-2026-10-09 Decide on a raw terminal pane per lane, deferred by the MVP.
 2026-10-09 dir-audit-2026-10-09 Decide on macOS and Linux validation, deferred by the MVP.
+2026-11-04 20261104-1727-tooling-ungrouped-sweep Decide whether to adopt a formatter repo-wide. The repository has no Prettier config or dependency; under Prettier 3.9.10 defaults, 318 of 318 tracked `src/` and `tests/` `.ts`/`.tsx` files fail `--check` (`npx prettier --list-different --end-of-line auto`, batched over `git ls-files`), and 166 of 318 still fail with `--single-quote --print-width 100`. Run from a cwd under the git-ignored `.claude-worktrees/`, Prettier skips every file and reports success, so run the check from the main checkout.
 
 ## Tooling
 
-2026-09-30 2026-09-04-orcastrate-correctness-sweep Add a frontend discipline rule requiring an explicit guard when indexing or destructuring under `noUncheckedIndexedAccess` (`tsconfig.web.json:24`), so an absent node is a named failure.
-2026-10-12 2026-10-09-orcastrate-theme-contract-decisions Clear the pre-existing `npx prettier --check` warnings on `src/renderer/src/contracts/renderer-panels.ts`, `src/renderer/src/state/panel-store.ts` and `src/renderer/src/helm/HelmPanel.tsx` in a formatting-only change.
-2026-10-15 2026-10-12-orcastrate-token-sweep Decide whether to enforce uniform commit trailers with a tracked `commit-msg` hook plus an install step; `.git/hooks/` holds no non-sample hook, `core.hooksPath` is unset, and the field otherwise records the committing agent's model.
 2026-10-26 dir-handoff-2026-10-26 Build a live-`claude` hand-run harness, checking first whether the app's own IPC can reach a state; still unexercised are `B5`, the same-millisecond backup collision, `D3`, and narrow-window layout.
 
 ## Ungrouped (Gate 3 appends land here)
-
-2026-11-03 20261103-1657-tests-and-guards-sweep Decide whether `closePod` on an already-closed Pod should stop re-pushing `podStatus 'closed'` (`src/main/pod-manager/pod-manager.ts:511-518`); harmless today, and `tests/unit/pod-manager/close-pod-lane-sweep.test.ts`'s whole-record count pins the re-push, so changing it means updating that expectation.
-2026-11-03 20261103-1947-correctness-sweep Give the renderer stub's three non-`projects` Beachcomber rows (`src/renderer/src/test-utils/stub-api.ts:256-288`) `pathSource: 'absolute-path'`; they carry `'session-record'`, which matches neither the old base nor the new D4 rule.
-2026-11-04 20261103-2240-cosmetic-structural-sweep Give `PodsChrome`'s `tabIndex={-1}` focus-fallback container (`src/renderer/src/pods/PodsChrome.tsx:206`) a visible focus style, since focus lands there after a Pod delete or create and the frontend discipline requires that focus be visible.
-2026-11-04 20261103-2240-cosmetic-structural-sweep Decide whether `DeletePodDialog` should re-focus when `podId` changes without passing through null (`src/renderer/src/pods/DeletePodDialog.tsx:96` moves focus only on open, where base did so on every `podId` change); `PodsChrome` never switches that way today.

@@ -1,0 +1,42 @@
+{
+  "session": "20261104-1727-tooling-ungrouped-sweep",
+  "updatedAt": "2026-11-04T18:25:34Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261104-1727-tooling-ungrouped-sweep",
+  "branch": "agent/20261104-1727-tooling-ungrouped-sweep",
+  "verification": [
+    {
+      "command": "npm run typecheck:node (node <repo>/node_modules/typescript/bin/tsc --noEmit -p <worktree>/tsconfig.node.json --composite false)",
+      "runnable": true,
+      "probe": "no output, exit=0; positive control: --listFilesOnly reads 132 worktree src/tests files"
+    },
+    {
+      "command": "npm run typecheck:web (node <repo>/node_modules/typescript/bin/tsc --noEmit -p <worktree>/tsconfig.web.json --composite false)",
+      "runnable": true,
+      "probe": "no output, exit=0; positive control: --listFilesOnly reads 220 worktree src files"
+    },
+    {
+      "command": "npm test (node <repo>/node_modules/vitest/vitest.mjs run --root <worktree>)",
+      "runnable": true,
+      "probe": "Test Files  146 passed (146) / Tests  2374 passed (2374), exit=0"
+    },
+    {
+      "command": "npx prettier --check <worktree files> (no --ignore-path)",
+      "runnable": true,
+      "probe": "re-probed at tip 3e0b5a0 (Gate 3) from a cwd in the main checkout, outside .claude-worktrees/: [warn] Code style issues found in 3 files. exit=1 (pod-manager.ts, DeletePodDialog.tsx, stub-api.ts; 3 predicted, since spec found 318/318 failing). The vacuous exit=0 recorded at setup came from running with a cwd inside the worktree"
+    },
+    {
+      "command": "npx prettier --check --end-of-line auto --ignore-path <worktree>/.prettierignore <worktree files>",
+      "runnable": true,
+      "probe": "[warn] Code style issues found in 7 files. exit=1 (renderer-panels.ts, panel-store.ts, HelmPanel.tsx, PodsChrome.tsx, pod-manager.ts, DeletePodDialog.tsx, stub-api.ts)"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "startRef": "c5692ee6f2ec3bbf94df7bfe1d69b5f9f0c5a669", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "939e5a0" },
+    { "id": "T2", "status": "done", "startRef": "74b0c9c4707eb2d32edb9bd829449c59e7829459", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "3e0b5a0" },
+    { "id": "T3", "status": "done", "startRef": "c5692ee6f2ec3bbf94df7bfe1d69b5f9f0c5a669", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "6d71099" },
+    { "id": "T4", "status": "done", "startRef": "c5692ee6f2ec3bbf94df7bfe1d69b5f9f0c5a669", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "74b0c9c" },
+    { "id": "T5", "status": "done", "startRef": "c5692ee6f2ec3bbf94df7bfe1d69b5f9f0c5a669", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "c14c88e" },
+    { "id": "T6", "status": "done", "startRef": "3e0b5a06bae0ba91ee5cc40cde363c7418c81a13", "model": "opus", "revisionRounds": 0, "redispatches": 0 }
+  ],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}

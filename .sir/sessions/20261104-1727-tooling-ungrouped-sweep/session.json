@@ -1,0 +1,47 @@
+{
+  "id": "20261104-1727-tooling-ungrouped-sweep",
+  "name": "tooling-ungrouped-sweep",
+  "scope": "standard",
+  "status": "MERGED",
+  "started": "2026-11-04T17:27:28Z",
+  "ended": null,
+  "brief": "Close the remaining Tooling and Ungrouped backlog items except the live-claude hand-run harness. Add a project frontend discipline fragment requiring a named-error guard under noUncheckedIndexedAccess and register it in .sir/config.json; give the renderer stub's three non-projects Beachcomber rows pathSource 'absolute-path'; give PodsChrome's tabIndex=-1 focus-fallback container an inset focus-visible ring using the existing focus-ring tokens; make closePod skip the sweep, updatePod and podStatus push for an already-closed Pod and update the whole-record test count; make DeletePodDialog re-focus when podId changes A to B while open. The commit-msg hook item closes as declined. The Prettier item's premise was found false at spec time (the repo has no formatter config, so every tracked TS file fails a default check) and is decided at Gate 2. Gate 3 removes the closed items from .sir/backlog.md.",
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "f7b0d51f-101d-4a93-99d3-fc9693f47a8d",
+      "sir": "1.0.20",
+      "started": "2026-11-04T17:27:28Z",
+      "ended": "2026-11-04T17:28:55Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "11dae843-116c-43cc-804a-55a78dc7083d",
+      "sir": "1.0.20",
+      "started": "2026-11-04T17:30:00Z",
+      "ended": "2026-11-04T17:55:00Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "11a9dcde-06cd-43b3-bd5d-97668575c867",
+      "sir": "1.0.20",
+      "started": "2026-11-04T17:58:05Z",
+      "ended": "2026-11-04T18:16:15Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "6164f4aa-d097-498d-a71c-9cb39d1cc237",
+      "sir": "1.0.20",
+      "started": "2026-11-04T18:18:25Z",
+      "ended": "2026-11-04T18:25:34Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

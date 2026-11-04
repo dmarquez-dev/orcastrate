@@ -1,0 +1,130 @@
+{
+  "session": "20261104-1727-tooling-ungrouped-sweep",
+  "createdAt": "2026-11-04T09:40:56-08:00",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "closePod skips an already-closed Pod entirely",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/pod-manager.ts",
+        "tests/unit/pod-manager/close-pod-lane-sweep.test.ts",
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D6). The test in `tests/unit/pod-manager/close-pod-lane-sweep.test.ts` that closes a Pod and then closes it again (the 'criterion 5' test, startRef `:293-342`) asserts, by its whole-record per-channel delta over `h.attemptedCounts()` for the second close, that every channel is 0, `podStatus` included (startRef `:333-339` pins `podStatus: 1`). Demonstration (test discipline, 'A test is shown able to fail'): with the implementation in place, put back the startRef guard text `if (pod !== null && pod.status !== 'beached') {` (`src/main/pod-manager/pod-manager.ts:511` at startRef) at the one guard line in `closePod`, run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep tests/unit/pod-manager/close-pod-lane-sweep.test.ts`, report that this test fails on the `podStatus` delta, revert, and report the injection window (site, command, revert verified).",
+        "C2 (D5). The same second-close test asserts that the second `closePod` records no `updatePod` write in `h.spy.writes` (writes captured after the first close returns). It fails under the C1 injection, run by the C1 command.",
+        "C3 (D5). The same second-close test asserts that the second `closePod` records no `setLaneStatus`, `append` or `appendMany` write. PRESERVED BEHAVIOUR: this already holds at startRef through `#stopRunningLanes`' `'running'` filter (`pod-manager.ts:547`); the assertion pins it now that the filter is no longer what the second close relies on.",
+        "C4 (D5). A test in `close-pod-lane-sweep.test.ts` seeds a Pod with `status: 'closed'` that has never been opened, calls `closePod` once, and asserts zero attempted pushes on every channel (whole-record equality over `h.attemptedCounts()`, as C1) and no `updatePod` write. It fails under the C1 injection (the startRef code pushes `podStatus` once for it), run by the C1 command.",
+        "C5 (D5). PRESERVED BEHAVIOUR: the existing tests 'sweeps nothing and appends nothing when the Pod is beached' (`close-pod-lane-sweep.test.ts:260` at startRef) and \"preserves the 'beached' guard: closing a Beached Pod keeps its status and its cause\" (`tests/unit/pod-manager/lifecycle.test.ts:129`) pass, and the diff does not modify their assertions.",
+        "C6 (D5). PRESERVED BEHAVIOUR: the existing test 'pushes the rail wholesale once and only then flips the tab' (`close-pod-lane-sweep.test.ts:164` at startRef), which asserts a first close's `laneChanged` push precedes its `podStatus` push, passes, and the diff does not modify its assertions.",
+        "C7 (backend discipline, Error handling: 'Never swallow an error to keep a code path quiet'). PRESERVED BEHAVIOUR: `closePod` contains no `try`/`catch`, and the existing test 'rethrows an appendMany failure rather than closing the Pod quietly' (`close-pod-lane-sweep.test.ts:349` at startRef) passes unmodified.",
+        "C8. The comments no longer describe the old path. In `pod-manager.ts`, neither the comment inside `closePod` nor the `#stopRunningLanes` docblock (startRef `:527-535`, which calls the `'running'` filter 'the whole of the guarantee a second `closePod` must satisfy') says that a second `closePod` reaches the sweep, the `'closed'` write or the `podStatus` push. Whichever comment explains why a second close does nothing names the `'closed'` guard. In the test file, the startRef comment at `:319-325` ('It does re-push `podStatus`...') is replaced by one stating that the second close pushes nothing. A reviewer checks this by reading those three places in the diff.",
+        "C9. `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep tests/unit/pod-manager` exits 0 with no failed test, run once after the C1 injection is reverted.",
+        "C10 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C11 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.web.json --composite false` exits 0.",
+        "C12 (D5, Gate 2 decision). The `it` title at `src/renderer/src/__tests__/pod-stop.e2e.test.tsx:666` (startRef) is reworded so it no longer attributes a second stop doing nothing to the running-lane filter: `grep -c \"sweeps only lanes still running, so a second stop\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/src/renderer/src/__tests__/pod-stop.e2e.test.tsx` prints 0 (prints 1 at startRef, counted at spec time; near-miss `so a third stop` prints 0, and the phrase occurs in no other file under `src/` or `tests/`). Only that title string changes in this file: no assertion, setup or other line of the test body is modified, and `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/__tests__/pod-stop.e2e.test.tsx` exits 0 with no failed test."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "DeletePodDialog re-focuses when its Pod changes while open",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/shell/use-dialog-focus.ts",
+        "src/renderer/src/pods/DeletePodDialog.tsx",
+        "src/renderer/src/pods/DeletePodDialog.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. `DialogFocusOptions` in `src/renderer/src/shell/use-dialog-focus.ts` gains exactly one new optional member, documented by a TSDoc comment. While `open` is true, a change in its value re-runs the open path: focus moves to `initialFocus` if given, otherwise to the dialog element. Leaving it out keeps today's behaviour. `DeletePodDialog` passes its Pod's id (`podId`, not the `pod` object) as that member. The hook's existing members and their defaults are unchanged.",
+        "C2 (D7; frontend discipline, Accessibility floor: 'Focus is visible, and it moves predictably after an action that changes what is on screen'). A test in `src/renderer/src/pods/DeletePodDialog.test.tsx` renders the dialog open on Pod A (`id: 'a'`), moves focus to the Cancel button, and asserts that focus is not on the dialog element (vacuity guard). It then rerenders directly to a Pod with a different id, never passing through `pod={null}`, and asserts `document.activeElement` is the dialog element (`DELETE_POD_TEST_IDS.dialog`). Demonstration (test discipline): with the implementation in place, change the hook's effect dependency array back to the startRef text `[open, fallback, initialFocus]` (`use-dialog-focus.ts:91` at startRef; one site), run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/pods/DeletePodDialog.test.tsx`, report that this test fails, revert, and report the injection window.",
+        "C3 (D7). A test in `DeletePodDialog.test.tsx` renders the dialog open on Pod A with focus on the Cancel button, then rerenders with a NEW Pod object that has the SAME id. It asserts focus is still on the Cancel button. PRESERVED BEHAVIOUR: this holds at startRef. It guards C1's choice of the id over the object. Demonstration: with the implementation in place, change `DeletePodDialog`'s new option argument from the id to the `pod` object (one site), run the C2 command, report that this test fails, revert, and report the injection window.",
+        "C4 (D7). A test in `DeletePodDialog.test.tsx` focuses an opener outside the dialog, opens on Pod A, switches to Pod B as in C2, and closes (`pod={null}`). It asserts `document.activeElement` is that opener. PRESERVED BEHAVIOUR: return-on-close to the original opener holds at startRef. Pinned here because C1 makes the effect's cleanup run on the A-to-B switch.",
+        "C5 (D7). PRESERVED BEHAVIOUR: the five existing `it` blocks inside `describe('focus (accessibility floor)')` (`DeletePodDialog.test.tsx:118-182` at startRef; counted by reading `:117-183`) are not modified by the diff and pass. They cover open focus, forward trap, backward trap, return to the opener, and the fallback when the opener is gone.",
+        "C6 (D7). PRESERVED BEHAVIOUR: `src/renderer/src/pods/NewPodDialog.tsx` and `src/renderer/src/beachcomber/BeachcomberPreviewDialog.tsx` are not modified (both outside this task's ownership set), and `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/pods src/renderer/src/beachcomber src/renderer/src/shell` exits 0 with no failed test. That run includes `NewPodDialog.test.tsx` and `BeachcomberPreviewDialog.test.tsx`, and happens once, after every injection is reverted.",
+        "C7 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C8 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.web.json --composite false` exits 0."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Visible inset focus ring on the PodsChrome container",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/PodsChrome.styles.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D4; frontend discipline, Accessibility floor: 'Focus is visible'). `src/renderer/src/pods/PodsChrome.module.css` has a rule whose selector is `.chrome:focus-visible`. It declares `outline: var(--oc-border-thick) solid var(--oc-focus-ring)` and `outline-offset: calc(var(--oc-border-thick) * -1)`, the inset idiom of `src/renderer/src/shell/PanelBar.module.css:49-52`. The sheet has no such rule at startRef.",
+        "C2 (D4). A new test file `src/renderer/src/pods/PodsChrome.styles.test.ts` (default `node` environment) reads the sheet as text via `import ... from './PodsChrome.module.css#?raw'` (the idiom of `PodBar.styles.test.ts:22`) and strips comments. It has a vacuity guard asserting the text is a non-empty string containing `.chrome`. It asserts C1's two declarations in the body of the rule found by its exact selector `.chrome:focus-visible`, not by a substring search of the whole sheet. Demonstration (test discipline): either a red step (the test run against the startRef sheet, before C1's rule exists, fails) or, with the implementation in place, delete the `outline-offset` declaration from the `.chrome:focus-visible` rule (one site). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/pods/PodsChrome.styles.test.ts`, report the failure, revert any injection, and report the window.",
+        "C3 (D4: 'introducing no colour literal'). `PodsChrome.styles.test.ts` asserts the comment-stripped sheet contains no hex colour, no `rgb(`/`rgba(` and no `hsl(`/`hsla(` (the predicate of `PodBar.styles.test.ts:75-79`). PRESERVED BEHAVIOUR for the sheet as it stands at startRef. This is a guard on C1.",
+        "C4 (D4: 'no new custom property'). `PodsChrome.styles.test.ts` asserts two things. First, every `var(--oc-...)` the sheet references is a value of the `TOKENS` map in `src/renderer/src/contracts/renderer-theme.ts` (the predicate of `PodBar.styles.test.ts:81-87`, with its non-empty guard). Second, the sheet declares no custom property: no `--name:` declaration inside a rule body. `src/renderer/src/styles/tokens.css` is not modified (outside this task's ownership set).",
+        "C5. `PodsChrome.styles.test.ts` asserts the sheet contains no `!important` and no `outline: none` / `outline: 0` (the predicate of `PodBar.styles.test.ts:89-92`).",
+        "C6. PRESERVED BEHAVIOUR: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/__tests__/hygiene.test.ts src/renderer/src/styles src/renderer/src/pods/PodsChrome.styles.test.ts` exits 0 with no failed test. That run covers the repo-wide border-width census and `tokens.test.ts`'s focus-outline rules, and happens once, after any injection is reverted.",
+        "C7 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C8 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.web.json --composite false` exits 0."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Stub Beachcomber rows outside projects carry absolute-path",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/test-utils/stub-api.ts",
+        "src/renderer/src/test-utils/stub-api.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D3). In `makeStubBeachcomberEntries()` (`src/renderer/src/test-utils/stub-api.ts`), the three entries whose `root` is not `'projects'` carry `pathSource: 'absolute-path'`: `entry-shell-1`, `entry-history-1` and `entry-paste-1`, at startRef `:259`, `:273` and `:287`, each `'session-record'` there. The three `projects` entries keep `'session-record'`, `'session-record'` and `'decoded-name'`.",
+        "C2 (D3). `grep -c \"pathSource: 'absolute-path'\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/src/renderer/src/test-utils/stub-api.ts` prints 3, and the same command with `'session-record'` in place of `'absolute-path'` prints 2. At startRef they print 0 and 5 (counted with `grep -n pathSource` over the file at spec time). The predicate was checked both ways: it matches the property at `:213`, and it does not match the comment at `:199`, which spells it `pathSource === 'session-record'`.",
+        "C3 (D3). A test in `src/renderer/src/test-utils/stub-api.test.ts` asserts that every entry of the default stub scan whose `root` is not `'projects'` has `pathSource === 'absolute-path'`. That is the derivation in `src/main/beachcomber/service.ts:179`. The test also asserts at least one such entry exists (vacuity guard). Its sibling invariants already sit in the same describe block, e.g. 'gives projects rows a sessionCount and the other roots none' (`stub-api.test.ts:331` at startRef). Demonstration (test discipline): either a red step (the test fails against the startRef fixture) or, with the implementation in place, set `entry-paste-1`'s `pathSource` back to `'session-record'` (one site). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/test-utils/stub-api.test.ts`, report the failure, revert any injection, and report the window.",
+        "C4. PRESERVED BEHAVIOUR: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep src/renderer/src/test-utils src/renderer/src/beachcomber src/renderer/src/state src/renderer/src/__tests__/failure-paths.e2e.test.tsx src/renderer/src/__tests__/correctness-sweep.e2e.test.tsx` exits 0 with no failed test. Those are the suites that read the default stub scan. The run happens once, after any injection is reverted.",
+        "C5 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C6 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.web.json --composite false` exits 0."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Frontend discipline fragment for noUncheckedIndexedAccess, registered in config",
+      "agent": "sir-architect",
+      "domain": "architecture",
+      "owns": [
+        ".sir/disciplines/frontend.md",
+        ".sir/config.json"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D1). `.sir/disciplines/frontend.md` exists (absent at startRef: `.sir/` holds no `disciplines/` directory) and is a markdown rule list in the format `sir-disciplines` defines: rules are bullet items stated imperatively, not tutorial prose.",
+        "C2 (D1). The fragment has a rule requiring this: when indexing or destructuring yields `T | undefined` under `noUncheckedIndexedAccess` (citing `tsconfig.web.json`, where it is set at `:24`), and absence would be a defect, the value is narrowed by an explicit guard that throws a named error (an `Error` whose message names what was missing) before it is used.",
+        "C3 (D1). The fragment states that a non-null assertion (`!`) is not such a guard.",
+        "C4 (D1). The fragment states that a type cast (`as`) is not such a guard.",
+        "C5 (D2). `node -e 'const c=JSON.parse(require(\"fs\").readFileSync(\"C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/.sir/config.json\",\"utf8\"));console.log(JSON.stringify(c.disciplines))'` exits 0 and prints `{\"frontend\":[\"frontend\"]}`. At startRef it prints `undefined`, because the config has only the keys `$comment` and `git`.",
+        "C6 (D2). PRESERVED BEHAVIOUR: in the parsed `.sir/config.json`, `git.branchPrefix` is `\"agent/\"`. The top-level key set is exactly `$comment`, `git` and `disciplines`.",
+        "C7 (D2). PRESERVED BEHAVIOUR: the parsed `$comment` is unchanged. It is a 305-character string (measured at spec time with `JSON.parse` and `.length`) beginning `Overrides sir-sdlc's documented defaults for this repository.` and ending `See the Configuration section of the sir-sdlc README.`"
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Repo-wide typecheck and full test run on the integrated tree",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [],
+      "dependsOn": ["T1", "T2", "T3", "T4", "T5"],
+      "acceptance": [
+        "C1 (D8). PRESERVED BEHAVIOUR on the integrated tree: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C2 (D8). PRESERVED BEHAVIOUR on the integrated tree: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep/tsconfig.web.json --composite false` exits 0.",
+        "C3 (D8). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261104-1727-tooling-ungrouped-sweep` runs with the configured `default` reporter, with no `--reporter` override, and exits 0. Its summary reports 147 test files passed and none failed: the spec-time baseline of 146 files measured by the orchestrator, plus `src/renderer/src/pods/PodsChrome.styles.test.ts`, the only new file any task's ownership set allows. It also reports a passed-test count greater than the baseline's 2374, with no failed test. Quote the summary lines in the report."
+      ]
+    }
+  ]
+}
