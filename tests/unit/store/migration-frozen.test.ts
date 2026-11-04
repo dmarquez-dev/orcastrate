@@ -38,10 +38,10 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * the tripwire would be vacuous. A frozen blob cannot drift, and "the version
  * that shipped" is exactly the semantics wanted.
  *
- * Migration 1's entry repeats the hash `migration-2.test.ts` already uses —
- * the head of `main` when migration 2 was written. `schema.ts` was untouched
- * between the commit that added migration 1 and that one, so the two blobs are
- * identical and this hash keeps the two suites citing one source.
+ * Migration 1's entry is the head of `main` when migration 2 was written — the
+ * hash `migration-2.test.ts` once used for its own migration 1 check, which
+ * this file has since subsumed. `schema.ts` was untouched between the commit
+ * that added migration 1 and that one, so the two blobs are identical.
  *
  * WRITING MIGRATION 5? IT GETS AN ENTRY HERE, at the commit that shipped it,
  * and its version joins the `it.for` list below. This map is the whole
