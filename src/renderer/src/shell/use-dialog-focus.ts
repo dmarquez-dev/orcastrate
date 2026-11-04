@@ -62,6 +62,21 @@ export interface DialogFocusOptions {
    * dialog whose first job is input (New Pod) names its first field instead.
    */
   initialFocus?: RefObject<HTMLElement | null>;
+  /**
+   * What the dialog is currently about, for a dialog that can switch subject
+   * while it stays open (Delete Pod, put up for a second Pod before the first
+   * was answered). While `open` is true, a change in this value re-runs the
+   * open path: focus moves to `initialFocus`, or to the dialog element, so the
+   * user hears the new subject instead of staying on a button that now acts on
+   * something else. The switch runs the close path first, so the opener is
+   * restored and then read again as the opener of the new subject: focus still
+   * returns to it on close, or to `fallback` if it was gone by the switch.
+   *
+   * A primitive, compared by value — pass an id, never the object it belongs
+   * to, or every rerender that rebuilds the object would yank focus. Leaving it
+   * out keeps the subject fixed for as long as the dialog is open.
+   */
+  focusKey?: string | number | null;
 }
 
 /**
@@ -70,7 +85,7 @@ export interface DialogFocusOptions {
  */
 export function useDialogFocus(
   fallback: RefObject<HTMLElement | null>,
-  { open = true, initialFocus }: DialogFocusOptions = {},
+  { open = true, initialFocus, focusKey }: DialogFocusOptions = {},
 ): {
   dialogRef: RefObject<HTMLDivElement | null>;
   onKeyDown(event: KeyboardEvent<HTMLElement>): void;
@@ -88,7 +103,7 @@ export function useDialogFocus(
       const target = isUsable(opener) ? opener : fallback.current;
       target?.focus();
     };
-  }, [open, fallback, initialFocus]);
+  }, [open, fallback, initialFocus, focusKey]);
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>): void {
     if (event.key !== 'Tab') return;

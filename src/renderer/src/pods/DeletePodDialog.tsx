@@ -92,8 +92,13 @@ export function DeletePodDialog({
   // Focus moves to the dialog ELEMENT on open, so the user hears what is about
   // to be destroyed before reaching a button; it is trapped inside while open
   // and returned on close. This component is always mounted and renders null
-  // while closed, which is why the hook is told when it is open.
-  const { dialogRef, onKeyDown } = useDialogFocus(fallbackFocusRef, { open: podId !== null });
+  // while closed, which is why the hook is told when it is open. It is also
+  // told WHICH Pod, by id, so a switch to another Pod while open moves focus
+  // back onto the dialog and the new title is announced.
+  const { dialogRef, onKeyDown } = useDialogFocus(fallbackFocusRef, {
+    open: podId !== null,
+    focusKey: podId,
+  });
 
   // Reset on each fresh open — the checkbox DEFAULTS OFF, every time, and a
   // decision made about one Pod must never carry into another.

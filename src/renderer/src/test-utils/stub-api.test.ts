@@ -336,6 +336,18 @@ describe('the stub defaults are rich enough to build on', () => {
     }
   });
 
+  it('tags every row outside projects as an absolute path, as the scanner does', async () => {
+    // `src/main/beachcomber/service.ts` derives `pathSource` from the root: a
+    // row outside `projects` names its own file, so it is never a session
+    // record and never a decoded guess.
+    const scan = expectOk(await stubOrcastrateApi().beachcomber.scan());
+    const outside = scan.entries.filter((entry) => entry.root !== 'projects');
+    expect(outside).not.toHaveLength(0);
+    for (const entry of outside) {
+      expect(entry.pathSource, entry.id).toBe('absolute-path');
+    }
+  });
+
   it('refuses a blocked entry in the preview rather than in the trash', async () => {
     const api = stubOrcastrateApi();
     const scan = expectOk(await api.beachcomber.scan());

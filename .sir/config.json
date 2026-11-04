@@ -2,5 +2,8 @@
   "$comment": "Overrides sir-sdlc's documented defaults for this repository. Only the keys present here override; everything else uses the documented default. The branch prefix names the actor, not the framework, so the branch namespace survives a change of tooling. See the Configuration section of the sir-sdlc README.",
   "git": {
     "branchPrefix": "agent/"
+  },
+  "disciplines": {
+    "frontend": ["frontend"]
   }
 }

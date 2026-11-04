@@ -508,7 +508,12 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     // than Open, and rewriting its lanes as deliberately stopped would assert
     // the opposite of what happened. Those lanes are the boot sweep's to
     // orphan.
-    if (pod !== null && pod.status !== 'beached') {
+    //
+    // THE `'closed'` GUARD makes a second `closePod` do nothing at all: an
+    // already-closed Pod skips the whole block, so it is not swept, `updatePod`
+    // does not rewrite the `'closed'` it already holds, and no `podStatus` is
+    // pushed to announce a change that did not happen.
+    if (pod !== null && pod.status !== 'beached' && pod.status !== 'closed') {
       // BEFORE the `podStatus` push, never after. `podStatus` is what flips the
       // tab out of its running affordance; a renderer that saw the Pod closed
       // while the rail still said Running would show, for one frame, exactly
@@ -524,14 +529,15 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * `LaneRouter.closeLane`, not `#closeLaneRow`, not `reconcileStartup` — one
    * writer is what makes the status mean one thing.
    *
-   * IDEMPOTENT BY THE FILTER, which is the whole of the guarantee a second
-   * `closePod` must satisfy. Only a lane still `'running'` is swept, so a
-   * second close finds nothing: no `ended_at` is restamped (a duration that
-   * jumped forward when a user clicked Stop on an already-stopped Pod would be
-   * a lie about when the work ended), no second `lane_closed` is appended, and
-   * with nothing changed there is nothing for a `laneChanged` or a `podEvent`
-   * push to say — both sit below the early return, so a redundant close cannot
-   * announce an empty batch on a channel that means "something arrived".
+   * ONLY A LANE STILL `'running'` IS SWEPT. A second `closePod` never gets
+   * here — `closePod`'s `'closed'` guard skips the sweep for an already-closed
+   * Pod — so the filter is not what keeps a redundant close quiet. It is what
+   * keeps one sweep honest: a lane that already ended keeps its own `ended_at`
+   * (restamping it would be a lie about when the work ended) and gets no
+   * second `lane_closed`, and when no lane was running there is nothing for a
+   * `laneChanged` or a `podEvent` push to say — both sit below the early
+   * return, so a sweep cannot announce an empty batch on a channel that means
+   * "something arrived".
    *
    * NOTHING IS CAUGHT HERE. A failing `setLaneStatus` or `appendMany` is a
    * defect, not an expected failure, and it propagates to `closePod`'s caller

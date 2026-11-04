@@ -663,7 +663,7 @@ describe('stopping a running Pod from its tab', () => {
     expect(persistedLanes(world, keptPod).every((lane) => lane.status === 'running')).toBe(true);
   });
 
-  it('sweeps only lanes still running, so a second stop restamps no duration and appends no second event', async () => {
+  it('a second stop on an already-closed Pod restamps no duration and appends no second event', async () => {
     const user = userEvent.setup();
     const { world, stoppedLaneId } = await stopScenario();
     const [stoppedPod] = podIds(world);
