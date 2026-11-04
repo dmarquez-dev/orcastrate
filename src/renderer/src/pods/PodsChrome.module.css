@@ -5,6 +5,11 @@
   align-items: stretch;
 }
 
+.chrome:focus-visible {
+  outline: var(--oc-border-thick) solid var(--oc-focus-ring);
+  outline-offset: calc(var(--oc-border-thick) * -1);
+}
+
 .chrome > :first-child {
   min-width: 0;
   flex: 1 1 auto;
