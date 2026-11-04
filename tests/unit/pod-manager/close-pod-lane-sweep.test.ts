@@ -304,6 +304,8 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     // real "no more" and not the trivially-satisfied "never any".
     expect(firstCounts[EVENT_CHANNELS.podEvent], 'the first stop pushed no podEvent').toBeGreaterThan(0);
     expect(firstCounts[EVENT_CHANNELS.laneChanged], 'the first stop pushed no laneChanged').toBeGreaterThan(0);
+    expect(firstCounts[EVENT_CHANNELS.podStatus], 'the first stop pushed no podStatus').toBeGreaterThan(0);
+    const writesBeforeSecond = h.spy.writes.length;
 
     // The clock advances on every read, so a restamp would be visible as a
     // different ISO string rather than as a coincidence.
@@ -318,11 +320,12 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
     expect(laneClosedEvents(h, podId)).toHaveLength(2);
     // What the second close ATTEMPTED, per channel, over EVERY channel a
     // `Pushes` method maps to — one whole-record equality, so a push on a
-    // channel this test never named is counted all the same. It sweeps
-    // nothing, so `laneChanged` and `podEvent` stay put. It does re-push
-    // `podStatus`: a 'closed' Pod passes `closePod`'s `!== 'beached'` check,
-    // so the 'closed' write and its push run again. That is the measured
-    // behaviour, stated rather than left uncounted.
+    // channel this test never named is counted all the same. The second
+    // close pushes nothing on any channel, `podStatus` included: `closePod`'s
+    // `'closed'` guard skips the sweep, the write and the push together for a
+    // Pod that is already closed. `expect.soft`, so a re-push and a re-write
+    // are both reported when they come back together rather than the first
+    // failure hiding the second.
     const secondCounts = h.attemptedCounts();
     const delta = Object.fromEntries(
       Object.entries(secondCounts).map(([channel, count]) => [
@@ -330,13 +333,52 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
         count - (firstCounts[channel] ?? 0),
       ]),
     );
-    expect(delta).toEqual({
+    expect.soft(delta).toEqual({
       [EVENT_CHANNELS.podEvent]: 0,
-      [EVENT_CHANNELS.podStatus]: 1,
+      [EVENT_CHANNELS.podStatus]: 0,
       [EVENT_CHANNELS.laneChanged]: 0,
       [EVENT_CHANNELS.permissionRequested]: 0,
       [EVENT_CHANNELS.permissionResolved]: 0,
     });
+
+    // The second close writes nothing: no `updatePod` re-writing the
+    // `'closed'` it already holds, and no sweep write of any kind.
+    const secondWrites = h.spy.writes.slice(writesBeforeSecond).map((write) => write.method);
+    expect(secondWrites.filter((method) => method === 'updatePod')).toEqual([]);
+    expect(
+      secondWrites.filter(
+        (method) => method === 'setLaneStatus' || method === 'append' || method === 'appendMany',
+      ),
+    ).toEqual([]);
+    expect(h.raw.getPod(podId)?.status).toBe('closed');
+  });
+
+  it('pushes nothing and writes no updatePod for a closed Pod that was never opened', async () => {
+    const h = harness();
+    // A Pod a previous process left closed: no session, so `#dispose` returns
+    // at once, and its lane already ended.
+    const podId = seedPod(h, {
+      status: 'closed',
+      lanes: [{ kind: 'matriarch', status: 'stopped' }],
+    });
+    const before = h.attemptedCounts();
+    const writesBefore = h.spy.writes.length;
+
+    await expect(h.manager.closePod(podId)).resolves.toBeUndefined();
+
+    const after = h.attemptedCounts();
+    const delta = Object.fromEntries(
+      Object.entries(after).map(([channel, count]) => [channel, count - (before[channel] ?? 0)]),
+    );
+    expect.soft(delta).toEqual({
+      [EVENT_CHANNELS.podEvent]: 0,
+      [EVENT_CHANNELS.podStatus]: 0,
+      [EVENT_CHANNELS.laneChanged]: 0,
+      [EVENT_CHANNELS.permissionRequested]: 0,
+      [EVENT_CHANNELS.permissionResolved]: 0,
+    });
+    const writes = h.spy.writes.slice(writesBefore).map((write) => write.method);
+    expect(writes.filter((method) => method === 'updatePod')).toEqual([]);
     expect(h.raw.getPod(podId)?.status).toBe('closed');
   });
 });
