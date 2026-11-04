@@ -359,12 +359,19 @@ export function makeStubBeachcomberPreview(ids: readonly string[]): BeachcomberP
   for (const id of ids) {
     const entry = entries.find((candidate) => candidate.id === id);
     if (entry === undefined) {
-      preview.refused.push({ id, reason: 'This entry is not part of the current scan. Rescan and try again.' });
+      // No entry, so no displayPath to copy: the id is the only name the stub
+      // has for it. (Main throws NOT_FOUND here instead; this stub refuses.)
+      preview.refused.push({
+        id,
+        displayPath: id,
+        reason: 'This entry is not part of the current scan. Rescan and try again.',
+      });
       continue;
     }
     if (entry.blocked !== null) {
       preview.refused.push({
         id,
+        displayPath: entry.displayPath,
         reason: `${entry.blockedBy?.title ?? 'A Pod'} is using this directory. Delete the Pod first if you want to clear it.`,
       });
       continue;

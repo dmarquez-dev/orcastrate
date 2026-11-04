@@ -51,12 +51,6 @@ export function samePath(a: string, b: string): boolean {
 }
 
 /**
- * Best-effort inverse of the directory-name encoding. AMBIGUOUS BY
- * CONSTRUCTION — `C--Users-x-Repos-dir-ect` reads equally well as
- * `C:\Users\x\Repos\dir-ect` and `C:\Users\x\Repos\dir\ect`, and this returns
- * whichever the heuristic happens to pick. Callers must label the result.
- */
-/**
  * Everything `podBlockerFor` is allowed to look at. Deliberately the entry's
  * own fields and nothing else — no absolute path, no filesystem, no service.
  */
@@ -134,6 +128,12 @@ export function podBlockerFor(subject: PodBlockingSubject): PodDirectory | null 
   return normalizedMatch;
 }
 
+/**
+ * Best-effort inverse of the directory-name encoding. AMBIGUOUS BY
+ * CONSTRUCTION — `C--Users-x-Repos-dir-ect` reads equally well as
+ * `C:\Users\x\Repos\dir-ect` and `C:\Users\x\Repos\dir\ect`, and this returns
+ * whichever the heuristic happens to pick. Callers must label the result.
+ */
 export function decodeDirectoryName(name: string): string {
   const windowsDrive = /^([A-Za-z])--(.*)$/.exec(name);
   if (windowsDrive) {

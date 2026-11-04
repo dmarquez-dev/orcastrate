@@ -307,6 +307,7 @@ export function createBeachcomberService(deps: BeachcomberServiceDeps): Beachcom
     const who = pod === null ? 'a Pod' : `the Pod "${pod.title}" (${pod.podId})`;
     return {
       id: entry.id,
+      displayPath: entry.displayPath,
       reason: `${who} still uses this directory, so Orcastrate will not move it to the recycle bin. Delete that Pod in Orcastrate first, then rescan.`,
     };
   }

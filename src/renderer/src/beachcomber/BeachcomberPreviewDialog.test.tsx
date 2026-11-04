@@ -108,8 +108,16 @@ describe('the preview shows exactly what will be removed (AC7)', () => {
     renderWithPreview(
       makePreview({
         refused: [
-          { id: 'entry-9', reason: 'Refactor the router uses this directory.' },
-          { id: 'entry-8', reason: 'This entry is not part of the current scan. Rescan first.' },
+          {
+            id: 'entry-9',
+            displayPath: 'C:\\Users\\dmarq\\Repos\\router',
+            reason: 'Refactor the router uses this directory.',
+          },
+          {
+            id: 'entry-8',
+            displayPath: 'C:\\Users\\dmarq\\Repos\\gone',
+            reason: 'This entry is not part of the current scan. Rescan first.',
+          },
         ],
       }),
     );

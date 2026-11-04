@@ -248,7 +248,13 @@ describe('the result reports both halves (AC9)', () => {
             message: 'EBUSY: resource busy or locked, unlink',
           },
         ],
-        refused: [{ id: 'd', reason: 'A Pod is using this directory.' }],
+        refused: [
+          {
+            id: 'd',
+            displayPath: 'C:\\Users\\dmarq\\Repos\\router',
+            reason: 'A Pod is using this directory.',
+          },
+        ],
       }),
     });
 

@@ -1104,7 +1104,11 @@ describe('the Beachcomber panel says what went wrong and keeps what the user cho
           ok: true,
           value: {
             items: [],
-            refused: req.ids.map((id) => ({ id, reason: 'Something else holds this directory.' })),
+            refused: req.ids.map((id) => ({
+              id,
+              displayPath: `C:\\Users\\x\\held\\${id}`,
+              reason: 'Something else holds this directory.',
+            })),
             totalBytes: 0,
             totalFiles: 0,
           },
@@ -1186,7 +1190,11 @@ describe('the Beachcomber panel says what went wrong and keeps what the user cho
         preview: async (req: BeachcomberPreviewRequest) => {
           const accepted = req.ids.filter((id) => id !== DECODED_ROW);
           const value = makeStubBeachcomberPreview(accepted);
-          value.refused.push({ id: DECODED_ROW, reason: 'Another process holds this directory.' });
+          value.refused.push({
+            id: DECODED_ROW,
+            displayPath: 'C:\\Users\\x\\Repos\\decoded',
+            reason: 'Another process holds this directory.',
+          });
           return { ok: true, value };
         },
         trash: async (req: BeachcomberTrashRequest) => {
