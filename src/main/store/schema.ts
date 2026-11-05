@@ -707,6 +707,61 @@ CREATE INDEX idx_lanes_parent ON lanes (parent_lane_id) WHERE parent_lane_id IS 
 `;
 
 /**
+ * Migration 5 — Pod ancestry: add `pods.forked_from_pod_id` and
+ * `pods.forked_from_cc_session_id`.
+ *
+ * WHAT THEY MEAN. `forked_from_pod_id` names the Pod this one was forked from;
+ * `forked_from_cc_session_id` names the Claude Code session that was forked to
+ * make it. Both are NULL for a Pod that was never forked, which is every Pod
+ * that exists when this migration runs. Deleting the parent sets
+ * `forked_from_pod_id` to NULL (`ON DELETE SET NULL`) and leaves
+ * `forked_from_cc_session_id` alone, so a fork whose parent is gone is still
+ * distinguishable from a Pod that was never forked.
+ *
+ * WHY ADD COLUMN AND NOT A REBUILD. Migrations 2 and 3 rebuilt `pods` because a
+ * CHECK cannot be altered in place. Adding a nullable column can: SQLite's
+ * `ALTER TABLE ... ADD COLUMN` accepts a `REFERENCES` clause on a column whose
+ * default is NULL, and it touches no existing row. The foreign key is named
+ * with an explicit `CONSTRAINT` so a failure message identifies it.
+ *
+ * `pods` NOW CARRIES AN INDEX OF ITS OWN. The docblocks of migrations 2 and 3
+ * say `pods` carries no index, so steps 7 and 8 of SQLite's 12-step rebuild
+ * reduce to nothing for it. THAT STOPS BEING TRUE HERE. `idx_pods_forked_from`
+ * below hangs off `pods`, so any FUTURE migration that rebuilds `pods` (create
+ * new, copy, drop old, rename) drops it with the old table and MUST recreate
+ * it, exactly as migration 4 recreates the four `lanes` indexes. The rebuild
+ * must also carry both ancestry columns and the named self-referencing foreign
+ * key across.
+ *
+ * WHY THE INDEX. Every foreign key is indexed. The query it serves exists: on
+ * `DELETE FROM pods`, SQLite's `ON DELETE SET NULL` action looks up the child
+ * rows `WHERE forked_from_pod_id = ?`, which without an index is a full scan of
+ * `pods` on every Pod deletion. It is partial (`IS NOT NULL`) on the precedent
+ * of `idx_lanes_parent`: the overwhelming majority of Pods were never forked,
+ * and an equality lookup implies the predicate, so the planner can still use it.
+ *
+ * IT BACKFILLS NOTHING. No `INSERT`, `UPDATE` or `DELETE`: every existing row
+ * keeps every value it had and reads NULL in both new columns. Shape changes
+ * and data changes stay in separate migrations so a failure is possible to
+ * isolate.
+ *
+ * NOT REVERSIBLE. Consistent with the file docblock, there is no `down` path; a
+ * downgrade discards the database file. Dropping the columns again would need
+ * a `pods` rebuild that throws away every fork's ancestry, and once a fork
+ * exists an older build's `pods` has nowhere to record what it was forked
+ * from — the data this migration makes room for cannot be carried backwards.
+ */
+const MIGRATION_5 = `
+ALTER TABLE pods ADD COLUMN forked_from_pod_id TEXT
+  CONSTRAINT fk_pods_forked_from_pod_id REFERENCES pods(id) ON DELETE SET NULL;
+
+ALTER TABLE pods ADD COLUMN forked_from_cc_session_id TEXT;
+
+-- ON DELETE SET NULL's child lookup when a parent Pod is deleted.
+CREATE INDEX idx_pods_forked_from ON pods (forked_from_pod_id) WHERE forked_from_pod_id IS NOT NULL;
+`;
+
+/**
  * Ordered, forward-only. Append new entries; never edit a shipped one.
  * `CURRENT_SCHEMA_VERSION` is the highest version this build understands.
  */
@@ -715,6 +770,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 2, sql: MIGRATION_2 },
   { version: 3, sql: MIGRATION_3 },
   { version: 4, sql: MIGRATION_4 },
+  { version: 5, sql: MIGRATION_5 },
 ];
 
 export const CURRENT_SCHEMA_VERSION: number = MIGRATIONS.reduce(

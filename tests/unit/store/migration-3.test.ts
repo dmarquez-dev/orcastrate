@@ -231,13 +231,13 @@ describe('migration 3 does not rewrite an already-migrated database', () => {
     store.close();
 
     const after = appliedStamps(fixture.path);
-    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4]);
+    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4, 5]);
     // The proof that migrations 1 and 2 were NOT re-run: re-running them would
     // insert (or replace) their schema_version rows with a fresh stamp.
     expect(after[1]).toBe(fixture.applied[1]);
     expect(after[2]).toBe(fixture.applied[2]);
     expect(after[3]).not.toBe(fixture.applied[2]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(4);
+    expect(CURRENT_SCHEMA_VERSION).toBe(5);
   });
 
   it('carries every pod, lane and event across the rebuild byte-identically', () => {
@@ -296,7 +296,8 @@ describe('migration 3 does not rewrite an already-migrated database', () => {
     store.close();
     const after = ddl(fixture.path);
 
-    expect(Object.keys(after)).toEqual(Object.keys(before));
+    // Migration 5 adds the one new object: the index on pods.forked_from_pod_id.
+    expect(Object.keys(after)).toEqual([...Object.keys(before), 'idx_pods_forked_from'].sort());
     for (const name of Object.keys(before)) {
       // `lanes` joins `pods` here: migration 4 rebuilds it. Its four indexes
       // are recreated verbatim, so they stay in the equality loop.
