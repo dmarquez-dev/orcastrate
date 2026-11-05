@@ -1,0 +1,47 @@
+{
+  "id": "20261105-1907-fork-session-branching",
+  "name": "fork-session-branching",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Fork a Pod at its current state into a new Pod tab. T1 first verifies, live, that the SDK's standalone forkSession behaves as documented against the CLI the product drives; every other task depends on it, and a refutation stops the session at an escalation whose fallback is the resume + forkSession:true option. T2 adds migration 5 (forked_from_pod_id with ON DELETE SET NULL, forked_from_cc_session_id) and an atomic EventStore.forkPod that copies the parent's lanes and events up to the fork point with ids remapped. T3 adds PodManager.forkPod over an injected SDK port, a shared forkEligibility rule (closed/idle/beached with a session id), and the pod:fork IPC channel with CONFLICT/IO errors. T4 adds a Fork control to each Pod tab that selects the new tab, states why it is unavailable, and shows a fork's ancestry.",
+  "started": "2026-11-05T19:07:46Z",
+  "ended": null,
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "eabe5dd3-20ff-4fd7-9c2c-a1b5fc269944",
+      "sir": "1.0.22",
+      "started": "2026-11-05T19:07:46Z",
+      "ended": "2026-11-05T19:10:22Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "6eabf7cb-5b80-4c5e-8241-36b38bc106fb",
+      "sir": "1.0.22",
+      "started": "2026-11-05T19:11:36Z",
+      "ended": "2026-11-05T19:37:11Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "9df07252-17f4-45b2-9bbe-08682adeb75c",
+      "sir": "1.0.22",
+      "started": "2026-11-05T19:38:58Z",
+      "ended": "2026-11-05T21:55:41Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "8bd71b3c-e5e8-46c5-b269-b31699393859",
+      "sir": "1.0.22",
+      "started": "2026-11-05T21:59:45Z",
+      "ended": "2026-11-05T22:18:11Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

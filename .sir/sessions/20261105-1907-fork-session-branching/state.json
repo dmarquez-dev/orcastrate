@@ -1,0 +1,115 @@
+{
+  "session": "20261105-1907-fork-session-branching",
+  "updatedAt": "2026-11-05T22:18:11Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-1907-fork-session-branching",
+  "branch": "agent/20261105-1907-fork-session-branching",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "exit=0, no diagnostics; tsc --listFilesOnly on tsconfig.node.json lists 62 files under the worktree's src/ (node_modules resolves from the parent checkout)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  147 passed (147) / Tests  2393 passed (2393), exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "0d16358c83875099f019c90cca4a241e2a2044f4", "commit": "d164a6955e53de0cb0dacd2480ebee8517db7be8", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 1, "startRef": "d164a6955e53de0cb0dacd2480ebee8517db7be8", "commit": "0cfb6331e775e8714bfb4892b2b7c3056cd4e999", "model": "opus" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "startRef": "0cfb6331e775e8714bfb4892b2b7c3056cd4e999", "commit": "f70e6eec46e15d839582c48d79ca32ec45327d95", "model": "opus" },
+    { "id": "T4", "status": "done", "revisionRounds": 0, "startRef": "f70e6eec46e15d839582c48d79ca32ec45327d95", "commit": "70f9c86cae083e4069d62459fdf9ea8e701233e9", "model": "opus" }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "Which CLI binary should T1 verify forkSession against? D1 drafted 2.1.318 (PATH claude), but the product drives the SDK's built-in executable, 2.1.235.",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Verify both binaries: the SDK built-in 2.1.235 and PATH claude 2.1.318 (Gate 2). Matches the draft manifest; no change to T1.",
+      "options": [
+        {
+          "summary": "Verify both: the built-in 2.1.235 and the PATH claude 2.1.318",
+          "rationale": "Covers the binary the product runs today and the one it would run if pathToClaudeCodeExecutable were ever set; about 6 live model turns.",
+          "evidence": { "kind": "repo", "sources": ["src/main/pod/options.ts:243-245", "node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts:1775-1777", "node_modules/@anthropic-ai/claude-agent-sdk/package.json:83"] }
+        },
+        {
+          "summary": "Verify only the built-in 2.1.235",
+          "rationale": "Verifies exactly what ships, for about 3 live turns.",
+          "evidence": { "kind": "repo", "sources": ["src/main/pod/options.ts:243-245"] }
+        },
+        {
+          "summary": "Verify only the PATH claude 2.1.318, as Gate 1 drafted",
+          "rationale": "Matches the discussion's wording but verifies a binary the product never runs.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T2",
+      "question": "T2 criterion 11 says migration 5's SQL contains no `INSERT`, `UPDATE` or `DELETE`. Read as tokens it cannot hold alongside criterion 5, whose required `ON DELETE SET NULL` contains DELETE. Amend it to name statements?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend criterion 11 to name statements: 'contains no INSERT, UPDATE or DELETE statement'. Applied as A1.",
+      "options": [
+        {
+          "summary": "Amend criterion 11 to: migration 5's SQL contains no INSERT, UPDATE or DELETE statement",
+          "rationale": "Matches the discipline rule it encodes (data changes kept apart from shape changes), makes it consistent with criterion 5, and the existing per-statement test already checks exactly this.",
+          "evidence": { "kind": "repo", "sources": [".sir/sessions/20261105-1907-fork-session-branching/disciplines/database.md", "tests/unit/store/migration-5.test.ts:138"] }
+        },
+        {
+          "summary": "Leave criterion 11 as written and accept the statement reading at Gate 3",
+          "rationale": "No manifest edit; the ambiguity is recorded in reviews/T2.md and shown at Gate 3 instead.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "taskId": "T3",
+      "question": "T3 criterion 35 (`npm test` exits 0) cannot hold inside T3's ownership: adding the pod:fork channel fails 4 channel-enumeration tests in T4-owned files (src/renderer/src/state/store.test.ts, src/renderer/src/__tests__/failure-paths.e2e.test.tsx). How should T3 land?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Allow exactly those 4 T4-owned channel-enumeration failures at T3's tip; T4 clears them under its own repo-wide npm test criterion. Applied as A2.",
+      "options": [
+        {
+          "summary": "Amend T3 criterion 35 to allow exactly those 4 T4-owned channel-enumeration failures; T4 clears them",
+          "rationale": "T4 already adds the forkPod action and surface that those tests enumerate, and T4's own repo-wide `npm test` criterion (the DAG tail, D12) forces them green; no placeholder churn.",
+          "evidence": { "kind": "repo", "sources": [".sir/sessions/20261105-1907-fork-session-branching/manifest.json", "src/renderer/src/state/store.test.ts:298-311", "src/renderer/src/__tests__/failure-paths.e2e.test.tsx:194"] }
+        },
+        {
+          "summary": "Widen T3's ownership to the two test files for a placeholder edit that T4 later undoes",
+          "rationale": "Keeps every commit green, at the cost of churn and a window where the allowlist calls podFork unreachable.",
+          "evidence": { "kind": "repo", "sources": ["src/renderer/src/__tests__/failure-paths.e2e.test.tsx:548", "src/renderer/src/state/store.test.ts:308"] }
+        },
+        {
+          "summary": "Review T3 now but hold its commit until T4 lands, committing both green",
+          "rationale": "Session tip green without amending; but breaks one-task-one-commit-after-review ordering.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "artifact": "manifest.json",
+      "before": "T2 criterion 11: migration 5's SQL contains no `INSERT`, `UPDATE` or `DELETE`.",
+      "after": "T2 criterion 11: migration 5's SQL contains no `INSERT`, `UPDATE` or `DELETE` statement.",
+      "inFlight": ["T2"]
+    },
+    {
+      "id": "A2",
+      "escalation": "E3",
+      "artifact": "manifest.json",
+      "before": "T3 criterion 35: `npm test` exits 0.",
+      "after": "T3 criterion 35: `npm test` exits 0 except exactly the 4 named channel-enumeration tests in T4-owned store.test.ts and failure-paths.e2e.test.tsx; no other test fails.",
+      "inFlight": ["T3"]
+    }
+  ],
+  "metrics": { "userInteractions": 6, "escalationsRaised": 3, "reviewRounds": 1 }
+}
