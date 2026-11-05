@@ -1,18 +1,16 @@
 /**
  * VALIDATION SEPARATES BLOCKING FROM ADVISORY (criterion 14).
  *
- * `error` blocks. `warning` does not. The whole weight of the distinction falls
- * on `crossSessionInbound: 'hold'`: the key is real in CLI 2.1.235 and `accept`
- * and `refuse` were observed there, but `hold` was not. Marking it an error
- * would make Helm less capable than the text editor the user can open the same
- * file in, on the strength of a guess. Marking it fine would be a lie. It is a
- * warning that says which build it was not confirmed in.
+ * `error` blocks. `warning` does not. `crossSessionInbound` takes one of
+ * `accept`, `hold` and `refuse` — the value set CLI 2.1.318's binary declares
+ * for the setting — and each of the three validates with no issue at all, so a
+ * save with `hold` returns no warnings. A value outside the three is still an
+ * error that blocks the save.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { HelmManagedFields, HelmSaveRequest } from '../../../src/shared/contracts/helm';
-import { OBSERVED_CLI_VERSION } from '../../../src/main/helm';
 
 import {
   catchIpcFailure,
@@ -92,21 +90,18 @@ describe('validate: errors', () => {
   });
 });
 
-describe('validate: the hold warning', () => {
-  it('marks hold a WARNING, not an error, naming the CLI build it was not confirmed in', () => {
-    const h = makeHarness();
-    const issues = h.service.validate(
-      request({ managed: managed({ crossSessionInbound: 'hold' }) }),
-    ).issues;
+describe('validate: crossSessionInbound values', () => {
+  it.each(['accept', 'hold', 'refuse'] as const)(
+    'produces no issue at all for crossSessionInbound: %s',
+    (value) => {
+      const h = makeHarness();
+      expect(
+        h.service.validate(request({ managed: managed({ crossSessionInbound: value }) })).issues,
+      ).toEqual([]);
+    },
+  );
 
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.severity).toBe('warning');
-    expect(issues[0]?.field).toBe('crossSessionInbound');
-    expect(issues[0]?.message).toContain(OBSERVED_CLI_VERSION);
-    expect(OBSERVED_CLI_VERSION).toBe('2.1.235');
-  });
-
-  it('saves anyway, and reports the warning that was accepted', async () => {
+  it('saves hold, writes it to the file, and returns no warnings', async () => {
     const h = makeHarness();
     writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
 
@@ -117,19 +112,9 @@ describe('validate: the hold warning', () => {
       }),
     );
 
-    expect(result.warnings).toHaveLength(1);
-    expect(result.warnings[0]?.severity).toBe('warning');
+    expect(result.warnings).toEqual([]);
     expect(JSON.parse(readText(h.userSettingsPath))).toMatchObject({ crossSessionInbound: 'hold' });
     expect(result.document.managed.crossSessionInbound).toBe('hold');
-  });
-
-  it('produces no issue at all for accept or refuse', () => {
-    const h = makeHarness();
-    for (const value of ['accept', 'refuse'] as const) {
-      expect(
-        h.service.validate(request({ managed: managed({ crossSessionInbound: value }) })).issues,
-      ).toEqual([]);
-    }
   });
 
   it('produces no issue for a fully valid draft', () => {

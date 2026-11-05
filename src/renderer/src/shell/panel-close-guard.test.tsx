@@ -488,7 +488,7 @@ describe('App routes the panel affordances through the controller', () => {
     expect((screen.getByTestId('helm-draft') as HTMLInputElement).value).toBe('unsaved work');
   });
 
-  it("does not ask the guard when Helm's OWN strip button is re-clicked", async () => {
+  it("asks the guard when Helm's OWN strip button is re-clicked, and stays open when it declines", async () => {
     const vetoing = settledGuard(false);
     helmStub.guard = vetoing.guard;
     const user = userEvent.setup();
@@ -500,8 +500,66 @@ describe('App routes the panel affordances through the controller', () => {
 
     await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
 
-    // No confirmation raised for a click that changes nothing.
-    expect(vetoing.calls()).toBe(0);
+    // A re-click is a close, so it is guarded exactly as the close button is.
+    expect(vetoing.calls()).toBe(1);
     expect(screen.getByTestId(testId(PANEL_TEST_IDS.panelRegion, 'helm'))).toBeDefined();
+  });
+
+  it("closes Helm when its OWN strip button is re-clicked and the guard permits", async () => {
+    const permitting = settledGuard(true);
+    helmStub.guard = permitting.guard;
+    const user = userEvent.setup();
+    renderWithWorkspace(<App />);
+    await waitFor(() => {
+      expect(screen.getByTestId(PANEL_TEST_IDS.panelBar)).toBeDefined();
+    });
+    await openFromStrip('helm');
+
+    await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
+
+    expect(permitting.calls()).toBe(1);
+    await waitFor(() => {
+      expect(screen.queryByTestId(testId(PANEL_TEST_IDS.panelRegion, 'helm'))).toBeNull();
+    });
+  });
+
+  it("closes the REAL Beachcomber panel from a re-click of its OWN strip button inside a single synchronous act", async () => {
+    renderWithWorkspace(<App />);
+    await waitFor(() => {
+      expect(screen.getByTestId(PANEL_TEST_IDS.panelBar)).toBeDefined();
+    });
+    await openFromStrip('beachcomber');
+    expect(screen.getByTestId(PANEL_TEST_IDS.beachcomberPanel)).toBeDefined();
+
+    // No guard is registered, so the re-click close is synchronous: one act,
+    // no intervening microtask, no `await`.
+    act(() => {
+      fireEvent.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'beachcomber')));
+    });
+
+    expect(
+      screen.queryByTestId(testId(PANEL_TEST_IDS.panelRegion, 'beachcomber')),
+    ).toBeNull();
+  });
+
+  it('returns focus to the re-clicked strip button when a re-click closes Beachcomber', async () => {
+    renderWithWorkspace(<App />);
+    await waitFor(() => {
+      expect(screen.getByTestId(PANEL_TEST_IDS.panelBar)).toBeDefined();
+    });
+    await openFromStrip('beachcomber');
+
+    // Vacuity guard: the region took focus on open, so focus landing on the
+    // strip button below is the close moving it, not where it already was.
+    const region = screen.getByTestId(testId(PANEL_TEST_IDS.panelRegion, 'beachcomber'));
+    expect(region.contains(document.activeElement)).toBe(true);
+
+    const own = screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'beachcomber'));
+    // `fireEvent.click` does not move focus itself.
+    act(() => {
+      fireEvent.click(own);
+    });
+
+    expect(document.activeElement).toBe(own);
   });
 });

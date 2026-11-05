@@ -132,24 +132,16 @@ export interface HelmScope {
  * section 7). Surfaced because it is a real security control that is otherwise
  * only reachable by hand-editing JSON.
  *
- * WHAT IS ACTUALLY CONFIRMED, from strings in CLI 2.1.235: the key
- * `crossSessionInbound` is real, and `accept` and `refuse` are both observed
- * alongside a `peer_inbound_gate` with `accept`/`refused`/`expired` outcomes.
- * `hold` is named by the design and IMPLIED by a "not parking a late peer
- * message" log line, but it was NOT confirmed as an accepted settings value.
+ * CONFIRMED against CLI 2.1.318 (`claude --version` → `2.1.318 (Claude
+ * Code)`): its binary declares `["accept","hold","refuse"]` as the value set of
+ * the `crossSessionInbound` setting, and describes `hold` as parking
+ * cross-session messages for review without letting Claude act on them.
  *
- * So the form offers all three and marks `hold` as unverified against 2.1.235,
- * and `HelmValidation` carries that warning to the user rather than the form
- * pretending to a certainty nobody has.
+ * So all three are accepted settings values, the form offers them alike, and
+ * this list is the only declaration of the value set.
  */
 export const CROSS_SESSION_INBOUND_VALUES = ['accept', 'hold', 'refuse'] as const;
 export type CrossSessionInbound = (typeof CROSS_SESSION_INBOUND_VALUES)[number];
-
-/** Observed in the shipped CLI binary. The rest is inference. */
-export const CROSS_SESSION_INBOUND_CONFIRMED: readonly CrossSessionInbound[] = [
-  'accept',
-  'refuse',
-];
 
 /**
  * The fields Helm edits as a FORM. Everything else in the file is `unmanaged`
@@ -246,9 +238,8 @@ export interface HelmValidationIssue {
 }
 
 /**
- * `error` blocks the save. `warning` does not — an unverified-but-plausible
- * `crossSessionInbound: 'hold'` is the user's call to make, and refusing it
- * would make Helm less capable than a text editor.
+ * `error` blocks the save. `warning` does not: it is reported to the user, and
+ * the save goes ahead.
  */
 export interface HelmValidation {
   issues: HelmValidationIssue[];

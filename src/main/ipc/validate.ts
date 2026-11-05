@@ -331,10 +331,9 @@ function requireStringRecord(value: unknown, what: string): Record<string, strin
  * `null` and `''`/`[]`/`{}` collapse to "the key is absent" per the contract,
  * so an absent-key file round-trips without Helm inventing keys.
  *
- * `crossSessionInbound: 'hold'` is ACCEPTED here. It is unverified against CLI
- * 2.1.235, and the contract's answer to that is a validation WARNING the user
- * sees — not a refusal at the transport boundary, which would make Helm less
- * capable than a text editor.
+ * `crossSessionInbound: 'hold'` is ACCEPTED here, like `accept` and `refuse`:
+ * CLI 2.1.318's binary declares all three as the setting's value set. A value
+ * outside the three is refused at the transport boundary.
  */
 function requireHelmManagedFields(value: unknown): HelmManagedFields {
   const raw = requireObject(value, 'managed');

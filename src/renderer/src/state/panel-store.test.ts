@@ -572,7 +572,7 @@ describe('Helm load, edit, discard and save (criterion 11)', () => {
   });
 });
 
-describe('validation is derived from the draft, and warnings do not block', () => {
+describe('validation is derived from the draft', () => {
   it('flags unparseable hooks as an error', () => {
     const document = makeStubHelmDocument('user');
     const issues = validateDraft({ managed: document.managed, hooksJson: '{oops' }, document);
@@ -586,7 +586,7 @@ describe('validation is derived from the draft, and warnings do not block', () =
     expect(validateDraft({ managed: document.managed, hooksJson: '' }, document)).toEqual([]);
   });
 
-  it('warns but does not block on the unconfirmed crossSessionInbound value', () => {
+  it('raises no issue, not even a warning, when the draft sets crossSessionInbound to hold', () => {
     const document = makeStubHelmDocument('user');
     const issues = validateDraft(
       {
@@ -595,8 +595,7 @@ describe('validation is derived from the draft, and warnings do not block', () =
       },
       document,
     );
-    expect(issues).toHaveLength(1);
-    expect(issues[0]?.severity).toBe('warning');
+    expect(issues).toEqual([]);
   });
 });
 

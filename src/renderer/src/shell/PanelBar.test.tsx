@@ -50,8 +50,8 @@ describe('PanelBar', () => {
   // Open state has to be readable without seeing the strip, so this reads the
   // attribute off the open button AND off a closed one: an attribute that is
   // present on every button distinguishes nothing. The carrier is
-  // `aria-current` and not the toggle attribute, because a panel button only
-  // ever opens — see the rationale in `PanelBar.tsx`.
+  // `aria-current` and not the toggle attribute, because it marks which ONE
+  // panel of the strip is current — see the rationale in `PanelBar.tsx`.
   it('carries the open state on aria-current: true on the open panel, false on a closed one', () => {
     render(<PanelBar onClose={vi.fn()} onOpen={vi.fn()} open="beachcomber" />);
 
@@ -81,6 +81,44 @@ describe('PanelBar', () => {
     expect(document.activeElement).toBe(
       screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, KEYS[1] as PanelKey)),
     );
+  });
+
+  it("calls onClose once and onOpen never when the open panel's own button is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onClose = vi.fn();
+    render(<PanelBar onClose={onClose} onOpen={onOpen} open="helm" />);
+
+    await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("calls onClose once and onOpen never when Enter is pressed on the open panel's own button", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onClose = vi.fn();
+    render(<PanelBar onClose={onClose} onOpen={onOpen} open="helm" />);
+
+    screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')).focus();
+    await user.keyboard('{Enter}');
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("calls onOpen once with the clicked key and onClose never when ANOTHER panel's button is clicked", async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onClose = vi.fn();
+    render(<PanelBar onClose={onClose} onOpen={onOpen} open="beachcomber" />);
+
+    await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
+
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledWith('helm');
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('closes from the close affordance and from Escape on the strip', async () => {

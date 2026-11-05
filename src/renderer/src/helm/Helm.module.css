@@ -202,11 +202,6 @@
   gap: var(--oc-space-1);
 }
 
-.caveat {
-  color: var(--oc-status-waiting);
-  font-size: var(--oc-text-xs);
-}
-
 /* --- notices -------------------------------------------------------------
  * Colour NEVER carries meaning alone: every notice renders a mono glyph and a
  * heading word beside its hue, and every inline issue prints "Error" or

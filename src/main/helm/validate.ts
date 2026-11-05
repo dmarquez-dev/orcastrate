@@ -3,18 +3,14 @@
  *
  * `error` blocks the save. `warning` does not.
  *
- * THE `hold` DECISION (spec assumption table, approved at Gate 2). The key
- * `crossSessionInbound` is real: it appears in CLI 2.1.235's binary alongside a
- * `peer_inbound_gate`, and `accept` and `refuse` were both observed as values.
- * `hold` was NOT observed — it is named by the design and implied by a "not
- * parking a late peer message" log line, and nothing more. So it validates as a
- * WARNING that says exactly that, and the save proceeds. Refusing it outright
- * would make Helm less capable than the text editor the user can already open
- * the same file in, on the strength of a guess about a value that is probably
- * fine.
+ * `crossSessionInbound`. CLI 2.1.318's binary declares `accept`, `hold` and
+ * `refuse` as the setting's value set, and describes `hold` as parking
+ * cross-session messages for review without letting Claude act on them. So
+ * `hold` is accepted without an issue, exactly like its two siblings, and a
+ * save with it returns no warnings.
  *
- * A value outside the three IS an error: that is not an unverified guess, it is
- * a value the CLI has no branch for.
+ * A value outside the three IS an error: it is a value the CLI has no branch
+ * for, and it blocks the save.
  */
 
 import type {
@@ -22,18 +18,7 @@ import type {
   HelmValidation,
   HelmValidationIssue,
 } from '../../shared/contracts/helm';
-import {
-  CROSS_SESSION_INBOUND_CONFIRMED,
-  CROSS_SESSION_INBOUND_VALUES,
-} from '../../shared/contracts/helm';
-
-/** The CLI build the confirmed value set was read out of. Named in the warning. */
-export const OBSERVED_CLI_VERSION = '2.1.235';
-
-export const HOLD_WARNING_MESSAGE =
-  `'hold' was not confirmed as an accepted value in CLI ${OBSERVED_CLI_VERSION} — ` +
-  `only '${CROSS_SESSION_INBOUND_CONFIRMED.join("' and '")}' were observed in that build. ` +
-  'Saving it is allowed; the CLI may ignore it.';
+import { CROSS_SESSION_INBOUND_VALUES } from '../../shared/contracts/helm';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -114,12 +99,6 @@ export function validateSaveRequest(req: HelmSaveRequest): HelmValidation {
         message:
           `crossSessionInbound must be one of ${CROSS_SESSION_INBOUND_VALUES.join(', ')}, ` +
           `but it is ${JSON.stringify(inbound)}.`,
-      });
-    } else if (!CROSS_SESSION_INBOUND_CONFIRMED.includes(inbound)) {
-      issues.push({
-        field: 'crossSessionInbound',
-        severity: 'warning',
-        message: HOLD_WARNING_MESSAGE,
       });
     }
   }

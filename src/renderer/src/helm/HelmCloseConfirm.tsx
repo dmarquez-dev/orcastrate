@@ -24,7 +24,8 @@
  *   - FOCUS RETURNS on close to whatever had it when the dialog opened, which
  *     is the shell control the user actually pressed. Captured on mount rather
  *     than passed in, because the panel does not know which of the shell's
- *     three affordances raised it.
+ *     affordances raised it: the close button, Escape, a re-click of Helm's
+ *     own strip button, or a switch to another panel.
  *   - TAB IS TRAPPED between the two buttons, and Escape answers "keep
  *     editing" — the way out that loses nothing.
  */

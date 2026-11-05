@@ -3,10 +3,10 @@
  *
  * Each entry is a property whose failure would be a real defect — a settings
  * editor that saves over a file it could not read, a Save button that ignores
- * a blocking error, a caveat quietly reworded. `HelmPanel.test.tsx` runs them
- * against the real panel and expects no failures; `discrimination.test.tsx`
- * runs them against the real panel WITH ONE DEFECT INJECTED and expects the
- * matching property to notice.
+ * a blocking error, a value preselected that nobody chose. `HelmPanel.test.tsx`
+ * runs them against the real panel and expects no failures;
+ * `discrimination.test.tsx` runs them against the real panel WITH ONE DEFECT
+ * INJECTED and expects the matching property to notice.
  *
  * WHY THE PROPERTIES DO THE MOUNTING. Most of them are not statements about
  * one screen — they are statements about a DIFFERENCE between two. "Save is
@@ -23,7 +23,7 @@
 
 import type { CrossSessionInbound } from '@shared/contracts/helm';
 import type { HelmView } from '../contracts/renderer-panels';
-import { CROSS_SESSION_HOLD_CAVEAT, PANEL_TEST_IDS } from '../contracts/renderer-panels';
+import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
 
 import { COMPARISON_FIELDS } from './comparison';
 import { HELM_SAFETY_TEST_IDS, comparisonCellId } from './test-ids';
@@ -172,19 +172,6 @@ export const PANEL_PROPERTIES: readonly PanelProperty[] = [
         out.push('a healthy document rendered no editable control');
       }
       return out;
-    },
-  },
-
-  {
-    name: 'the hold caveat is the frozen constant, character for character',
-    failures(mount) {
-      const caveat = byTestId(mount({}), PANEL_TEST_IDS.helmCrossSessionCaveat);
-      if (caveat === null) return ['no caveat was rendered beside hold'];
-      const text = caveat.textContent ?? '';
-      if (text !== CROSS_SESSION_HOLD_CAVEAT) {
-        return [`the caveat was reworded: ${JSON.stringify(text)}`];
-      }
-      return [];
     },
   },
 

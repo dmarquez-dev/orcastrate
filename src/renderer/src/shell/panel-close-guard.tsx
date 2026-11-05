@@ -127,7 +127,9 @@ export function usePanelCloseGuardHost(
         requestClose: () => transition(null),
         requestOpen: (next: PanelKey) =>
           // Re-opening what is already open is a no-op and the guard is NOT
-          // asked: re-clicking Helm's own button must not raise a dialog.
+          // asked. No shell affordance issues this call: PanelBar routes a
+          // re-click of the open panel's own button to `requestClose`, a
+          // guarded close. The no-op stays as a defence.
           next === open.current ? Promise.resolve() : transition(next),
       },
       register: (next: PanelCloseGuard | null) => {
