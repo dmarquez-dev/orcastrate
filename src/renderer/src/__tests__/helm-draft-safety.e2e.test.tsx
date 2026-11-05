@@ -284,6 +284,45 @@ describe('closing the Helm panel asks before discarding a dirty draft', () => {
     expect(screen.queryByTestId(PANEL_TEST_IDS.panelRegion)).toBeNull();
   });
 
+  it("raises the Helm confirmation on a re-click of Helm's own strip button and keeps the typed model when Keep editing is chosen", async () => {
+    const user = fastUser();
+    const api = stubOrcastrateApi();
+
+    await openHelmWithDirtyDraft(user, api);
+
+    await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
+    const confirm = await screen.findByTestId(HELM_SAFETY_TEST_IDS.closeConfirm);
+
+    await user.click(within(confirm).getByTestId(HELM_SAFETY_TEST_IDS.closeConfirmKeep));
+    await flushPendingWork();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.closeConfirm)).toBeNull();
+    });
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmPanel)).toBeDefined();
+    expect(modelField().value).toBe(TYPED_MODEL);
+  });
+
+  it("closes Helm and opens nothing when a re-click of Helm's own strip button is answered Discard changes and close", async () => {
+    const user = fastUser();
+    const api = stubOrcastrateApi();
+
+    await openHelmWithDirtyDraft(user, api);
+
+    await user.click(screen.getByTestId(testId(PANEL_TEST_IDS.panelBarOpen, 'helm')));
+    const confirm = await screen.findByTestId(HELM_SAFETY_TEST_IDS.closeConfirm);
+
+    await user.click(within(confirm).getByTestId(HELM_SAFETY_TEST_IDS.closeConfirmDiscard));
+    await flushPendingWork();
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(PANEL_TEST_IDS.helmPanel)).toBeNull();
+    });
+    expect(screen.queryByTestId(HELM_SAFETY_TEST_IDS.closeConfirm)).toBeNull();
+    // A re-click is a close, not a switch: no panel takes Helm's place.
+    expect(screen.queryByTestId(PANEL_TEST_IDS.beachcomberPanel)).toBeNull();
+  });
+
   it('closes the Helm panel with no confirmation shown when the draft is clean', async () => {
     const user = fastUser();
     const api = stubOrcastrateApi();

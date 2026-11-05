@@ -82,7 +82,9 @@ export function App(): JSX.Element {
     />
   );
 
-  // THE TWO CLOSE AFFORDANCES AND THE SWITCH ALL ROUTE THROUGH THE CONTROLLER.
+  // EVERY CLOSE AFFORDANCE AND THE SWITCH ROUTE THROUGH THE CONTROLLER: the
+  // strip's close button, Escape, and a re-click of the open panel's own strip
+  // button (which PanelBar turns into `onClose`) all reach `requestClose`.
   // The promise is discarded explicitly at each call site: `PanelBarProps`
   // keeps its synchronous `onOpen(key): void` / `onClose(): void` signatures,
   // and handing a promise-returning function to a void-returning prop is the
