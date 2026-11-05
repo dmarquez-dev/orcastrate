@@ -210,7 +210,9 @@ export interface PanelCloseController {
    * Destination `next`. Replaces the open panel if the guard permits.
    *
    * When `next` is ALREADY the open panel this is a no-op and the guard is NOT
-   * asked — re-clicking the open panel's own button must not raise a dialog.
+   * asked. No shell affordance issues that call — `PanelBar` routes a re-click
+   * of the open panel's own button to `onClose` — so the no-op is a defence,
+   * not a route.
    */
   requestOpen(next: PanelKey): Promise<void>;
 }
@@ -233,8 +235,9 @@ export interface PanelCloseController {
  * `PanelBar` and `PanelRegion` test that opens, switches or closes it still
  * observes a synchronous transition.
  *
- * RE-ENTRANCY, now that the transition is reachable from three affordances
- * (close button, Escape, and the panel-switch buttons):
+ * RE-ENTRANCY, now that the transition is reachable from four affordances
+ * (close button, Escape, the panel-switch buttons, and a re-click of the open
+ * panel's own button):
  *
  *   - AT MOST ONE transition is in flight at a time, across BOTH methods. The
  *     in-flight state is shared, not per-method.
@@ -257,7 +260,9 @@ export interface PanelCloseController {
  * ROUTING: every shell affordance that moves `openPanel` goes through the
  * controller — `PanelBar`'s close button and `PanelRegion`'s `onClose`
  * (including its Escape handler) call `requestClose()`; `PanelBar`'s
- * panel-switch buttons reach `requestOpen()`. `setOpenPanel` is called from
+ * panel-switch buttons reach `requestOpen()`; and a click on the open panel's
+ * own `PanelBar` button calls `onClose` and so reaches `requestClose()`, a
+ * guarded close exactly like the close button's. `setOpenPanel` is called from
  * exactly one place, the controller's own resolution path.
  *
  * `PanelBarProps.onOpen` KEEPS ITS SYNCHRONOUS SIGNATURE, `(key: PanelKey) =>
@@ -594,7 +599,6 @@ export const PANEL_TEST_IDS = {
   helmEnvAdd: 'helm-env-add',
   /** `helm-cross-session:<value>`. */
   helmCrossSession: 'helm-cross-session',
-  helmCrossSessionCaveat: 'helm-cross-session-caveat',
   helmHooksJson: 'helm-hooks-json',
   helmHooksError: 'helm-hooks-error',
   helmSave: 'helm-save',
@@ -608,14 +612,11 @@ export const PANEL_TEST_IDS = {
 } as const;
 
 /**
- * Copy T10 asserts verbatim, for the two statements a user could act on wrongly
- * if either task phrased them loosely.
+ * Copy T10 asserts verbatim, for the statement a user could act on wrongly if
+ * either task phrased it loosely.
  */
 export const UNVERIFIED_PATH_NOTICE =
   "Orcastrate could not read this directory's real location, so the path below is a guess. It is not checked for orphan status.";
-
-export const CROSS_SESSION_HOLD_CAVEAT =
-  'Not confirmed against Claude Code 2.1.235. Only "accept" and "refuse" were observed in the CLI.';
 
 export const PANEL_SLOT_NAMES = ['panelBar', 'panel'] as const;
 
