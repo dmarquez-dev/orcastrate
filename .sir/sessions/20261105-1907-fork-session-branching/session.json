@@ -2,10 +2,10 @@
   "id": "20261105-1907-fork-session-branching",
   "name": "fork-session-branching",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "brief": "Fork a Pod at its current state into a new Pod tab. T1 first verifies, live, that the SDK's standalone forkSession behaves as documented against the CLI the product drives; every other task depends on it, and a refutation stops the session at an escalation whose fallback is the resume + forkSession:true option. T2 adds migration 5 (forked_from_pod_id with ON DELETE SET NULL, forked_from_cc_session_id) and an atomic EventStore.forkPod that copies the parent's lanes and events up to the fork point with ids remapped. T3 adds PodManager.forkPod over an injected SDK port, a shared forkEligibility rule (closed/idle/beached with a session id), and the pod:fork IPC channel with CONFLICT/IO errors. T4 adds a Fork control to each Pod tab that selects the new tab, states why it is unavailable, and shows a fork's ancestry.",
   "started": "2026-11-05T19:07:46Z",
-  "ended": null,
+  "ended": "2026-11-05T22:21:59Z",
   "pushed": true,
   "parent": null,
   "children": [],
@@ -41,7 +41,15 @@
       "started": "2026-11-05T21:59:45Z",
       "ended": "2026-11-05T22:18:11Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "8bd71b3c-e5e8-46c5-b269-b31699393859",
+      "sir": "1.0.22",
+      "started": "2026-11-05T22:21:18Z",
+      "ended": "2026-11-05T22:21:59Z",
+      "outcome": "complete"
     }
   ],
-  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+  "metrics": { "userInteractions": 6, "escalationsRaised": 3, "reviewRounds": 1 }
 }
