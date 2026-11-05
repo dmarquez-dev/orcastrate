@@ -1,15 +1,24 @@
-import { useEffect, useRef, type CSSProperties, type DragEvent, type JSX, type KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useId,
+  useRef,
+  type CSSProperties,
+  type DragEvent,
+  type JSX,
+  type KeyboardEvent,
+} from 'react';
 
 import type { PodTabVm } from '../contracts/renderer-state';
 import { BYPASS_PERMISSIONS_WARNING, TEST_IDS } from '../contracts/renderer-view';
 import { statusToken, testId } from '../shell/contract-runtime';
 import a11y from '../shell/a11y.module.css';
+import { forkControlFor } from './fork-control';
 import { POD_STATUS_LABEL } from './pod-status';
 import { runControlFor } from './run-control';
 import styles from './PodBar.module.css';
 
 /*
- * The three icon glyphs. This app draws its icons as characters — `+` on New
+ * The four icon glyphs. This app draws its icons as characters — `+` on New
  * Pod, `−` on a removed env row, `BYPASS` on the bypass chip — and has no SVG
  * anywhere, so a glyph is the convention rather than a shortcut. Each rides in
  * an `aria-hidden` span with a `data-icon` attribute: the name is what a screen
@@ -19,6 +28,7 @@ import styles from './PodBar.module.css';
 const PLAY = '▶';
 const PAUSE = '❚❚';
 const CROSS = '×';
+const FORK = '⑂';
 
 /**
  * The RUN mode of the run/stop control, suffixed with the PodId:
@@ -53,12 +63,29 @@ export const POD_TAB_STOP_TEST_ID = 'pod-tab-stop';
  */
 export const POD_TAB_DELETE_TEST_ID = 'pod-tab-delete';
 
+/**
+ * The FORK control: `pod-tab-fork:<podId>`. Present for EVERY Pod, in every
+ * status. When the Pod cannot be forked it is `aria-disabled` — never
+ * `disabled` — so a keyboard user can still land on it and hear why.
+ */
+export const POD_TAB_FORK_TEST_ID = 'pod-tab-fork';
+
 export interface PodTabProps {
   tab: PodTabVm;
   index: number;
   total: number;
   dragging: boolean;
   dropTarget: boolean;
+  /**
+   * The tab's ancestry sentence (`forkAncestryFor`), or null for a Pod that
+   * was never forked. Computed by the bar from the current list, because the
+   * parent's title belongs to a different tab.
+   */
+  ancestry: string | null;
+  /** A fork of THIS Pod is in flight. The Fork control reports busy. */
+  forking: boolean;
+  /** Fork the Pod. Called only when the Pod is eligible and not already forking. */
+  onFork(): void;
   onSelect(): void;
   /** STOPS the process. The row and the transcript survive, so it is "Stop". */
   onClose(): void;
@@ -97,6 +124,9 @@ export function PodTab({
   total,
   dragging,
   dropTarget,
+  ancestry,
+  forking,
+  onFork,
   onSelect,
   onClose,
   onOpen,
@@ -131,6 +161,11 @@ export function PodTab({
    */
   const run = runControlFor(status, pod.title);
   const showDeleteControl = !opened;
+  const fork = forkControlFor(pod);
+  const forkAvailable = fork.eligibility === 'eligible' && !forking;
+
+  const ancestryId = useId();
+  const forkReasonId = useId();
 
   const tabRef = useRef<HTMLButtonElement>(null);
   const runRef = useRef<HTMLButtonElement>(null);
@@ -196,6 +231,7 @@ export function PodTab({
     <li className={itemClass}>
       <button
         aria-current={active ? 'true' : undefined}
+        aria-describedby={ancestry === null ? undefined : ancestryId}
         aria-keyshortcuts="Control+ArrowLeft Control+ArrowRight"
         className={tabClass}
         data-pod-tab-index={index}
@@ -209,6 +245,9 @@ export function PodTab({
         onDrop={onDrop}
         onKeyDown={handleKeyDown}
         ref={tabRef}
+        // The ancestry sentence, shown on hover as well as described: a fork's
+        // tab says where it came from to a pointer user and a screen reader.
+        title={ancestry ?? undefined}
         type="button"
       >
         {/*
@@ -298,6 +337,45 @@ export function PodTab({
           {opened ? PAUSE : PLAY}
         </span>
       </button>
+
+      {/*
+        THE FORK CONTROL, present for every Pod. When the Pod cannot be forked
+        it is `aria-disabled`, NOT `disabled`: a disabled button leaves the tab
+        order, and the reason it states would then be unreachable by keyboard.
+        It stays focusable and says why, and activating it does nothing.
+
+        Whether the Pod CAN be forked is `forkEligibility`'s verdict, read
+        through `forkControlFor` — the same function main answers CONFLICT
+        from — and never a status comparison here.
+      */}
+      <button
+        aria-busy={forking ? 'true' : undefined}
+        aria-describedby={fork.reason === null ? undefined : forkReasonId}
+        aria-disabled={fork.eligibility === 'eligible' ? undefined : 'true'}
+        aria-label={fork.accessibleName}
+        className={styles.forkControl}
+        data-eligibility={fork.eligibility}
+        data-testid={testId(POD_TAB_FORK_TEST_ID, pod.id)}
+        onClick={() => {
+          if (forkAvailable) onFork();
+        }}
+        title={fork.reason ?? undefined}
+        type="button"
+      >
+        <span aria-hidden="true" data-icon="fork">
+          {FORK}
+        </span>
+      </button>
+      {fork.reason === null ? null : (
+        <span hidden id={forkReasonId}>
+          {fork.reason}
+        </span>
+      )}
+      {ancestry === null ? null : (
+        <span hidden id={ancestryId}>
+          {ancestry}
+        </span>
+      )}
 
       {showDeleteControl ? (
         <button

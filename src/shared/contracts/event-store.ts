@@ -22,6 +22,7 @@ import type {
   PodId,
   PodStatus,
   Seq,
+  Timestamp,
   ToolUseId,
 } from './events';
 
@@ -93,6 +94,43 @@ export interface CreateLaneInput {
   description: string | null;
 }
 
+export interface ForkPodInput {
+  /** The new Pod's id. CONFLICT if a Pod with this id exists. */
+  id: PodId;
+  /** The Pod being forked. NOT_FOUND if absent. */
+  parentId: PodId;
+  /**
+   * The new Pod's own Claude Code session id — the id the SDK's
+   * `forkSession` returned. Written to the new row's `ccSessionId`.
+   */
+  ccSessionId: string;
+  /**
+   * The Claude Code session id that was forked. Written to the new row's
+   * `forkedFromCcSessionId`. Supplied by the caller, NOT re-read from the
+   * parent row inside the transaction: it records what was actually forked.
+   */
+  sourceCcSessionId: string;
+  /** The new Pod's title, verbatim. */
+  title: string;
+  /**
+   * Copy the parent's events with `seq <= throughSeq`, and no others. The
+   * caller captures it BEFORE the SDK call, so an event the parent appends
+   * while the fork is in flight is not copied. `0` copies no events.
+   */
+  throughSeq: Seq;
+  /**
+   * Mints one fresh LaneId per copied lane. Called once per parent lane, inside
+   * the transaction. A minted id that collides with an existing lane is a
+   * CONFLICT and rolls the whole fork back.
+   */
+  newLaneId: () => LaneId;
+  /**
+   * The fork instant: the new row's `createdAt` and `lastActiveAt`, and the
+   * `endedAt` stamped on any lane copied out of `'running'` (see `forkPod`).
+   */
+  now: Timestamp;
+}
+
 export interface ReadEventsQuery {
   podId: PodId;
   /** Restrict to one lane. Omit for the whole Pod. */
@@ -146,8 +184,57 @@ export interface EventStore {
     >,
   ): Pod;
 
-  /** Deletes the Pod and CASCADEs to its lanes and events. Throws NOT_FOUND. */
+  /**
+   * Deletes the Pod and CASCADEs to its lanes and events. Throws NOT_FOUND.
+   * A Pod forked from it keeps its row, lanes and events; its
+   * `forkedFromPodId` becomes null (`ON DELETE SET NULL`) and its
+   * `forkedFromCcSessionId` is kept.
+   */
   deletePod(id: PodId): void;
+
+  /**
+   * Creates the fork in ONE TRANSACTION and returns the new Pod as `getPod`
+   * would read it back. All-or-nothing: on ANY throw no pod, lane or event row
+   * from this call remains.
+   *
+   * THE NEW POD ROW
+   *   id, title, ccSessionId            from the input
+   *   cwd, permissionMode, envOverrides copied from the parent row
+   *   status                            'closed'
+   *   tabOrder                          (max tabOrder over ALL pods) + 1,
+   *                                     computed inside the transaction, so the
+   *                                     fork sorts last in `listPods()`
+   *   forkedFromPodId                   input.parentId
+   *   forkedFromCcSessionId             input.sourceCcSessionId
+   *   createdAt, lastActiveAt           input.now
+   *
+   * LANES. Every lane the parent has is copied once, with a fresh id from
+   * `newLaneId`, `podId` = the new Pod, and `parentLaneId` remapped through the
+   * same old->new map (null stays null). Every other column is copied
+   * verbatim, EXCEPT: a lane whose status is `'running'` in the parent is
+   * written `'stopped'` with `endedAt = input.now` in the fork, because the
+   * fork is born `'closed'` and holds no runner.
+   *
+   * EVENTS. Every parent event with `seq <= throughSeq` is copied once, in seq
+   * order, with the SAME `seq`, `type`, `createdAt` and `raw`, `podId` = the
+   * new Pod, `laneId` remapped. Inside `payload`, exactly these lane
+   * references are remapped through the same map, and nothing else in the
+   * payload changes:
+   *   lane_opened  payload.lane.id, payload.lane.podId (-> new Pod),
+   *                payload.lane.parentLaneId
+   *   lane_closed  payload.laneId
+   *   tool_use     payload.dispatchedLaneId, when present
+   * After the fork, the new Pod's next `append` is assigned
+   * `latestSeq(newPod) + 1`, exactly as for any Pod.
+   *
+   * THE PARENT is not written: its row, lanes and events read back identical.
+   *
+   * ERRORS:
+   *   NOT_FOUND  no Pod with id `parentId`
+   *   CONFLICT   a Pod with id `id` exists, or a minted LaneId collides
+   *   IO         the underlying SQLite call failed
+   */
+  forkPod(input: ForkPodInput): Pod;
 
   // -- lanes ---------------------------------------------------------------
 

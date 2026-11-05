@@ -563,6 +563,28 @@ export interface WorkspaceActions {
   reconnectPod(podId: PodId): Promise<ActionResult<Pod>>;
 
   /**
+   * Forks the Pod `podId` into a NEW Pod through `pods.fork`, and resolves
+   * that new Pod. Resolves and NEVER rejects, like every action here.
+   *
+   * ON SUCCESS the returned Pod is added to the Pod list — where its server
+   * `tabOrder` places it — and `activePodId` becomes its id. The new Pod is
+   * `'closed'`: forking starts no process, and opening the fork is the ordinary
+   * `openPod`.
+   *
+   * ON FAILURE main's `IpcError` is passed through unmodified, and neither the
+   * Pod list nor `activePodId` changes.
+   *
+   * A second call for the same `podId` while one is in flight issues NO second
+   * `pods.fork`: it resolves the in-flight call's result. A double activation
+   * of the Fork control makes one fork, not two.
+   *
+   * Eligibility is NOT re-checked here. Main answers `CONFLICT` for an
+   * ineligible Pod, and the Fork control reads `forkEligibility` from
+   * `@shared/fork-eligibility` to decide whether to offer the call at all.
+   */
+  forkPod(podId: PodId): Promise<ActionResult<Pod>>;
+
+  /**
    * Switches the active Pod. Clears that Pod's `unreadEventCount` and, on
    * first activation, triggers the backfill. Idempotent.
    */

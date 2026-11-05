@@ -43,6 +43,8 @@ function makePod(overrides: Partial<Pod> = {}): Pod {
     tabOrder: 0,
     createdAt: '2026-08-20T00:00:00.000Z',
     lastActiveAt: '2026-08-20T00:00:00.000Z',
+    forkedFromPodId: null,
+    forkedFromCcSessionId: null,
     ...overrides,
   };
 }

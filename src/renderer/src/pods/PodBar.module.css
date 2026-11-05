@@ -299,6 +299,40 @@
 }
 
 /*
+ * Fork. Present for every Pod. Neutral, because forking destroys nothing and
+ * starts nothing; its name ("Fork <title>") and its glyph shape carry it.
+ *
+ * When the Pod cannot be forked the control is `aria-disabled` rather than
+ * `disabled`, so it stays in the tab order with its reason; it is dimmed and
+ * shows the not-allowed cursor. While a fork is in flight it is `aria-busy`.
+ */
+.forkControl {
+  display: flex;
+  align-items: center;
+  margin-inline-start: var(--oc-space-1);
+  padding-inline: var(--oc-space-1);
+  border: 0;
+  border-radius: var(--oc-radius-sm);
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  font-size: var(--oc-text-sm);
+}
+
+.forkControl:hover {
+  background: var(--oc-bg-hover);
+}
+
+.forkControl[aria-disabled='true'] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.forkControl[aria-busy='true'] {
+  cursor: progress;
+}
+
+/*
  * GLYPH SIZE PARITY, in ONE rule so the two cannot drift.
  *
  * These are TEXT GLYPHS, not SVG — `▶`, `❚❚` and `×` — and per-character
@@ -314,7 +348,8 @@
  * depends on is covered by assertions that predate this rule.
  */
 .runControl [data-icon],
-.deleteControl [data-icon] {
+.deleteControl [data-icon],
+.forkControl [data-icon] {
   display: inline-flex;
   width: var(--oc-space-3);
   height: var(--oc-space-3);

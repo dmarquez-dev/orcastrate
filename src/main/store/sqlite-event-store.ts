@@ -13,6 +13,7 @@ import type {
   CreateLaneInput,
   CreatePodInput,
   EventStore,
+  ForkPodInput,
   OpenEventStore,
   ReadEventsQuery,
 } from '../../shared/contracts/event-store';
@@ -38,7 +39,8 @@ const MAX_READ_LIMIT = 5000;
 
 const POD_COLUMNS = `
   id, title, cwd, cc_session_id, permission_mode, env_overrides,
-  tab_order, status, created_at, last_active_at
+  tab_order, status, created_at, last_active_at,
+  forked_from_pod_id, forked_from_cc_session_id
 `;
 const LANE_COLUMNS = `
   id, pod_id, kind, tool_use_id, agent_id, parent_lane_id, depth,
@@ -167,12 +169,14 @@ class SqliteEventStore implements EventStore {
       const timestamp = now();
       const row = this.stmt<PodRow>(
         `INSERT INTO pods (id, title, cwd, cc_session_id, permission_mode, env_overrides,
-                           tab_order, status, created_at, last_active_at)
+                           tab_order, status, created_at, last_active_at,
+                           forked_from_pod_id, forked_from_cc_session_id)
          -- Born 'closed': a Pod that has never been opened has no PodRunner,
          -- so its tab must offer Open. Under the old four-status union this
          -- row was 'idle', which claimed open-and-quiet about a Pod with no
          -- process. Requires migration 3's widened CHECK.
-         VALUES (?, ?, ?, NULL, ?, ?, ?, 'closed', ?, ?)
+         -- A created Pod was never forked: both ancestry columns are NULL.
+         VALUES (?, ?, ?, NULL, ?, ?, ?, 'closed', ?, ?, NULL, NULL)
          RETURNING ${POD_COLUMNS}`,
       ).get(
         input.id,
@@ -237,6 +241,102 @@ class SqliteEventStore implements EventStore {
       // is armed by `PRAGMA foreign_keys = ON` in the constructor.
       const result = this.stmt('DELETE FROM pods WHERE id = ?').run(id);
       if (result.changes === 0) throw new EventStoreError('NOT_FOUND', `deletePod: no pod with id ${id}`);
+    });
+  }
+
+  /**
+   * One IMMEDIATE transaction: the pod row, every lane, every event up to
+   * `throughSeq`. Any throw — NOT_FOUND below, or a constraint the database
+   * refuses (duplicate pod id, colliding minted LaneId) — rolls the whole
+   * transaction back, so no row from this call survives a failure.
+   */
+  forkPod(input: ForkPodInput): Pod {
+    return guard('forkPod', () => {
+      const writeFork = (fork: ForkPodInput): Pod => {
+        const parent = this.stmt<PodRow>(`SELECT ${POD_COLUMNS} FROM pods WHERE id = ?`).get(fork.parentId);
+        if (parent === undefined) {
+          throw new EventStoreError('NOT_FOUND', `forkPod: no pod with id ${fork.parentId}`);
+        }
+
+        // tab_order is computed by SQLite inside this transaction, over ALL
+        // pods, so the fork sorts last however sparse the existing orders are.
+        const podRow = this.stmt<PodRow>(
+          `INSERT INTO pods (id, title, cwd, cc_session_id, permission_mode, env_overrides,
+                             tab_order, status, created_at, last_active_at,
+                             forked_from_pod_id, forked_from_cc_session_id)
+           VALUES (?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(tab_order), -1) + 1 FROM pods),
+                   'closed', ?, ?, ?, ?)
+           RETURNING ${POD_COLUMNS}`,
+        ).get(
+          fork.id,
+          fork.title,
+          parent.cwd,
+          fork.ccSessionId,
+          parent.permission_mode,
+          parent.env_overrides,
+          fork.now,
+          fork.now,
+          parent.id,
+          fork.sourceCcSessionId,
+        );
+        if (podRow === undefined) throw new EventStoreError('IO', 'forkPod: insert returned no row');
+
+        // One minted id per parent lane, minted before any lane is written so
+        // the map is complete when parent_lane_id is remapped.
+        const lanes = this.stmt<LaneRow>(
+          `SELECT ${LANE_COLUMNS} FROM lanes WHERE pod_id = ? ORDER BY depth ASC, started_at ASC, id ASC`,
+        ).all(parent.id);
+        const laneMap = new Map<LaneId, LaneId>();
+        for (const lane of lanes) laneMap.set(lane.id, fork.newLaneId());
+        const remap = (id: LaneId): LaneId => laneMap.get(id) ?? id;
+
+        const insertLane = this.stmt(
+          `INSERT INTO lanes (${LANE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        );
+        for (const lane of parentsFirst(lanes)) {
+          // The fork is born 'closed' and holds no runner, so a lane running in
+          // the parent cannot be running in the fork.
+          const wasRunning = lane.status === 'running';
+          insertLane.run(
+            remap(lane.id),
+            podRow.id,
+            lane.kind,
+            lane.tool_use_id,
+            lane.agent_id,
+            lane.parent_lane_id === null ? null : remap(lane.parent_lane_id),
+            lane.depth,
+            lane.subagent_type,
+            lane.description,
+            wasRunning ? 'stopped' : lane.status,
+            lane.started_at,
+            wasRunning ? fork.now : lane.ended_at,
+          );
+        }
+
+        // Same seq as the parent, so the fork's next append is throughSeq + 1
+        // through the ordinary MAX(seq) + 1 path.
+        const events = this.stmt<EventRow>(
+          `SELECT ${EVENT_COLUMNS} FROM events WHERE pod_id = ? AND seq <= ? ORDER BY seq ASC`,
+        ).all(parent.id, fork.throughSeq);
+        const insertEvent = this.stmt(
+          `INSERT INTO events (pod_id, lane_id, seq, type, payload, raw, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        );
+        for (const event of events) {
+          insertEvent.run(
+            podRow.id,
+            remap(event.lane_id),
+            event.seq,
+            event.type,
+            remapPayloadLanes(event.type, event.payload, remap, podRow.id),
+            event.raw,
+            event.created_at,
+          );
+        }
+
+        return toPod(podRow);
+      };
+      return this.db.transaction(writeFork).immediate(input);
     });
   }
 
@@ -412,6 +512,74 @@ class SqliteEventStore implements EventStore {
       if (this.db.open) this.db.close();
     });
   }
+}
+
+/**
+ * Orders lanes so every lane follows the lane its `parent_lane_id` names.
+ * `lanes.parent_lane_id` is an immediate foreign key, so a Calf's copy cannot
+ * be written before its parent's copy. A parent outside the set (which the
+ * store never writes) imposes no ordering.
+ */
+function parentsFirst(lanes: LaneRow[]): LaneRow[] {
+  const inSet = new Set(lanes.map((l) => l.id));
+  const placed = new Set<string>();
+  const ordered: LaneRow[] = [];
+  let remaining = lanes;
+  while (remaining.length > 0) {
+    const ready = remaining.filter(
+      (l) => l.parent_lane_id === null || !inSet.has(l.parent_lane_id) || placed.has(l.parent_lane_id),
+    );
+    if (ready.length === 0) throw new EventStoreError('IO', 'forkPod: lanes form a parent_lane_id cycle');
+    for (const lane of ready) {
+      ordered.push(lane);
+      placed.add(lane.id);
+    }
+    remaining = remaining.filter((l) => !placed.has(l.id));
+  }
+  return ordered;
+}
+
+/**
+ * Rewrites exactly the lane references `forkPod` remaps inside a stored
+ * payload, and nothing else:
+ *
+ *   lane_opened  payload.lane.id, payload.lane.podId (-> forkId), payload.lane.parentLaneId
+ *   lane_closed  payload.laneId
+ *   tool_use     payload.dispatchedLaneId, when present
+ *
+ * Every other event type's payload text is returned byte-for-byte.
+ */
+function remapPayloadLanes(
+  type: string,
+  payloadText: string,
+  remap: (id: LaneId) => LaneId,
+  forkId: PodId,
+): string {
+  if (type !== 'lane_opened' && type !== 'lane_closed' && type !== 'tool_use') return payloadText;
+
+  let payload: unknown;
+  try {
+    payload = JSON.parse(payloadText);
+  } catch (err) {
+    throw new EventStoreError('IO', 'corrupt JSON in column "payload"', { cause: err });
+  }
+  if (typeof payload !== 'object' || payload === null) return payloadText;
+  const p = payload as Record<string, unknown>;
+
+  if (type === 'lane_opened') {
+    const lane = p['lane'];
+    if (typeof lane === 'object' && lane !== null) {
+      const l = lane as Record<string, unknown>;
+      if (typeof l['id'] === 'string') l['id'] = remap(l['id']);
+      if ('podId' in l) l['podId'] = forkId;
+      if (typeof l['parentLaneId'] === 'string') l['parentLaneId'] = remap(l['parentLaneId']);
+    }
+  } else if (type === 'lane_closed') {
+    if (typeof p['laneId'] === 'string') p['laneId'] = remap(p['laneId']);
+  } else if (typeof p['dispatchedLaneId'] === 'string') {
+    p['dispatchedLaneId'] = remap(p['dispatchedLaneId']);
+  }
+  return JSON.stringify(p);
 }
 
 /**

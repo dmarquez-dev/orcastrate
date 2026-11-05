@@ -27,7 +27,7 @@ import type { CreatePodRunner } from '../../../src/shared/contracts/pod-runner';
 import type { IpcMainLike } from '../../../src/main/ipc';
 import { registerIpcHandlers } from '../../../src/main/ipc';
 import { createPodRunnerWith, parseStreamLine } from '../../../src/main/pod';
-import type { PodStreamItem } from '../../../src/main/pod';
+import type { ForkSession, PodStreamItem } from '../../../src/main/pod';
 import { createPushes, PodManager, ROUTING_MODE } from '../../../src/main/pod-manager';
 import { openEventStore } from '../../../src/main/store';
 import { EVENT_CHANNELS } from '../../../src/shared/contracts/ipc';
@@ -125,7 +125,16 @@ export interface HarnessOptions {
    * depends on real time.
    */
   now?: () => string;
+  /**
+   * The fork port handed to `PodManager`. Default: one that REJECTS, so no test
+   * built on this harness can reach the SDK's real `forkSession` by omission.
+   */
+  forkSession?: ForkSession;
 }
+
+/** The harness default: refuses, and says why. */
+const noForkPortSupplied: ForkSession = () =>
+  Promise.reject(new Error('this test supplied no fork port; pass forkSession to makeHarness'));
 
 export function makeHarness(options: HarnessOptions = {}): Harness {
   const store = openEventStore(':memory:');
@@ -157,6 +166,7 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
     now:
       options.now ?? ((): string => new Date(Date.UTC(2026, 7, 18, 0, 0, (clock += 1))).toISOString()),
     isDirectory: options.isDirectory ?? ((): boolean => true),
+    forkSession: options.forkSession ?? noForkPortSupplied,
     // Captured rather than printed: a test asserts on what was logged, and the
     // suite stays quiet.
     logger: {

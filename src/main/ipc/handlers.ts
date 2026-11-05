@@ -176,6 +176,10 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): string[] {
 
   register(INVOKE_CHANNELS.podReconnect, (podId) => manager.reconnectPod(requirePodId(podId)));
 
+  // The manager owns eligibility, the SDK call and the store write; this
+  // boundary only proves the PodId is a non-empty string.
+  register(INVOKE_CHANNELS.podFork, (podId) => manager.forkPod(requirePodId(podId)));
+
   register(INVOKE_CHANNELS.podSend, async (podId, text) => {
     const id = requirePodId(podId);
     await manager.send(id, requireText(text, 'text'));

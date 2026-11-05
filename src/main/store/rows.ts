@@ -30,6 +30,10 @@ export interface PodRow {
   status: string;
   created_at: string;
   last_active_at: string;
+  /** Added by migration 5. NULL for a Pod never forked, or whose parent was deleted. */
+  forked_from_pod_id: string | null;
+  /** Added by migration 5. NULL for a Pod never forked. */
+  forked_from_cc_session_id: string | null;
 }
 
 export interface LaneRow {
@@ -86,6 +90,8 @@ export function toPod(row: PodRow): Pod {
     status: row.status as PodStatus,
     createdAt: row.created_at,
     lastActiveAt: row.last_active_at,
+    forkedFromPodId: row.forked_from_pod_id,
+    forkedFromCcSessionId: row.forked_from_cc_session_id,
   };
 }
 

@@ -100,6 +100,7 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
       open: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podOpen, podId),
       close: (podId: PodId) => call<void>(INVOKE_CHANNELS.podClose, podId),
       reconnect: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podReconnect, podId),
+      fork: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podFork, podId),
       send: (podId: PodId, text: string) =>
         call<void>(INVOKE_CHANNELS.podSend, podId, text),
       interrupt: (podId: PodId) => call<void>(INVOKE_CHANNELS.podInterrupt, podId),

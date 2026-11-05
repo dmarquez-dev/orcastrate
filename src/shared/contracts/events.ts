@@ -209,6 +209,19 @@ export interface Pod {
   status: PodStatus;
   createdAt: Timestamp;
   lastActiveAt: Timestamp;
+  /**
+   * The Pod this one was forked from. null for a Pod that was never forked,
+   * AND null after its parent was deleted (`ON DELETE SET NULL`). Immutable
+   * after creation: not an `updatePod` patch key.
+   */
+  forkedFromPodId: PodId | null;
+  /**
+   * The Claude Code session id that was forked to make this Pod. null for a
+   * Pod that was never forked. SURVIVES the parent's deletion, so a fork whose
+   * parent is gone reads `{ forkedFromPodId: null, forkedFromCcSessionId: '<id>' }`.
+   * Immutable after creation: not an `updatePod` patch key.
+   */
+  forkedFromCcSessionId: string | null;
 }
 
 // ---------------------------------------------------------------------------

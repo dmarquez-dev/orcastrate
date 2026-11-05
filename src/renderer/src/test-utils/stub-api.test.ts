@@ -61,8 +61,8 @@ describe('stubOrcastrateApi — coverage of the frozen surface', () => {
     expect(eventKeys.length).toBe(6);
   });
 
-  it('covers all 21 invoke channels, so the stub cannot lag the surface', () => {
-    expect(invokeKeys.length).toBe(21);
+  it('covers all 22 invoke channels, so the stub cannot lag the surface', () => {
+    expect(invokeKeys.length).toBe(22);
   });
 
   it('resolves an { ok: true } envelope on every invoke channel by default', async () => {
@@ -183,6 +183,30 @@ describe('stubOrcastrateApi — overrides and call recording', () => {
     });
     expect(expectOk(await api.pods.list())).toEqual([pod]);
     expect(expectOk(await api.lanes.list('pod-9'))).toEqual([]);
+  });
+
+  it('defaults pods.fork to a closed Pod forked from the PodId it was given', async () => {
+    const api = stubOrcastrateApi();
+
+    const forked = expectOk(await api.pods.fork('pod-1'));
+
+    expect(forked.id).not.toBe('pod-1');
+    expect(forked.status).toBe('closed');
+    expect(forked.forkedFromPodId).toBe('pod-1');
+    expect(forked.forkedFromCcSessionId).not.toBeNull();
+    expect(forked.ccSessionId).not.toBeNull();
+    expect(api.calls.podFork).toEqual([['pod-1']]);
+  });
+
+  it('lets a caller override pods.fork through the existing overrides argument', async () => {
+    const replacement = makeStubPod({ id: 'chosen-fork', forkedFromPodId: 'pod-1' });
+    const api = stubOrcastrateApi({
+      pods: { fork: async () => ({ ok: true, value: replacement }) },
+    });
+
+    expect(expectOk(await api.pods.fork('pod-1'))).toBe(replacement);
+    // The other pods methods keep their defaults.
+    expect(expectOk(await api.pods.list())).toEqual([]);
   });
 
   it('records the arguments each channel was called with', async () => {

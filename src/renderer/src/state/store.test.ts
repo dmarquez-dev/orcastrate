@@ -197,6 +197,13 @@ const ACTION_CASES: ChannelCase[] = [
     },
   },
   {
+    channel: 'podFork',
+    run: (store) => store.actions.forkPod(POD),
+    reject: (api) => {
+      api.pods.fork = boom;
+    },
+  },
+  {
     channel: 'eventsRead',
     run: (store) => store.actions.loadMoreEvents(POD),
     reject: (api) => {
@@ -1126,6 +1133,7 @@ describe('the pane model (criterion 10)', () => {
       openPod: [POD],
       closePod: [POD],
       reconnectPod: [POD],
+      forkPod: [POD],
       setActivePod: [POD],
       setComposerText: [POD, 'hello'],
       sendComposer: [POD],
@@ -1676,6 +1684,87 @@ describe('deletePod takes a request and reports a result', () => {
 
     expect(result.ok).toBe(false);
     expect(store.getState().pods.map((pod) => pod.id)).toEqual([POD]);
+    store.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// forkPod — the new Pod is listed and selected; a failure touches nothing
+// ---------------------------------------------------------------------------
+
+describe('forkPod', () => {
+  const PARENT = makeStubPod({ id: POD, title: 'Parent', ccSessionId: 'cc-parent' });
+  const OTHER = makeStubPod({ id: 'pod-2', title: 'Other', tabOrder: 1 });
+  const FORKED = makeStubPod({
+    id: 'pod-1-fork',
+    title: 'Parent (fork)',
+    tabOrder: 2,
+    ccSessionId: 'cc-fork',
+    forkedFromPodId: POD,
+    forkedFromCcSessionId: 'cc-parent',
+  });
+
+  /** Two Pods listed, the parent active, and `pods.fork` answered by `fork`. */
+  async function forkStore(
+    fork: (podId: string) => Promise<IpcResult<Pod>>,
+  ): Promise<WorkspaceStateStore> {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [PARENT, OTHER] }), fork },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().activePodId).toBe(POD);
+    return store;
+  }
+
+  it('adds the returned Pod to the list and makes it the active Pod', async () => {
+    const store = await forkStore(async () => ({ ok: true, value: FORKED }));
+
+    const result = await store.actions.forkPod(POD);
+
+    expect(result).toEqual({ ok: true, value: FORKED });
+    expect(store.getState().pods.map((pod) => pod.id)).toEqual([POD, 'pod-2', 'pod-1-fork']);
+    expect(store.getState().activePodId).toBe('pod-1-fork');
+    store.stop();
+  });
+
+  it('resolves the failure and leaves the list and the active Pod unchanged', async () => {
+    const error = ipcError('CONFLICT', 'pod-1 is mid-turn and cannot be forked');
+    const store = await forkStore(async () => ({ ok: false, error }));
+    const podsBefore = store.getState().pods;
+
+    const result = await store.actions.forkPod(POD);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe(error);
+    expect(store.getState().pods).toEqual(podsBefore);
+    expect(store.getState().activePodId).toBe(POD);
+    store.stop();
+  });
+
+  it('issues one pods.fork for two calls made while the first is still pending', async () => {
+    const calls: string[] = [];
+    let settle: (result: IpcResult<Pod>) => void = () => {};
+    const store = await forkStore(
+      (podId) =>
+        new Promise<IpcResult<Pod>>((resolve) => {
+          calls.push(podId);
+          settle = resolve;
+        }),
+    );
+
+    const first = store.actions.forkPod(POD);
+    const second = store.actions.forkPod(POD);
+    await flush();
+    expect(calls).toEqual([POD]);
+
+    settle({ ok: true, value: FORKED });
+    // Both callers get the one fork's answer, and only one Pod was added.
+    expect(await first).toEqual({ ok: true, value: FORKED });
+    expect(await second).toEqual({ ok: true, value: FORKED });
+    expect(calls).toEqual([POD]);
+    expect(store.getState().pods.filter((pod) => pod.id === 'pod-1-fork')).toHaveLength(1);
     store.stop();
   });
 });

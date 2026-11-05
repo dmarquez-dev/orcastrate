@@ -38,10 +38,10 @@ afterEach(async () => {
 });
 
 describe('the frozen channel constants themselves', () => {
-  it('declares exactly 21 invoke channels, all with distinct wire names', () => {
+  it('declares exactly 22 invoke channels, all with distinct wire names', () => {
     const keys = Object.keys(INVOKE_CHANNELS);
     const values = Object.values(INVOKE_CHANNELS);
-    expect(keys.length).toBe(21);
+    expect(keys.length).toBe(22);
     expect(new Set(values).size).toBe(values.length);
   });
 
@@ -77,7 +77,13 @@ describe('invoke channels (criterion 2)', () => {
 
     expect(new Set(installed).size, 'a channel was registered twice').toBe(installed.length);
     expect([...installed].sort()).toEqual([...declared].sort());
-    expect(installed.length).toBe(21);
+    expect(installed.length).toBe(22);
+  });
+
+  it("names the fork channel 'pod:fork' and registers exactly one handler for it", () => {
+    expect(INVOKE_CHANNELS.podFork).toBe('pod:fork');
+    const installed = harness().channels;
+    expect(installed.filter((channel) => channel === 'pod:fork')).toHaveLength(1);
   });
 
   /**
@@ -285,6 +291,7 @@ describe('openness is derived from status, never carried beside it', () => {
     open: true,
     close: true,
     reconnect: true,
+    fork: true,
     send: true,
     interrupt: true,
     setPermissionMode: true,
@@ -304,6 +311,7 @@ describe('openness is derived from status, never carried beside it', () => {
     update: Exact<ValueOf<'update'>, Pod>;
     open: Exact<ValueOf<'open'>, Pod>;
     reconnect: Exact<ValueOf<'reconnect'>, Pod>;
+    fork: Exact<ValueOf<'fork'>, Pod>;
     // AMENDED: `delete` now reports what happened rather than resolving
     // `void`. The exactness check is what stops the report growing a field the
     // contract has not admitted.
@@ -318,6 +326,7 @@ describe('openness is derived from status, never carried beside it', () => {
     update: true,
     open: true,
     reconnect: true,
+    fork: true,
     delete: true,
     close: true,
     send: true,
@@ -351,6 +360,7 @@ describe('openness is derived from status, never carried beside it', () => {
     open: true,
     close: true,
     reconnect: true,
+    fork: true,
     send: true,
     interrupt: true,
     setPermissionMode: true,

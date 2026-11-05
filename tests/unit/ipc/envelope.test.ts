@@ -55,6 +55,7 @@ const VALID_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podInterrupt]: ['p1'],
   [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'plan'],
   [INVOKE_CHANNELS.podReconnect]: ['p1'],
+  [INVOKE_CHANNELS.podFork]: ['p1'],
   [INVOKE_CHANNELS.laneList]: ['p1'],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1' } satisfies ReadEventsRequest],
   [INVOKE_CHANNELS.permissionRespond]: [
@@ -86,6 +87,7 @@ const BAD_ARGS: Record<string, unknown[]> = {
   // a mode the CLI accepts but Orcastrate deliberately does not expose.
   [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'dontAsk'],
   [INVOKE_CHANNELS.podReconnect]: [['p1']],
+  [INVOKE_CHANNELS.podFork]: [''],
   [INVOKE_CHANNELS.laneList]: [false],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1', limit: -3 }],
   [INVOKE_CHANNELS.permissionRespond]: [{ podId: 'p1', requestId: 'r1', decision: 'maybe' }],
@@ -149,6 +151,7 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
     openPod: boom,
     closePod: boom,
     reconnectPod: boom,
+    forkPod: boom,
     send: boom,
     interrupt: boom,
     setPermissionMode: boom,
@@ -159,7 +162,8 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
   };
 
   // The panel ports fail the same way the manager does, so the sweep below
-  // covers all 21 channels rather than 15 plus six that quietly succeed.
+  // covers every channel in INVOKE_CHANNELS, not only the manager's while the
+  // six panel channels quietly succeed.
   const beachcomber = fakeBeachcomberService();
   const helm = fakeHelmService();
   beachcomber.throwWith(err());
@@ -228,6 +232,20 @@ describe('no handler ever rejects (criterion 3)', () => {
     for (const channel of Object.values(INVOKE_CHANNELS)) {
       const result = await rig.invoke(channel, ...(VALID_ARGS[channel] ?? []));
       await expectFailure(result, channel);
+    }
+  });
+
+  /**
+   * The sweep above would also pass if `pod:fork` never reached `forkPod` at
+   * all — a missing member throws a TypeError, which is INTERNAL and still
+   * `{ ok: false }`. Asking for a code only the manager's throw can produce
+   * proves the handler reached the throwing `forkPod`.
+   */
+  it("pod:fork resolves { ok: false } carrying forkPod's own failure, thrown or rejected", async () => {
+    for (const mode of ['throw', 'reject'] as const) {
+      const rig = rigThatThrows(() => new EventStoreError('CONFLICT', 'fork clash'), mode);
+      const result = await rig.invoke(INVOKE_CHANNELS.podFork, 'p1');
+      expect(await expectFailure(result, INVOKE_CHANNELS.podFork)).toBe('CONFLICT');
     }
   });
 
