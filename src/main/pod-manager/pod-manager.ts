@@ -9,9 +9,10 @@
  *                         -> push:podEvent (carrying the store-assigned seq)
  *
  * Nothing here imports `electron`. The window transport arrives as `Pushes`,
- * the SDK arrives as `CreatePodRunner`, and the filesystem check arrives as
- * `isDirectory` — so the whole pipeline runs in a plain Node test with an
- * in-memory store and a fixture-driven fake SDK.
+ * the SDK arrives as `CreatePodRunner` (and its session fork as `ForkSession`),
+ * and the filesystem check arrives as `isDirectory` — so the whole pipeline
+ * runs in a plain Node test with an in-memory store and a fixture-driven fake
+ * SDK.
  *
  * ---------------------------------------------------------------------------
  * Three hazards this file exists to absorb
@@ -47,7 +48,7 @@
 import { statSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 
-import type { EventStore } from '../../shared/contracts/event-store';
+import { EventStoreError, type EventStore } from '../../shared/contracts/event-store';
 import type {
   AgentId,
   Lane,
@@ -76,9 +77,10 @@ import type {
   PodRunnerHandlers,
 } from '../../shared/contracts/pod-runner';
 
+import { forkEligibility } from '../../shared/fork-eligibility';
 import { cwdMissing, IpcFailure, notFound } from '../ipc/failure';
 import { createLaneRouter } from '../lane';
-import { PodRunnerError, UNROUTED_LANE_ID } from '../pod';
+import { defaultForkSession, PodRunnerError, UNROUTED_LANE_ID, type ForkSession } from '../pod';
 
 import {
   armPendingEcho,
@@ -122,6 +124,12 @@ export interface PodManagerDeps {
   now?: () => string;
   /** Injectable filesystem probe for the `cwd` capability check. */
   isDirectory?: (path: string) => boolean;
+  /**
+   * The SDK's session fork, as a port. Default: `defaultForkSession` from
+   * `../pod`, so `src/main/index.ts` supplies nothing. Every test supplies a
+   * fake, so no test reaches the real `forkSession`.
+   */
+  forkSession?: ForkSession;
   /** Where non-fatal pipeline failures go. */
   logger?: Pick<Console, 'warn' | 'error'>;
 }
@@ -140,6 +148,7 @@ export interface PodManagerApi {
   openPod(podId: PodId): Promise<Pod>;
   closePod(podId: PodId): Promise<void>;
   reconnectPod(podId: PodId): Promise<Pod>;
+  forkPod(podId: PodId): Promise<Pod>;
   send(podId: PodId, text: string): Promise<void>;
   interrupt(podId: PodId): Promise<void>;
   setPermissionMode(podId: PodId, mode: PermissionMode): Promise<void>;
@@ -206,6 +215,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   readonly #newId: () => string;
   readonly #now: () => string;
   readonly #isDirectory: (path: string) => boolean;
+  readonly #forkSession: ForkSession;
   readonly #log: Pick<Console, 'warn' | 'error'>;
 
   /** Criterion 6: the live runner set. One entry per OPEN Pod, keyed by PodId. */
@@ -221,6 +231,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     this.#newId = deps.newId ?? ((): string => randomUUID());
     this.#now = deps.now ?? ((): string => new Date().toISOString());
     this.#isDirectory = deps.isDirectory ?? defaultIsDirectory;
+    this.#forkSession = deps.forkSession ?? defaultForkSession;
     this.#log = deps.logger ?? console;
   }
 
@@ -486,6 +497,89 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     await this.#dispose(podId);
     const pod = this.#requirePod(podId);
     return this.#start(pod, true);
+  }
+
+  /**
+   * Forks Pod `podId` at its current state into a NEW Pod and resolves it.
+   *
+   * THE FORK IS BORN `'closed'` AND STARTS NOTHING. Its row carries its own
+   * `ccSessionId` from birth — the id the SDK's `forkSession` returned — so
+   * opening it is the ordinary `openPod`, whose resume path then resumes the
+   * fork's session and never the parent's. The parent is not opened, closed or
+   * written.
+   *
+   * NO PUSH. The resolved Pod is the whole announcement and the caller applies
+   * it; nothing about any existing Pod's status or lanes changed.
+   *
+   * THE ORDER IS LOAD-BEARING:
+   *
+   *   1. ELIGIBILITY, from the shared rule the renderer also reads. A refusal
+   *      reaches neither the SDK nor the store.
+   *   2. `throughSeq` IS CAPTURED BEFORE THE SDK CALL. An event the parent
+   *      appends while the fork is in flight belongs to the parent's future,
+   *      not to the fork's past, so it must not be copied.
+   *   3. THE SDK CALL HAPPENS OUTSIDE ANY TRANSACTION. `forkSession` touches
+   *      the filesystem, and nothing that can block on the outside world may
+   *      sit inside a SQLite transaction. `store.forkPod` — one transaction,
+   *      all-or-nothing — is reached only after the port's promise resolved,
+   *      and never when it rejected.
+   *
+   * ERRORS. CONFLICT for an ineligible Pod (the message names the reason);
+   * NOT_FOUND for an unknown Pod, including one deleted while the SDK call was
+   * in flight (the store's NOT_FOUND passes through); IO when the SDK rejects
+   * or the store's write fails with an IO fault, naming the operation and the
+   * parent PodId. On every error no pod, lane or event row was created.
+   */
+  async forkPod(podId: PodId): Promise<Pod> {
+    const parent = this.#requirePod(podId);
+
+    const eligibility = forkEligibility(parent);
+    const sourceCcSessionId = parent.ccSessionId;
+    // The null check repeats what 'eligible' already guarantees; it is here so
+    // the compiler can narrow `sourceCcSessionId`, not as a second rule.
+    if (eligibility !== 'eligible' || sourceCcSessionId === null) {
+      const reason = eligibility === 'eligible' ? 'no-session' : eligibility;
+      throw new IpcFailure('CONFLICT', `Pod ${podId} cannot be forked: ${reason}`);
+    }
+
+    const throughSeq = this.#store.latestSeq(podId);
+
+    let ccSessionId: string;
+    try {
+      ccSessionId = await this.#forkSession(sourceCcSessionId, { dir: parent.cwd });
+    } catch (err) {
+      throw new IpcFailure(
+        'IO',
+        `forkSession failed for pod ${podId} (session ${sourceCcSessionId}): ${describe(err)}`,
+        { cause: err },
+      );
+    }
+
+    try {
+      return this.#store.forkPod({
+        id: this.#newId(),
+        parentId: podId,
+        ccSessionId,
+        sourceCcSessionId,
+        title: `${parent.title} (fork)`,
+        throughSeq,
+        newLaneId: this.#newId,
+        now: this.#now(),
+      });
+    } catch (err) {
+      // The SDK already wrote a session file for a fork that now has no row.
+      // Cleaning it up is out of scope (Beachcomber finds it); naming it here
+      // is what lets anyone find it at all.
+      this.#log.warn(
+        `[orcastrate] forkPod for pod ${podId} failed after the SDK forked session ` +
+          `${sourceCcSessionId} into ${ccSessionId}; that session file is left orphaned`,
+        err,
+      );
+      if (err instanceof EventStoreError && err.code === 'IO') {
+        throw new IpcFailure('IO', `forkPod failed for pod ${podId}: ${err.message}`, { cause: err });
+      }
+      throw err;
+    }
   }
 
   /**

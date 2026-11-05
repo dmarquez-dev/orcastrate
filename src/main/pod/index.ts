@@ -7,6 +7,8 @@ export { createPodRunner, createPodRunnerWith, UNROUTED_LANE_ID } from './pod-ru
 export { PodRunnerError, exitCodeFromError } from './errors';
 export { defaultSdkBridge } from './sdk-bridge';
 export type { SdkBridge, SdkSession } from './sdk-bridge';
+export { defaultForkSession } from './fork-session';
+export type { ForkSession } from './fork-session';
 export { parseStreamLine, asEnvelope } from './stream';
 export type { PodStreamItem } from './stream';
 export {

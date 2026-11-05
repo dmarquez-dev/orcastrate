@@ -86,6 +86,7 @@ export const INVOKE_CHANNEL_METHODS = {
   podInterrupt: ['pods', 'interrupt'],
   podSetPermissionMode: ['pods', 'setPermissionMode'],
   podReconnect: ['pods', 'reconnect'],
+  podFork: ['pods', 'fork'],
   laneList: ['lanes', 'list'],
   eventsRead: ['events', 'read'],
   permissionRespond: ['permissions', 'respond'],
@@ -633,6 +634,22 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       close: channel('podClose', (_podId: PodId): void => undefined),
       reconnect: channel('podReconnect', (podId: PodId): Pod =>
         makeStubPod({ id: podId, status: 'running' }),
+      ),
+      /**
+       * A fork is born `'closed'`, with its own session id and both ancestry
+       * fields naming where it came from — the shape main resolves. Its id is
+       * derived from the parent's so two forks of different Pods never collide
+       * in a suite; a test that cares about the exact Pod overrides this.
+       */
+      fork: channel('podFork', (podId: PodId): Pod =>
+        makeStubPod({
+          id: `${podId}-fork`,
+          title: 'Stub Pod (fork)',
+          ccSessionId: 'cc-stub-fork',
+          status: 'closed',
+          forkedFromPodId: podId,
+          forkedFromCcSessionId: 'cc-stub-parent',
+        }),
       ),
       send: channel('podSend', (_podId: PodId, _text: string): void => undefined),
       interrupt: channel('podInterrupt', (_podId: PodId): void => undefined),

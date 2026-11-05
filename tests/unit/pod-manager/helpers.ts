@@ -34,6 +34,7 @@ import type {
   PodRunnerHandlers,
   PodRunnerOptions,
 } from '../../../src/shared/contracts/pod-runner';
+import type { ForkSession } from '../../../src/main/pod';
 import type { Pushes } from '../../../src/main/pod-manager';
 import { createPushes, PodManager, ROUTING_MODE } from '../../../src/main/pod-manager';
 import { openEventStore } from '../../../src/main/store';
@@ -158,7 +159,8 @@ export type StoreWrite =
   | 'setLaneStatus'
   | 'setLaneAgentId'
   | 'append'
-  | 'appendMany';
+  | 'appendMany'
+  | 'forkPod';
 
 export interface StoreSpy {
   /** Every mutating call, in order, with its arguments. */
@@ -191,6 +193,7 @@ function spyOnWrites(store: EventStore): { store: EventStore; spy: StoreSpy } {
     'setLaneAgentId',
     'append',
     'appendMany',
+    'forkPod',
   ];
 
   const wrapped = new Proxy(store, {
@@ -355,7 +358,17 @@ export interface ManagerHarness {
 
 export interface ManagerHarnessOptions {
   isDirectory?: (path: string) => boolean;
+  /**
+   * The fork port handed to `PodManager`. Default: one that REJECTS, so a test
+   * that forgot to supply a fake can never reach the SDK's real `forkSession`
+   * — it fails with this message instead.
+   */
+  forkSession?: ForkSession;
 }
+
+/** The harness default: refuses, and says why. */
+const noForkPortSupplied: ForkSession = () =>
+  Promise.reject(new Error('this test supplied no fork port; pass forkSession to makeManagerHarness'));
 
 export function makeManagerHarness(options: ManagerHarnessOptions = {}): ManagerHarness {
   const raw = openEventStore(':memory:');
@@ -394,6 +407,7 @@ export function makeManagerHarness(options: ManagerHarnessOptions = {}): Manager
     newId: () => `id-${(ids += 1)}`,
     now,
     isDirectory: options.isDirectory ?? ((): boolean => true),
+    forkSession: options.forkSession ?? noForkPortSupplied,
     logger: {
       warn: (...args: unknown[]) => logged.push({ level: 'warn', args }),
       error: (...args: unknown[]) => logged.push({ level: 'error', args }),

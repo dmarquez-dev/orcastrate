@@ -81,6 +81,7 @@ describe('invoke channels', () => {
     ['pods.open', (a) => a.pods.open('p'), INVOKE_CHANNELS.podOpen],
     ['pods.close', (a) => a.pods.close('p'), INVOKE_CHANNELS.podClose],
     ['pods.reconnect', (a) => a.pods.reconnect('p'), INVOKE_CHANNELS.podReconnect],
+    ['pods.fork', (a) => a.pods.fork('p'), INVOKE_CHANNELS.podFork],
     ['pods.send', (a) => a.pods.send('p', 'hi'), INVOKE_CHANNELS.podSend],
     ['pods.interrupt', (a) => a.pods.interrupt('p'), INVOKE_CHANNELS.podInterrupt],
     [
@@ -166,6 +167,15 @@ describe('invoke channels', () => {
     // received, so nothing was unpacked and reassembled on the way through.
     expect(ipc.calls[0]?.args[0]).toBe(req);
     expect(ipc.calls[0]?.args[0]).toEqual({ podId: 'pod-9', deleteSession: true });
+  });
+
+  it("pods.fork invokes 'pod:fork' with the bare PodId as its only argument", async () => {
+    const ipc = fakeIpc();
+    const api = createOrcastrateApi(ipc);
+
+    await api.pods.fork('pod-7');
+
+    expect(ipc.calls).toEqual([{ channel: 'pod:fork', args: ['pod-7'] }]);
   });
 
   it('forwards arguments positionally', async () => {

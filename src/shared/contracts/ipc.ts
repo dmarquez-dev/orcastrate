@@ -101,6 +101,7 @@ export const INVOKE_CHANNELS = {
   podInterrupt: 'pod:interrupt',
   podSetPermissionMode: 'pod:setPermissionMode',
   podReconnect: 'pod:reconnect',
+  podFork: 'pod:fork',
   laneList: 'lane:list',
   eventsRead: 'events:read',
   permissionRespond: 'permission:respond',
@@ -373,6 +374,29 @@ export interface OrcastrateApi {
     close(podId: PodId): Promise<IpcResult<void>>;
     /** Re-resume after Beached (spec 8). */
     reconnect(podId: PodId): Promise<IpcResult<Pod>>;
+    /**
+     * Forks the Pod `podId` at its current state into a NEW Pod and resolves
+     * that new Pod — a plain `Pod`, no wrapper. The new Pod is `'closed'`:
+     * forking starts no process, and opening the fork is the ordinary
+     * `pods.open`, which resumes the fork's OWN `ccSessionId`. The parent is
+     * not opened, closed, or otherwise changed.
+     *
+     * Resolves, never rejects. No push is emitted: the resolved value is the
+     * whole announcement, and the caller applies it.
+     *
+     * ERRORS, as `{ ok: false, error: { code, message } }`:
+     *   INVALID_ARGUMENT  `podId` is not a non-empty string
+     *   NOT_FOUND         no such Pod (including one deleted while the fork was
+     *                     in flight)
+     *   CONFLICT          the Pod is not eligible: `forkEligibility(pod)` from
+     *                     `src/shared/fork-eligibility.ts` is not `'eligible'`.
+     *                     The message names which reason applies.
+     *   IO                the SDK's `forkSession` rejected, or the store's write
+     *                     failed with an IO fault. The message names the fork
+     *                     operation and the parent PodId.
+     * On every error, no pod, lane or event row was created.
+     */
+    fork(podId: PodId): Promise<IpcResult<Pod>>;
     /** Enqueues a user message. Resolves on enqueue, not on turn completion. */
     send(podId: PodId, text: string): Promise<IpcResult<void>>;
     interrupt(podId: PodId): Promise<IpcResult<void>>;
