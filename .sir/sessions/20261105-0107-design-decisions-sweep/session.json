@@ -1,0 +1,47 @@
+{
+  "id": "20261105-0107-design-decisions-sweep",
+  "name": "design-decisions-sweep",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Close the 10 Design-decisions lines of .sir/backlog.md. The user rules on each at Gate 2 from re-measured evidence. Draft rulings: restore PanelBar's re-click-to-close, routed through the guarded requestClose so a dirty Helm draft raises the close confirmation; promote crossSessionInbound 'hold' to a confirmed value (CLI 2.1.318 declares accept/hold/refuse) and delete the hold warning, the caveat and the confirmed-subset constant, re-citing 2.1.318; close the palette lightness pass as accepted (only three sub-1.2 pairs share a surface, and colour is never the only carrier); keep Calf steering, the config manager, terminal-session adoption and macOS/Linux validation deferred; re-file forkSession as its own session; decline the raw terminal pane and the formatter. Five tasks run in one chain: T1 PanelBar, T2 main-process Helm validation, T3 renderer Helm, T4 the frozen-contract edits, T5 repo-wide tsc and full vitest. The backlog edit is the orchestrator's at Gate 3.",
+  "started": "2026-11-05T01:06:59Z",
+  "ended": null,
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "f888c889-62da-4319-9d88-dc48c00d0415",
+      "sir": "1.0.21",
+      "started": "2026-11-05T01:06:59Z",
+      "ended": "2026-11-05T01:08:23Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "c50c4968-7c96-48d4-8814-5a9a948ba90f",
+      "sir": "1.0.21",
+      "started": "2026-11-05T01:09:17Z",
+      "ended": "2026-11-05T01:58:15Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "5c530884-5a3d-4800-84ab-7612d9da5f53",
+      "sir": "1.0.21",
+      "started": "2026-11-05T01:59:43Z",
+      "ended": "2026-11-05T02:32:59Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "6557f2ca-60da-44e9-ab1f-871504c4f096",
+      "sir": "1.0.21",
+      "started": "2026-11-05T16:32:38Z",
+      "ended": "2026-11-05T18:06:28Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

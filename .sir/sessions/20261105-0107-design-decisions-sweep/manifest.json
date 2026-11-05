@@ -1,0 +1,164 @@
+{
+  "session": "20261105-0107-design-decisions-sweep",
+  "createdAt": "2026-11-05T01:09:17Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/panel-reclick.md",
+    "contracts/helm-hold.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "PanelBar: re-clicking the open panel's own button closes it through the guarded close",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/shell/PanelBar.tsx",
+        "src/renderer/src/shell/PanelBar.test.tsx",
+        "src/renderer/src/shell/panel-close-guard.tsx",
+        "src/renderer/src/shell/panel-close-guard.test.tsx",
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/helm/HelmCloseConfirm.tsx",
+        "src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 (D1). A test in `src/renderer/src/shell/PanelBar.test.tsx` renders `<PanelBar open=\"helm\" .../>`, clicks the `helm` per-panel button (`testId(PANEL_TEST_IDS.panelBarOpen, 'helm')`), and asserts that `onClose` was called exactly once and `onOpen` never. Demonstration (test discipline, 'A test is shown able to fail'): either a red step (the test fails against the startRef `PanelBar.tsx`, whose per-panel `onClick` calls `onOpen(key)` unconditionally at `:104`), or injection I1: with the implementation in place, replace the per-panel button's `onClick` body with the startRef text `onOpen(key);` (one site, the per-panel button only; the Escape handler `onClose()` at startRef `:74` and the close button's `onClick={onClose}` at `:126` are not touched). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/shell/PanelBar.test.tsx`, report the failure, revert, and report the injection window (site, command, revert verified).",
+        "C2 (D1; frontend discipline, Accessibility floor: 'Every interactive element is reachable and operable by keyboard alone'). A test in `PanelBar.test.tsx` renders `open=\"helm\"`, focuses the `helm` per-panel button, presses Enter, and asserts that `onClose` was called exactly once and `onOpen` never. It fails at startRef, or under I1, run by the C1 command.",
+        "C3 (D1). PRESERVED BEHAVIOUR: a test in `PanelBar.test.tsx` renders `open=\"beachcomber\"`, clicks the `helm` per-panel button, and asserts `onOpen` was called exactly once with `'helm'` and `onClose` never. This holds at startRef, and it guards the switch against an over-broad restore. Demonstration: with the implementation in place, apply injection I2 by replacing the per-panel button's `onClick` body with `if (open !== null) { onClose(); } else { onOpen(key); }` (one site; `open`, `onClose`, `onOpen` and `key` are all in scope there, per startRef `:54` and `:85`). Run the C1 command, report that this test fails, revert, and report the window.",
+        "C4 (D1). PRESERVED BEHAVIOUR: the existing tests 'carries the open state on aria-current: true on the open panel, false on a closed one' (`PanelBar.test.tsx:55` at startRef) and 'is reachable by Tab and activates with both Enter and Space' (`:66`, `open={null}` → `onOpen`) pass, and the diff does not modify their assertions.",
+        "C5 (D1). The startRef comment above the aria-current test, which grounds it in 'a panel button only ever opens' (`PanelBar.test.tsx:50-54`), is rewritten: `grep -c \"because a panel button only\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/shell/PanelBar.test.tsx` prints 0 (prints 1 at startRef, run at spec time).",
+        "C6 (D1). In `src/renderer/src/shell/panel-close-guard.test.tsx`, the startRef test \"does not ask the guard when Helm's OWN strip button is re-clicked\" (`:491`) is replaced. `grep -c \"does not ask the guard when Helm's OWN strip button is re-clicked\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/shell/panel-close-guard.test.tsx` prints 0 (1 at startRef, run at spec time). Its replacement drives the real `App` with `helmStub.guard = settledGuard(false).guard`, opens Helm from the strip, clicks Helm's own strip button, and asserts that the guard's `calls()` is 1 and that `testId(PANEL_TEST_IDS.panelRegion, 'helm')` is still present. It fails at startRef (calls is 0), or under I1, run by `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/shell/panel-close-guard.test.tsx`.",
+        "C7 (D1). A test in `panel-close-guard.test.tsx` drives the real `App` with `helmStub.guard = settledGuard(true).guard`, opens Helm, and clicks Helm's own strip button. It asserts that the guard's `calls()` is 1 and that the Helm region is no longer present. It fails under I1, run by the C6 command.",
+        "C8 (D1). A test in `panel-close-guard.test.tsx` drives the real `App`, opens the real Beachcomber panel (it registers no guard), then clicks Beachcomber's own strip button with `fireEvent.click` inside one synchronous `act(() => { ... })`, the idiom of 'closes the REAL Beachcomber panel inside a single synchronous act' (`:388` at startRef). Right after that `act`, it asserts that `testId(PANEL_TEST_IDS.panelRegion, 'beachcomber')` is absent. It fails under I1, run by the C6 command.",
+        "C9 (D1; frontend discipline, Accessibility floor: 'Focus is visible, and it moves predictably after an action that changes what is on screen'). A test in `panel-close-guard.test.tsx` opens the real Beachcomber panel and asserts that focus is inside its region (vacuity guard: the region takes focus on open). It closes the panel by a `fireEvent.click` on Beachcomber's own strip button (`fireEvent` does not move focus itself) and asserts that `document.activeElement` is that strip button. It fails under I1, because focus stays in the region, run by the C6 command.",
+        "C10 (D1). PRESERVED BEHAVIOUR (frozen `PanelCloseController.requestOpen` semantics unchanged): the harness test 'does NOT ask the guard when the panel already open is re-opened' (`panel-close-guard.test.tsx:356` at startRef) passes, and the diff does not modify it.",
+        "C11 (D1). A test in `src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx` calls `openHelmWithDirtyDraft` (startRef `:150`), clicks Helm's own strip button, and waits for `HELM_SAFETY_TEST_IDS.closeConfirm`. It answers `closeConfirmKeep` and asserts that `PANEL_TEST_IDS.helmPanel` is present and `modelField().value` is `TYPED_MODEL`. It fails at startRef or under I1 (no confirmation appears), run by `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx`.",
+        "C12 (D1). A test in `helm-draft-safety.e2e.test.tsx` does the same as C11 but answers `closeConfirmDiscard`. It asserts that `PANEL_TEST_IDS.helmPanel` is absent, `HELM_SAFETY_TEST_IDS.closeConfirm` is absent, and `PANEL_TEST_IDS.beachcomberPanel` is absent: a re-click closes and opens nothing. It fails under I1, run by the C11 command.",
+        "C13 (D1). The `PanelBar.tsx` docblock and the per-panel `onClick` comment no longer describe the no-op. Each of these commands prints 0: `grep -c \"A PANEL BUTTON ONLY EVER OPENS\"` (2 at startRef: `:37`, `:40`), `grep -c \"INCLUDING FOR THE PANEL ALREADY OPEN\"` (1 at startRef: `:98`), and `grep -c \"this button has one\"` (1 at startRef: `:36`), each run over `C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/shell/PanelBar.tsx`. All counts were run at spec time.",
+        "C14 (D1). The rewritten `PanelBar.tsx` docblock states that a click on the open panel's own button calls `onClose`, so the shell's close guard is asked exactly as for the close button. It also states why `aria-current` is kept: it marks the current item within a set of related elements. A reviewer checks this by reading the docblock.",
+        "C15 (D1). PRESERVED BEHAVIOUR: `PanelBar.tsx` still sets `aria-current={open === key}` on each per-panel button and sets no `aria-pressed` attribute. `src/renderer/src/shell/PanelBar.module.css`, which paints from `[aria-current='true']` at startRef `:43`, is not modified: it is outside this task's ownership set.",
+        "C16 (D1). In `src/renderer/src/shell/panel-close-guard.tsx`, the comment on `requestOpen` no longer says a re-click must not raise a dialog: `grep -c \"re-clicking Helm's own button must not raise a dialog\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/shell/panel-close-guard.tsx` prints 0 (1 at startRef: `:130`). The diff of this file changes comment lines only.",
+        "C17 (D1). In `src/renderer/src/helm/HelmCloseConfirm.tsx`, the docblock's count of shell affordances no longer excludes the re-click: `grep -c \"three affordances raised it\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/helm/HelmCloseConfirm.tsx` prints 0 (1 at startRef: `:27`). The diff of this file changes comment lines only.",
+        "C18 (D1). In `src/renderer/src/App.tsx`, the routing comment no longer counts two close affordances: `grep -c \"THE TWO CLOSE AFFORDANCES AND THE SWITCH\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer/src/App.tsx` prints 0 (1 at startRef: `:85`). The diff of this file changes comment lines only, and the `closePanel`/`openPanelRequest` wiring (startRef `:90-98`) is unchanged.",
+        "C19 (D1). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/shell src/renderer/src/helm src/renderer/src/__tests__/helm-draft-safety.e2e.test.tsx` exits 0 with no failed test. It runs once, after every injection is reverted.",
+        "C20 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C21 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.web.json --composite false` exits 0."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Main-process Helm validation: hold is confirmed, so it produces no warning",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/helm/validate.ts",
+        "src/main/helm/index.ts",
+        "src/main/ipc/validate.ts",
+        "tests/unit/helm/validation.test.ts",
+        "tests/unit/ipc/panels.test.ts"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C1 (D2). A test in `tests/unit/helm/validation.test.ts` asserts that `h.service.validate(request({ managed: managed({ crossSessionInbound: value }) })).issues` equals `[]` for each of `'accept'`, `'hold'` and `'refuse'`. Demonstration (test discipline): either a red step (it fails against the startRef `validate.ts`, whose warning branch at `:118-124` pushes one issue for `'hold'`), or injection I3: with the implementation in place, add `if (inbound === 'hold') { issues.push({ field: 'crossSessionInbound', severity: 'warning', message: 'injected' }); }` inside `validateSaveRequest`'s `inbound !== null` block, using the function's own `issues` and `inbound` locals (startRef `:48`, `:108`; one site). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep tests/unit/helm/validation.test.ts`, report the failure, revert, and report the injection window.",
+        "C2 (D2). A test in `validation.test.ts` saves a draft with `crossSessionInbound: 'hold'` (the setup of startRef `:109-124`). It asserts that `result.warnings` equals `[]`, that the written file parses to an object with `crossSessionInbound: 'hold'`, and that `result.document.managed.crossSessionInbound` is `'hold'`. It fails at startRef (`:120` there pins one warning), or under I3, run by the C1 command.",
+        "C3 (D2; backend discipline, Error handling: 'Distinguish expected failure from defect'). PRESERVED BEHAVIOUR: the existing tests 'rejects a crossSessionInbound outside CROSS_SESSION_INBOUND_VALUES' (`validation.test.ts:68` at startRef) and 'blocks the save and writes nothing when there is an error' (`:81`) pass, and the diff does not modify their assertions. A value outside the three is still one `severity: 'error'` issue.",
+        "C4 (D2). `grep -rnE \"HOLD_WARNING_MESSAGE|OBSERVED_CLI_VERSION|CROSS_SESSION_INBOUND_CONFIRMED\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/main C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tests` prints no line. At startRef it prints 11, run at spec time: `validate.ts` 7, `index.ts` 1, `validation.test.ts` 3. The predicate was checked both ways: it matches `validate.ts:26`, and it does not match `CROSS_SESSION_INBOUND_VALUES`, which `validate.ts` keeps importing.",
+        "C5 (D2). PRESERVED BEHAVIOUR: `blockingIssues` and `warningIssues` remain exported from `src/main/helm/validate.ts` with their startRef signatures (`:130`, `:134`). `src/main/helm/helm-service.ts`, which consumes both (startRef `:61`, `:171`, `:240`), is not modified: it is outside this task's ownership set.",
+        "C6 (D2). The `src/main/helm/validate.ts` module docblock cites the current CLI. `grep -c \"2\\.1\\.318\"` over the file prints at least 1 (0 at startRef), and `grep -c \"2\\.1\\.235\"` prints 0 (2 at startRef: `:7`, `:31`). Counts were run at spec time.",
+        "C7 (D2). The `validate.ts` docblock states that `hold` is accepted without an issue because CLI 2.1.318's binary declares `accept`, `hold` and `refuse` as the setting's value set. It also keeps the statement that a value outside the three is an error. A reviewer checks this by reading it.",
+        "C8 (D2). In `src/main/ipc/validate.ts`, the comment above `requireHelmManagedFields` (startRef `:330-338`) no longer calls `hold` unverified. Over that file, `grep -ciE \"unverified|not confirmed|NOT observed\"` prints 0 (1 at startRef: `:334`) and `grep -c \"2\\.1\\.235\"` prints 0 (1 at startRef: `:335`). The diff of this file changes comment lines only.",
+        "C9 (D2). In `tests/unit/ipc/panels.test.ts`, the comment above 'accepts crossSessionInbound: hold at the boundary' (startRef `:199-203`) no longer calls `hold` unverified. Over that file, `grep -ciE \"unverified|not confirmed|NOT observed\"` prints 0 (1 at startRef: `:200`) and `grep -c \"2\\.1\\.235\"` prints 0 (1 at startRef). PRESERVED BEHAVIOUR: that test's body is not modified and it passes.",
+        "C10 (D2). In `validation.test.ts`, the file docblock (startRef `:1-10`) and the describe 'validate: the hold warning' (`:95`) no longer describe a warning for `hold`. Over that file, `grep -c \"the hold warning\"` prints 0 (1 at startRef) and `grep -c \"2\\.1\\.235\"` prints 0 (2 at startRef: `:5`, `:106`).",
+        "C11 (D2). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep tests/unit/helm tests/unit/ipc` exits 0 with no failed test. It runs once, after any injection is reverted.",
+        "C12 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C13 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.web.json --composite false` exits 0."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Renderer Helm: hold renders and validates like its siblings, with no caveat",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/CrossSessionInboundField.tsx",
+        "src/renderer/src/helm/Helm.module.css",
+        "src/renderer/src/helm/copy.ts",
+        "src/renderer/src/helm/probes.ts",
+        "src/renderer/src/helm/discrimination.test.tsx",
+        "src/renderer/src/helm/HelmPanel.test.tsx",
+        "src/renderer/src/state/panel-store.ts",
+        "src/renderer/src/state/panel-store.test.ts",
+        "docs/first-run.md"
+      ],
+      "dependsOn": [
+        "T2"
+      ],
+      "acceptance": [
+        "C1 (D2). In `src/renderer/src/state/panel-store.test.ts`, the startRef test 'warns but does not block on the unconfirmed crossSessionInbound value' (`:589`) is replaced by one asserting that `validateDraft` returns `[]` for a clean stub document whose draft sets `crossSessionInbound: 'hold'`. `grep -c \"warns but does not block on the unconfirmed crossSessionInbound value\"` over that file prints 0 (1 at startRef). Demonstration (test discipline): either a red step (it fails against the startRef `panel-store.ts:890-897`), or injection I4: with the implementation in place, add `if (draft.managed.crossSessionInbound === 'hold') { issues.push({ field: 'crossSessionInbound', severity: 'warning', message: 'injected' }); }` inside `validateDraft` immediately before its hooks check, using the function's own `draft` and `issues` (startRef `:851`, `:854`; one site). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/state/panel-store.test.ts`, report the failure, revert, and report the injection window.",
+        "C2 (D2; frontend discipline, Accessibility floor: 'Every form control has a programmatically associated label'). A test in `src/renderer/src/helm/HelmPanel.test.tsx` checks each of the `accept`, `hold` and `refuse` radios (`${PANEL_TEST_IDS.helmCrossSession}:<value>`). For each, it resolves every id in the radio's `aria-describedby` and asserts that their joined text equals `CROSS_SESSION_HINTS[value]` (`copy.ts:40`). It replaces the startRef tests 'offers all three values and carries the hold caveat verbatim' (`:155`) and 'describes hold with the caveat, so the uncertainty reaches a screen reader' (`:166`). Demonstration: a red step. The test fails against the startRef `CrossSessionInboundField.tsx`, whose hold radio is also described by the caveat (`:63`). Run `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/helm/HelmPanel.test.tsx` and report the failure observed before the component changed.",
+        "C3 (D2). `CrossSessionInboundField.tsx` renders no caveat: `grep -ci \"caveat\"` over it prints 0 (11 at startRef, run at spec time), and `src/renderer/src/helm/Helm.module.css` has no `.caveat` rule, because `grep -c \"^\\.caveat\"` over it prints 0 (1 at startRef: `:205`). PRESERVED BEHAVIOUR: all three values are still offered from `CROSS_SESSION_INBOUND_VALUES`.",
+        "C4 (D2). `grep -rnE \"CROSS_SESSION_HOLD_CAVEAT|helmCrossSessionCaveat|CROSS_SESSION_INBOUND_CONFIRMED\" --exclude-dir=contracts C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src/renderer` prints no line. At startRef it prints 19, run at spec time: `panel-store.ts` 4, `probes.ts` 3, `HelmPanel.test.tsx` 5, `discrimination.test.tsx` 1, `CrossSessionInboundField.tsx` 5, `copy.ts` 1. It matches `copy.ts:10`'s comment, so stale prose counts too.",
+        "C5 (D2). In `discrimination.test.tsx`, the asserted `PANEL_PROPERTIES` name list equals the startRef list (`:162-173`, 12 names) minus 'the hold caveat is the frozen constant, character for character', in the same order (11 names). `DEFECTS` (startRef `:188-357`, 20 entries) keeps its other 19 entries unmodified and has none whose `breaks` names the removed property. `grep -c \"the hold caveat is the frozen constant, character for character\"` prints 0 over both `discrimination.test.tsx` (2 at startRef) and `probes.ts` (1 at startRef).",
+        "C6 (D2). PRESERVED BEHAVIOUR: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/helm/discrimination.test.tsx` exits 0 with no failed test. That includes every remaining 'notices that ...' test and the control arm 'reports nothing when the injected defect does nothing' (startRef `:374`).",
+        "C7 (D2). PRESERVED BEHAVIOUR: 'shows the backup path and any non-blocking warning beside it' (`HelmPanel.test.tsx:357` at startRef) still asserts that a `severity: 'warning'` issue's message renders beside the backup path. Its fixture message is no longer `CROSS_SESSION_HOLD_CAVEAT`, which C4 covers. The generic warning path stays tested.",
+        "C8 (D2). PRESERVED BEHAVIOUR: 'selects NOTHING when the key is absent, and never preselects hold' (`HelmPanel.test.tsx:176` at startRef) and the probe 'an absent crossSessionInbound key selects nothing, and never hold' (`probes.ts:192`) pass, and the diff does not modify their assertions.",
+        "C9 (D2). The docblocks no longer call `hold` unconfirmed. `grep -c \"2\\.1\\.235\"` over `CrossSessionInboundField.tsx` prints 0 (1 at startRef: `:6`). `grep -ciE \"unverified|not confirmed|NOT observed\"` over `panel-store.ts` prints 0 (1 at startRef: `:844`). `grep -c \"a caveat quietly reworded\"` over `probes.ts` prints 0 (1 at startRef: `:6`).",
+        "C10 (D2). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep src/renderer/src/helm src/renderer/src/state` exits 0 with no failed test. It runs once, after any injection is reverted.",
+        "C11 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.node.json --composite false` exits 0.",
+        "C12 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.web.json --composite false` exits 0.",
+        "C13 (D2; added at Gate 2). In `docs/first-run.md`, hand-run step 5d no longer requires the 2.1.235 caveat and instead states that `hold` renders like its siblings, with a label and a hint and no caveat. Over C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/docs/first-run.md, each of these prints 0: `grep -c \"Not confirmed against Claude Code 2.1.235\"` (1 at startRef: `:201`), `grep -c \"must carry, verbatim\"` (1 at startRef: `:199`), and `grep -c \"2\\.1\\.235\"` (1 at startRef: `:201`, its only occurrence). All three were run at spec time. A reviewer checks the new wording by reading it. The diff of this file is confined to step 5d."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Frozen-contract edits: delete the hold caveat and the confirmed subset, re-cite 2.1.318, record the re-click route",
+      "agent": "sir-architect",
+      "domain": "architecture",
+      "owns": [
+        "src/shared/contracts/helm.ts",
+        "src/renderer/src/contracts/renderer-panels.ts"
+      ],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3"
+      ],
+      "acceptance": [
+        "C1 (D2). In `src/shared/contracts/helm.ts`, `CROSS_SESSION_INBOUND_CONFIRMED` is deleted: `grep -c \"CROSS_SESSION_INBOUND_CONFIRMED\"` over the file prints 0 (1 at startRef: `:149`). PRESERVED: `CROSS_SESSION_INBOUND_VALUES = ['accept', 'hold', 'refuse'] as const` and `type CrossSessionInbound` (startRef `:145-146`) are unchanged.",
+        "C2 (D2). The `helm.ts` docblock above `CROSS_SESSION_INBOUND_VALUES` cites the current CLI, and the `HelmValidation` docblock no longer gives `hold` as its warning example. Over the file, `grep -c \"2\\.1\\.318\"` prints at least 1 (0 at startRef), `grep -c \"2\\.1\\.235\"` prints 0 (2 at startRef: `:135`, `:141`), and `grep -ciE \"unverified|not confirmed|NOT observed\"` prints 0 (3 at startRef: `:139`, `:141`, `:249`).",
+        "C3 (D2). The rewritten `helm.ts` docblock states that CLI 2.1.318's binary declares `accept`, `hold` and `refuse` as the value set of the `crossSessionInbound` setting. A reviewer checks this by reading it.",
+        "C4 (D2). PRESERVED: `HelmValidationSeverity` is still `'error' | 'warning'`. `HelmValidationIssue` (including the 'THE TYPE STAYS `string`' rule on `field`), `HelmValidation` and `HelmSaveResult.warnings` are unchanged apart from docblock text.",
+        "C5 (D2). In `src/renderer/src/contracts/renderer-panels.ts`, `CROSS_SESSION_HOLD_CAVEAT` (startRef `:617-618`) and `PANEL_TEST_IDS.helmCrossSessionCaveat` (`:597`) are deleted. Over the file, `grep -cE \"CROSS_SESSION_HOLD_CAVEAT|helmCrossSessionCaveat\"` prints 0 (2 at startRef) and `grep -c \"2\\.1\\.235\"` prints 0 (1 at startRef). The docblock above the copy constants is updated so that it no longer counts two statements: `grep -c \"for the two statements a user could act on wrongly\"` prints 0 (1 at startRef: `:611`). PRESERVED: `UNVERIFIED_PATH_NOTICE` and `PANEL_TEST_IDS.helmCrossSession` are unchanged.",
+        "C6 (D2). Repo-wide, no declaration removed by item 2 survives: `grep -rnE \"CROSS_SESSION_HOLD_CAVEAT|helmCrossSessionCaveat|CROSS_SESSION_INBOUND_CONFIRMED|HOLD_WARNING_MESSAGE|OBSERVED_CLI_VERSION\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/src C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tests` prints no line. At startRef it prints 33, run at spec time, which equals the disjoint partition T2 C4 (11) + T3 C4 (19) + this task's two files (3).",
+        "C7 (D1). The `requestOpen` docblock in `renderer-panels.ts` no longer justifies the no-op by the re-click: `grep -c \"re-clicking the open panel's own button must not raise a dialog\"` over the file prints 0 (1 at startRef: `:213`). PRESERVED: the docblock still states that `requestOpen` of the already-open key is a no-op that does not ask the guard.",
+        "C8 (D1). The `PanelTransitionRules` docblock's ROUTING paragraph (startRef `:257-261`) states that a click on the open panel's own `PanelBar` button calls `onClose` and so reaches `requestClose()`. A reviewer checks this by reading it.",
+        "C9 (D1). The RE-ENTRANCY paragraph's affordance count includes the re-click: `grep -c \"reachable from three affordances\"` over `renderer-panels.ts` prints 0 (1 at startRef: `:236`).",
+        "C10 (D1, D2). PRESERVED: apart from C1 and C5's deletions, no declaration in either file changes. `PanelBarProps`, `PanelCloseController`, `PanelCloseGuard` and `PanelTransitionRules` keep their startRef types, and every other line of each file's diff is comment text.",
+        "C11 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.node.json --composite false` exits 0. That is the proof that no `src/main`, `src/shared` or `tests` consumer of a deleted declaration remains.",
+        "C12 (D12). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.web.json --composite false` exits 0. That is the proof that no renderer consumer of a deleted declaration remains."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Repo-wide typecheck and full test run on the integrated tree",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [],
+      "dependsOn": [
+        "T1",
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "acceptance": [
+        "C1 (D12). PRESERVED BEHAVIOUR on the integrated tree: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.node.json --composite false` exits 0. It exits 0 at startRef, run by sir-architect at spec time.",
+        "C2 (D12). PRESERVED BEHAVIOUR on the integrated tree: `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/typescript/bin/tsc --noEmit -p C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep/tsconfig.web.json --composite false` exits 0. It exits 0 at startRef, run by sir-architect at spec time.",
+        "C3 (D13). `node C:/Users/dmarq/Development/Repos/orcastrate/node_modules/vitest/vitest.mjs run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261105-0107-design-decisions-sweep` runs with the configured `default` reporter, with no `--reporter` override, and exits 0. Its summary reports 147 test files passed and none failed. That is the orchestrator's spec-time baseline of 147 files: every ownership set lists only files that exist at startRef, so no task adds a test file. It also reports no failed test. The passed-test count is not predicted, because T1 adds tests and T3 removes the caveat property's 'holds:' and 'notices that' tests. Quote the summary lines in the report."
+      ]
+    }
+  ]
+}

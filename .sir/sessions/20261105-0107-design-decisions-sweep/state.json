@@ -1,0 +1,31 @@
+{
+  "session": "20261105-0107-design-decisions-sweep",
+  "updatedAt": "2026-11-05T18:06:28Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261105-0107-design-decisions-sweep",
+  "branch": "agent/20261105-0107-design-decisions-sweep",
+  "verification": [
+    {
+      "command": "npm run typecheck:node (node <repo>/node_modules/typescript/bin/tsc --noEmit -p <worktree>/tsconfig.node.json --composite false)",
+      "runnable": true,
+      "probe": "no output, exit=0; positive control: --listFilesOnly reads 136 worktree files"
+    },
+    {
+      "command": "npm run typecheck:web (node <repo>/node_modules/typescript/bin/tsc --noEmit -p <worktree>/tsconfig.web.json --composite false)",
+      "runnable": true,
+      "probe": "no output, exit=0; positive control: --listFilesOnly reads 221 worktree files"
+    },
+    {
+      "command": "npm test (node <repo>/node_modules/vitest/vitest.mjs run --root <worktree>)",
+      "runnable": true,
+      "probe": "Test Files  147 passed (147) / Tests  2387 passed (2387); worktree git status --short empty afterwards"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "cc5077c580e82fa2c0b9168f1a56dbbbfca4723a", "commit": "e3ab57e53f7a45ae278bad506e4586ae337be522", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "startRef": "e3ab57e53f7a45ae278bad506e4586ae337be522", "commit": "911f203ed1898b0ac5ca2c483e50c6928434e4f0", "model": "opus" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "startRef": "911f203ed1898b0ac5ca2c483e50c6928434e4f0", "commit": "2302c056f3435c147631f564ea72f76dd2b9b7d8", "model": "opus" },
+    { "id": "T4", "status": "done", "revisionRounds": 0, "startRef": "2302c056f3435c147631f564ea72f76dd2b9b7d8", "commit": "05cf6b4b0283583e86aeb5edeaa1e258ab4d7dab", "model": "opus" },
+    { "id": "T5", "status": "done", "revisionRounds": 0, "startRef": "05cf6b4b0283583e86aeb5edeaa1e258ab4d7dab", "model": "opus" }
+  ],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
