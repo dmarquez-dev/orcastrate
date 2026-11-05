@@ -12,4 +12,3 @@ export {
   writeAtomic,
   type AtomicWriteHooks,
 } from './atomic-write';
-export { HOLD_WARNING_MESSAGE, OBSERVED_CLI_VERSION } from './validate';

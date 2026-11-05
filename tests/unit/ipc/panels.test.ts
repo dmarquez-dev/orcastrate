@@ -197,9 +197,8 @@ describe('renderer input to the panel channels is never trusted', () => {
   });
 
   /**
-   * `hold` is UNVERIFIED against CLI 2.1.235, and the contract's answer is a
-   * validation WARNING the user sees — not a refusal at the transport, which
-   * would make Helm less capable than the text editor it replaces.
+   * `hold` is one of the three values CLI 2.1.318's binary declares for the
+   * setting, so the transport passes it through like `accept` and `refuse`.
    */
   it('accepts crossSessionInbound: hold at the boundary', async () => {
     const result = await harness().invoke(INVOKE_CHANNELS.helmSave, {
