@@ -2,10 +2,10 @@
   "id": "20261105-0107-design-decisions-sweep",
   "name": "design-decisions-sweep",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "brief": "Close the 10 Design-decisions lines of .sir/backlog.md. The user rules on each at Gate 2 from re-measured evidence. Draft rulings: restore PanelBar's re-click-to-close, routed through the guarded requestClose so a dirty Helm draft raises the close confirmation; promote crossSessionInbound 'hold' to a confirmed value (CLI 2.1.318 declares accept/hold/refuse) and delete the hold warning, the caveat and the confirmed-subset constant, re-citing 2.1.318; close the palette lightness pass as accepted (only three sub-1.2 pairs share a surface, and colour is never the only carrier); keep Calf steering, the config manager, terminal-session adoption and macOS/Linux validation deferred; re-file forkSession as its own session; decline the raw terminal pane and the formatter. Five tasks run in one chain: T1 PanelBar, T2 main-process Helm validation, T3 renderer Helm, T4 the frozen-contract edits, T5 repo-wide tsc and full vitest. The backlog edit is the orchestrator's at Gate 3.",
   "started": "2026-11-05T01:06:59Z",
-  "ended": null,
+  "ended": "2026-11-05T18:10:23Z",
   "pushed": true,
   "parent": null,
   "children": [],
@@ -41,7 +41,15 @@
       "started": "2026-11-05T16:32:38Z",
       "ended": "2026-11-05T18:06:28Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "23f2e4bc-1641-4c2b-9a63-c3607dc8b5e3",
+      "sir": "1.0.21",
+      "started": "2026-11-05T18:09:49Z",
+      "ended": "2026-11-05T18:10:23Z",
+      "outcome": "complete"
     }
   ],
-  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
 }
