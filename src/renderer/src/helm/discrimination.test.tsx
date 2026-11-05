@@ -163,7 +163,6 @@ describe('the real panel satisfies every load-bearing property', () => {
       'a save is already in flight',
       'there is nothing to write',
       'a file that would not parse locks the whole form and shows why',
-      'the hold caveat is the frozen constant, character for character',
       'an absent crossSessionInbound key selects nothing, and never hold',
       'the scope picker offers no way to type a path',
       'a conflict names the file, says nothing was written, and keeps the draft',
@@ -228,14 +227,6 @@ const DEFECTS: readonly { defect: string; breaks: string; apply: Defect }[] = [
     breaks: 'a file that would not parse locks the whole form and shows why',
     apply: (root) => {
       testIdOf(root, PANEL_TEST_IDS.helmReadOnly)?.remove();
-    },
-  },
-  {
-    defect: 'the hold caveat is paraphrased instead of quoted',
-    breaks: 'the hold caveat is the frozen constant, character for character',
-    apply: (root) => {
-      const caveat = testIdOf(root, PANEL_TEST_IDS.helmCrossSessionCaveat);
-      if (caveat !== null) caveat.textContent = 'Might not work in every CLI version.';
     },
   },
   {

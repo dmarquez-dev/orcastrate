@@ -14,11 +14,11 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { HelmValidationIssue } from '@shared/contracts/helm';
-import { CROSS_SESSION_HOLD_CAVEAT, PANEL_TEST_IDS } from '../contracts/renderer-panels';
+import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
 import type { HelmActions, HelmView } from '../contracts/renderer-panels';
 import { ipcError, makeStubHelmDocument, makeStubHelmScopes } from '../test-utils';
 
-import { COPY } from './copy';
+import { COPY, CROSS_SESSION_HINTS } from './copy';
 import { comparisonCellId, HELM_SAFETY_TEST_IDS } from './test-ids';
 import { HelmPanel } from './HelmPanel';
 import { hasAccessibleName } from './probes';
@@ -152,25 +152,21 @@ describe('the form', () => {
 // ---------------------------------------------------------------------------
 
 describe('crossSessionInbound', () => {
-  it('offers all three values and carries the hold caveat verbatim', () => {
+  it('describes each of accept, hold and refuse by its own hint and nothing else', () => {
     renderPanel();
 
-    for (const value of ['accept', 'hold', 'refuse']) {
-      expect(screen.getByTestId(`${PANEL_TEST_IDS.helmCrossSession}:${value}`)).not.toBeNull();
+    for (const value of ['accept', 'hold', 'refuse'] as const) {
+      const radio = screen.getByTestId(`${PANEL_TEST_IDS.helmCrossSession}:${value}`);
+      const ids = (radio.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean);
+      const described = ids.map((id) => {
+        const element = document.getElementById(id);
+        if (element === null) throw new Error(`aria-describedby id "${id}" resolves to nothing`);
+        return element.textContent ?? '';
+      });
+
+      expect(ids.length).toBeGreaterThan(0);
+      expect(described.join(' ')).toBe(CROSS_SESSION_HINTS[value]);
     }
-    expect(screen.getByTestId(PANEL_TEST_IDS.helmCrossSessionCaveat).textContent).toBe(
-      CROSS_SESSION_HOLD_CAVEAT,
-    );
-  });
-
-  it('describes hold with the caveat, so the uncertainty reaches a screen reader', () => {
-    renderPanel();
-    const hold = screen.getByTestId(`${PANEL_TEST_IDS.helmCrossSession}:hold`);
-    const described = hold.getAttribute('aria-describedby') ?? '';
-    const caveatId = screen.getByTestId(PANEL_TEST_IDS.helmCrossSessionCaveat).getAttribute('id');
-
-    expect(caveatId).not.toBeNull();
-    expect(described.split(' ')).toContain(caveatId);
   });
 
   it('selects NOTHING when the key is absent, and never preselects hold', () => {
@@ -356,9 +352,9 @@ describe('the stale banner', () => {
 describe('after a successful save', () => {
   it('shows the backup path and any non-blocking warning beside it', () => {
     const warning: HelmValidationIssue = {
-      field: 'crossSessionInbound',
+      field: 'model',
       severity: 'warning',
-      message: CROSS_SESSION_HOLD_CAVEAT,
+      message: 'A non-blocking note about the model that was saved.',
     };
     renderPanel({
       lastSave: {

@@ -39,7 +39,6 @@ import type {
   HelmScopeId,
   HelmValidationIssue,
 } from '@shared/contracts/helm';
-import { CROSS_SESSION_INBOUND_CONFIRMED } from '@shared/contracts/helm';
 import type { IpcError, OrcastrateApi, Unsubscribe } from '@shared/contracts/ipc';
 
 import type { ActionResult, LoadPhase } from '../contracts/renderer-state';
@@ -48,7 +47,6 @@ import type {
   HelmActions,
   HelmDraft,
 } from '../contracts/renderer-panels';
-import { CROSS_SESSION_HOLD_CAVEAT } from '../contracts/renderer-panels';
 
 import { NO_BRIDGE_MESSAGE, internalError, safeInvoke } from './store';
 
@@ -840,9 +838,9 @@ export function isDirty(document: HelmDocument | null, draft: HelmDraft | null):
 }
 
 /**
- * DERIVED, never stored. `error` blocks the save; `warning` does not — an
- * unverified-but-plausible `crossSessionInbound: 'hold'` is the user's call to
- * make, and refusing it would make Helm less capable than a text editor.
+ * DERIVED, never stored. `error` blocks the save; `warning` does not.
+ * `crossSessionInbound` contributes no issue: every value its type admits
+ * (`accept`, `hold`, `refuse`, or absent) is one Claude Code declares.
  *
  * Main validates again at save time and is the authority; this exists so the
  * form can say what is wrong while the user is still typing.
@@ -884,15 +882,6 @@ export function validateDraft(
       field: 'env',
       severity: 'error',
       message: 'An environment variable name cannot be empty.',
-    });
-  }
-
-  const inbound = draft.managed.crossSessionInbound;
-  if (inbound !== null && !CROSS_SESSION_INBOUND_CONFIRMED.includes(inbound)) {
-    issues.push({
-      field: 'crossSessionInbound',
-      severity: 'warning',
-      message: CROSS_SESSION_HOLD_CAVEAT,
     });
   }
 

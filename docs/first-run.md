@@ -196,10 +196,10 @@ rather than erroring. Your real keys (`enabledPlugins`, `effortLevel`,
 `autoUpdatesChannel`, and the rest) are unmanaged — they should not be visible in
 the form, and they must survive any later save untouched.
 
-**5d. `crossSessionInbound`.** Three radio options. `hold` must carry, verbatim:
-
-> Not confirmed against Claude Code 2.1.235. Only "accept" and "refuse" were
-> observed in the CLI.
+**5d. `crossSessionInbound`.** Three radio options: `accept`, `hold` and
+`refuse`. `hold` renders like its siblings — a label and a one-line hint, and no
+caveat or warning beside it. None of the three is preselected when the key is
+absent.
 
 Leave the value alone for now.
 

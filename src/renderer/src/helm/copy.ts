@@ -6,9 +6,6 @@
  * source scan in `no-paths.test.ts` reads every string literal in this
  * directory and fails on a path separator in any of them: keeping the copy
  * together makes that rule reviewable by eye as well as by test.
- *
- * `CROSS_SESSION_HOLD_CAVEAT` is NOT re-typed here. It is the frozen
- * contract's constant and is rendered verbatim from the import.
  */
 
 import type { HelmScopeKind } from '@shared/contracts/helm';
