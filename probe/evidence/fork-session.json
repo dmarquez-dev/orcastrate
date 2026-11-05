@@ -1,0 +1,639 @@
+{
+  "generatedBy": "probe/verify-fork-session.ts",
+  "generatedAt": "2026-11-05T19:43:38.755Z",
+  "command": "node probe/verify-fork-session.ts",
+  "sdkVersion": "0.3.235",
+  "transcriptPathRule": "sessionFilePath(<claude home>, <cwd>, <session id>) from src/main/pod-session/paths.ts",
+  "totalLiveTurns": 6,
+  "overallVerdict": "held",
+  "runs": [
+    {
+      "binary": "sdk-builtin",
+      "selection": "SDK built-in executable (no pathToClaudeCodeExecutable), the platform package's claude binary",
+      "cliVersion": "2.1.235 (Claude Code)",
+      "initClaudeCodeVersions": [
+        {
+          "step": "source",
+          "claude_code_version": "2.1.235"
+        },
+        {
+          "step": "fork",
+          "claude_code_version": "2.1.235"
+        },
+        {
+          "step": "fork-source-moved",
+          "claude_code_version": "2.1.235"
+        }
+      ],
+      "sdkVersion": "0.3.235",
+      "sourceSessionId": "5661a6b8-038c-4a85-878d-7ff78cbf4912",
+      "forkSessionId": "05b811be-9d69-4716-8b26-2e31de3ff0bd",
+      "nonce": "nonce-6addf848796d5728",
+      "sourceSha256": {
+        "beforeFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+        "afterFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+        "afterForkTurn": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+        "afterMoveBack": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a"
+      },
+      "forkTranscript": {
+        "afterFork": {
+          "exists": true,
+          "bytes": 8346
+        },
+        "afterForkTurn": {
+          "exists": true,
+          "bytes": 16708
+        },
+        "afterSourceMovedTurn": {
+          "exists": true,
+          "bytes": 21969
+        }
+      },
+      "prompts": [
+        {
+          "step": "source",
+          "to": "source",
+          "text": "Remember this exact value: nonce-6addf848796d5728. Reply with only the word OK."
+        },
+        {
+          "step": "fork",
+          "to": "fork",
+          "text": "What is the exact value I asked you to remember earlier in this conversation? Reply with only that value and nothing else."
+        },
+        {
+          "step": "fork-source-moved",
+          "to": "fork",
+          "text": "What is the exact value I asked you to remember earlier in this conversation? Reply with only that value and nothing else."
+        }
+      ],
+      "replies": [
+        {
+          "step": "source",
+          "text": "OK",
+          "resultSubtype": "success",
+          "error": null
+        },
+        {
+          "step": "fork",
+          "text": "nonce-6addf848796d5728",
+          "resultSubtype": "success",
+          "error": null
+        },
+        {
+          "step": "fork-source-moved",
+          "text": "nonce-6addf848796d5728",
+          "resultSubtype": "success",
+          "error": null
+        }
+      ],
+      "forkSessionIdsObserved": [
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "init",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "rate_limit_event",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork",
+          "type": "result",
+          "subtype": "success",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "init",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "thinking_tokens",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "rate_limit_event",
+          "subtype": null,
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "result",
+          "subtype": "success",
+          "session_id": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+        }
+      ],
+      "liveTurns": 3,
+      "claims": {
+        "C1": {
+          "verdict": "held",
+          "observed": {
+            "sourceSessionId": "5661a6b8-038c-4a85-878d-7ff78cbf4912",
+            "forkSessionId": "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+          }
+        },
+        "C2": {
+          "verdict": "held",
+          "observed": {
+            "exists": true,
+            "bytes": 8346
+          }
+        },
+        "C3": {
+          "verdict": "held",
+          "observed": {
+            "beforeFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+            "afterFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a"
+          }
+        },
+        "C4": {
+          "verdict": "held",
+          "observed": {
+            "reply": "nonce-6addf848796d5728",
+            "error": null
+          }
+        },
+        "C5": {
+          "verdict": "held",
+          "observed": {
+            "beforeFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+            "afterForkTurn": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a"
+          }
+        },
+        "C6": {
+          "verdict": "held",
+          "observed": {
+            "distinct": [
+              "05b811be-9d69-4716-8b26-2e31de3ff0bd"
+            ],
+            "count": 48
+          }
+        },
+        "C7": {
+          "verdict": "held",
+          "observed": {
+            "sourcePresentDuringTurn": false,
+            "reply": "nonce-6addf848796d5728",
+            "error": null,
+            "sourceSha256AfterMoveBack": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a",
+            "beforeFork": "5d51f278343c169d2b38a15b15ca4fbf382ce1f01c844936bae0e722935c905a"
+          }
+        }
+      },
+      "verdict": "held"
+    },
+    {
+      "binary": "path-claude",
+      "selection": "the `claude` on PATH, passed as pathToClaudeCodeExecutable",
+      "cliVersion": "2.1.318 (Claude Code)",
+      "initClaudeCodeVersions": [
+        {
+          "step": "source",
+          "claude_code_version": "2.1.318"
+        },
+        {
+          "step": "fork",
+          "claude_code_version": "2.1.318"
+        },
+        {
+          "step": "fork-source-moved",
+          "claude_code_version": "2.1.318"
+        }
+      ],
+      "sdkVersion": "0.3.235",
+      "sourceSessionId": "c6ac4145-caa6-4da5-ba8c-008ae9b3dd40",
+      "forkSessionId": "14805c7e-ece9-451d-a26e-bc704ec88357",
+      "nonce": "nonce-df3a1247f4e48652",
+      "sourceSha256": {
+        "beforeFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+        "afterFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+        "afterForkTurn": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+        "afterMoveBack": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee"
+      },
+      "forkTranscript": {
+        "afterFork": {
+          "exists": true,
+          "bytes": 11109
+        },
+        "afterForkTurn": {
+          "exists": true,
+          "bytes": 20422
+        },
+        "afterSourceMovedTurn": {
+          "exists": true,
+          "bytes": 26482
+        }
+      },
+      "prompts": [
+        {
+          "step": "source",
+          "to": "source",
+          "text": "Remember this exact value: nonce-df3a1247f4e48652. Reply with only the word OK."
+        },
+        {
+          "step": "fork",
+          "to": "fork",
+          "text": "What is the exact value I asked you to remember earlier in this conversation? Reply with only that value and nothing else."
+        },
+        {
+          "step": "fork-source-moved",
+          "to": "fork",
+          "text": "What is the exact value I asked you to remember earlier in this conversation? Reply with only that value and nothing else."
+        }
+      ],
+      "replies": [
+        {
+          "step": "source",
+          "text": "OK",
+          "resultSubtype": "success",
+          "error": null
+        },
+        {
+          "step": "fork",
+          "text": "nonce-df3a1247f4e48652",
+          "resultSubtype": "success",
+          "error": null
+        },
+        {
+          "step": "fork-source-moved",
+          "text": "nonce-df3a1247f4e48652",
+          "resultSubtype": "success",
+          "error": null
+        }
+      ],
+      "forkSessionIdsObserved": [
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "session_title_changed",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork",
+          "type": "system",
+          "subtype": "init",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork",
+          "type": "rate_limit_event",
+          "subtype": null,
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork",
+          "type": "result",
+          "subtype": "success",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "session_title_changed",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "system",
+          "subtype": "init",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "assistant",
+          "subtype": null,
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "rate_limit_event",
+          "subtype": null,
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        },
+        {
+          "step": "fork-source-moved",
+          "type": "result",
+          "subtype": "success",
+          "session_id": "14805c7e-ece9-451d-a26e-bc704ec88357"
+        }
+      ],
+      "liveTurns": 3,
+      "claims": {
+        "C1": {
+          "verdict": "held",
+          "observed": {
+            "sourceSessionId": "c6ac4145-caa6-4da5-ba8c-008ae9b3dd40",
+            "forkSessionId": "14805c7e-ece9-451d-a26e-bc704ec88357"
+          }
+        },
+        "C2": {
+          "verdict": "held",
+          "observed": {
+            "exists": true,
+            "bytes": 11109
+          }
+        },
+        "C3": {
+          "verdict": "held",
+          "observed": {
+            "beforeFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+            "afterFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee"
+          }
+        },
+        "C4": {
+          "verdict": "held",
+          "observed": {
+            "reply": "nonce-df3a1247f4e48652",
+            "error": null
+          }
+        },
+        "C5": {
+          "verdict": "held",
+          "observed": {
+            "beforeFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+            "afterForkTurn": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee"
+          }
+        },
+        "C6": {
+          "verdict": "held",
+          "observed": {
+            "distinct": [
+              "14805c7e-ece9-451d-a26e-bc704ec88357"
+            ],
+            "count": 10
+          }
+        },
+        "C7": {
+          "verdict": "held",
+          "observed": {
+            "sourcePresentDuringTurn": false,
+            "reply": "nonce-df3a1247f4e48652",
+            "error": null,
+            "sourceSha256AfterMoveBack": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee",
+            "beforeFork": "6a0cda1832df9923b4d1e609c71d87e1581e4a4b6ff59277cb2bd8ef3f251eee"
+          }
+        }
+      },
+      "verdict": "held"
+    }
+  ]
+}

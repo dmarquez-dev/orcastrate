@@ -455,15 +455,19 @@ No end-to-end harness in MVP.
    named-pipe sockets with auth tokens. The protocol is undocumented and
    internal, so Orcastrate will not build against it; revisit only if a
    supported API appears.
-8. **Pod branching via `forkSession`.** Resuming with `forkSession` continues a
-   session into a *new* one instead of extending it, which maps cleanly onto
-   "fork this Pod at its current state" — one conversation, two divergent Pod
-   tabs, each with its own transcript. Nothing in the persistence model forbids
-   it; what is missing is the UI and the `pods`-table bookkeeping for a branch's
-   ancestry — and a check that the option behaves as described, since
-   `forkSession` is **documented in the SDK reference and not verified against
-   CLI 2.1.235 by this session's probe**. Verifying it is the first step of this
-   item, not an assumption it may rest on.
+8. **Pod branching via `forkSession`.** Forking maps cleanly onto "fork this Pod
+   at its current state" — one conversation, two divergent Pod tabs, each with
+   its own transcript. Nothing in the persistence model forbids it; what is
+   missing is the UI and the `pods`-table bookkeeping for a branch's ancestry.
+   **Mechanism chosen:** the SDK's standalone `forkSession(sessionId, { dir })`,
+   which copies the source transcript into a new session and returns its id
+   before any CLI process runs, so a forked Pod carries its own `ccSessionId`
+   from birth and opens through the existing `resume` path. **Verified: held** —
+   every claim checked held against both the SDK's built-in CLI 2.1.235 and CLI
+   2.1.318 on SDK 0.3.235; see
+   [`docs/fork-session-verification.md`](../../fork-session-verification.md).
+   The `forkSession: true` resume option remains the documented fallback had
+   that check been refuted.
 
 ## 11. Open questions for implementation
 
