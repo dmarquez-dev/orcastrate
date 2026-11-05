@@ -107,6 +107,7 @@ const ACTION_NAMES = [
   'openPod',
   'closePod',
   'reconnectPod',
+  'forkPod',
   'setActivePod',
   'setComposerText',
   'sendComposer',

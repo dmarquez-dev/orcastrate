@@ -24,8 +24,10 @@ function renderBar(
   const onDelete = vi.fn();
   const result = render(
     <PodBar
+      forkingPodIds={new Set()}
       onClose={onClose}
       onDelete={onDelete}
+      onFork={vi.fn()}
       onNewPod={onNewPod}
       onOpen={onOpen}
       onReorder={onReorder}

@@ -19,7 +19,9 @@ function renderPanel(reorderPods: (ids: PodId[]) => Promise<ActionResult<void>>)
   return render(
     <PodBarPanel
       onClose={vi.fn()}
+      forkingPodIds={new Set()}
       onDelete={vi.fn()}
+      onFork={vi.fn()}
       onNewPod={vi.fn()}
       onOpen={vi.fn()}
       onSelect={vi.fn()}

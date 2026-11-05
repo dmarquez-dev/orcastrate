@@ -19,9 +19,15 @@
  *      which element carries the message and what the app does around it —
  *      the dialog stays open, the draft survives, the card stays.
  *
- * ARITHMETIC. There are TWENTY-ONE invoke channels. FOURTEEN reach a rendered
+ * ARITHMETIC. There are TWENTY-TWO invoke channels. FIFTEEN reach a rendered
  * error surface; SEVEN do not. See `SURFACELESS_CHANNELS` for the seven and
  * why each is there. This is a finding about the app, not about the suite.
+ *
+ * `pod:fork` IS THE TWENTY-SECOND, and it SURFACES: the tab's Fork control
+ * calls `forkPod`, and `PodsChrome` renders a refused fork's message above the
+ * bar. It is driven deliberately — see `driveEveryAffordance` — because only a
+ * closed Pod with a conversation offers it, and the sweep's later steps take
+ * Alpha out of that state.
  *
  * WHAT MOVED, AND WHAT DID NOT. The original fifteen channels classified six
  * surfaced and nine silent. Sub-session 3 added six more — three
@@ -68,7 +74,11 @@ import { testId } from '../shell/contract-runtime';
 import { BEACHCOMBER_LOCAL_TEST_IDS } from '../beachcomber';
 import { HELM_SAFETY_TEST_IDS } from '../helm/test-ids';
 import { DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
-import { POD_TAB_DELETE_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
+import {
+  POD_TAB_DELETE_TEST_ID,
+  POD_TAB_FORK_TEST_ID,
+  POD_TAB_OPEN_TEST_ID,
+} from '../pods/PodTab';
 import {
   ipcError,
   makeStubBeachcomberEntries,
@@ -409,6 +419,16 @@ async function driveEveryAffordance(
   await screen.findByTestId(TEST_IDS.workspace);
   await settle(watch);
 
+  /*
+   * `pod:fork`, FIRST, while Alpha is still closed with a conversation — the
+   * one state the Fork control acts in. `sweepApi` lists Alpha with a
+   * `ccSessionId` for exactly this. Later steps open Alpha (the stub's open
+   * reply carries no session) and push it mid-turn, either of which leaves its
+   * Fork control `aria-disabled`, so the generic sweep cannot be relied on to
+   * reach the channel.
+   */
+  await clickIfPresent(user, watch, testId(POD_TAB_FORK_TEST_ID, ALPHA_ID));
+
   // Activating a Pod issues `lane:list` and `events:read` for it.
   await clickIfPresent(user, watch, testId(TEST_IDS.podTab, BRAVO_ID));
 
@@ -522,10 +542,17 @@ function sentinelFor(channel: InvokeChannelKey): string {
 
 function sweepApi(underTest: InvokeChannelKey, message: string): StubOrcastrateApi {
   const api = stubOrcastrateApi({
+    // Alpha carries a conversation, so its Fork control is live and the drive
+    // can reach `pod:fork`.
     pods:
       underTest === 'podList'
         ? {}
-        : { list: async () => ({ ok: true, value: [POD_ALPHA, POD_BRAVO] }) },
+        : {
+            list: async () => ({
+              ok: true,
+              value: [{ ...POD_ALPHA, ccSessionId: 'cc-alpha' }, POD_BRAVO],
+            }),
+          },
     lanes: underTest === 'laneList' ? {} : { list: async () => ({ ok: true, value: [MATRIARCH] }) },
   });
   api.failInvoke(underTest, ipcError('INTERNAL', message));
@@ -540,14 +567,14 @@ describe('which channels can say what went wrong', () => {
     expect(new Set(SURFACELESS_CHANNELS).size).toBe(SURFACELESS_CHANNELS.length);
     expect(new Set(UNREACHABLE_CHANNELS).size).toBe(UNREACHABLE_CHANNELS.length);
     expect(SURFACELESS_CHANNELS).toEqual(expect.arrayContaining([...UNREACHABLE_CHANNELS]));
-    // FOURTEEN of TWENTY-ONE surface, and SEVEN do not. Both halves are pinned,
+    // FIFTEEN of TWENTY-TWO surface, and SEVEN do not. Both halves are pinned,
     // not just their difference: a channel added to the frozen map without a
     // classification would move the total and be caught here, and a name added
     // to the allowlist would move the other. If either moves, this file's
     // header is stale and saying so is this assertion's whole job.
-    expect(INVOKE_KEYS.length).toBe(21);
+    expect(INVOKE_KEYS.length).toBe(22);
     expect(SURFACELESS_CHANNELS.length).toBe(7);
-    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(14);
+    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(15);
     // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
     // `PodStatus` and added a `system` subtype; it added NO channel in either
     // direction, and this is where that stays true. A push channel is not
@@ -594,7 +621,7 @@ describe('which channels can say what went wrong', () => {
 describe('every invoke channel failing in turn', () => {
   it('has a channel list to walk at all', () => {
     // Vacuity guard: an empty `it.each` below would report as a pass.
-    expect(INVOKE_KEYS.length).toBeGreaterThanOrEqual(21);
+    expect(INVOKE_KEYS.length).toBeGreaterThanOrEqual(22);
   });
 
   it.each(INVOKE_KEYS)(
@@ -632,7 +659,7 @@ describe('every invoke channel failing in turn', () => {
 
 /**
  * One test per channel the sweep above classified as HAVING a surface — all
- * FOURTEEN of them. The sweep proves the message reaches some pixel; these prove
+ * FIFTEEN of them. The sweep proves the message reaches some pixel; these prove
  * WHICH pixel, and what the app does around it.
  */
 describe('the message main wrote is the message on screen', () => {
@@ -649,6 +676,7 @@ describe('the message main wrote is the message on screen', () => {
       'podOpen',
       'podSend',
       'podReconnect',
+      'podFork',
       'permissionRespond',
       'dialogPickDirectory',
       'beachcomberScan',
@@ -727,6 +755,24 @@ describe('the message main wrote is the message on screen', () => {
     const alert = await screen.findByRole('alert');
     expect(alert.textContent).toBe('the session could not be resumed');
     expect(screen.getByTestId(testId(TEST_IDS.podTab, beached.id))).toBeDefined();
+  });
+
+  it('shows the pods.fork failure above the Pod bar and adds no tab', async () => {
+    const user = userEvent.setup();
+    const parent = makeStubPod({ id: 'pod-parent', title: 'Parent', ccSessionId: 'cc-parent' });
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [parent] }) },
+    });
+    api.failInvoke('podFork', ipcError('IO', 'the session could not be forked'));
+
+    mountWorkspace(api);
+
+    await user.click(await screen.findByTestId(testId(POD_TAB_FORK_TEST_ID, parent.id)));
+    await flushPendingWork();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toBe('the session could not be forked');
+    expect(screen.getAllByTestId(new RegExp(`^${TEST_IDS.podTab}:`))).toHaveLength(1);
   });
 
   it('shows the pods.delete failure inside the confirmation, which stays open with the Pod still on the bar', async () => {

@@ -3,6 +3,7 @@ import { useRef, useState, type JSX } from 'react';
 import type { PodId } from '@shared/contracts/events';
 import { TEST_IDS, type PodBarProps } from '../contracts/renderer-view';
 import a11y from '../shell/a11y.module.css';
+import { forkAncestryFor } from './fork-control';
 import styles from './PodBar.module.css';
 import { PodTab } from './PodTab';
 
@@ -29,6 +30,10 @@ export interface PodBarInternalProps extends PodBarProps {
   onOpen(podId: PodId): void;
   /** Ask for the delete confirmation. Nothing here deletes anything. */
   onDelete(podId: PodId): void;
+  /** Fork the Pod. The connector owns the call, its busy state and its error. */
+  onFork(podId: PodId): void;
+  /** Pods with a fork in flight. Their Fork controls report busy. */
+  forkingPodIds: ReadonlySet<PodId>;
 }
 
 export function PodBar({
@@ -39,6 +44,8 @@ export function PodBar({
   onClose,
   onOpen,
   onDelete,
+  onFork,
+  forkingPodIds,
 }: PodBarInternalProps): JSX.Element {
   const listRef = useRef<HTMLUListElement>(null);
   const [draggingId, setDraggingId] = useState<PodId | null>(null);
@@ -46,6 +53,10 @@ export function PodBar({
   const [announcement, setAnnouncement] = useState('');
 
   const ids = tabs.map((tab) => tab.pod.id);
+  // Read fresh on every render, so a renamed parent renames its forks'
+  // ancestry sentence with no further action.
+  const titleById = new Map(tabs.map((tab) => [tab.pod.id, tab.pod.title]));
+  const titleOf = (podId: PodId): string | undefined => titleById.get(podId);
 
   function moveTo(from: number, to: number): PodId[] | null {
     if (from < 0 || to < 0 || from >= ids.length || to >= ids.length || from === to) return null;
@@ -82,6 +93,7 @@ export function PodBar({
       <ul aria-label="Pods" className={styles.tabs} ref={listRef} role="list">
         {tabs.map((tab, index) => (
           <PodTab
+            ancestry={forkAncestryFor(tab.pod, titleOf)}
             dragging={draggingId === tab.pod.id}
             dropTarget={dropTargetId === tab.pod.id && draggingId !== tab.pod.id}
             index={index}
@@ -104,6 +116,10 @@ export function PodBar({
               const from = draggingId === null ? -1 : ids.indexOf(draggingId);
               endDrag();
               commit(from, index);
+            }}
+            forking={forkingPodIds.has(tab.pod.id)}
+            onFork={() => {
+              onFork(tab.pod.id);
             }}
             onFocusSibling={(delta) => {
               focusTabAt(index + delta);

@@ -197,6 +197,7 @@ export class WorkspaceStateStore {
   /** In-flight de-duplication, so a double click cannot send two decisions. */
   private readonly inflightBackfill = new Map<PodId, Promise<ActionResult<void>>>();
   private readonly inflightSend = new Map<PodId, Promise<ActionResult<void>>>();
+  private readonly inflightFork = new Map<PodId, Promise<ActionResult<Pod>>>();
   private readonly inflightRespond = new Set<string>();
 
   readonly actions: WorkspaceActions;
@@ -588,6 +589,37 @@ export class WorkspaceStateStore {
         // openness — no optimistic patch is issued or needed.
         store.applyPod(result.value);
         return result;
+      },
+
+      /**
+       * One `pods.fork` per Pod at a time: a second call while the first is in
+       * flight resolves the first call's result. On success the fork is listed
+       * and selected; on failure nothing is touched and main's error is passed
+       * through unmodified.
+       */
+      async forkPod(podId: PodId): Promise<ActionResult<Pod>> {
+        const api = store.api;
+        if (api === null) return store.failClosed<Pod>();
+        const inflight = store.inflightFork.get(podId);
+        if (inflight !== undefined) return inflight;
+
+        const promise = (async (): Promise<ActionResult<Pod>> => {
+          const result = await safeInvoke(() => api.pods.fork(podId));
+          if (!result.ok) return result;
+          // No push announces a fork: the resolved Pod is the whole
+          // announcement, so it is applied here. Its server `tabOrder` is what
+          // places it in the bar.
+          store.applyPod(result.value);
+          store.actions.setActivePod(result.value.id);
+          return result;
+        })();
+
+        store.inflightFork.set(podId, promise);
+        try {
+          return await promise;
+        } finally {
+          store.inflightFork.delete(podId);
+        }
       },
 
       /** Idempotent. Clears the Pod's unread count and, once, starts its reads. */

@@ -14,6 +14,10 @@ export interface PodBarPanelProps {
   onOpen(podId: PodId): void;
   /** Ask for the delete confirmation; the connector owns the dialog. */
   onDelete(podId: PodId): void;
+  /** Fork the Pod; the connector owns the call, its busy state and its error. */
+  onFork(podId: PodId): void;
+  /** Pods with a fork in flight, so their Fork controls report busy. */
+  forkingPodIds: ReadonlySet<PodId>;
   onNewPod(): void;
   /**
    * `WorkspaceActions.reorderPods`. Resolves and never rejects (frozen
@@ -37,6 +41,8 @@ export function PodBarPanel({
   onClose,
   onOpen,
   onDelete,
+  onFork,
+  forkingPodIds,
   onNewPod,
   reorderPods,
 }: PodBarPanelProps): JSX.Element {
@@ -79,7 +85,9 @@ export function PodBarPanel({
     <div className={styles.panel}>
       <PodBar
         onClose={onClose}
+        forkingPodIds={forkingPodIds}
         onDelete={onDelete}
+        onFork={onFork}
         onNewPod={onNewPod}
         onOpen={onOpen}
         onReorder={handleReorder}

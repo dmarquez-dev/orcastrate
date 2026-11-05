@@ -1,8 +1,9 @@
-import { useRef, useState, type JSX } from 'react';
+import { useEffect, useRef, useState, type JSX } from 'react';
 
 import type { Pod, PodId } from '@shared/contracts/events';
 import { usePods, useWorkspaceActions } from '../state';
-import type { NewPodDraft } from '../contracts/renderer-view';
+import { TEST_IDS, type NewPodDraft } from '../contracts/renderer-view';
+import { testId } from '../shell/contract-runtime';
 import { DeletePodDialog } from './DeletePodDialog';
 import { NewPodDialog } from './NewPodDialog';
 import { PodBarPanel } from './PodBarPanel';
@@ -57,6 +58,55 @@ export function PodsChrome({
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletedAnyway, setDeletedAnyway] = useState(false);
+
+  /*
+   * The fork's interaction state: which Pods have a fork in flight (their Fork
+   * controls report busy), main's message when one fails, and the new Pod
+   * whose tab should take focus once it renders.
+   */
+  const [forkingPodIds, setForkingPodIds] = useState<ReadonlySet<PodId>>(() => new Set());
+  const [forkError, setForkError] = useState<string | null>(null);
+  const [focusPodId, setFocusPodId] = useState<PodId | null>(null);
+
+  /*
+   * FOCUS FOLLOWS THE FORK. The new Pod's tab is selected, and focus moves to
+   * it, so the user who pressed Fork is left on the thing their action made
+   * rather than on a control belonging to a tab that is no longer active. The
+   * tab may not have rendered yet when the action resolves, so this waits for
+   * the list that carries it.
+   */
+  useEffect(() => {
+    if (focusPodId === null) return;
+    const target = chromeRef.current?.querySelector<HTMLElement>(
+      `[data-testid="${testId(TEST_IDS.podTab, focusPodId)}"]`,
+    );
+    if (target === null || target === undefined) return;
+    target.focus();
+    setFocusPodId(null);
+  }, [focusPodId, pods.value]);
+
+  /**
+   * `forkPod`'s only component caller. Resolves and never rejects (frozen
+   * `renderer-state.ts`), so there is no `catch`. On failure the bar is
+   * untouched — the state layer added nothing — and main's message is shown
+   * verbatim.
+   */
+  function handleFork(podId: PodId): void {
+    setForkError(null);
+    setForkingPodIds((current) => new Set(current).add(podId));
+    void actions.forkPod(podId).then((result) => {
+      setForkingPodIds((current) => {
+        const next = new Set(current);
+        next.delete(podId);
+        return next;
+      });
+      if (!result.ok) {
+        setForkError(result.error.message);
+        return;
+      }
+      setFocusPodId(result.value.id);
+    });
+  }
 
   function handleSelect(podId: PodId): void {
     actions.setActivePod(podId);
@@ -207,7 +257,9 @@ export function PodsChrome({
     >
       <PodBarPanel
         onClose={handleStop}
+        forkingPodIds={forkingPodIds}
         onDelete={handleRequestDelete}
+        onFork={handleFork}
         onNewPod={handleNewPod}
         onOpen={handleRun}
         onSelect={handleSelect}
@@ -218,6 +270,12 @@ export function PodsChrome({
       {openError === null ? null : (
         <p className={styles.listError} role="alert">
           {openError}
+        </p>
+      )}
+
+      {forkError === null ? null : (
+        <p className={styles.listError} role="alert">
+          {forkError}
         </p>
       )}
 

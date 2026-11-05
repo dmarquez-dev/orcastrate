@@ -25,6 +25,7 @@ import { statusToken } from '../shell/contract-runtime';
 import {
   PodTab,
   POD_TAB_DELETE_TEST_ID,
+  POD_TAB_FORK_TEST_ID,
   POD_TAB_OPEN_TEST_ID,
   POD_TAB_STOP_TEST_ID,
   type PodTabProps,
@@ -40,12 +41,16 @@ function renderTab(overrides: TabOverrides, props: Partial<PodTabProps> = {}) {
   const onSelect = vi.fn();
   const onClose = vi.fn();
   const onDelete = vi.fn();
+  const onFork = vi.fn();
   const full: PodTabProps = {
     tab: tabVm(overrides),
     index: 0,
     total: 1,
     dragging: false,
     dropTarget: false,
+    ancestry: null,
+    forking: false,
+    onFork,
     onSelect,
     onClose,
     onOpen,
@@ -64,7 +69,7 @@ function renderTab(overrides: TabOverrides, props: Partial<PodTabProps> = {}) {
       <PodTab {...full} />
     </ul>,
   );
-  return { ...result, onOpen, onSelect, onClose, onDelete, props: full };
+  return { ...result, onOpen, onSelect, onClose, onDelete, onFork, props: full };
 }
 
 const CLOSED: TabOverrides = { id: 'a', title: 'Alpha', status: 'closed', opened: false };
@@ -103,22 +108,31 @@ describe('the `closed` status on a Pod tab', () => {
   });
 });
 
-describe('the tab carries two distinct controls', () => {
+describe('the tab carries distinct controls', () => {
   /*
    * BOTH HALVES OF EACH NEGATIVE ARE ASSERTED IN THE SAME TEST. "No delete
    * control for an opened Pod" passes trivially against a component that
    * rendered nothing at all, so every `toBeNull` below sits beside the control
    * that MUST be there in the same render.
    */
-  it('offers run and delete, and only those two, for a Pod with no process', () => {
+  it('offers run, fork and delete, and only those three, for a Pod with no process', () => {
     renderTab(CLOSED);
+    const tab = screen.getByTestId('pod-tab:a');
     const run = screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`);
+    const fork = screen.getByTestId(`${POD_TAB_FORK_TEST_ID}:a`);
     const del = screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`);
 
     expect(run.tagName).toBe('BUTTON');
+    expect(fork.tagName).toBe('BUTTON');
     expect(del.tagName).toBe('BUTTON');
     // The stop control is the OTHER mode of the run control, so it is absent.
     expect(screen.queryByTestId(`${POD_TAB_STOP_TEST_ID}:a`)).toBeNull();
+    // Exactly those three controls beside the tab button, and nothing else.
+    expect(screen.getAllByRole('button').filter((button) => button !== tab)).toEqual([
+      run,
+      fork,
+      del,
+    ]);
   });
 
   it('offers stop and NO delete control at all for a Pod with a live process', () => {
@@ -186,6 +200,20 @@ describe('neither control is distinguished by colour alone', () => {
     expect(iconOf(del)).toBe('delete');
     expect(iconOf(run)).toBe('play');
     expect(iconOf(del)).not.toBe(iconOf(run));
+  });
+
+  it('draws the fork glyph in an aria-hidden span with data-icon="fork", distinct from the other shapes', () => {
+    renderTab(CLOSED);
+    const fork = screen.getByTestId(`${POD_TAB_FORK_TEST_ID}:a`);
+    const glyph = fork.querySelector('[data-icon]');
+
+    expect(glyph?.getAttribute('data-icon')).toBe('fork');
+    expect(glyph?.getAttribute('aria-hidden')).toBe('true');
+    expect(glyph?.textContent).not.toBe('');
+    // The name, not the glyph, is what assistive technology reads.
+    expect(fork.getAttribute('aria-label')).toBe('Fork Alpha');
+    expect(iconOf(screen.getByTestId(`${POD_TAB_OPEN_TEST_ID}:a`))).not.toBe('fork');
+    expect(iconOf(screen.getByTestId(`${POD_TAB_DELETE_TEST_ID}:a`))).not.toBe('fork');
   });
 
   it('asks for the confirmation rather than deleting anything', async () => {
