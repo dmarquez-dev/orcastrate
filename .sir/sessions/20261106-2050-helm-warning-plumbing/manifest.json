@@ -1,0 +1,79 @@
+{
+  "session": "20261106-2050-helm-warning-plumbing",
+  "createdAt": "2026-11-06T21:11:36Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": ["contracts/helm-validation.ts"],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Narrow the shared Helm validation types and remove the warning path from main",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/shared/contracts/helm.ts",
+        "src/main/helm/validate.ts",
+        "src/main/helm/helm-service.ts",
+        "tests/unit/helm/validation.test.ts",
+        "tests/unit/ipc/panel-fakes.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`grep -cE \"^export type HelmValidationSeverity = 'error';$\" src/shared/contracts/helm.ts` prints 1 (base 0, run by the architect at 3cb07f5). Positive control: `grep -c \"^export type HelmValidationSeverity = \" src/shared/contracts/helm.ts` prints 1 at base and after (the named type is kept, narrowed).",
+        "`HelmSaveResult` in `src/shared/contracts/helm.ts` declares exactly two members, `document: HelmDocument` and `backupDisplayPath: string`, as the frozen contract `contracts/helm-validation.ts` states: `grep -cE \"^ +warnings:\" src/shared/contracts/helm.ts` prints 0 (base 1, at helm.ts:267). Positive control: `grep -cE \"^ +backupDisplayPath:\" src/shared/contracts/helm.ts` prints 1 at base and after.",
+        "`warningIssues` no longer exists: `grep -rn warningIssues src tests | wc -l` prints 0 (base 3: validate.ts:113, helm-service.ts:61, helm-service.ts:240). Positive control: `grep -rn blockingIssues src tests | wc -l` prints 3 at base and after.",
+        "Word census over the five owned files: `grep -niE \"\\bwarnings?\\b\" src/shared/contracts/helm.ts src/main/helm/validate.ts src/main/helm/helm-service.ts tests/unit/helm/validation.test.ts tests/unit/ipc/panel-fakes.ts | wc -l` prints 1 (base 13, run by the architect at 3cb07f5), and that one line is the conflict-detection comment `a warning — never a silent overwrite` (base helm.ts:37). Predicate checked by eye at base: it matches `'error' | 'warning'` (helm.ts:212) and `warnings: warningIssues(validation),` (helm-service.ts:240); it does NOT match a line whose only occurrence is the identifier `warningIssues` (validate.ts:113), which is why the previous criterion exists separately.",
+        "Preserved: the conflict-detection comment is untouched. `grep -c \"a warning — never a silent overwrite\" src/shared/contracts/helm.ts` prints 1 at base and after.",
+        "`grep -niE \"\\badvisory\\b\" src/main/helm/validate.ts tests/unit/helm/validation.test.ts | wc -l` prints 0 (base 2: validate.ts:2 `BLOCKING and ADVISORY`, validation.test.ts:2 `BLOCKING FROM ADVISORY`). Preserved control: `grep -ciE \"\\badvisory\\b\" src/shared/contracts/helm.ts` prints 2 at base and after (the unrelated `HelmService.watch` ADVISORY lines, base :57 and :293).",
+        "The docblock on `HelmValidation` in `src/shared/contracts/helm.ts` (base :240-243) states that every validation issue blocks the save, and no longer describes an issue that is reported while the save goes ahead.",
+        "The header docblock of `src/main/helm/validate.ts` (base :1-14) states that every validation issue blocks the save, and still states that `accept`, `hold` and `refuse` validate with no issue and that a value outside the three is an error that blocks the save.",
+        "The header docblock of `tests/unit/helm/validation.test.ts` (base :1-9) states that every validation issue blocks the save, and still states the three accepted `crossSessionInbound` values and that a value outside them blocks the save.",
+        "The test in `tests/unit/helm/validation.test.ts` that saves `crossSessionInbound: 'hold'` (base :104-118) no longer reads `result.warnings`; it asserts that the resolved `HelmSaveResult`'s own keys are exactly `backupDisplayPath` and `document` (for example `expect(Object.keys(result).sort()).toEqual(['backupDisplayPath', 'document'])`), still asserts the file holds `hold`, and its title states that outcome (test discipline, Naming: the name states the condition and the expected outcome). Shown able to fail by either route: red step (the assertion run with `npx vitest run tests/unit/helm/validation.test.ts` before the `warnings:` line is removed from `HelmService.save`, failing on the extra `warnings` key), or injection of `warnings: [],` into the single object literal returned by `HelmService.save` in `src/main/helm/helm-service.ts` (base :237-241), running the same command, observing the failure, reverting. Report the command and the failure.",
+        "Preserved: error behaviour in the test file is unchanged. The diff of `tests/unit/helm/validation.test.ts` touches no line inside `describe('validate: errors', ...)` (base :48-91).",
+        "Preserved: error behaviour in main is unchanged. The diff touches neither the body of `blockingIssues` in `src/main/helm/validate.ts` (base :109-111) nor the `blocking.length > 0` throw in `HelmService.save` (base helm-service.ts:170-177), and adds no validation rule to `validateSaveRequest`.",
+        "`npm run typecheck:node` exits 0. (The web project is expected NOT to typecheck at this task's tip, because the renderer still names `warnings`; that is T2's work and T1 must not touch renderer files.)",
+        "`npx vitest run tests/unit/helm tests/unit/ipc` exits 0."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Remove the warning path from the Helm renderer, its copy, styles, stubs and tests",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/helm/HelmNotices.tsx",
+        "src/renderer/src/helm/HelmPanel.tsx",
+        "src/renderer/src/helm/IssueList.tsx",
+        "src/renderer/src/helm/IssueList.test.tsx",
+        "src/renderer/src/helm/copy.ts",
+        "src/renderer/src/helm/Helm.module.css",
+        "src/renderer/src/helm/test-fixtures.ts",
+        "src/renderer/src/helm/HelmPanel.test.tsx",
+        "src/renderer/src/helm/issues.test.ts",
+        "src/renderer/src/state/panel-store.ts",
+        "src/renderer/src/test-utils/stub-api.ts"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "Repo-wide, every warning-only name is gone: `grep -rnE \"warningIssues|warningsHeading|severityWarning|issueWarning|helm-save-warnings\" src tests | wc -l` prints 0 (base 10, run by the architect at 3cb07f5; T1 removes the 3 `warningIssues` lines). Positive control: `grep -rnE \"blockingIssues|savedHeading|severityError|issueError\" src tests | wc -l` prints at least 10 (base 10).",
+        "Word census over the ten owned files that exist at base: `grep -niE \"\\bwarnings?\\b\" src/renderer/src/helm/HelmNotices.tsx src/renderer/src/helm/HelmPanel.tsx src/renderer/src/helm/IssueList.tsx src/renderer/src/helm/copy.ts src/renderer/src/helm/Helm.module.css src/renderer/src/state/panel-store.ts src/renderer/src/test-utils/stub-api.ts src/renderer/src/helm/test-fixtures.ts src/renderer/src/helm/HelmPanel.test.tsx src/renderer/src/helm/issues.test.ts | wc -l` prints 3 (base 24, run by the architect at 3cb07f5), and the three lines are the stale notice's `tone=\"warning\"` in HelmNotices.tsx (base :153) and the Notice-tone rules `.warning {` and `.warning .marker {` in Helm.module.css (base :256, :260), all of which stay. Predicate checked by eye at base: it matches `warnings,` (HelmNotices.tsx:68) and `issue('model', 'warning')` (issues.test.ts:23); it does not match `src/renderer/src/helm/Notice.tsx:16`, which is outside the file list and must stay unchanged.",
+        "`grep -ciE \"\\bwarnings?\\b\" src/renderer/src/helm/IssueList.test.tsx` prints 0 (the file does not exist at base).",
+        "Repo-wide, the `'warning'` literal survives only as a Notice tone: `grep -rnE \"'warning'\" src tests | wc -l` prints 1 (base 7, run by the architect at 3cb07f5), and that line is `export type NoticeTone = 'danger' | 'warning' | 'success' | 'info';` at `src/renderer/src/helm/Notice.tsx:16`. Positive control: `grep -rnE \"severity: *'error'\" src --exclude=*.test.* | wc -l` prints 16 at base and after (every producer kept).",
+        "Repo-wide, nothing in `src` names a `warnings` field: `grep -rnw warnings src | wc -l` prints 0 (base 14, run by the architect at 3cb07f5). Positive control: `grep -rnw backupDisplayPath src | wc -l` prints at least 13 (base 13).",
+        "`HelmNotices` (src/renderer/src/helm/HelmNotices.tsx) takes no `warnings` prop, and the saved banner (the Notice with `testId={PANEL_TEST_IDS.helmBackupPath}`) passes `heading={COPY.savedHeading}` and `tone=\"success\"` unconditionally and renders the backup path with no `IssueList`.",
+        "The base test `shows the backup path and any non-blocking warning beside it` in `src/renderer/src/helm/HelmPanel.test.tsx` (base :353-370) is reworded, not deleted: it renders a `lastSave` for the selected scope with no `warnings` key and asserts that the `helmBackupPath` banner's text contains the backup path and `COPY.savedHeading`, and its title states that outcome and mentions no warning (test discipline, Naming). Shown able to fail: inject `heading={COPY.errorHeading}` in place of the saved banner's heading in HelmNotices.tsx (one site: the Notice whose testId is `PANEL_TEST_IDS.helmBackupPath`), run `npx vitest run src/renderer/src/helm/HelmPanel.test.tsx`, observe the failure, revert, and report the window.",
+        "The same reworded test asserts the saved banner shows the success glyph `✓` (`MARKERS.success`, src/renderer/src/helm/Notice.tsx:21). Shown able to fail: inject `tone=\"info\"` in place of the saved banner's tone in HelmNotices.tsx (same single site), run `npx vitest run src/renderer/src/helm/HelmPanel.test.tsx`, observe the failure, revert, and report the window.",
+        "`IssueList` (src/renderer/src/helm/IssueList.tsx) no longer branches on `issue.severity`: every item carries `styles.issueError` and the word `COPY.severityError` beside its message (frontend discipline, Accessibility floor: \"Color is never the only carrier of meaning\").",
+        "New `src/renderer/src/helm/IssueList.test.tsx` (jsdom, following the `// @vitest-environment jsdom` convention in vitest.config.ts) renders at least two issues and asserts each list item's text contains `COPY.severityError` and that issue's message (preserved, newly tested: no test covered the severity word at base). Shown able to fail: inject an empty string in place of `{COPY.severityError}` in IssueList.tsx (one site), run `npx vitest run src/renderer/src/helm/IssueList.test.tsx`, observe the failure, revert, and report the window.",
+        "`src/renderer/src/helm/IssueList.test.tsx` asserts that an empty `issues` array renders nothing (preserved, newly tested). Shown able to fail: delete the `if (issues.length === 0) return null;` guard in IssueList.tsx (base :27), run `npx vitest run src/renderer/src/helm/IssueList.test.tsx`, observe the failure, revert, and report the window.",
+        "The `IssueList.tsx` header docblock (base :1-9) still states that severity is spelled out in words as well as coloured, and names only \"Error\".",
+        "The notices comment in `Helm.module.css` (base :205-209) still states that colour never carries meaning alone and that every inline issue prints \"Error\" as text.",
+        "Preserved: `grep -cE \"^\\.issueError \\{\" src/renderer/src/helm/Helm.module.css` prints 1 at base and after (`src/renderer/src/helm/EnvEditor.tsx:85` also uses it).",
+        "The `validateDraft` docblock in `src/renderer/src/state/panel-store.ts` (base :840-847) states that every validation issue blocks the save, and the diff of panel-store.ts touches no line outside that docblock.",
+        "`src/renderer/src/helm/issues.test.ts`: the `issue` helper (base :17) no longer accepts a severity of `'warning'`, and the test `hands a control only its own issues` still builds two `model` issues that are not deep-equal to each other (for example, distinct messages) and still asserts `issuesFor(issues, 'model')` returns both, first one first, so returning the same issue twice would fail it.",
+        "`npm run typecheck` exits 0 (both the node and web projects; at this task's startRef, T1's tip, the web project does not typecheck).",
+        "`npm test` exits 0 and reports 156 test files (155 at base, measured by the orchestrator at 3cb07f5, plus IssueList.test.tsx) and a test total not below 2538 (the base total, same measurement)."
+      ]
+    }
+  ]
+}

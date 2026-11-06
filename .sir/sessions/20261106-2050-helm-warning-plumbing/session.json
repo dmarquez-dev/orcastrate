@@ -1,0 +1,47 @@
+{
+  "id": "20261106-2050-helm-warning-plumbing",
+  "name": "helm-warning-plumbing",
+  "scope": "standard",
+  "status": "MERGED",
+  "pushed": true,
+  "started": "2026-11-06T20:50:52Z",
+  "ended": null,
+  "brief": "Remove Helm's dormant `warning` validation-severity path end to end. No validator has produced a `warning` since the `crossSessionInbound: hold` warning was removed, so the path is code nothing real exercises. The shared contract narrows `HelmValidationSeverity` to `'error'` and drops `HelmSaveResult.warnings`; main drops `warningIssues` and the service's `warnings:` field; the renderer drops the saved-with-warnings notice branch, the `IssueList` warning styling and copy, and the matching fields in stubs and fakes; the synthetic tests that only drove the warning path are reworded or removed; and docblocks that describe a `warning` severity are reworded to say every validation issue blocks the save. Error behaviour is unchanged and no validation rule is added. The backlog line asking for this decision is removed at Gate 3 once the removal merges.",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "fe2b50ba-9df6-4c59-b185-4757027fe1e9",
+      "sir": "1.0.24",
+      "started": "2026-11-06T20:50:52Z",
+      "ended": "2026-11-06T20:54:55Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "3bfc044f-4f1c-457b-84e3-a5642d7ddf51",
+      "sir": "1.0.24",
+      "started": "2026-11-06T20:56:22Z",
+      "ended": "2026-11-06T22:57:43Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "f0a6313b-3710-410e-9a40-05ac43297fc9",
+      "sir": "1.0.24",
+      "started": "2026-11-06T22:59:37Z",
+      "ended": "2026-11-06T23:22:11Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "bd5712a4-830a-4f8e-acb3-89d3983e4f90",
+      "sir": "1.0.24",
+      "started": "2026-11-06T23:33:08Z",
+      "ended": "2026-11-06T23:46:04Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

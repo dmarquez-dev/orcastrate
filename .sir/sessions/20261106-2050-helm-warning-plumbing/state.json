@@ -1,0 +1,25 @@
+{
+  "session": "20261106-2050-helm-warning-plumbing",
+  "updatedAt": "2026-11-06T23:46:04Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261106-2050-helm-warning-plumbing",
+  "branch": "agent/20261106-2050-helm-warning-plumbing",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "both scripts echoed (`tsc --noEmit -p tsconfig.node.json --composite false`, `tsc --noEmit -p tsconfig.web.json --composite false`), no diagnostics, exit=0; `npm exec -- tsc --version` printed `Version 7.0.2` (resolved from the main checkout's node_modules; the worktree has none)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "`vitest run` in the worktree: Test Files  155 passed (155) / Tests  2538 passed (2538), exit=0; `git status --porcelain` afterwards printed nothing"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "3cb07f5b89f65904ed8b2265571a5f2017f514e8", "commit": "600f1f0aec821518d7299cb867044d4be39e6d53", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "startRef": "600f1f0aec821518d7299cb867044d4be39e6d53", "commit": "04fa1fb3d9564f9a7b5869d730d01b4399dec28e", "model": "opus" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
