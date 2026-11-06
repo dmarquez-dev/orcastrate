@@ -1,13 +1,12 @@
 /**
- * Validation, and the line between BLOCKING and ADVISORY.
- *
- * `error` blocks the save. `warning` does not.
+ * Validation. Every issue it reports is an `error`, and every validation issue
+ * blocks the save.
  *
  * `crossSessionInbound`. CLI 2.1.318's binary declares `accept`, `hold` and
  * `refuse` as the setting's value set, and describes `hold` as parking
  * cross-session messages for review without letting Claude act on them. So
- * `hold` is accepted without an issue, exactly like its two siblings, and a
- * save with it returns no warnings.
+ * `hold` validates with no issue, exactly like its two siblings, and a save
+ * with any of the three goes ahead.
  *
  * A value outside the three IS an error: it is a value the CLI has no branch
  * for, and it blocks the save.
@@ -108,8 +107,4 @@ export function validateSaveRequest(req: HelmSaveRequest): HelmValidation {
 
 export function blockingIssues(validation: HelmValidation): HelmValidationIssue[] {
   return validation.issues.filter((issue) => issue.severity === 'error');
-}
-
-export function warningIssues(validation: HelmValidation): HelmValidationIssue[] {
-  return validation.issues.filter((issue) => issue.severity === 'warning');
 }
