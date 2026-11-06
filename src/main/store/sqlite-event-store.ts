@@ -246,9 +246,10 @@ class SqliteEventStore implements EventStore {
 
   /**
    * One IMMEDIATE transaction: the pod row, every lane, every event up to
-   * `throughSeq`. Any throw — NOT_FOUND below, or a constraint the database
-   * refuses (duplicate pod id, colliding minted LaneId) — rolls the whole
-   * transaction back, so no row from this call survives a failure.
+   * `throughSeq`. Any throw — NOT_FOUND below, IO for a lane reference that
+   * names no lane of the parent, or a constraint the database refuses
+   * (duplicate pod id, colliding minted LaneId) — rolls the whole transaction
+   * back, so no row from this call survives a failure.
    */
   forkPod(input: ForkPodInput): Pod {
     return guard('forkPod', () => {
@@ -288,7 +289,20 @@ class SqliteEventStore implements EventStore {
         ).all(parent.id);
         const laneMap = new Map<LaneId, LaneId>();
         for (const lane of lanes) laneMap.set(lane.id, fork.newLaneId());
-        const remap = (id: LaneId): LaneId => laneMap.get(id) ?? id;
+        // No fallback: a reference outside the map would be written into the
+        // fork still naming the parent's (or another Pod's) lane. A dangling
+        // reference is corrupt stored data, so it is IO, and the throw rolls
+        // back everything this transaction has already written.
+        const remap = (id: LaneId, where: string): LaneId => {
+          const mapped = laneMap.get(id);
+          if (mapped === undefined) {
+            throw new EventStoreError(
+              'IO',
+              `forkPod: ${where} names lane ${id}, which is not a lane of parent pod ${parent.id}; nothing was written`,
+            );
+          }
+          return mapped;
+        };
 
         const insertLane = this.stmt(
           `INSERT INTO lanes (${LANE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -298,12 +312,14 @@ class SqliteEventStore implements EventStore {
           // the parent cannot be running in the fork.
           const wasRunning = lane.status === 'running';
           insertLane.run(
-            remap(lane.id),
+            remap(lane.id, 'lanes.id'),
             podRow.id,
             lane.kind,
             lane.tool_use_id,
             lane.agent_id,
-            lane.parent_lane_id === null ? null : remap(lane.parent_lane_id),
+            lane.parent_lane_id === null
+              ? null
+              : remap(lane.parent_lane_id, `lanes.parent_lane_id of lane ${lane.id}`),
             lane.depth,
             lane.subagent_type,
             lane.description,
@@ -323,12 +339,13 @@ class SqliteEventStore implements EventStore {
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
         );
         for (const event of events) {
+          const remapInEvent = (id: LaneId, where: string): LaneId => remap(id, `${where} of event seq ${event.seq}`);
           insertEvent.run(
             podRow.id,
-            remap(event.lane_id),
+            remapInEvent(event.lane_id, 'events.lane_id'),
             event.seq,
             event.type,
-            remapPayloadLanes(event.type, event.payload, remap, podRow.id),
+            remapPayloadLanes(event.type, event.payload, remapInEvent, podRow.id),
             event.raw,
             event.created_at,
           );
@@ -517,8 +534,8 @@ class SqliteEventStore implements EventStore {
 /**
  * Orders lanes so every lane follows the lane its `parent_lane_id` names.
  * `lanes.parent_lane_id` is an immediate foreign key, so a Calf's copy cannot
- * be written before its parent's copy. A parent outside the set (which the
- * store never writes) imposes no ordering.
+ * be written before its parent's copy. A parent outside the set imposes no
+ * ordering here; `forkPod`'s remap refuses it when the lane is written.
  */
 function parentsFirst(lanes: LaneRow[]): LaneRow[] {
   const inSet = new Set(lanes.map((l) => l.id));
@@ -547,12 +564,17 @@ function parentsFirst(lanes: LaneRow[]): LaneRow[] {
  *   lane_closed  payload.laneId
  *   tool_use     payload.dispatchedLaneId, when present
  *
- * Every other event type's payload text is returned byte-for-byte.
+ * For those three types the result is
+ * "equivalent JSON, lane ids remapped; not byte-identical": the payload is
+ * parsed and re-serialized with `JSON.stringify`, so key order and whitespace
+ * may differ from the stored text while every other value is equal. `remap` throws on a LaneId that names
+ * no lane of the parent; there is no fallback. Every other event type's
+ * payload text is returned byte-for-byte.
  */
 function remapPayloadLanes(
   type: string,
   payloadText: string,
-  remap: (id: LaneId) => LaneId,
+  remap: (id: LaneId, where: string) => LaneId,
   forkId: PodId,
 ): string {
   if (type !== 'lane_opened' && type !== 'lane_closed' && type !== 'tool_use') return payloadText;
@@ -570,14 +592,16 @@ function remapPayloadLanes(
     const lane = p['lane'];
     if (typeof lane === 'object' && lane !== null) {
       const l = lane as Record<string, unknown>;
-      if (typeof l['id'] === 'string') l['id'] = remap(l['id']);
+      if (typeof l['id'] === 'string') l['id'] = remap(l['id'], 'lane_opened payload.lane.id');
       if ('podId' in l) l['podId'] = forkId;
-      if (typeof l['parentLaneId'] === 'string') l['parentLaneId'] = remap(l['parentLaneId']);
+      if (typeof l['parentLaneId'] === 'string') {
+        l['parentLaneId'] = remap(l['parentLaneId'], 'lane_opened payload.lane.parentLaneId');
+      }
     }
   } else if (type === 'lane_closed') {
-    if (typeof p['laneId'] === 'string') p['laneId'] = remap(p['laneId']);
+    if (typeof p['laneId'] === 'string') p['laneId'] = remap(p['laneId'], 'lane_closed payload.laneId');
   } else if (typeof p['dispatchedLaneId'] === 'string') {
-    p['dispatchedLaneId'] = remap(p['dispatchedLaneId']);
+    p['dispatchedLaneId'] = remap(p['dispatchedLaneId'], 'tool_use payload.dispatchedLaneId');
   }
   return JSON.stringify(p);
 }

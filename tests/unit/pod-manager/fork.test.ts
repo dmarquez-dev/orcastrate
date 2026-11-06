@@ -347,6 +347,61 @@ describe('forkPod refuses, and writes nothing', () => {
 });
 
 // ---------------------------------------------------------------------------
+// A fork session id that is not a distinct session
+// ---------------------------------------------------------------------------
+
+describe('forkPod refuses a fork session id that is empty or the parent\'s own', () => {
+  // `seedParent` gives the parent the ccSessionId 'cc-parent'; every test below
+  // asserts that before relying on it, so the source-equal case stays one.
+  const cases = [
+    { name: 'an empty id', answer: '' },
+    { name: "the parent's own ccSessionId", answer: 'cc-parent' },
+  ];
+
+  it.each(cases)('rejects $name with IO', async ({ answer }) => {
+    const h = harness(answeringForkPort(answer));
+    const parent = seedParent(h);
+    expect(parent.ccSessionId).toBe('cc-parent');
+
+    await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+  });
+
+  it.each(cases)('never calls store.forkPod for $name, and writes no row', async ({ answer }) => {
+    const h = harness(answeringForkPort(answer));
+    const parent = seedParent(h);
+    expect(parent.ccSessionId).toBe('cc-parent');
+    const before = rowCounts(h.raw);
+
+    await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+
+    expect(h.spy.writes.filter((w) => w.method === 'forkPod')).toEqual([]);
+    expect(rowCounts(h.raw)).toEqual(before);
+  });
+
+  it.each(cases)("names forkSession, the parent PodId and the parent's ccSessionId for $name", async ({ answer }) => {
+    const h = harness(answeringForkPort(answer));
+    const parent = seedParent(h);
+    expect(parent.ccSessionId).toBe('cc-parent');
+
+    const err = await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+
+    expect(err.message).toContain('forkSession');
+    expect(err.message).toContain(parent.id);
+    expect(err.message).toContain('cc-parent');
+  });
+
+  it.each(cases)('logs nothing for $name', async ({ answer }) => {
+    const h = harness(answeringForkPort(answer));
+    const parent = seedParent(h);
+    expect(parent.ccSessionId).toBe('cc-parent');
+
+    await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+
+    expect(h.logged).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Ordering against the outside world
 // ---------------------------------------------------------------------------
 
@@ -451,5 +506,52 @@ describe('forkPod when the store write fails with an IO fault', () => {
     } finally {
       raw.close();
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The store refuses a lane reference it cannot remap
+// ---------------------------------------------------------------------------
+
+describe("forkPod when the parent holds an event on another Pod's lane", () => {
+  /** A parent whose stored events include one whose lane_id is another Pod's lane. */
+  function seedParentWithForeignLaneEvent(h: ManagerHarness): { parent: Pod; foreignLaneId: string } {
+    const parent = seedParent(h);
+    const otherPodId = seedPod(h, { title: 'Other Pod' });
+    const foreignLaneId = h.raw.listLanes(otherPodId)[0]?.id;
+    if (foreignLaneId === undefined) throw new Error('the other Pod has no lane');
+    h.raw.append({
+      podId: parent.id,
+      laneId: foreignLaneId,
+      type: 'user_message',
+      payload: { type: 'user_message', text: 'on a lane that is not the parent\'s' },
+      createdAt: '2026-08-20T11:00:00.000Z',
+    });
+    h.spy.reset();
+    return { parent, foreignLaneId };
+  }
+
+  it("rejects with IO whose message is 'forkPod failed for pod <parent>: forkPod:…' naming the lane, and writes no row", async () => {
+    const h = harness(answeringForkPort('cc-orphan'));
+    const { parent, foreignLaneId } = seedParentWithForeignLaneEvent(h);
+    const before = rowCounts(h.raw);
+
+    const err = await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+
+    expect(err.message.startsWith(`forkPod failed for pod ${parent.id}: forkPod:`)).toBe(true);
+    expect(err.message).toContain(foreignLaneId);
+    expect(rowCounts(h.raw)).toEqual(before);
+  });
+
+  it("warns that the session the fork port returned is left orphaned", async () => {
+    const h = harness(answeringForkPort('cc-orphan'));
+    const { parent } = seedParentWithForeignLaneEvent(h);
+
+    await expectIpcFailure(h.manager.forkPod(parent.id), 'IO');
+
+    const warnings = h.logged.filter((entry) => entry.level === 'warn').map((entry) => String(entry.args[0]));
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('cc-orphan');
+    expect(warnings[0]).toContain('orphaned');
   });
 });

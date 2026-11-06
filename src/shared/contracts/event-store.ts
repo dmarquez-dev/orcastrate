@@ -218,12 +218,16 @@ export interface EventStore {
    * EVENTS. Every parent event with `seq <= throughSeq` is copied once, in seq
    * order, with the SAME `seq`, `type`, `createdAt` and `raw`, `podId` = the
    * new Pod, `laneId` remapped. Inside `payload`, exactly these lane
-   * references are remapped through the same map, and nothing else in the
-   * payload changes:
+   * references are remapped through the same map:
    *   lane_opened  payload.lane.id, payload.lane.podId (-> new Pod),
    *                payload.lane.parentLaneId
    *   lane_closed  payload.laneId
    *   tool_use     payload.dispatchedLaneId, when present
+   * For these three types the copied payload is
+   * "equivalent JSON, lane ids remapped; not byte-identical": it is
+   * re-serialized, so key order and whitespace may differ from the stored
+   * text while every other value is equal. Every other event type's payload
+   * text is copied byte-for-byte.
    * After the fork, the new Pod's next `append` is assigned
    * `latestSeq(newPod) + 1`, exactly as for any Pod.
    *
@@ -233,6 +237,12 @@ export interface EventStore {
    *   NOT_FOUND  no Pod with id `parentId`
    *   CONFLICT   a Pod with id `id` exists, or a minted LaneId collides
    *   IO         the underlying SQLite call failed
+   *   IO         a lane reference the fork remaps (an event's laneId, a lane's
+   *              parentLaneId, or a payload reference listed under EVENTS)
+   *              names no lane of the parent, with no fallback: the reference
+   *              is never written unchanged. The message begins `forkPod:` and
+   *              names the missing LaneId and the parent PodId. Nothing is
+   *              written.
    */
   forkPod(input: ForkPodInput): Pod;
 

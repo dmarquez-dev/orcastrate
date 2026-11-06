@@ -18,6 +18,7 @@ import type { IpcResult } from '@shared/contracts/ipc';
 import { App } from '../App';
 import type { WorkspaceActions } from '../contracts/renderer-state';
 import { TEST_IDS } from '../contracts/renderer-view';
+import { PODS_CHROME_TEST_ID } from '../pods/PodsChrome';
 import { POD_TAB_FORK_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
 import { renderedPodIds } from '../pods/test-fixtures';
 import { testId } from '../shell/contract-runtime';
@@ -330,6 +331,138 @@ describe('a fork that main refuses', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Dismissing the fork-error alert
+// ---------------------------------------------------------------------------
+
+const FORK_FAILURE = 'fork of pod-alpha failed: the SDK could not fork the session';
+const DISMISS_NAME = 'Dismiss fork error';
+
+/** Every `role="alert"` element whose text is exactly main's fork message. */
+function forkAlerts(): HTMLElement[] {
+  return screen.queryAllByRole('alert').filter((alert) => alert.textContent === FORK_FAILURE);
+}
+
+/** Mounts Alpha and Bravo, fails a fork of Alpha, and waits for the alert. */
+async function failOneFork(): Promise<void> {
+  const user = userEvent.setup();
+  const api = stubOrcastrateApi({ pods: listing([ALPHA_POD, BRAVO_POD]) });
+  api.failInvoke('podFork', ipcError('IO', FORK_FAILURE));
+  await mountWith(api);
+
+  await user.click(forkControl(ALPHA));
+  await flushPendingWork();
+  await screen.findByRole('alert');
+  expect(forkAlerts()).toHaveLength(1);
+}
+
+describe('the fork-error alert can be dismissed', () => {
+  it('renders a native button named "Dismiss fork error" with the alert', async () => {
+    await failOneFork();
+
+    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    expect(dismiss.tagName).toBe('BUTTON');
+    expect(dismiss.getAttribute('type')).toBe('button');
+  });
+
+  it('shows the × glyph in an aria-hidden element inside the dismiss button', async () => {
+    await failOneFork();
+
+    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    const hidden = [...dismiss.querySelectorAll('[aria-hidden="true"]')];
+    expect(hidden.map((element) => element.textContent)).toEqual(['×']);
+    expect(dismiss.textContent).toBe('×');
+  });
+
+  it('keeps the dismiss button outside the alert, so the alert text is exactly main message', async () => {
+    await failOneFork();
+
+    const [alert] = forkAlerts();
+    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
+    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    expect(alert.contains(dismiss)).toBe(false);
+    expect(alert.textContent).toBe(FORK_FAILURE);
+  });
+
+  it('removes the alert when the dismiss button is clicked', async () => {
+    const user = userEvent.setup();
+    await failOneFork();
+
+    await user.click(screen.getByRole('button', { name: DISMISS_NAME }));
+    await flushPendingWork();
+
+    expect(forkAlerts()).toEqual([]);
+    expect(screen.queryByRole('button', { name: DISMISS_NAME })).toBeNull();
+  });
+
+  it('removes the alert when the focused dismiss button is activated with Enter', async () => {
+    const user = userEvent.setup();
+    await failOneFork();
+
+    screen.getByRole('button', { name: DISMISS_NAME }).focus();
+    await user.keyboard('{Enter}');
+    await flushPendingWork();
+
+    expect(forkAlerts()).toEqual([]);
+  });
+
+  it('removes the alert when the focused dismiss button is activated with Space', async () => {
+    const user = userEvent.setup();
+    await failOneFork();
+
+    screen.getByRole('button', { name: DISMISS_NAME }).focus();
+    await user.keyboard(' ');
+    await flushPendingWork();
+
+    expect(forkAlerts()).toEqual([]);
+  });
+
+  it('moves focus to the Pods chrome container after dismissal', async () => {
+    const user = userEvent.setup();
+    await failOneFork();
+
+    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    dismiss.focus();
+    expect(document.activeElement).toBe(dismiss);
+    await user.keyboard('{Enter}');
+    await flushPendingWork();
+
+    expect(document.activeElement).toBe(screen.getByTestId(PODS_CHROME_TEST_ID));
+  });
+
+  it('clears the alert as soon as another fork starts, while that fork is still pending', async () => {
+    const user = userEvent.setup();
+    let forkCalls = 0;
+    const api = stubOrcastrateApi({
+      pods: {
+        ...listing([ALPHA_POD, BRAVO_POD]),
+        fork: (): Promise<IpcResult<Pod>> => {
+          forkCalls += 1;
+          if (forkCalls === 1) {
+            return Promise.resolve({ ok: false, error: ipcError('IO', FORK_FAILURE) });
+          }
+          // Never settles: the second fork stays in flight for the assertion.
+          return new Promise<IpcResult<Pod>>(() => {});
+        },
+      },
+    });
+    await mountWith(api);
+
+    await user.click(forkControl(ALPHA));
+    await flushPendingWork();
+    await screen.findByRole('alert');
+    expect(forkAlerts()).toHaveLength(1);
+
+    await user.click(forkControl(BRAVO));
+    await flushPendingWork();
+
+    expect(forkCalls).toBe(2);
+    // Present-first: the second fork IS still in flight.
+    expect(forkControl(BRAVO).getAttribute('aria-busy')).toBe('true');
+    expect(forkAlerts()).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criteria 16-19 — a fork's ancestry on its tab
 // ---------------------------------------------------------------------------
 
@@ -358,6 +491,16 @@ describe('a fork tab names its parent', () => {
     const api = stubOrcastrateApi({ pods: listing([orphan]) });
     await mountWith(api);
 
+    expect(descriptionOf(podTab(FORK))).toContain('Forked from a deleted Pod');
+  });
+
+  it('says the parent was deleted when forkedFromPodId names a Pod that is not listed', async () => {
+    // The list a stale read can return: the parent is gone, its id is not yet
+    // nulled on the fork. `FORK_POD` names `ALPHA`, and Alpha is not listed.
+    const api = stubOrcastrateApi({ pods: listing([BRAVO_POD, FORK_POD]) });
+    await mountWith(api);
+
+    expect(screen.queryByTestId(testId(TEST_IDS.podTab, ALPHA))).toBeNull();
     expect(descriptionOf(podTab(FORK))).toContain('Forked from a deleted Pod');
   });
 
