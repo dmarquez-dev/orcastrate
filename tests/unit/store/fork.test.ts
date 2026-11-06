@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { EventStore, ForkPodInput } from '../../../src/shared/contracts/event-store';
+import type { EventStore, EventStoreError, ForkPodInput } from '../../../src/shared/contracts/event-store';
 import type { Lane, LaneId, NormalizedEvent, Pod, PodId } from '../../../src/shared/contracts/events';
 import { catchStoreError, cleanupStores, eventInput, fileStore, laneInput, memoryStore, podInput, rawDb, tempDbPath } from './helpers';
 
@@ -32,14 +32,14 @@ interface Parent {
  * depth-2 Calf under it, and eight events covering every remapped payload
  * kind. `throughSeq` 6 in the tests leaves seq 7 and 8 uncopied.
  */
-function makeParent(): Parent {
+function makeParent(parentId: PodId = 'parent'): Parent {
   const path = tempDbPath('fork.db');
   const store = fileStore(path);
   store.migrate();
 
   const parent = store.createPod(
     podInput({
-      id: 'parent',
+      id: parentId,
       title: 'Parent',
       cwd: 'C:\\work\\parent',
       permissionMode: 'acceptEdits',
@@ -357,7 +357,8 @@ describe('forkPod: events', () => {
       [c1.id, 'fork', m.id],
       [c2.id, 'fork', c1.id],
     ]);
-    // Nothing else in the payload changes.
+    // The copied payload is equivalent JSON, lane ids remapped; not byte-identical
+    // (it is re-serialized), so it is compared as a parsed value, not as text.
     const original = p.events.find((e) => e.seq === 3)?.payload;
     const copied = p.store.readEvents({ podId: 'fork' }).find((e) => e.seq === 3)?.payload;
     expect({ ...(copied as object), lane: { ...(copied as { lane: Lane }).lane, id: 'x', podId: 'x', parentLaneId: 'x' } }).toEqual({
@@ -453,6 +454,117 @@ describe('forkPod failures roll back completely', () => {
 
     expect(err.code).toBe('NOT_FOUND');
     expect(counts(p.path)).toEqual(before);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A lane reference the fork cannot remap
+// ---------------------------------------------------------------------------
+
+describe('forkPod refuses a lane reference that names no lane of the parent', () => {
+  /** A LaneId that exists in the database, but belongs to a different Pod. */
+  function foreignLane(p: Parent): Lane {
+    const other = p.store.createPod(podInput({ id: 'other', tabOrder: 1 }));
+    return p.store.createLane(laneInput(other.id, { id: 'other-m' }));
+  }
+
+  /**
+   * Forks every parent event and requires IO with nothing written: the pod,
+   * lane and event row counts, read through an independent raw connection,
+   * equal their values from before the call.
+   */
+  function refuse(p: Parent): EventStoreError {
+    const before = counts(p.path);
+    const err = catchStoreError(() =>
+      p.store.forkPod(forkInput(p.parent.id, { throughSeq: p.store.latestSeq(p.parent.id) })),
+    );
+    expect(err.code).toBe('IO');
+    expect(counts(p.path)).toEqual(before);
+    expect(p.store.getPod('fork')).toBeNull();
+    return err;
+  }
+
+  it('an event whose laneId is a lane of a different Pod is IO and writes nothing', () => {
+    const p = makeParent();
+    const foreign = foreignLane(p);
+    p.store.append(eventInput(p.parent.id, foreign.id));
+
+    expect(refuse(p).message).toContain(foreign.id);
+  });
+
+  it('a lane whose parentLaneId is a lane of a different Pod is IO and writes nothing', () => {
+    const p = makeParent();
+    const foreign = foreignLane(p);
+    p.store.createLane(
+      laneInput(p.parent.id, { id: 'p-stray', kind: 'calf', toolUseId: 'toolu_stray', parentLaneId: foreign.id, depth: 1 }),
+    );
+
+    expect(refuse(p).message).toContain(foreign.id);
+  });
+
+  it('a lane_opened payload.lane.id that names no lane of the parent is IO and writes nothing', () => {
+    const p = makeParent();
+    p.store.append(
+      eventInput(p.parent.id, p.calf1.id, {
+        type: 'lane_opened',
+        payload: { type: 'lane_opened', lane: { ...p.calf1, id: 'ghost-opened-id' } },
+      }),
+    );
+
+    expect(refuse(p).message).toContain('ghost-opened-id');
+  });
+
+  it('a lane_opened payload.lane.parentLaneId that names no lane of the parent is IO and writes nothing', () => {
+    const p = makeParent();
+    p.store.append(
+      eventInput(p.parent.id, p.calf1.id, {
+        type: 'lane_opened',
+        payload: { type: 'lane_opened', lane: { ...p.calf1, parentLaneId: 'ghost-opened-parent' } },
+      }),
+    );
+
+    expect(refuse(p).message).toContain('ghost-opened-parent');
+  });
+
+  it('a lane_closed payload.laneId that names no lane of the parent is IO and writes nothing', () => {
+    const p = makeParent();
+    p.store.append(
+      eventInput(p.parent.id, p.calf1.id, {
+        type: 'lane_closed',
+        payload: { type: 'lane_closed', laneId: 'ghost-closed', status: 'done' },
+      }),
+    );
+
+    expect(refuse(p).message).toContain('ghost-closed');
+  });
+
+  it('a tool_use payload.dispatchedLaneId that names no lane of the parent is IO and writes nothing', () => {
+    const p = makeParent();
+    p.store.append(
+      eventInput(p.parent.id, p.matriarch.id, {
+        type: 'tool_use',
+        payload: { type: 'tool_use', toolUseId: 'toolu_9', name: 'Agent', input: {}, dispatchedLaneId: 'ghost-dispatched' },
+      }),
+    );
+
+    expect(refuse(p).message).toContain('ghost-dispatched');
+  });
+
+  it('the message begins "forkPod:" and names the missing LaneId and the parent PodId verbatim', () => {
+    // Ids no fixed wording could contain by accident.
+    const p = makeParent('pod-7f3a9c');
+    p.store.append(
+      eventInput(p.parent.id, p.calf1.id, {
+        type: 'lane_closed',
+        payload: { type: 'lane_closed', laneId: 'lane-e21b04', status: 'done' },
+      }),
+    );
+
+    const { message } = refuse(p);
+
+    expect(message.startsWith('forkPod:')).toBe(true);
+    expect(message).toContain('lane-e21b04');
+    expect(message).toContain('pod-7f3a9c');
   });
 });
 
