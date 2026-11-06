@@ -1,0 +1,47 @@
+{
+  "id": "20261106-0120-fork-hardening",
+  "name": "fork-hardening",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Close the six fork-feature advisories from backlog lines 35-40. The store's forkPod stops falling back to the parent's lane id: any lane reference it cannot remap throws EventStoreError IO and rolls back the transaction. PodManager.forkPod rejects an empty or source-equal fork session id with IpcFailure IO before writing anything. The fork-error alert gets a keyboard-operable dismiss button and still clears when the next fork starts, with no timer. forkAncestryFor's unlisted-parent branch gets a test and keeps its behavior. Design doc item 8 is reworded to claim only what the fork-session probe shows. The payload-equality guarantee ('equivalent JSON, lane ids remapped; not byte-identical') is stated in the shipped doc comments and the test comment, and JSON.stringify stays. Four tasks: T1 store, T2 PodManager, T3 renderer, in a chain; T4 doc, in parallel. Human checks (backlog lines 41-43) stay out of scope.",
+  "started": "2026-11-06T01:20:43Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "pushed": true,
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "fe340441-9ecc-4ed0-9c02-e5c5ad24066d",
+      "sir": "1.0.23",
+      "started": "2026-11-06T01:20:43Z",
+      "ended": "2026-11-06T01:27:02Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "3a3ea7e4-fb55-4466-959c-d4c065a46584",
+      "sir": "1.0.23",
+      "started": "2026-11-06T01:35:08Z",
+      "ended": "2026-11-06T01:58:13Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "5af6b497-b5b7-4830-8f03-d49f73a7d087",
+      "sir": "1.0.23",
+      "started": "2026-11-06T01:59:45Z",
+      "ended": "2026-11-06T02:32:27Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "a8b20f27-18dd-4c63-9195-2d47832714ac",
+      "sir": "1.0.23",
+      "started": "2026-11-06T17:19:58Z",
+      "ended": "2026-11-06T17:38:47Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

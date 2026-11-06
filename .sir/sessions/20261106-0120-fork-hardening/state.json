@@ -1,0 +1,27 @@
+{
+  "session": "20261106-0120-fork-hardening",
+  "updatedAt": "2026-11-06T17:38:47Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261106-0120-fork-hardening",
+  "branch": "agent/20261106-0120-fork-hardening",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "both scripts echoed (`tsc --noEmit -p tsconfig.node.json --composite false`, `tsc --noEmit -p tsconfig.web.json --composite false`), no diagnostics, exit=0; `npm exec -- tsc --version` in the worktree printed `Version 7.0.2` (resolved from the main checkout's node_modules; the worktree has none)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  155 passed (155) / Tests  2510 passed (2510), exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "startRef": "4301c23d8e9ce2460405d1ecfa4d7f589565a0f4", "commit": "2e604f2", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "startRef": "2e604f2600e530ec15e8422338884d1e5926ce9c", "commit": "5909b19", "model": "opus" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "startRef": "5909b19ebe18d1f5f058d939fad0578fae777f48", "commit": "d30f8db", "model": "opus" },
+    { "id": "T4", "status": "done", "revisionRounds": 0, "startRef": "4301c23d8e9ce2460405d1ecfa4d7f589565a0f4", "commit": "b775209", "model": "opus" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}

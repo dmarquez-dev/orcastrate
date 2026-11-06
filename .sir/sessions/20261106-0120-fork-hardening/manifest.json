@@ -1,0 +1,119 @@
+{
+  "session": "20261106-0120-fork-hardening",
+  "createdAt": "2026-11-06T01:44:57Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/store-fork-missing-lane.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "forkPod fails loudly on a lane reference it cannot remap, and states its payload-equality guarantee",
+      "agent": "sir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/main/store/sqlite-event-store.ts",
+        "src/shared/contracts/event-store.ts",
+        "tests/unit/store/fork.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`forkPod` on a parent holding an event whose `lane_id` names a lane of a DIFFERENT Pod (constructed through the public API: `events.lane_id` references `lanes(id)` across Pods, `src/main/store/schema.ts:448`) throws `EventStoreError` with code `IO`, and the `pods`, `lanes` and `events` row counts read through an independent raw connection equal their values before the call (contract `store-fork-missing-lane.ts`; database discipline, Transaction scope: rolled back at the boundary that opened it).",
+        "`forkPod` on a parent holding a lane whose `parentLaneId` names a lane of a different Pod (`lanes.parent_lane_id` references `lanes(id)` across Pods, `src/main/store/schema.ts:415`) throws `EventStoreError` `IO`, and the three row counts are unchanged.",
+        "`forkPod` copying a `lane_opened` event whose `payload.lane.id` names no lane of the parent throws `EventStoreError` `IO`, and the three row counts are unchanged.",
+        "`forkPod` copying a `lane_opened` event whose `payload.lane.parentLaneId` names no lane of the parent throws `EventStoreError` `IO`, and the three row counts are unchanged.",
+        "`forkPod` copying a `lane_closed` event whose `payload.laneId` names no lane of the parent throws `EventStoreError` `IO`, and the three row counts are unchanged.",
+        "`forkPod` copying a `tool_use` event whose `payload.dispatchedLaneId` names no lane of the parent throws `EventStoreError` `IO`, and the three row counts are unchanged.",
+        "Encodes backend discipline, Error handling (include the operation and its inputs in the failure): the missing-lane error's `message` begins `forkPod:` and contains both the missing LaneId and the parent PodId verbatim, asserted by a test in `tests/unit/store/fork.test.ts`.",
+        "The `EventStore.forkPod` doc comment in `src/shared/contracts/event-store.ts` (its ERRORS list, :232-235 at the base) names the new case: `IO` when a lane reference the fork remaps names no lane of the parent, with no fallback.",
+        "The `EventStore.forkPod` doc comment in `src/shared/contracts/event-store.ts` (its EVENTS paragraph, :218-226 at the base) contains the literal `equivalent JSON, lane ids remapped; not byte-identical`, applied to the payloads of the three remapped event types: `rg -c -F \"equivalent JSON, lane ids remapped; not byte-identical\" src/shared/contracts/event-store.ts` prints a count of at least 1 (0 at the base); and the paragraph's old claim `and nothing else in the payload changes` (:221-222 at the base, wrapped across a line break) is gone: `rg -c -F \"nothing else in the\" src/shared/contracts/event-store.ts` prints nothing (1 at the base, line 221).",
+        "The `remapPayloadLanes` doc comment in `src/main/store/sqlite-event-store.ts` (:542-551 at the base) contains the literal `equivalent JSON, lane ids remapped; not byte-identical`: the same `rg -c -F` over `src/main/store/sqlite-event-store.ts` prints at least 1 (0 at the base). `remapPayloadLanes` still re-serializes with `JSON.stringify` (Decision, item 35).",
+        "The comment above the payload comparison in the `remaps lane_opened payload.lane.id, .podId and .parentLaneId to the fork` test (`tests/unit/store/fork.test.ts:360` at the base, `// Nothing else in the payload changes.`) is replaced by one stating `equivalent JSON, lane ids remapped; not byte-identical`: `rg -c -F \"Nothing else in the payload changes\" tests/unit/store/fork.test.ts` prints nothing, and the same `rg -c -F` for the guarantee literal prints at least 1.",
+        "Encodes test discipline, Coverage (a test is shown able to fail): every new test is reported either seen failing before its implementation existed (command and failure named) or failing under a named injected defect at a named file and line (for example restoring `?? id` in `remap`, `src/main/store/sqlite-event-store.ts:291` at the base), with the injection reverted and the revert verified; the report names the injection window and the command run under it.",
+        "`npm run typecheck` exits 0 at this task's tip.",
+        "`npm test` exits 0 at this task's tip.",
+        "No file this task writes cites a path under `.sir/` (sir-contracts, Lifetime)."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "PodManager.forkPod rejects an empty or source-equal fork session id, and translates the store's missing-lane failure",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/pod-manager.ts",
+        "tests/unit/pod-manager/fork.test.ts"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "`PodManager.forkPod` whose fork port resolves `''` rejects with `IpcFailure` code `IO`.",
+        "`PodManager.forkPod` whose fork port resolves `''` never calls `store.forkPod` (no `forkPod` entry in the harness's `spy.writes`) and leaves the `pods`, `lanes` and `events` row counts unchanged.",
+        "`PodManager.forkPod` whose fork port resolves the parent's own `ccSessionId` rejects with `IpcFailure` code `IO`.",
+        "`PodManager.forkPod` whose fork port resolves the parent's own `ccSessionId` never calls `store.forkPod` and leaves the three row counts unchanged.",
+        "Encodes backend discipline, Error handling (include the operation and its inputs in the failure): the fork-id rejection's message contains `forkSession`, the parent PodId and the parent's `ccSessionId`, asserted for both the empty and the source-equal case.",
+        "Decision constraint, not a change: neither fork-id rejection calls the injected logger (the harness's `logged` stays empty), because no distinct orphaned session file exists to name; this matches the port-rejection path (`src/main/pod-manager/pod-manager.ts:550-556` at the base), which also throws `IpcFailure` `IO` without logging.",
+        "The `forkPod` docblock's ERRORS paragraph (`src/main/pod-manager/pod-manager.ts:527-531` at the base) names the empty or source-equal fork id as an `IO` rejection that writes nothing.",
+        "Preserved, newly tested (consumer of contract `store-fork-missing-lane.ts`): a new test in `tests/unit/pod-manager/fork.test.ts`, with the real `:memory:` store and a parent holding an event whose `lane_id` names another Pod's lane, asserts that `manager.forkPod` rejects with `IpcFailure` `IO` whose message begins `forkPod failed for pod <parent id>: forkPod:` and contains that lane id, and that the three row counts are unchanged; it is shown failing under an injected defect removing the `IO` translation at `src/main/pod-manager/pod-manager.ts:578-579` (at the base), with the injection reverted and the revert verified.",
+        "Preserved, newly tested: a new test in `tests/unit/pod-manager/fork.test.ts` asserts that in that missing-lane case the injected logger's `warn` receives the orphaned-session warning naming the session id the fork port returned (the existing path at `src/main/pod-manager/pod-manager.ts:573-577` at the base); it is shown failing under an injected defect removing that `warn` call, with the injection reverted and the revert verified.",
+        "Encodes test discipline, Coverage (a test is shown able to fail): every new test is reported either seen failing before its implementation existed (command and failure named) or failing under a named injected defect at a named file and line in `src/main/pod-manager/pod-manager.ts`, with the injection reverted and the revert verified; the report names the injection window and the command run under it.",
+        "`npm run typecheck` exits 0 at this task's tip.",
+        "`npm test` exits 0 at this task's tip.",
+        "No file this task writes cites a path under `.sir/` (sir-contracts, Lifetime)."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Dismiss control on the fork-error alert, and a test for the unlisted-parent ancestry branch",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/PodsChrome.styles.test.ts",
+        "src/renderer/src/pods/ForkErrorAlert*",
+        "src/renderer/src/pods/fork-control.ts",
+        "src/renderer/src/__tests__/pod-fork.e2e.test.tsx"
+      ],
+      "dependsOn": ["T2"],
+      "acceptance": [
+        "When `pods.fork` resolves `{ ok: false }`, a native `<button>` whose accessible name is exactly `Dismiss fork error` is rendered with the alert (found by `getByRole('button', { name: 'Dismiss fork error' })` in `src/renderer/src/__tests__/pod-fork.e2e.test.tsx`).",
+        "The dismiss control's visible content is the `×` glyph (U+00D7), carried in an `aria-hidden` element so it does not alter the accessible name.",
+        "Clicking the dismiss control removes the fork-error alert: no element with `role=\"alert\"` carrying main's message remains.",
+        "Encodes frontend discipline, Accessibility floor (operable by keyboard alone): focusing the dismiss control and pressing Enter removes the fork-error alert.",
+        "Encodes frontend discipline, Accessibility floor (operable by keyboard alone): focusing the dismiss control and pressing Space removes the fork-error alert.",
+        "Encodes frontend discipline, Accessibility floor (focus moves predictably after an action that changes what is on screen): after dismissal, `document.activeElement` is the Pods chrome container (`data-testid` `PODS_CHROME_TEST_ID`, `src/renderer/src/pods/PodsChrome.tsx:17`), the destination of last resort that `PodsChrome.tsx:45-49` already names.",
+        "Preserved: the dismiss control is not a descendant of the `role=\"alert\"` element, so that element's `textContent` is exactly main's message, as `src/renderer/src/__tests__/pod-fork.e2e.test.tsx:324` and `src/renderer/src/__tests__/failure-paths.e2e.test.tsx:774` (not owned by this task) assert with `toBe`.",
+        "Preserved, newly tested: after a failed fork, activating a Fork control again removes the fork-error alert while the new `pods.fork` call is still pending (the clear at `src/renderer/src/pods/PodsChrome.tsx:95` at the base), shown by a test in `pod-fork.e2e.test.tsx`.",
+        "Decision constraint (no auto-expiry): `rg -c \"setTimeout|setInterval|requestAnimationFrame\" src/renderer/src/pods/PodsChrome.tsx` prints nothing (as at the base), and the same holds for any `src/renderer/src/pods/ForkErrorAlert*` file the task creates.",
+        "Encodes frontend discipline, State ownership (every piece of state has exactly one owner): the alert's visibility is `PodsChrome`'s existing `forkError` state alone; dismissal sets it to `null` and no second visibility flag is introduced.",
+        "Encodes frontend discipline, Accessibility floor (focus is visible): the stylesheet carrying the dismiss control's class has a `:focus-visible` rule for it drawing `outline: var(--oc-border-thick) solid var(--oc-focus-ring)` (the idiom at `src/renderer/src/pods/PodsChrome.module.css:8-11`), asserted by a new test in `src/renderer/src/pods/PodsChrome.styles.test.ts`, and that file's existing token-only tests still pass.",
+        "A new test in `pod-fork.e2e.test.tsx` lists a fork Pod whose `forkedFromPodId` names a Pod absent from the listed Pods (non-null parent, `titleOf` returns `undefined`, `src/renderer/src/pods/fork-control.ts:64-66`) and asserts its tab's accessible description contains `Forked from a deleted Pod`; it is shown failing under an injected defect in that branch at `src/renderer/src/pods/fork-control.ts:66`, under which the existing null-parent test (`pod-fork.e2e.test.tsx:351`) still passes, with the injection reverted and the revert verified.",
+        "Preserved (Decision, item 39): `src/renderer/src/pods/fork-control.ts` is byte-identical to the base at this task's tip; it is owned only so the injection above has an owner.",
+        "Encodes the Orcastrate frontend fragment, Indexed access under `noUncheckedIndexedAccess`: no line this task adds uses a non-null assertion `!` or an `as` cast to guard an indexed or destructured value.",
+        "Encodes test discipline, Coverage (a test is shown able to fail): every new test is reported either seen failing before its implementation existed (command and failure named) or failing under a named injected defect at a named file and line, with the injection reverted and the revert verified; the report names the injection window and the command run under it.",
+        "Repo-wide `npm run typecheck` exits 0 at this task's tip, the tail of the T1-T2-T3 chain (vitest does not typecheck).",
+        "Repo-wide `npm test` exits 0 at this task's tip, the tail of the chain.",
+        "No file this task writes cites a path under `.sir/` (sir-contracts, Lifetime)."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Reword design doc item 8 to claim only what the fork-session probe shows",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "docs/superpowers/specs/2026-08-18-orcastrate-design.md"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "`rg -c -F \"before any CLI process runs\" docs/superpowers/specs/2026-08-18-orcastrate-design.md` prints nothing (1 at the base, line 464).",
+        "Item 8 states that the fork's transcript exists on disk once `forkSession` resolves, before the first resume, which is claim C2 of `probe/verify-fork-session.ts` (:9-10).",
+        "Item 8 makes no claim about whether a CLI process runs during `forkSession`, a claim no check in `probe/verify-fork-session.ts` (C1-C7, :8-21) makes.",
+        "Preserved: item 8 still names the standalone `forkSession(sessionId, { dir })` as the mechanism chosen, still states the verdict `held`, and still links `docs/fork-session-verification.md` by its repository-relative path (:462-468 at the base).",
+        "Preserved: the task's diff changes no line outside item 8 (:458-470 at the base).",
+        "No file this task writes cites a path under `.sir/` (sir-contracts, Lifetime)."
+      ]
+    }
+  ]
+}
