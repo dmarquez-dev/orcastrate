@@ -350,23 +350,20 @@ describe('the stale banner', () => {
 // ---------------------------------------------------------------------------
 
 describe('after a successful save', () => {
-  it('shows the backup path and any non-blocking warning beside it', () => {
-    const warning: HelmValidationIssue = {
-      field: 'model',
-      severity: 'warning',
-      message: 'A non-blocking note about the model that was saved.',
-    };
+  it('shows the backup path under the Saved heading with the success marker', () => {
     renderPanel({
       lastSave: {
         document: makeStubHelmDocument('user'),
         backupDisplayPath: 'settings.json.2026-08-19T101500.bak',
-        warnings: [warning],
       },
     });
 
     const banner = screen.getByTestId(PANEL_TEST_IDS.helmBackupPath);
     expect(banner.textContent).toContain('settings.json.2026-08-19T101500.bak');
-    expect(banner.textContent).toContain(warning.message);
+    expect(banner.textContent).toContain(COPY.savedHeading);
+    // The `success` tone's glyph, `MARKERS.success` in `Notice.tsx`. Spelled
+    // out here because `MARKERS` is not exported.
+    expect(banner.textContent).toContain('✓');
   });
 
   it('hides a backup path that belongs to a different file', () => {
@@ -375,7 +372,6 @@ describe('after a successful save', () => {
       lastSave: {
         document: makeStubHelmDocument('user'),
         backupDisplayPath: 'settings.json.2026-08-19T101500.bak',
-        warnings: [],
       },
     });
 

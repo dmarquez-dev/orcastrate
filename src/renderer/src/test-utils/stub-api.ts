@@ -734,7 +734,6 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
             revision: { sha256: 'b'.repeat(64), sizeBytes: 640, mtimeMs: 1_767_312_000_000 },
           }),
           backupDisplayPath: '~/.claude/settings.json.2026-01-03T000000.bak',
-          warnings: [],
         };
       }),
       ...overrides.helm,

@@ -38,7 +38,6 @@ export interface HelmNoticesProps {
   parseError: string | null;
   /** Non-null once a save has landed for the scope on screen. */
   backupDisplayPath: string | null;
-  warnings: readonly HelmValidationIssue[];
   /** Issues no control claimed. Whatever their `field`, they surface here. */
   unplaced: readonly HelmValidationIssue[];
   /**
@@ -65,7 +64,6 @@ export function HelmNotices({
   stale,
   parseError,
   backupDisplayPath,
-  warnings,
   unplaced,
   comparing,
   onCompare,
@@ -158,15 +156,14 @@ export function HelmNotices({
 
       {backupDisplayPath === null ? null : (
         <Notice
-          heading={warnings.length === 0 ? COPY.savedHeading : COPY.warningsHeading}
+          heading={COPY.savedHeading}
           live="status"
           testId={PANEL_TEST_IDS.helmBackupPath}
-          tone={warnings.length === 0 ? 'success' : 'warning'}
+          tone="success"
         >
           <p className={styles.noticeText}>
             {COPY.backupLabel} <span className={styles.path}>{backupDisplayPath}</span>
           </p>
-          <IssueList id="helm-save-warnings" issues={warnings} />
         </Notice>
       )}
 

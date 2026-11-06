@@ -121,13 +121,11 @@ export const COPY = {
     'Something else wrote to this file after Helm loaded it. Saving still re-reads and compares first, so this is a heads-up, not a block. Reload from disk to see the current contents.',
   savedHeading: 'Saved',
   backupLabel: 'Backup',
-  warningsHeading: 'Saved with warnings',
   readOnlyHeading: 'This file could not be read as JSON',
   readOnlyBody:
     'Helm will not overwrite a file it could not read, so every field below is read-only and Save is off. Fix the file by hand, then reload from disk.',
   issuesHeading: 'Other problems',
   severityError: 'Error',
-  severityWarning: 'Warning',
 
   // --- the comparison (session 2026-08-31-orcastrate-helm-draft-safety) ----
 

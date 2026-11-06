@@ -14,13 +14,15 @@ import type { HelmValidationIssue } from '@shared/contracts/helm';
 
 import { issuesFor, unplacedIssues } from './issues';
 
-function issue(field: string, severity: 'error' | 'warning' = 'error'): HelmValidationIssue {
-  return { field, severity, message: `about ${field}` };
+function issue(field: string, message = `about ${field}`): HelmValidationIssue {
+  return { field, severity: 'error', message };
 }
 
 describe('issue placement', () => {
   it('hands a control only its own issues', () => {
-    const issues = [issue('model'), issue('env'), issue('model', 'warning')];
+    // The two `model` issues differ by message, so handing back the first one
+    // twice cannot pass for handing back both.
+    const issues = [issue('model'), issue('env'), issue('model', 'a second note about model')];
     expect(issuesFor(issues, 'model')).toEqual([issues[0], issues[2]]);
     expect(issuesFor(issues, 'hooksJson')).toEqual([]);
   });
