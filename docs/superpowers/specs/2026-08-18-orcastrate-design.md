@@ -460,9 +460,10 @@ No end-to-end harness in MVP.
    its own transcript. Nothing in the persistence model forbids it; what is
    missing is the UI and the `pods`-table bookkeeping for a branch's ancestry.
    **Mechanism chosen:** the SDK's standalone `forkSession(sessionId, { dir })`,
-   which copies the source transcript into a new session and returns its id
-   before any CLI process runs, so a forked Pod carries its own `ccSessionId`
-   from birth and opens through the existing `resume` path. **Verified: held** —
+   which copies the source transcript into a new session and returns its id;
+   the fork's transcript exists on disk once `forkSession` resolves, before the
+   first resume, so a forked Pod carries its own `ccSessionId` from birth and
+   opens through the existing `resume` path. **Verified: held** —
    every claim checked held against both the SDK's built-in CLI 2.1.235 and CLI
    2.1.318 on SDK 0.3.235; see
    [`docs/fork-session-verification.md`](../../fork-session-verification.md).
