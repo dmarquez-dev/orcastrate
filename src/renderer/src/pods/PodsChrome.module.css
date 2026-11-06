@@ -23,6 +23,30 @@
   font-size: var(--oc-text-xs);
 }
 
+.dismissible {
+  display: flex;
+  align-items: center;
+  align-self: center;
+}
+
+.dismiss {
+  padding: 0 var(--oc-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--oc-text-xs);
+}
+
+.dismiss:hover {
+  color: var(--oc-fg-primary);
+}
+
+.dismiss:focus-visible {
+  outline: var(--oc-border-thick) solid var(--oc-focus-ring);
+}
+
 .listStatus {
   align-self: center;
   padding-inline: var(--oc-space-2);

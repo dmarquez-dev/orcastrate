@@ -108,6 +108,17 @@ export function PodsChrome({
     });
   }
 
+  /**
+   * Closes the fork-error alert. `forkError` is the alert's only visibility
+   * state, so dismissal is clearing it. The control that was pressed unmounts
+   * with the alert, so focus moves to the chrome container, the destination of
+   * last resort above.
+   */
+  function handleDismissForkError(): void {
+    setForkError(null);
+    chromeRef.current?.focus();
+  }
+
   function handleSelect(podId: PodId): void {
     actions.setActivePod(podId);
   }
@@ -274,9 +285,21 @@ export function PodsChrome({
       )}
 
       {forkError === null ? null : (
-        <p className={styles.listError} role="alert">
-          {forkError}
-        </p>
+        // The dismiss control is a SIBLING of the alert, never inside it, so
+        // the alert's text stays exactly main's message.
+        <div className={styles.dismissible}>
+          <p className={styles.listError} role="alert">
+            {forkError}
+          </p>
+          <button
+            aria-label="Dismiss fork error"
+            className={styles.dismiss}
+            onClick={handleDismissForkError}
+            type="button"
+          >
+            <span aria-hidden="true">{'×'}</span>
+          </button>
+        </div>
       )}
 
       {pods.phase === 'error' && pods.error !== null ? (
