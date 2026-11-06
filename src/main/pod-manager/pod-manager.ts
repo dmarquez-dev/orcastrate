@@ -526,9 +526,11 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    *
    * ERRORS. CONFLICT for an ineligible Pod (the message names the reason);
    * NOT_FOUND for an unknown Pod, including one deleted while the SDK call was
-   * in flight (the store's NOT_FOUND passes through); IO when the SDK rejects
-   * or the store's write fails with an IO fault, naming the operation and the
-   * parent PodId. On every error no pod, lane or event row was created.
+   * in flight (the store's NOT_FOUND passes through); IO when the SDK rejects,
+   * when it resolves an empty fork session id or the parent's own `ccSessionId`
+   * (rejected before the store is reached, so nothing is written), or when the
+   * store's write fails with an IO fault, naming the operation and the parent
+   * PodId. On every error no pod, lane or event row was created.
    */
   async forkPod(podId: PodId): Promise<Pod> {
     const parent = this.#requirePod(podId);
@@ -552,6 +554,18 @@ export class PodManager implements PodManagerApi, StartupReconciler {
         'IO',
         `forkSession failed for pod ${podId} (session ${sourceCcSessionId}): ${describe(err)}`,
         { cause: err },
+      );
+    }
+
+    // An empty id, or the parent's own, is not a distinct forked session: the
+    // fork's row would resume nothing, or the parent's conversation. Nothing
+    // is logged, because no orphaned session file of the fork's own exists to
+    // name — the same as the rejection above.
+    if (ccSessionId === '' || ccSessionId === sourceCcSessionId) {
+      throw new IpcFailure(
+        'IO',
+        `forkSession for pod ${podId} (session ${sourceCcSessionId}) returned ` +
+          `${ccSessionId === '' ? 'an empty session id' : 'the source session id'}, not a new session`,
       );
     }
 
