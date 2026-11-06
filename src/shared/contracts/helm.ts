@@ -209,7 +209,7 @@ export interface HelmDocument {
 // Validation
 // ---------------------------------------------------------------------------
 
-export type HelmValidationSeverity = 'error' | 'warning';
+export type HelmValidationSeverity = 'error';
 
 export interface HelmValidationIssue {
   /**
@@ -238,8 +238,8 @@ export interface HelmValidationIssue {
 }
 
 /**
- * `error` blocks the save. `warning` does not: it is reported to the user, and
- * the save goes ahead.
+ * Every validation issue blocks the save: a save whose validation reports any
+ * issue writes nothing.
  */
 export interface HelmValidation {
   issues: HelmValidationIssue[];
@@ -263,8 +263,6 @@ export interface HelmSaveResult {
   document: HelmDocument;
   /** Display only. Named so the user can find the backup that was just taken. */
   backupDisplayPath: string;
-  /** Non-blocking issues that were accepted anyway. */
-  warnings: HelmValidationIssue[];
 }
 
 /**

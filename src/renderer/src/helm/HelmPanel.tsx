@@ -107,7 +107,6 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
         comparing={view.comparing}
         onCompare={onCompare}
         unplaced={unplacedIssues(view.issues, readOnly)}
-        warnings={savedHere?.warnings ?? []}
       />
 
       {view.phase === 'loading' ? (

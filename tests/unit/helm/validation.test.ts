@@ -1,11 +1,11 @@
 /**
- * VALIDATION SEPARATES BLOCKING FROM ADVISORY (criterion 14).
+ * EVERY VALIDATION ISSUE BLOCKS THE SAVE (criterion 14).
  *
- * `error` blocks. `warning` does not. `crossSessionInbound` takes one of
- * `accept`, `hold` and `refuse` — the value set CLI 2.1.318's binary declares
- * for the setting — and each of the three validates with no issue at all, so a
- * save with `hold` returns no warnings. A value outside the three is still an
- * error that blocks the save.
+ * `crossSessionInbound` takes one of `accept`, `hold` and `refuse` — the value
+ * set CLI 2.1.318's binary declares for the setting — and each of the three
+ * validates with no issue at all, so a save with `hold` goes ahead and resolves
+ * with only the saved document and the backup path. A value outside the three
+ * is an error that blocks the save.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -101,7 +101,7 @@ describe('validate: crossSessionInbound values', () => {
     },
   );
 
-  it('saves hold, writes it to the file, and returns no warnings', async () => {
+  it('saves hold, writes it to the file, and resolves with only backupDisplayPath and document', async () => {
     const h = makeHarness();
     writeOutOfBand(h.userSettingsPath, { model: 'sonnet' });
 
@@ -112,7 +112,7 @@ describe('validate: crossSessionInbound values', () => {
       }),
     );
 
-    expect(result.warnings).toEqual([]);
+    expect(Object.keys(result).sort()).toEqual(['backupDisplayPath', 'document']);
     expect(JSON.parse(readText(h.userSettingsPath))).toMatchObject({ crossSessionInbound: 'hold' });
     expect(result.document.managed.crossSessionInbound).toBe('hold');
   });

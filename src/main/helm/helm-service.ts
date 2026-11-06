@@ -58,7 +58,7 @@ import { BackupSequence, backupBeforeWrite, ensureDirectory, writeAtomic } from 
 import { emptyManaged, parseSettings, serializeSettings } from './document';
 import { fileExists, readSnapshot, revisionsMatch, sha256Of, type FileSnapshot } from './revision';
 import { buildScopeTable, toScope, type ScopeEntry } from './scopes';
-import { blockingIssues, validateSaveRequest, warningIssues } from './validate';
+import { blockingIssues, validateSaveRequest } from './validate';
 import { HelmWatcher } from './watcher';
 
 /**
@@ -237,7 +237,6 @@ class Helm implements HelmService {
     return {
       document: await this.load(req.scopeId),
       backupDisplayPath: backupPath ?? '',
-      warnings: warningIssues(validation),
     };
   }
 

@@ -204,8 +204,7 @@
 
 /* --- notices -------------------------------------------------------------
  * Colour NEVER carries meaning alone: every notice renders a mono glyph and a
- * heading word beside its hue, and every inline issue prints "Error" or
- * "Warning" as text.
+ * heading word beside its hue, and every inline issue prints "Error" as text.
  */
 
 .notice {
@@ -294,10 +293,6 @@
 
 .issueError {
   color: var(--oc-danger);
-}
-
-.issueWarning {
-  color: var(--oc-status-waiting);
 }
 
 .issueSeverity {

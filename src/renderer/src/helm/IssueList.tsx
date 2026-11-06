@@ -1,7 +1,7 @@
 /**
  * The validation issues for one control, rendered beneath it.
  *
- * Severity is spelled out in words ("Error", "Warning") as well as coloured,
+ * Severity is spelled out in words ("Error") as well as coloured,
  * because colour is never the only carrier of meaning. The list carries an
  * `id` so the control above it can point at it with `aria-describedby`, which
  * is what makes the message reachable from the field by a screen reader rather
@@ -30,17 +30,12 @@ export function IssueList({ id, issues, testId }: IssueListProps): JSX.Element |
     <ul className={styles.issues} data-testid={testId} id={id}>
       {issues.map((issue, index) => (
         <li
-          className={cx(
-            styles.issue,
-            issue.severity === 'error' ? styles.issueError : styles.issueWarning,
-          )}
+          className={cx(styles.issue, styles.issueError)}
           // Field plus index: the same field can carry two issues, and nothing
           // in the contract makes a message unique.
           key={`${issue.field}-${String(index)}`}
         >
-          <span className={styles.issueSeverity}>
-            {issue.severity === 'error' ? COPY.severityError : COPY.severityWarning}
-          </span>{' '}
+          <span className={styles.issueSeverity}>{COPY.severityError}</span>{' '}
           {issue.message}
         </li>
       ))}

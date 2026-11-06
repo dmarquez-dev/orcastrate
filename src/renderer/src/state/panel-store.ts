@@ -838,7 +838,7 @@ export function isDirty(document: HelmDocument | null, draft: HelmDraft | null):
 }
 
 /**
- * DERIVED, never stored. `error` blocks the save; `warning` does not.
+ * DERIVED, never stored. Every validation issue blocks the save.
  * `crossSessionInbound` contributes no issue: every value its type admits
  * (`accept`, `hold`, `refuse`, or absent) is one Claude Code declares.
  *

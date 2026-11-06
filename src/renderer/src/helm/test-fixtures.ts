@@ -73,7 +73,6 @@ export function helmActions(overrides: Partial<HelmActions> = {}): HelmActions {
       value: {
         document: makeStubHelmDocument('user'),
         backupDisplayPath: makeStubHelmScopes()[0]?.displayPath ?? '',
-        warnings: [],
       },
     })),
     ...overrides,

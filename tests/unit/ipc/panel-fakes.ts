@@ -248,7 +248,6 @@ export function fakeHelmService(
       return {
         document: fakeHelmDocument(req.scopeId),
         backupDisplayPath: '~/.claude/settings.json.2026-08-19T000000.bak',
-        warnings: [],
       };
     },
     /**
