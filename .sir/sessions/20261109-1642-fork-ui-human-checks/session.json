@@ -1,0 +1,51 @@
+{
+  "id": "20261109-1642-fork-ui-human-checks",
+  "name": "fork-ui-human-checks",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Close the five 'Human check not made at Gate 3' rows in .sir/backlog.md left by the two fork sessions (Fork glyph shape and size; dimmed, not-allowed Fork control with reason tooltip on no-session and running Pods; 'Forked from <parent>' tab tooltip; fork-error dismiss button layout and contrast; dismiss focus ring, Enter-to-close, and focus landing on the Pods chrome). T1 adds a one-per-session Playwright _electron driver, run-fork-ui.mjs, to the existing hand-run harness. It reuses sandbox.mjs, reaches all four Pod states without a live claude (a direct row write plus a transcript fixture for a real SDK fork, a UUID without a transcript for a failed one, and push:podStatus for running), measures 16 observations with an in-window positive control on each, and records verdicts in FINDINGS-FORK-UI.md. T2 fixes any defect inside the Pods renderer files with a regression test, or escalates it. T3 re-runs the unchanged driver over any fix and runs the repo-wide typecheck and suite. At Gate 3 a backlog row is removed only when every observation mapped to it passed.",
+  "started": "2026-11-09T16:41:35Z",
+  "ended": null,
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "b4b109aa-233d-4cac-ba89-c0d7f76ba7a3",
+      "sir": "1.0.25",
+      "started": "2026-11-09T16:41:35Z",
+      "ended": "2026-11-09T16:54:41Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "7faadcd3-7923-4362-b39e-e50916509329",
+      "sir": "1.0.25",
+      "started": "2026-11-09T16:55:55Z",
+      "ended": "2026-11-09T18:02:39Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "8dda178c-24b7-4182-b265-5c46c9d30e5e",
+      "sir": "1.0.25",
+      "started": "2026-11-09T18:16:52Z",
+      "ended": "2026-11-09T19:20:08Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "c494ca5a-4d72-473e-be9d-5b8c9f3f09ea",
+      "sir": "1.0.25",
+      "started": "2026-11-09T19:32:33Z",
+      "ended": "2026-11-09T19:49:42Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}

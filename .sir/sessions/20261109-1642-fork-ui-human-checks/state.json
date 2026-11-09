@@ -1,0 +1,142 @@
+{
+  "session": "20261109-1642-fork-ui-human-checks",
+  "updatedAt": "2026-11-09T19:49:42Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261109-1642-fork-ui-human-checks",
+  "branch": "agent/20261109-1642-fork-ui-human-checks",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "both scripts echoed (`tsc --noEmit -p tsconfig.node.json --composite false`, `tsc --noEmit -p tsconfig.web.json --composite false`), no diagnostics, exit=0 (tsc resolved from the main checkout's node_modules; the worktree had none)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  156 passed (156) / Tests  2540 passed (2540), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "typecheck then electron-vite build; last line `✓ built in 1.03s`, exit=0; wrote out/main, out/preload, out/renderer inside the worktree (ignored); `git status --short` empty afterwards"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "fea8246201322e80ecaf07b7d4fce79d20cb9e24",
+      "model": "opus",
+      "commit": "cca88ce66db1617c72936a4615614535c355a53d"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "cca88ce66db1617c72936a4615614535c355a53d",
+      "model": "opus",
+      "commit": "c66e1e7b1d6d064dc1a8fb16fd78c51468970df5"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "c66e1e7b1d6d064dc1a8fb16fd78c51468970df5",
+      "model": "opus",
+      "commit": "0792ae21887b0e22e2d49cae677914e44a160716"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "O10 measured the dismiss button's vertical centre 4.8e-7 px above line 2's top edge of a two-line wrapped error (.dismissible uses align-items: center, so the button centres on the whole text block). Strict containment per contract I4 makes O10 `defect` and O11 `instrument-invalid`. Is this a defect T2 should fix, or should the contract be amended?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Keep the strict verdict; T2 fixes it by aligning the dismiss button to the first line of the error text (align-items: flex-start plus a first-line offset), with a regression test.",
+          "rationale": "Matches what the screenshot shows: the button straddles the two lines and is centred on neither, which is what backlog row 4 asked a human to look at.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui.json (O10 measured)",
+              ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/fork-ui/03-s4-fork-error.png",
+              "src/renderer/src/pods/PodsChrome.module.css:26-29"
+            ]
+          }
+        },
+        {
+          "summary": "Accept centring on the wrapped block as the intended design: amend contract I4 so O10/O11 measure against the text block, not a line box, and T3 re-runs the driver.",
+          "rationale": "align-items: center is a deliberate rule in PodsChrome.module.css; the O10/O11 wording assumed a one-line error that the real IO message does not produce at 1280 px.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/pods/PodsChrome.module.css:26-29",
+              "spec.md Open questions (whether the long IO error wraps at 1280 px)"
+            ]
+          }
+        },
+        {
+          "summary": "Amend I4 so O10's containment takes the one-device-pixel tolerance; O10 then passes and O11 stays instrument-invalid, so row 4 stays in the backlog.",
+          "rationale": "I4 states a one-device-pixel tolerance for lengths, and the miss is 4.8e-7 px; but the result rests on the button centre landing on a line boundary.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Defect: T2 fixes. The strict O10 verdict stands; T2 aligns the dismiss button to the first line of the error text with a regression test, and T3 re-checks O10. No amendment."
+    },
+    {
+      "id": "E2",
+      "taskId": "T1",
+      "question": "O2's control (fork span font-size doubled) did not fire: the shared [data-icon] rule gives each span a fixed 12 px box, so box height cannot change and O2 is `instrument-invalid`. The text-range height did respond (16 → 32). Amend contract I4 so O2 measures text-range height instead of box height?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Amend I4's O2 row to compare text-range heights (Range.getBoundingClientRect) with the same doubled-font-size control, and have T1 re-run the driver.",
+          "rationale": "The run already showed this measurement discriminates (16/16/16, and 32 under the control), so the instrument can fail and the glyph-size question gets a real answer.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui.json (O2 measured)",
+              "src/renderer/src/pods/PodBar.module.css ([data-icon] rule)"
+            ]
+          }
+        },
+        {
+          "summary": "Leave O2 instrument-invalid; backlog row 1 stays open with the reason recorded.",
+          "rationale": "No contract change mid-session; costs the row-1 closure this session set out to make.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend O2 to compare text-range heights, same doubled-font-size control; T1 re-runs the driver. Also (same question): the harness blocked T1 writing FINDINGS-FORK-UI.md; the orchestrator reads T1's scratch copy whole and writes it verbatim into the worktree."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "artifact": "contracts/fork-ui-driver.md",
+      "before": "O2: computed font-size and rendered box height equal; predicted 0 of 2 height pairs equal.",
+      "after": "O2: computed font-size and text-range height (Range.getBoundingClientRect over the text node) equal, box height recorded unscored; predicted 0 of 2 text-range height pairs equal.",
+      "inFlight": []
+    },
+    {
+      "id": "A2",
+      "escalation": "E2",
+      "artifact": "manifest.json",
+      "before": "T1 C10: Measured names font-size and box height; control Observed shows 0 of 2 height pairs equal.",
+      "after": "T1 C10: Measured names font-size and text-range height (box height recorded, unscored); control Observed shows 0 of 2 text-range height pairs equal.",
+      "inFlight": []
+    }
+  ],
+  "metrics": {
+    "userInteractions": 6,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  }
+}

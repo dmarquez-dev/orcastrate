@@ -1,0 +1,119 @@
+{
+  "session": "20261109-1642-fork-ui-human-checks",
+  "createdAt": "2026-11-09T17:16:57Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/fork-ui-driver.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Fork UI driver: build it, run it, record the findings",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/fork-ui/**",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-FORK-UI.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/README.md"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 launch: after `npm run build` in the worktree, `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` (default slug `fork-ui`) launches Electron on `<worktree>/out/main/index.js`. `driven-report-fork-ui.json`'s `meta.mainEnv.USERPROFILE` equals the sandbox home, `meta.mainEnv.userData` begins with `meta.sandboxRoot`, and `meta.mainEnv.CLAUDE_CONFIG_DIR` is null. All three are read from the main process, per contract I1 and I2.",
+        "C2 real home: `meta.realSettingsSha256.before` equals `meta.realSettingsSha256.after` in `driven-report-fork-ui.json`, the sha256 of the real `~/.claude/settings.json`, or `absent` on both sides.",
+        "C3 reuse, not copy: `grep -c \"from './sandbox.mjs'\" .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 1, and `grep -c 'function buildSandbox' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0. Control: the second grep over `driver/sandbox.mjs` prints 1 (`sandbox.mjs:43`).",
+        "C4 earlier artifacts byte-identical (preserved by design, checked mechanically). In Git Bash, `H=C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261109-1642-fork-ui-human-checks/.dir-sdlc/handruns/2026-09-30-electron-handrun; find \"$H\" -type f ! -path \"$H/screenshots/fork-ui*\" ! -iname '*fork-ui*' ! -name README.md | sort | xargs sha256sum | sha256sum` prints `a9edbb25493ff22cc65118e28ae3ea5aa8e1b14b07041b5370cd0ef7ac04c9ca`, and the same `find` piped to `wc -l` prints 80. Both were measured at base fea8246. The 80 agrees with the 81 files that git tracks under that directory less README.md.",
+        "C5 state S1 reached by contract I3's route: `states` in `driven-report-fork-ui.json` records S1 `reached: true`, and P1's fork control has `data-eligibility=\"no-session\"`.",
+        "C6 state S2 reached by contract I3's route (a `push:podStatus` sent from main): S2 is `reached: true`, P2's fork control has `data-eligibility=\"mid-turn\"`, and its run control has `data-verb=\"stop\"`.",
+        "C7 state S3 reached by contract I3's route, with no `claude` process: S3 is `reached: true`. `pods.list` holds a Pod whose `forkedFromPodId` is P3's id and whose `ccSessionId` is neither null nor P3's. The fixture project directory's `.jsonl` count went up by exactly 1 across the click, with both counts recorded. The session-id write route used (1 or 2) is recorded.",
+        "C8 state S4 reached by contract I3's route: S4 is `reached: true`. A `role=alert` element's text starts with `forkSession failed for pod ` (the template at `src/main/pod-manager/pod-manager.ts:555`), and the `pods.list` length is the same before and after the click.",
+        "C9 O1 (glyph is a fork mark): the O1 row of `FINDINGS-FORK-UI.md`'s verdict table has verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Its Measured cell names the fork-vs-reference and fork-vs-transparent comparison results. The instrument check (U+0379 identical to the U+0378 reference) is recorded, and the Observed cell for the U+0379 substitution control shows the decision reporting a missing glyph, as predicted in contract I4.",
+        "C10 O2 (same size as the play and delete glyphs): the O2 row has verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured names the computed font-size and text-range height of all three spans (box height recorded, unscored) plus `devicePixelRatio`. The doubled-font-size control's Observed cell shows 0 of 2 text-range height pairs equal.",
+        "C11 O3 (no-session Pod dimmed): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the fork and run control opacities. The control on eligible P3 observed equal opacities (not dimmed).",
+        "C12 O4 (no-session Pod not-allowed cursor): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the computed cursor. The P3 control observed `pointer`.",
+        "C13 O5 (no-session reason tooltip): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the hovered `title` obtained by hit-testing per contract I4, compared with the text at `src/renderer/src/pods/fork-control.ts:25`. The P3 control observed `null`.",
+        "C14 O6 (running Pod dimmed): as C11, measured on P2 in state S2.",
+        "C15 O7 (running Pod not-allowed cursor): as C12, measured on P2 in state S2.",
+        "C16 O8 (running Pod reason tooltip): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). The hovered `title` on P2 is compared with the text at `fork-control.ts:28`. The P3 control observed `null`.",
+        "C17 O9 (fork's tab tooltip `Forked from <parent title>`): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the hovered `title` of the fork's tab and P3's title. The control on P3's own tab observed `null`.",
+        "C18 O10 (dismiss on the error text's line): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the number of line boxes in the alert text, and how many of them contain the button's vertical centre. The `flex-direction: column` control observed 0.",
+        "C19 O11 (dismiss vertically centred): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the centre-Y difference and the one-device-pixel tolerance, derived from the `devicePixelRatio` read in the window. The `margin-top` control observed a difference of half the button's measured height, within one device pixel.",
+        "C20 O12 (dismiss readable, dark preference): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the foreground, the background, and the contrast ratio against 4.5. The colour-equals-background control observed 1.00.",
+        "C21 O13 (dismiss readable, light preference): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not), from the same measurement taken under `emulateMedia({ colorScheme: 'light' })`. Measured also states whether foreground and background are identical to O12's. The control observed 1.00.",
+        "C22 O14 (visible focus ring on `Dismiss fork error`, reached by Tab only): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the Tab-press count, `:focus-visible`, outline style, width and contrast against 3.0, and whether the painted clip differed from the control's. The `outline:none !important` control observed outline-style `none`.",
+        "C23 O15 (Enter closes the alert): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the alert and button counts after Enter. The Shift-key control observed the alert count stay at 1.",
+        "C24 O16 (focus ring then on the Pods chrome container): verdict `pass` or `defect`, or `not-run` or `instrument-invalid` on the terms of C25 (in which case the Measured and Observed requirements here apply to whatever was measured, and the observation's `reason` names what was not). Measured gives the `document.activeElement` test id, `:focus-visible`, and the outline style, width and contrast. The mouse-dismiss control observed the chrome focused with `:focus-visible` false.",
+        "C25 verdict rule: in `driven-report-fork-ui.json`, no observation has verdict `pass` or `defect` while its `control.fired` is false. Contract I2 makes such an observation `instrument-invalid`. A `not-run` or `instrument-invalid` observation carries a non-null `reason`, and for `not-run` the reason names each I3 route attempted and its error. This is the only route by which an observation in C9-C24 may end other than `pass` or `defect`: `not-run` requires both I3 routes to have been attempted for its state, each with its error recorded in that state's `evidence`.",
+        "C26 findings table format: `FINDINGS-FORK-UI.md` has exactly one table whose header is the contract I2 header, with 16 data rows O1–O16 in order. Counted with `python -I`, splitting each row on `|`, every data row has the header's field count. Control: the header line itself yields 9 fields under the same split, 7 cells plus the two empty edges.",
+        "C27 findings summary: below the table, `FINDINGS-FORK-UI.md` states the driver's exit code, which must equal `meta.exitCode` and follow contract I1's exit-code table. It also states `devicePixelRatio`, the viewport, and the route per state, and for each backlog row 1-5 whether all of its mapped observations are `pass`.",
+        "C28 no pixel literal and null-initialised references (the measurement rule in discussion.md, Context, harness facts): in `run-fork-ui.mjs`, no verdict compares a measurement with a length literal. Every length comparison is between two values measured in the same window, or against the one-device-pixel tolerance read in the window. Every element or measurement reference used by a verdict is declared with `null` as its initial value.",
+        "C29 encodes test discipline, Coverage (a test is shown able to fail): each of O1-O16 has a control whose `predicted` was written in the driver before it ran, as a literal or as a rule over the same window's measurements, and the reviewer can see this in `run-fork-ui.mjs`. Controls are in-window only, and no file in the worktree is modified to run one.",
+        "C30 outputs confined: no PNG is written outside `H/screenshots/fork-ui/`, which C4's hash verifies for the existing screenshots. `run-fork-ui.mjs` calls neither `writeReport(` nor `shot(` from `lib.mjs`: `grep -cE '\\bwriteReport\\(|[^a-zA-Z]shot\\(' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0, or every match is a function the driver defines itself, named in the report.",
+        "C31 no session path: `grep -c '\\.sir/'` over `run-fork-ui.mjs`, `FINDINGS-FORK-UI.md` and `driven-report-fork-ui.md` prints 0 for each file.",
+        "C32 README: `README.md`'s `## Later runs in this directory` list gains one bullet naming `FINDINGS-FORK-UI.md` and the run's headline result, in the form of the existing bullets at README.md:54-62, and no existing line of README.md changes.",
+        "C33 sandbox removed: after the run (no `--keep-sandbox`), the directory named by `meta.sandboxRoot` does not exist."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Fix each defect the run found, with a regression test",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodTab.tsx",
+        "src/renderer/src/pods/PodBar.tsx",
+        "src/renderer/src/pods/PodBar.module.css",
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/fork-control.ts",
+        "src/renderer/src/pods/PodTab.test.tsx",
+        "src/renderer/src/pods/PodTab.source.test.ts",
+        "src/renderer/src/pods/PodBar.styles.test.ts",
+        "src/renderer/src/pods/PodsChrome.styles.test.ts",
+        "src/renderer/src/pods/fork-ui-regression.test.tsx",
+        "src/renderer/src/pods/fork-ui-regression.styles.test.ts",
+        "src/renderer/src/__tests__/pod-fork.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C1 no-defect branch: if no observation in `FINDINGS-FORK-UI.md`'s verdict table has verdict `defect`, this task changes no file, and its report says so and quotes the verdict column. This branch is satisfied at startRef by design, because it is conditional on T1's findings.",
+        "C2 one fix per defect: for each observation with verdict `defect`, the report names the observation id, the cause at `file:line` in an owned file, and the change that removes it. No change is made for an observation whose verdict is `pass`, `not-run` or `instrument-invalid` (contract I5).",
+        "C3 regression test per fix (encodes test discipline, Coverage: a bug fix arrives with the test that reproduces it): each fixed defect has a test in an owned test file, jsdom first and node-environment stylesheet text second (contract I5). Its report shows that the test can fail, either by a red step (command and failure output before the fix) or by reverting the fix at a named `file:line` with the failing output. Where neither form can express the defect, the report says so for that observation and why.",
+        "C4 escalate rather than fix: a defect whose fix needs a file outside this task's `owns`, a token change in `src/renderer/src/styles/tokens.css`, or a product decision (for example a light theme) is reported as an escalation, with no partial fix in owned files (contract I5).",
+        "C5 encodes frontend discipline, Accessibility floor (every interactive element reachable by keyboard; focus visible and predictable). No change sets `disabled` on the Fork control (the `aria-disabled` design at `src/renderer/src/pods/PodTab.tsx:341-346`) or removes `Dismiss fork error` or the Pods chrome container from keyboard focus: `grep -cE '^\\s+disabled(=|$)' src/renderer/src/pods/PodTab.tsx src/renderer/src/pods/PodsChrome.tsx` prints 0 for each file, as at base fea8246. The predicate was checked at authoring: it matches `DeletePodDialog.tsx:160` (`disabled={submitting || podDeleted}`) and does not match `PodTab.tsx:354` (`aria-disabled=`). Also, `grep -c 'tabIndex={-1}' src/renderer/src/pods/PodsChrome.tsx` still prints 1, as at base, which keeps the chrome container programmatically focusable.",
+        "C6 encodes the project frontend fragment (indexed access under `noUncheckedIndexedAccess`): no added line in an owned production file uses a non-null assertion `!` or an `as` cast as a guard for an indexed or destructured value.",
+        "C7 scoped suite: if any file changed, `npx vitest run src/renderer/src/pods src/renderer/src/__tests__/pod-fork.e2e.test.tsx` exits 0, and the report gives its file and test counts."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Re-check fixed defects; repo-wide typecheck and tests",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui-recheck.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui-recheck.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/fork-ui-recheck/**",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-FORK-UI-RECHECK.md"
+      ],
+      "dependsOn": [
+        "T2"
+      ],
+      "acceptance": [
+        "C1 no-fix branch: if T2 changed no file (the orchestrator states this in the dispatch), this task does not run the driver and writes no file. This is conditional by design.",
+        "C2 re-run: otherwise, after `npm run build`, `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs --slug fork-ui-recheck` writes `driven-report-fork-ui-recheck.json`, and its `meta.driverSha256` equals `meta.driverSha256` in `driven-report-fork-ui.json`, so the driver is the one T1 ran, unchanged.",
+        "C3 fixed means re-checked: in `driven-report-fork-ui-recheck.json`, every observation that T2's report names as fixed (contract I5), as the orchestrator lists them in this task's dispatch, has verdict `pass`, and its `control.fired` is true. An observation T2 escalated instead of fixing is not held to this; its verdict is recorded in `FINDINGS-FORK-UI-RECHECK.md` as it stands.",
+        "C4 no regression: in `driven-report-fork-ui-recheck.json`, every observation that `driven-report-fork-ui.json` records as `pass` is still `pass`, with `control.fired` true.",
+        "C5 recheck findings: `FINDINGS-FORK-UI-RECHECK.md` holds the contract I2 verdict table for the re-run, which meets T1 C26's field-count check, and a line per previously-`defect` observation giving its before and after verdict. `grep -c '\\.sir/'` over it prints 0.",
+        "C6 earlier artifacts still byte-identical (preserved by design, checked mechanically): T1 C4's hash command prints `a9edbb25493ff22cc65118e28ae3ea5aa8e1b14b07041b5370cd0ef7ac04c9ca`, and its count prints 80, at this task's tip.",
+        "C7 DAG tail typecheck (project lesson: vitest does not typecheck): `npm run typecheck` in the worktree exits 0 at this task's tip. No task depends on T3, so no later task can break it. Preserved by design when T2 changed nothing.",
+        "C8 DAG tail suite: `npm test` in the worktree exits 0 at this task's tip, with 0 failed files and 0 failed tests, and the report gives the passed file and test counts. Preserved by design when T2 changed nothing."
+      ]
+    }
+  ]
+}
