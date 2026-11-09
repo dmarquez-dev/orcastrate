@@ -51,6 +51,10 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-FORK-UI.md`** (2026-11-09) — the five fork-UI human checks, 16 observations
+  each with an in-window control, driven by `run-fork-ui.mjs`: 14 pass, 1 defect (O10, the
+  dismiss button straddles a two-line fork error), 1 instrument-invalid (O11); exit 2.
+  Backlog rows 1, 2, 3 and 5 measured all-pass; row 4 not.
 - **`FINDINGS-KEYWORD-SWEEP.md`** (2026-10-20) — the six `thin` border widths tokenised by
   `2026-10-16-orcastrate-keyword-hairline-sweep`, all six measured on screen, 70/70 checks.
   It also closes the **grouped-selector enumeration defect**: `run-keyword-sweep.mjs` keys

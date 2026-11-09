@@ -23,9 +23,15 @@
   font-size: var(--oc-text-xs);
 }
 
+/*
+ * Cross-start, not centre: a long fork error wraps, and centring the dismiss
+ * button on the wrapped block put its middle between two lines. Top-aligned,
+ * and one line box tall (no block padding or border on `.dismiss`, same font),
+ * it sits on the first line whatever the line count.
+ */
 .dismissible {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   align-self: center;
 }
 
