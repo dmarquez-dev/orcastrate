@@ -1,0 +1,400 @@
+{
+  "meta": {
+    "slug": "fork-ui-recheck",
+    "generatedAt": "2026-11-09T19:07:36.293Z",
+    "driverSha256": "b7c5a8933f43bdf15751b8cf37d9c558f73b53d27ff7dc7f6cdec3dfac2ca3fd",
+    "mainBundleSha256": "025d3f6f2a0103c98791b6fcab5819c44809755557e37512554fa95198c152c8",
+    "electron": "43.4.0",
+    "playwright": "1.63.0",
+    "devicePixelRatio": 1.0000000149011612,
+    "viewport": {
+      "width": 1280,
+      "height": 860
+    },
+    "sandboxRoot": "C:\\oc-sandbox-fork-ui-recheck",
+    "mainEnv": {
+      "USERPROFILE": "C:\\oc-sandbox-fork-ui-recheck\\home",
+      "userData": "C:\\oc-sandbox-fork-ui-recheck\\home\\AppData\\Roaming\\Electron",
+      "CLAUDE_CONFIG_DIR": null
+    },
+    "realSettingsSha256": {
+      "before": "1d8e7e488b2364a2e0d754e94c3bceee70a8e0278f99aa3437686a18329dd215",
+      "after": "1d8e7e488b2364a2e0d754e94c3bceee70a8e0278f99aa3437686a18329dd215"
+    },
+    "exitCode": 2,
+    "sandboxRemoved": true,
+    "precondition": null
+  },
+  "states": [
+    {
+      "id": "S1",
+      "route": "pods.create, then reload; born closed with ccSessionId null",
+      "reached": true,
+      "evidence": "P1 f38b2a7d-e759-4d77-a92c-786f15caa987 fork data-eligibility=no-session"
+    },
+    {
+      "id": "S2",
+      "route": "pods.create, reload, then main webContents.send('push:podStatus', {podId, status:'running'}) to 1 window(s)",
+      "reached": true,
+      "evidence": "P2 2d942a4f-82a4-49a1-b51f-b26d09346f5f fork data-eligibility=mid-turn, run data-verb=stop"
+    },
+    {
+      "id": "S3",
+      "route": "fixture fba02ce6-3873-4dc9-b7cd-c9a266803f42.jsonl in the sandbox projects dir; pods.create; session-id write route 1; reload; click P3 Fork",
+      "reached": true,
+      "evidence": "fork pod c14649ce-f7e5-47c9-92e0-b8f62c683535 forkedFromPodId=3fdca9c4-0d61-40e0-a012-7ddcf2fc522c ccSessionId=0508b0e1-8f76-4d03-a0ed-14b9366d8419 (source fba02ce6-3873-4dc9-b7cd-c9a266803f42); fixture .jsonl count 1 -> 2; no claude process involved; route1: {\"ok\":true,\"detail\":\"changes=1,1 db=C:\\\\oc-sandbox-fork-ui-recheck\\\\home\\\\AppData\\\\Roaming\\\\Electron\\\\orcastrate.db\"}; route2: null"
+    },
+    {
+      "id": "S4",
+      "route": "pods.create; cc_session_id b030fd69-22c7-4f66-824e-523e0f830265 with no transcript; session-id write route 1; reload; click P4 Fork",
+      "reached": true,
+      "evidence": "alert shown=true; text starts with \"forkSession failed for pod \": true; pods.list length 5 -> 5; alert text: forkSession failed for pod a1caf01c-01c9-4905-bd0b-990d5a3cbddd (session b030fd69-22c7-4f66-824e-523e0f830265): Session b030fd69-22c7-4f66-824e-523e0f830265 not found in project directory for C:\\oc-sandbox-fork-ui-recheck\\repos\\plain-repo; route1: {\"ok\":true,\"detail\":\"changes=1,1 db=C:\\\\oc-sandbox-fork-ui-recheck\\\\home\\\\AppData\\\\Roaming\\\\Electron\\\\orcastrate.db\"}; route2: null"
+    }
+  ],
+  "observations": [
+    {
+      "id": "O1",
+      "backlogRow": 1,
+      "verdict": "pass",
+      "measured": {
+        "clip": "143.55,12.60 12.00x12.00",
+        "forkDiffersFromU0378Reference": true,
+        "forkDiffersFromTransparent": true,
+        "decision": "fork mark",
+        "instrumentCheckU0379IdenticalToU0378": true,
+        "captureBytes": "fork=179 ref=191 transparent=112 u0379=191",
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "text node of P1 fork span substituted with U+0379, captured at the same clip, same decision applied",
+        "predicted": "decision reports \"missing glyph\"; the U+0379 capture is byte-identical to the U+0378 reference",
+        "observed": "decision \"missing glyph\"; U+0379 byte-identical to U+0378 reference: true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O2",
+      "backlogRow": 1,
+      "verdict": "pass",
+      "measured": {
+        "devicePixelRatio": 1.0000000149011612,
+        "tolerancePx": 0.999999985098839,
+        "forkFontSize": 12,
+        "playFontSize": 12,
+        "deleteFontSize": 12,
+        "forkTextRangeHeight": 16,
+        "playTextRangeHeight": 16,
+        "deleteTextRangeHeight": 16,
+        "fontSizePairsEqual": 2,
+        "textRangeHeightPairsEqual": 2,
+        "forkBoxHeight": 12,
+        "playBoxHeight": 12,
+        "deleteBoxHeight": 12,
+        "boxHeightPairsEqualUnscored": 2,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline font-size on the P1 fork span set to twice its computed value",
+        "predicted": "0 of 2 text-range height pairs equal",
+        "observed": "0 of 2 text-range height pairs equal (fork text-range height 32 at font-size 24px; font-size pairs equal 0 of 2; box height pairs equal 2 of 2, unscored)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O3",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "eligibility": "no-session",
+        "forkOpacity": 0.5,
+        "runOpacity": 1,
+        "controlP3Eligibility": "eligible"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "fork opacity equals run opacity (not dimmed)",
+        "observed": "P3 fork opacity 1, run opacity 1: equal, not dimmed",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O4",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "cursor": "not-allowed",
+        "controlP3Cursor": "pointer"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "pointer",
+        "observed": "P3 cursor pointer",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O5",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "hit": "span[data-icon=\"fork\"]",
+        "titleHolder": "[data-testid=\"pod-tab-fork:f38b2a7d-e759-4d77-a92c-786f15caa987\"]",
+        "hoveredTitle": "There is no conversation to fork yet.",
+        "expected": "There is no conversation to fork yet.",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:25",
+        "equal": true
+      },
+      "control": {
+        "injection": "same hover measurement on P3 fork control before its fork",
+        "predicted": "null",
+        "observed": "P3 hovered title null (hit span[data-icon=\"fork\"])",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O6",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "eligibility": "mid-turn",
+        "forkOpacity": 0.5,
+        "runOpacity": 1,
+        "controlP3Eligibility": "eligible"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "fork opacity equals run opacity (not dimmed)",
+        "observed": "P3 fork opacity 1, run opacity 1: equal, not dimmed",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O7",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "cursor": "not-allowed",
+        "controlP3Cursor": "pointer"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "pointer",
+        "observed": "P3 cursor pointer",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O8",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "hit": "span[data-icon=\"fork\"]",
+        "titleHolder": "[data-testid=\"pod-tab-fork:2d942a4f-82a4-49a1-b51f-b26d09346f5f\"]",
+        "hoveredTitle": "This Pod is mid-turn. Fork it once the turn ends.",
+        "expected": "This Pod is mid-turn. Fork it once the turn ends.",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:28",
+        "equal": true
+      },
+      "control": {
+        "injection": "same hover measurement on P3 fork control before its fork",
+        "predicted": "null",
+        "observed": "P3 hovered title null (hit span[data-icon=\"fork\"])",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O9",
+      "backlogRow": 3,
+      "verdict": "pass",
+      "measured": {
+        "forkTabTestId": "pod-tab:c14649ce-f7e5-47c9-92e0-b8f62c683535",
+        "hit": "span",
+        "hoveredTitle": "Forked from P3 parent",
+        "parentTitle": "P3 parent",
+        "expected": "Forked from P3 parent",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:66"
+      },
+      "control": {
+        "injection": "same hover measurement on P3's own tab",
+        "predicted": "null",
+        "observed": "P3's own tab hovered title null",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O10",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "lineBoxCount": 2,
+        "rawRectCount": 2,
+        "lineBoxesContainingButtonCentre": 1,
+        "lineBoxExtentsY": "2.65-17.05; 18.60-33.00",
+        "buttonExtentY": "2.65-18.60",
+        "buttonCentreY": 10.625,
+        "nearestLineEdgeDistance": 6.425001621246338,
+        "lineBoxesContainingCentreWithinOneDevicePixel": 1,
+        "buttonRightOfLineRightEdge": true,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline flex-direction: column on the dismiss button's parent",
+        "predicted": "0 line boxes contain the button centre",
+        "observed": "0 line boxes contain the centre",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O11",
+      "backlogRow": 4,
+      "verdict": "instrument-invalid",
+      "measured": {
+        "centreYDifference": 0.7749991416931152,
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "buttonHeight": 15.949999809265137,
+        "containingLineIndex": 0,
+        "lineBoxCount": 2,
+        "nearestLineCentreYDifference": 0.7749991416931152,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline margin-top on the dismiss button equal to its own measured height",
+        "predicted": "difference equals half the button height within one device pixel, so exceeds the tolerance",
+        "observed": "difference 16.725; half button height 7.975; |difference - half| 8.750 vs tolerance 1.000",
+        "fired": false
+      },
+      "reason": "control did not fire as predicted (difference equals half the button height within one device pixel, so exceeds the tolerance); observed: difference 16.725; half button height 7.975; |difference - half| 8.750 vs tolerance 1.000"
+    },
+    {
+      "id": "O12",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "dark",
+        "foreground": "rgb(154, 162, 177)",
+        "foregroundAlpha": 1,
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "contrastRatio": 6.573,
+        "threshold": 4.5,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline color on the dismiss button set to the measured background colour (dark preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O13",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "light",
+        "foreground": "rgb(154, 162, 177)",
+        "foregroundAlpha": 1,
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "contrastRatio": 6.573,
+        "threshold": 4.5,
+        "undoVerified": true,
+        "identicalToDarkForeground": true,
+        "identicalToDarkBackground": true
+      },
+      "control": {
+        "injection": "inline color on the dismiss button set to the measured background colour (light preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O14",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "tabPresses": 7,
+        "tabBound": 26,
+        "reachedByTab": true,
+        "active": "button[aria-label=\"Dismiss fork error\"]",
+        "focusVisible": true,
+        "outlineStyle": "solid",
+        "outlineWidth": 1.6,
+        "outlineColor": "rgb(106, 169, 255)",
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "outlineContrast": 7.02,
+        "threshold": 3,
+        "paintedClipDiffersFromControl": true,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "added <style>: [aria-label=\"Dismiss fork error\"]{outline:none !important}",
+        "predicted": "outline-style none; the clip is byte-identical to the control capture",
+        "observed": "outline-style none; control capture repeated byte-identical: true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O15",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "focusedBeforeEnter": "button[aria-label=\"Dismiss fork error\"]",
+        "alertCountAfterEnter": 0,
+        "buttonCountAfterEnter": 0
+      },
+      "control": {
+        "injection": "on a second failed fork of P4, Shift (non-activating) pressed on the focused dismiss button instead of Enter",
+        "predicted": "alert count stays 1",
+        "observed": "second failed fork shown=true; Tab presses 7, reached=true; after Shift alert count 1 (dismissed=false)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O16",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "activeElement": "[data-testid=\"pods-chrome\"]",
+        "focusVisible": true,
+        "outlineStyle": "solid",
+        "outlineWidth": 1.6,
+        "outlineColor": "rgb(106, 169, 255)",
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "outlineContrast": 7.02,
+        "threshold": 3
+      },
+      "control": {
+        "injection": "a further failed fork of P4 dismissed by mouse click instead of Enter",
+        "predicted": "chrome focused; :focus-visible false",
+        "observed": "further failed fork shown=true; after mouse dismiss active [data-testid=\"pods-chrome\"], :focus-visible false",
+        "fired": true
+      },
+      "reason": null
+    }
+  ]
+}
