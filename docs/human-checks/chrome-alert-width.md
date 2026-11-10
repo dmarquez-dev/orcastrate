@@ -34,10 +34,20 @@ your Claude home, or the folders this file has you make:
 - **H1 step 2, H2 step 1 and H5 step 2** each mark the throwaway Pod "HC open error" as
   stopped with an error (`src/main/pod-manager/pod-manager.ts:809`). Nothing is started:
   the error is raised before any process is spawned (`src/main/pod/pod-runner.ts:171`).
-- **H2 step 3** may create more throwaway Pods, if you choose to add Pods there.
-- **H4 step 3** deletes the throwaway Pod "HC reorder".
-- **H4 step 5** rewrites the tab position of every Pod you have, as any reorder does. You
+- **H2 step 3** may create more throwaway Pods, titled `HC clamp 1`, `HC clamp 2` and so
+  on, if you choose to add Pods there.
+- **H4 step 4** deletes the throwaway Pod "HC reorder" (you type the command in step 3
+  and press Enter in step 4, after checking the id).
+- **H4 step 6** rewrites the tab position of every Pod you have, as any reorder does. You
   can move tabs back with `Control+ArrowLeft` and `Control+ArrowRight` afterwards.
+  It also overwrites every one of your Pods' last-used stamp (`last_active_at`) with the
+  current time, and moving the tabs back does not restore the old stamps. The reorder
+  saves only a new tab position for each Pod (`src/renderer/src/state/store.ts:523`); main
+  passes no `lastActiveAt` on (`src/main/pod-manager/pod-manager.ts:416-423`), and the
+  store then sets it to now (`src/main/store/sqlite-event-store.ts:224-228`). No renderer
+  code outside the tests reads the field (its only hit in `src/renderer` outside
+  `__tests__` is the test stub `src/renderer/src/test-utils/stub-api.ts:135`), but main
+  treats it as load-bearing (`src/main/pod-manager/pod-manager.ts:332-336`).
 - **H5 step 1** creates more throwaway Pods.
 - **H7 steps 1-5** create a throwaway Pod, open it, send it one message and stop it. That
   runs a real Claude Code turn on your account, with real token cost, and writes one
@@ -46,7 +56,7 @@ your Claude home, or the folders this file has you make:
 - **H7 step 11** asks main to fork; when the fork fails, main writes no Pod, lane or event
   row (`src/main/pod-manager/pod-manager.ts:533`).
 - **Cleanup** deletes every throwaway Pod and the folders, and its step 5 reorders your
-  tabs back.
+  tabs back, which stamps `last_active_at` with the current time again, as H4 step 6 does.
 
 If you would rather not do H4 or H7, skip them and say so: each names a screenshot that
 stands in.
@@ -112,7 +122,9 @@ width follows the rule.
    the second line ending in an ellipsis ("…"). Nothing should spill below the row.
 3. If the whole message fits without an ellipsis, it is not long enough to test the clamp.
    Make the window narrower (its minimum width is 940 px, `src/main/window.ts:18`) or add
-   Pods, then click the run control again.
+   throwaway Pods: click **+**, give each a Title such as `HC clamp 1`, `HC clamp 2` and so
+   on, choose the `orcastrate-human-check-spare` folder, and click **Create**. Then click
+   the run control again.
 4. Hold the mouse still over the red message. A tooltip should appear with the whole
    message, including the full folder path (`title={openError}`,
    `src/renderer/src/pods/PodsChrome.tsx:287`).
@@ -168,23 +180,33 @@ This check needs the window's developer tools console. It was not run in this se
    Enter. This is `window.orcastrate.pods.list()` (`src/preload/api.ts:92`; exposed as
    `orcastrate` at `src/preload/index.ts:20`), whose answer is `{ ok: true, value: [...] }`
    (`src/shared/contracts/ipc.ts:67`). Find the row for `HC reorder` and copy its id.
-3. Type `await window.orcastrate.pods.delete({ podId: '<the id>', deleteSession: false })`,
-   with the id pasted in, and press Enter. This is
+3. **Warning: this command asks for no confirmation.** Whatever id you paste, main deletes
+   that Pod at once. If you paste the id of one of your own Pods, that Pod is gone. Its
+   conversation file under `%USERPROFILE%\.claude\projects` survives, because the command
+   passes `deleteSession: false` (`src/main/ipc/handlers.ts:152`), but the Pod itself, with its title, folder and tab, does
+   not come back. Type, but do not press Enter yet,
+   `await window.orcastrate.pods.delete({ podId: '<the id>', deleteSession: false })`,
+   with the id pasted in. This is
    `window.orcastrate.pods.delete({ podId, deleteSession: false })`
-   (`src/preload/api.ts:98`). Main deletes the Pod, but the window does not know yet: the
-   `HC reorder` tab stays on screen.
-4. Click any Pod tab that is not the last one on the right, so it has focus.
-5. Press `Control+ArrowRight` (`src/renderer/src/pods/PodTab.tsx:218-220`). The app
+   (`src/preload/api.ts:98`).
+4. Before you press Enter, check the id you pasted against the step-2 output: it must be
+   the id on the same row as the title `HC reorder`, character for character. If it is not,
+   or you are unsure, clear the line and copy it again. Only then press Enter. Main deletes
+   the Pod, but the window does not know yet: the `HC reorder` tab stays on screen.
+5. Click any Pod tab that is not the last one on the right, so it has focus.
+6. Press `Control+ArrowRight` (`src/renderer/src/pods/PodTab.tsx:218-220`). The app
    saves the new order for every tab (`src/renderer/src/state/store.ts:518-534`), including
-   `HC reorder`, which main no longer has.
+   `HC reorder`, which main no longer has. Every other Pod's save succeeds, and each one
+   also sets that Pod's `last_active_at` to the current time; moving the tabs back later
+   does not restore the old stamps (see "Before you start").
    That one fails with main's own message, `updatePod: no pod with id <id>`
    (`src/main/store/sqlite-event-store.ts:233`). The app then reloads the Pod list
    (`src/renderer/src/state/store.ts:528`), so the `HC reorder` tab disappears, and the red
    reorder alert appears inside the Pod bar.
-6. Check the Pod tab titles: none should be cut shorter than before the alert appeared.
-7. Check the alert fills the space between the **+** button and the right edge, at most two
+7. Check the Pod tab titles: none should be cut shorter than before the alert appeared.
+8. Check the alert fills the space between the **+** button and the right edge, at most two
    lines, inside the row.
-8. Hold the mouse over the alert: the tooltip shows the whole message
+9. Hold the mouse over the alert: the tooltip shows the whole message
    (`title={reorderError}`, `src/renderer/src/pods/PodBarPanel.tsx:102`).
 
 If you cannot open the console, use the fix run's screenshot instead:
@@ -317,14 +339,16 @@ fork error ending in "…" "is acceptable as the only visible text".
 
 ## Cleanup
 
-1. For each throwaway Pod still listed (`HC open error`, every `HC overflow` Pod, and
-   `HC fork`), click its × button named "Delete <title>"
-   (`src/renderer/src/pods/PodTab.tsx:385`). In the Delete Pod dialog, click **Delete**
-   (`src/renderer/src/pods/DeletePodDialog.tsx:37`). A running Pod has no × button; stop it
-   first with its ❚❚ button.
-2. For `HC fork` only, the dialog also offers a checkbox, "Also move this Pod's Claude Code
-   conversation file to the recycle bin." (`src/renderer/src/pods/DeletePodDialog.tsx:35`).
-   Tick it to remove the conversation file from H7 as well.
+A running Pod has no × button; stop it first with its ❚❚ button. Each throwaway Pod's ×
+button is named "Delete <title>" (`src/renderer/src/pods/PodTab.tsx:385`).
+
+1. If you ran H7, start with `HC fork`. Click its × button. In the Delete Pod dialog, first
+   tick the checkbox "Also move this Pod's Claude Code conversation file to the recycle
+   bin." (`src/renderer/src/pods/DeletePodDialog.tsx:35`), so the conversation file from H7
+   goes too, and only then click **Delete** (`src/renderer/src/pods/DeletePodDialog.tsx:37`).
+2. For each other throwaway Pod still listed (`HC open error`, every `HC clamp` Pod from H2
+   step 3, and every `HC overflow` Pod from H5 step 1), click its × button, then click
+   **Delete** in the dialog.
 3. `HC reorder` was already deleted in H4. If you skipped H4, delete it the same way.
 4. In File Explorer, delete the folders from Setup step 4.
 5. If H4 changed the order of your own tabs, put them back with `Control+ArrowLeft` and
