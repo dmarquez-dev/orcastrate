@@ -1,0 +1,1044 @@
+{
+  "meta": {
+    "slug": "chrome-alert-width-base",
+    "generatedAt": "2026-11-10T20:11:31.472Z",
+    "driverSha256": "d970b2a03cce7f88cc3d6e7d11082732b12c29d5ac8b089d38c42615fc7ac174",
+    "mainBundleSha256": "025d3f6f2a0103c98791b6fcab5819c44809755557e37512554fa95198c152c8",
+    "rendererCssSha256": "66295bbb9950c8725f13806b1ec0a07eb5c6c711d44eca6aa491afa3cc2a57ba",
+    "electron": "43.4.0",
+    "playwright": "1.63.0",
+    "devicePixelRatio": 1.0000000149011612,
+    "viewport": {
+      "width": 1280,
+      "height": 860
+    },
+    "sandboxRoot": "C:\\oc-sandbox-chrome-alert-width-base",
+    "mainEnv": {
+      "USERPROFILE": "C:\\oc-sandbox-chrome-alert-width-base\\home",
+      "userData": "C:\\oc-sandbox-chrome-alert-width-base\\home\\AppData\\Roaming\\Electron",
+      "CLAUDE_CONFIG_DIR": null
+    },
+    "realSettingsSha256": {
+      "before": "1d8e7e488b2364a2e0d754e94c3bceee70a8e0278f99aa3437686a18329dd215",
+      "after": "1d8e7e488b2364a2e0d754e94c3bceee70a8e0278f99aa3437686a18329dd215"
+    },
+    "exitCode": 1,
+    "sandboxRemoved": true,
+    "precondition": null
+  },
+  "states": [
+    {
+      "id": "S1",
+      "route": "pods.create, then reload; born closed with ccSessionId null",
+      "reached": true,
+      "evidence": "P1 f2dc39c1-bdf3-437a-8c5a-ac99566e0ba1 fork data-eligibility=no-session"
+    },
+    {
+      "id": "S2",
+      "route": "pods.create, reload, then main webContents.send('push:podStatus', {podId, status:'running'}) to 1 window(s)",
+      "reached": true,
+      "evidence": "P2 a395c133-e48f-4a27-babe-03aaae5fd691 fork data-eligibility=mid-turn, run data-verb=stop"
+    },
+    {
+      "id": "S3",
+      "route": "fixture cf2da1e0-a54e-410b-8e53-8dcb9907f25c.jsonl in the sandbox projects dir; pods.create; session-id write route 1; reload; click P3 Fork",
+      "reached": true,
+      "evidence": "fork pod 2058ab96-4fef-4a5d-90b0-f2330ea09270 forkedFromPodId=7c4286e6-98c1-40c4-8fa8-b8463c180844 ccSessionId=0e49a207-505c-4956-b64e-f6014b94b113 (source cf2da1e0-a54e-410b-8e53-8dcb9907f25c); fixture .jsonl count 1 -> 2; no claude process involved; route1: {\"ok\":true,\"detail\":\"changes=1,1 db=C:\\\\oc-sandbox-chrome-alert-width-base\\\\home\\\\AppData\\\\Roaming\\\\Electron\\\\orcastrate.db\"}; route2: null"
+    },
+    {
+      "id": "S4",
+      "route": "pods.create; cc_session_id df78f712-fc56-4e20-b23b-1cca28dc4f4b with no transcript; session-id write route 1; reload; click P4 Fork",
+      "reached": true,
+      "evidence": "alert shown=true; text starts with \"forkSession failed for pod \": true; pods.list length 5 -> 5; alert text: forkSession failed for pod a4bca3dd-d537-464a-9cbf-182537193f1a (session df78f712-fc56-4e20-b23b-1cca28dc4f4b): Session df78f712-fc56-4e20-b23b-1cca28dc4f4b not found in project directory for C:\\oc-sandbox-chrome-alert-width-base\\repos\\plain-repo; route1: {\"ok\":true,\"detail\":\"changes=1,1 db=C:\\\\oc-sandbox-chrome-alert-width-base\\\\home\\\\AppData\\\\Roaming\\\\Electron\\\\orcastrate.db\"}; route2: null"
+    },
+    {
+      "id": "S5",
+      "route": "pods.create P5 \"P5 cwd gone\" with cwd C:\\oc-sandbox-chrome-alert-width-base\\p5-cwd-gone (created under the sandbox root, then removed); reload (6 Pod tabs); free-space reference with no alert shown; click P5 run control (data-verb=\"open\"); main raises CWD_MISSING before any spawn",
+      "reached": true,
+      "evidence": "P5 eae3a6eb-0ed4-49b8-be7a-4d3b508e5bfb; cwd removed before the click: true; Pod tabs after reload 6: true; alerts in pods-chrome before the click 0; free space at the reference: true (panel max-content width 1126.325, pods-chrome clientWidth 1280, tol 1, undo verified true (pod-bar width 1280 -> 1280, panel inline style after \"\")); run control data-verb=open; open-error alerts after the click 1 (text starts with \"cwd is not accessible: \"); pods.list length 6 -> 6; alert text: cwd is not accessible: C:\\oc-sandbox-chrome-alert-width-base\\p5-cwd-gone (ENOENT: no such file or directory, stat 'C:\\oc-sandbox-chrome-alert-width-base\\p5-cwd-gone')"
+    },
+    {
+      "id": "S6",
+      "route": "reload (clears the open error); Pods \"P<n> overflow\" (cwd: the sandbox plainRepo) created one at a time, each followed by a reload, until the panel max-content width exceeds the pods-chrome clientWidth by more than tol (at most 12); overflow reference with no alert shown; click P4 Fork",
+      "reached": true,
+      "evidence": "Pods added 1; Pod tab count reached after each reload: true; alerts in pods-chrome before the click 0; overflow at the reference: true (panel max-content width 1306, pods-chrome clientWidth 1280, tol 1, undo verified true (pod-bar width 1280 -> 1280, panel inline style after \"\")); trail: 0 added: 1126.325 vs 1280, 1 added: 1306 vs 1280; smallest reference title width 45.513 (every one exceeds tol: true; tabs 7); P4 fork data-eligibility=eligible; fork-error alerts after the click 1"
+    },
+    {
+      "id": "S7",
+      "route": "pods.delete({ podId, deleteSession: false }) for P5 and every Pod S6 added; reload (5 Pod tabs); in main, the pod:update handler replaced (ipcMain.removeHandler, then ipcMain.handle) by one resolving { ok: false, error: { code: IO, message: refused } }; P1 tab focused, Control+ArrowRight; free-space reference with the reorder alert shown; the pod:list handler replaced the same way, resolving M7; Control+ArrowRight again on the focused P1 tab",
+      "reached": true,
+      "evidence": "deleted 2 of 2; Pod tabs after reload 5: true; substitutions: \"pod:update replaced\", \"pod:list replaced\"; reorder alert at the reference [\"refused\"], at the measurement [\"refused\"]; alerts outside the panel at the reference 0; free space at the reference: true (panel max-content width 992.663, pods-chrome clientWidth 1280, tol 1, undo verified true (pod-bar width 1227.85 -> 1227.85, panel inline style after \"\")); pods-error alerts equal to M7 1; Pod tab count 5; M7: pods.list failed (hand-run driver substitution): forkSession failed for pod a4bca3dd-d537-464a-9cbf-182537193f1a (session df78f712-fc56-4e20-b23b-1cca28dc4f4b): Session df78f712-fc56-4e20-b23b-1cca28dc4f4b not found in project directory for C:\\oc-sandbox-chrome-alert-width-base\\repos\\plain-repo"
+    },
+    {
+      "id": "S8",
+      "route": "reload (clears the open error; 6 Pod tabs); free-space reference with no alert shown and the mouse parked (every Pod tab title width, the pod bar max-content width); in main, the pod:update handler replaced (ipcMain.removeHandler, then ipcMain.handle) by one resolving { ok: false, error: { code: NOT_FOUND, message: M8 } }, M8 = the not-found prefix read from src/main/store/sqlite-event-store.ts followed by P5's id; P1 tab focused, Control+ArrowRight",
+      "reached": true,
+      "evidence": "substitution: \"pod:update replaced\" resolving NOT_FOUND with M8; M8 (62 characters): updatePod: no pod with id eae3a6eb-0ed4-49b8-be7a-4d3b508e5bfb; prefix \"updatePod: no pod with id \" read from src/main/store/sqlite-event-store.ts:233; Pod tabs after reload 6: true; alerts in the document before the substitution 0; free space at the reference: true (panel max-content width 1126.325, pods-chrome clientWidth 1280, tol 1, undo verified true (pod-bar width 1280 -> 1280, panel inline style after \"\")); pod bar max-content width 1126.325, pods-chrome clientWidth 1280, panel clientWidth 1280, undo verified true (pod-bar width 1280 -> 1280, pod-bar inline style after \"\"); reorder alert shown true, reorder alerts at the measurement [\"updatePod: no pod with id eae3a6eb-0ed4-49b8-be7a-4d3b508e5bfb\"]; alerts equal to M8 1; alerts outside the panel 0; Pod tab count 6; pods.list length 6 -> 6"
+    },
+    {
+      "id": "S9",
+      "route": "in S6's state: reload (clears the fork error); overflow reference with no alert shown and the mouse parked (every Pod tab title width, unscored); click P5 run control (data-verb=\"reconnect\"); main raises CWD_MISSING before any spawn",
+      "reached": true,
+      "evidence": "Pod tabs after reload 7: true; alerts in pods-chrome before the click 0; overflow at the reference: true (panel max-content width 1306, pods-chrome clientWidth 1280, tol 1, undo verified true (pod-bar width 1280 -> 1280, panel inline style after \"\")); P5 eae3a6eb-0ed4-49b8-be7a-4d3b508e5bfb run control data-verb=reconnect; open-error alerts after the click 1 (text starts with \"cwd is not accessible: \"); pods.list length 7 -> 7; alert text: cwd is not accessible: C:\\oc-sandbox-chrome-alert-width-base\\p5-cwd-gone (ENOENT: no such file or directory, stat 'C:\\oc-sandbox-chrome-alert-width-base\\p5-cwd-gone')"
+    },
+    {
+      "id": "S10",
+      "route": "in S7's final state (the pods-error alert still shown; no reload): the window's zoom raised by webContents.setZoomFactor from 1.0 in steps of 0.1, at most to 2.0, each step followed by two animation frames and a re-read of tol, until the pod bar max-content width exceeds the pods-chrome clientWidth by more than tol",
+      "reached": true,
+      "evidence": "overflow at the zoom reached: true; zoom factor 1.4; tol 0.7142857036420279; pod bar max-content width 937.759, pods-chrome clientWidth 914, panel clientWidth 889, undo verified true (pod-bar width 836.67 -> 836.67, pod-bar inline style after \"\"); alerts equal to M7 1; Pod tab count 5; trail: zoom 1.1: dpr 1.1, tol 0.909, pod bar max-content 939.636 vs pods-chrome clientWidth 1164; zoom 1.2: dpr 1.2, tol 0.833, pod bar max-content 938.896 vs pods-chrome clientWidth 1067; zoom 1.3: dpr 1.3, tol 0.769, pod bar max-content 938.289 vs pods-chrome clientWidth 985; zoom 1.4: dpr 1.4, tol 0.714, pod bar max-content 937.759 vs pods-chrome clientWidth 914"
+    }
+  ],
+  "observations": [
+    {
+      "id": "O1",
+      "backlogRow": 1,
+      "verdict": "pass",
+      "measured": {
+        "clip": "143.55,12.60 12.00x12.00",
+        "forkDiffersFromU0378Reference": true,
+        "forkDiffersFromTransparent": true,
+        "decision": "fork mark",
+        "instrumentCheckU0379IdenticalToU0378": true,
+        "captureBytes": "fork=179 ref=191 transparent=112 u0379=191",
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "text node of P1 fork span substituted with U+0379, captured at the same clip, same decision applied",
+        "predicted": "decision reports \"missing glyph\"; the U+0379 capture is byte-identical to the U+0378 reference",
+        "observed": "decision \"missing glyph\"; U+0379 byte-identical to U+0378 reference: true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O2",
+      "backlogRow": 1,
+      "verdict": "pass",
+      "measured": {
+        "devicePixelRatio": 1.0000000149011612,
+        "tolerancePx": 0.999999985098839,
+        "forkFontSize": 12,
+        "playFontSize": 12,
+        "deleteFontSize": 12,
+        "forkTextRangeHeight": 16,
+        "playTextRangeHeight": 16,
+        "deleteTextRangeHeight": 16,
+        "fontSizePairsEqual": 2,
+        "textRangeHeightPairsEqual": 2,
+        "forkBoxHeight": 12,
+        "playBoxHeight": 12,
+        "deleteBoxHeight": 12,
+        "boxHeightPairsEqualUnscored": 2,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline font-size on the P1 fork span set to twice its computed value",
+        "predicted": "0 of 2 text-range height pairs equal",
+        "observed": "0 of 2 text-range height pairs equal (fork text-range height 32 at font-size 24px; font-size pairs equal 0 of 2; box height pairs equal 2 of 2, unscored)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O3",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "eligibility": "no-session",
+        "forkOpacity": 0.5,
+        "runOpacity": 1,
+        "controlP3Eligibility": "eligible"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "fork opacity equals run opacity (not dimmed)",
+        "observed": "P3 fork opacity 1, run opacity 1: equal, not dimmed",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O4",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "cursor": "not-allowed",
+        "controlP3Cursor": "pointer"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "pointer",
+        "observed": "P3 cursor pointer",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O5",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P1",
+        "hit": "span[data-icon=\"fork\"]",
+        "titleHolder": "[data-testid=\"pod-tab-fork:f2dc39c1-bdf3-437a-8c5a-ac99566e0ba1\"]",
+        "hoveredTitle": "There is no conversation to fork yet.",
+        "expected": "There is no conversation to fork yet.",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:25",
+        "equal": true
+      },
+      "control": {
+        "injection": "same hover measurement on P3 fork control before its fork",
+        "predicted": "null",
+        "observed": "P3 hovered title null (hit span[data-icon=\"fork\"])",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O6",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "eligibility": "mid-turn",
+        "forkOpacity": 0.5,
+        "runOpacity": 1,
+        "controlP3Eligibility": "eligible"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "fork opacity equals run opacity (not dimmed)",
+        "observed": "P3 fork opacity 1, run opacity 1: equal, not dimmed",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O7",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "cursor": "not-allowed",
+        "controlP3Cursor": "pointer"
+      },
+      "control": {
+        "injection": "same measurement on P3 before its fork (eligible)",
+        "predicted": "pointer",
+        "observed": "P3 cursor pointer",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O8",
+      "backlogRow": 2,
+      "verdict": "pass",
+      "measured": {
+        "pod": "P2",
+        "hit": "span[data-icon=\"fork\"]",
+        "titleHolder": "[data-testid=\"pod-tab-fork:a395c133-e48f-4a27-babe-03aaae5fd691\"]",
+        "hoveredTitle": "This Pod is mid-turn. Fork it once the turn ends.",
+        "expected": "This Pod is mid-turn. Fork it once the turn ends.",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:28",
+        "equal": true
+      },
+      "control": {
+        "injection": "same hover measurement on P3 fork control before its fork",
+        "predicted": "null",
+        "observed": "P3 hovered title null (hit span[data-icon=\"fork\"])",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O9",
+      "backlogRow": 3,
+      "verdict": "pass",
+      "measured": {
+        "forkTabTestId": "pod-tab:2058ab96-4fef-4a5d-90b0-f2330ea09270",
+        "hit": "span",
+        "hoveredTitle": "Forked from P3 parent",
+        "parentTitle": "P3 parent",
+        "expected": "Forked from P3 parent",
+        "expectedSource": "src/renderer/src/pods/fork-control.ts:66"
+      },
+      "control": {
+        "injection": "same hover measurement on P3's own tab",
+        "predicted": "null",
+        "observed": "P3's own tab hovered title null",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O10",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "rawLineBoxCount": 10,
+        "paintedLineBoxCount": 3,
+        "rawRectCount": 10,
+        "paintedRectCount": 3,
+        "paintedLineBoxesContainingButtonCentre": 1,
+        "paintedLineBoxExtentsY": "2.65-17.05; 18.60-33.00; 34.55-34.55",
+        "rawLineBoxExtentsY": "2.65-17.05; 18.60-33.00; 34.55-48.95; 50.50-64.90; 66.45-80.85; 82.40-96.80; 98.35-112.75; 114.30-128.70; 130.25-144.65; 146.20-160.60",
+        "buttonExtentY": "2.65-18.60",
+        "alertBoxExtentY": "2.65-34.55",
+        "buttonCentreY": 10.625,
+        "nearestLineEdgeDistance": 6.425001621246338,
+        "lineBoxesContainingCentreWithinOneDevicePixel": 1,
+        "buttonRightOfLineRightEdge": true,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline flex-direction: column on the dismiss button's parent",
+        "predicted": "0 painted line boxes contain the button centre",
+        "observed": "0 painted line boxes contain the centre (button y 26.58-42.53, centre 34.550; containing none; alert box y -5.33-26.57; painted line boxes 2, raw 9; raw line boxes containing the centre 1, unscored)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O11",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "signedCentreYDifference": 0.7749991416931152,
+        "absoluteCentreYDifference": 0.7749991416931152,
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "buttonHeight": 15.949999809265137,
+        "containingLineIndex": 0,
+        "paintedLineBoxCount": 3,
+        "nearestLineCentreYDifference": 0.7749991416931152,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline position: relative; top: <h>px on the dismiss button, h its measured height; the line at the same index as O10's containing line is re-measured under the control",
+        "predicted": "(signed difference under the control) minus (signed difference without it) equals h within one device pixel, and the absolute signed difference under the control exceeds one device pixel",
+        "observed": "signed difference under control 16.725; minus unperturbed 0.775 = 15.950; h 15.950; shift minus h 0.000 vs tolerance 1.000; absolute difference under control 16.725; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O12",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "dark",
+        "foreground": "rgb(154, 162, 177)",
+        "foregroundAlpha": 1,
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "contrastRatio": 6.573,
+        "threshold": 4.5,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline color on the dismiss button set to the measured background colour (dark preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O13",
+      "backlogRow": 4,
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "light",
+        "foreground": "rgb(154, 162, 177)",
+        "foregroundAlpha": 1,
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "contrastRatio": 6.573,
+        "threshold": 4.5,
+        "undoVerified": true,
+        "identicalToDarkForeground": true,
+        "identicalToDarkBackground": true
+      },
+      "control": {
+        "injection": "inline color on the dismiss button set to the measured background colour (light preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O14",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "tabPresses": 7,
+        "tabBound": 26,
+        "reachedByTab": true,
+        "active": "button[aria-label=\"Dismiss fork error\"]",
+        "focusVisible": true,
+        "outlineStyle": "solid",
+        "outlineWidth": 1.6,
+        "outlineColor": "rgb(106, 169, 255)",
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "outlineContrast": 7.02,
+        "threshold": 3,
+        "paintedClipDiffersFromControl": true,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "added <style>: [aria-label=\"Dismiss fork error\"]{outline:none !important}",
+        "predicted": "outline-style none; the painted-ring decision (\"the two captures differ\") applied to two successive captures of the same clip, both taken under the control, reports not painted (the two are byte-identical)",
+        "observed": "outline-style none; painted decision on two successive control captures: not painted (byte-identical: true)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O15",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "focusedBeforeEnter": "button[aria-label=\"Dismiss fork error\"]",
+        "alertCountAfterEnter": 0,
+        "buttonCountAfterEnter": 0
+      },
+      "control": {
+        "injection": "on a second failed fork of P4, Shift (non-activating) pressed on the focused dismiss button instead of Enter",
+        "predicted": "alert count stays 1",
+        "observed": "second failed fork shown=true; Tab presses 7, reached=true; after Shift alert count 1 (dismissed=false)",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O16",
+      "backlogRow": 5,
+      "verdict": "pass",
+      "measured": {
+        "activeElement": "[data-testid=\"pods-chrome\"]",
+        "focusVisible": true,
+        "outlineStyle": "solid",
+        "outlineWidth": 1.6,
+        "outlineColor": "rgb(106, 169, 255)",
+        "background": "rgb(26, 29, 35)",
+        "backgroundOwner": "div",
+        "outlineContrast": 7.02,
+        "threshold": 3
+      },
+      "control": {
+        "injection": "a further failed fork of P4, dismissed by mouse click on the dismiss button in the alert row of the alert that fork produced (identified in the window); fork-error alert and dismiss-button counts recorded immediately before the click",
+        "predicted": "chrome focused; :focus-visible false; the clicked alert is absent afterwards",
+        "observed": "further failed fork shown=true; immediately before the click: fork-error alerts 1, dismiss buttons 1; clicked the dismiss button in the new alert's row (hit-test on it true); clicked alert absent afterwards true; after mouse dismiss active [data-testid=\"pods-chrome\"], :focus-visible false",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O17",
+      "backlogRow": 6,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "tabCountReference": 5,
+        "tabCountAlertShown": 5,
+        "tabsInBoth": 5,
+        "alertCountAtMeasurement": 1,
+        "podBarWidthReference": 1280,
+        "podBarWidthAlertShown": 1098.25,
+        "P1.titleWidthReference": 69.95,
+        "P1.titleWidthAlertShown": 69.95,
+        "P1.scrollWidthReference": 70,
+        "P1.clientWidthReference": 70,
+        "P1.scrollWidthAlertShown": 70,
+        "P1.clientWidthAlertShown": 70,
+        "P2.titleWidthReference": 57.788,
+        "P2.titleWidthAlertShown": 57.788,
+        "P2.scrollWidthReference": 58,
+        "P2.clientWidthReference": 58,
+        "P2.scrollWidthAlertShown": 58,
+        "P2.clientWidthAlertShown": 58,
+        "P3.titleWidthReference": 50.95,
+        "P3.titleWidthAlertShown": 50.95,
+        "P3.scrollWidthReference": 51,
+        "P3.clientWidthReference": 51,
+        "P3.scrollWidthAlertShown": 51,
+        "P3.clientWidthAlertShown": 51,
+        "P4.titleWidthReference": 48.925,
+        "P4.titleWidthAlertShown": 48.925,
+        "P4.scrollWidthReference": 49,
+        "P4.clientWidthReference": 49,
+        "P4.scrollWidthAlertShown": 49,
+        "P4.clientWidthAlertShown": 49,
+        "fork.titleWidthReference": 82.4,
+        "fork.titleWidthAlertShown": 82.4,
+        "fork.scrollWidthReference": 82,
+        "fork.clientWidthReference": 82,
+        "fork.scrollWidthAlertShown": 82,
+        "fork.clientWidthAlertShown": 82,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "with the alert shown, inline max-width on [data-testid=\"pod-bar\"] equal to half its measured width",
+        "predicted": "at least 1 Pod tab title is narrower than its reference by more than one device pixel",
+        "observed": "pod-bar max-width 549.125px (bar width 549.125); title widths under control: P1 0 (reference 69.95), P2 0 (reference 57.788), P3 0 (reference 50.95), P4 0 (reference 48.925), fork 0 (reference 82.4); 5 of 5 narrower than reference by more than tolerance; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O18",
+      "backlogRow": 6,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "rawLineBoxCount": 10,
+        "clippedNonEmptyLineBoxCount": 3,
+        "rawLineBoxExtents": "y 2.65-17.05 x 1106.25-1230.44; y 18.60-33.00 x 1106.25-1239.97; y 34.55-48.95 x 1106.25-1210.72; y 50.50-64.90 x 1106.25-1233.83; y 66.45-80.85 x 1106.25-1216.35; y 82.40-96.80 x 1106.25-1233.83; y 98.35-112.75 x 1106.25-1234.51; y 114.30-128.70 x 1106.25-1235.38; y 130.25-144.65 x 1106.25-1250.19; y 146.20-160.60 x 1106.25-1214.74",
+        "clippedLineBoxExtents": "y 2.65-17.05 x 1106.25-1230.44; y 18.60-33.00 x 1106.25-1239.97; y 34.55-34.55 x 1106.25-1210.72",
+        "clippingAncestors": "p overflow hidden/hidden",
+        "podsChromeBox": "y 0.00-37.20 x 0.00-1280.00",
+        "maxOutsideChromePx": -2.6500000953674316,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline position: relative; top: <H>px on the alert row (the alert's parent element), H the pods-chrome box height",
+        "predicted": "at least 1 non-empty clipped line box lies outside the pods-chrome box by more than one device pixel",
+        "observed": "alert row top 37.20000076293945px: 3 non-empty clipped line boxes (y 39.85-54.25 x 1106.25-1230.44; y 55.80-70.20 x 1106.25-1239.97; y 71.75-71.75 x 1106.25-1210.72), 3 outside the chrome box by more than tolerance (max 34.55000114440918); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O19",
+      "backlogRow": 8,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "tabCountReference": 6,
+        "tabCountAlertShown": 6,
+        "tabsInBoth": 6,
+        "alertCountAtMeasurement": 1,
+        "titlesNarrowerThanReferenceByMoreThanTol": 0,
+        "podBarWidthReference": 1280,
+        "podBarWidthAlertShown": 1203.162,
+        "alertWidth": 76.838,
+        "panelMaxContentWidthReference": 1126.325,
+        "podsChromeClientWidthReference": 1280,
+        "P1.titleWidthReference": 69.95,
+        "P1.titleWidthAlertShown": 69.95,
+        "P1.scrollWidthReference": 70,
+        "P1.clientWidthReference": 70,
+        "P1.scrollWidthAlertShown": 70,
+        "P1.clientWidthAlertShown": 70,
+        "P2.titleWidthReference": 57.788,
+        "P2.titleWidthAlertShown": 57.788,
+        "P2.scrollWidthReference": 58,
+        "P2.clientWidthReference": 58,
+        "P2.scrollWidthAlertShown": 58,
+        "P2.clientWidthAlertShown": 58,
+        "P3.titleWidthReference": 50.95,
+        "P3.titleWidthAlertShown": 50.95,
+        "P3.scrollWidthReference": 51,
+        "P3.clientWidthReference": 51,
+        "P3.scrollWidthAlertShown": 51,
+        "P3.clientWidthAlertShown": 51,
+        "P4.titleWidthReference": 48.925,
+        "P4.titleWidthAlertShown": 48.925,
+        "P4.scrollWidthReference": 49,
+        "P4.clientWidthReference": 49,
+        "P4.scrollWidthAlertShown": 49,
+        "P4.clientWidthAlertShown": 49,
+        "fork.titleWidthReference": 82.4,
+        "fork.titleWidthAlertShown": 82.4,
+        "fork.scrollWidthReference": 82,
+        "fork.clientWidthReference": 82,
+        "fork.scrollWidthAlertShown": 82,
+        "fork.clientWidthAlertShown": 82,
+        "P5.titleWidthReference": 68.213,
+        "P5.titleWidthAlertShown": 68.213,
+        "P5.scrollWidthReference": 68,
+        "P5.clientWidthReference": 68,
+        "P5.scrollWidthAlertShown": 68,
+        "P5.clientWidthAlertShown": 68,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "with the open-error alert shown, inline max-width on [data-testid=\"pod-bar\"] equal to half its measured width",
+        "predicted": "at least 1 Pod tab title is narrower than its reference by more than tol",
+        "observed": "pod-bar max-width 601.581px (bar width 601.575); title widths under control: P1 0 (reference 69.95), P2 0 (reference 57.788), P3 0 (reference 50.95), P4 0 (reference 48.925), fork 0 (reference 82.4), P5 0 (reference 68.213); 6 of 6 narrower than reference by more than tolerance; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O20",
+      "backlogRow": 8,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "alertChromeChild": "div._alertRow_1del7_141",
+        "rawLineBoxCount": 17,
+        "paintedNonEmptyLineBoxCount": 3,
+        "rawLineBoxExtents": "y 2.65-17.05 x 1211.16-1260.44; y 18.60-33.00 x 1211.16-1261.95; y 34.55-48.95 x 1211.16-1240.46; y 50.50-64.90 x 1211.16-1256.50; y 66.45-80.85 x 1211.16-1252.38; y 82.40-96.80 x 1211.16-1268.58; y 98.35-112.75 x 1211.16-1254.61; y 114.30-128.70 x 1211.16-1259.97; y 130.25-144.65 x 1211.16-1258.51; y 146.20-160.60 x 1211.16-1266.59; y 162.15-176.55 x 1211.16-1269.95; y 178.10-192.50 x 1211.16-1263.72; y 194.05-208.45 x 1211.16-1256.50; y 210.00-224.40 x 1211.16-1252.38; y 225.95-240.35 x 1211.16-1268.58; y 241.90-256.30 x 1211.16-1254.61; y 257.85-272.25 x 1211.16-1265.83",
+        "paintedLineBoxExtents": "y 2.65-17.05 x 1211.16-1260.44; y 18.60-33.00 x 1211.16-1261.95; y 34.55-34.55 x 1211.16-1240.46",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "podsChromeBox": "y 0.00-37.20 x 0.00-1280.00",
+        "maxOutsideChromePx": -2.6500000953674316,
+        "alertWidth": 76.838,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline position: relative; top: <H>px on the open-error alert's chrome child, H the pods-chrome box height",
+        "predicted": "at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol",
+        "observed": "chrome child div._alertRow_1del7_141 top 37.2px (inline relative/37.2px): 3 non-empty painted line boxes (y 39.85-54.25 x 1211.16-1260.44; y 55.80-70.20 x 1211.16-1261.95; y 71.75-71.75 x 1211.16-1240.46), 3 outside the chrome box by more than tolerance (max 34.55); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O21",
+      "backlogRow": 7,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "alertCountAtMeasurement": 1,
+        "alertRow": "div._dismissible_1del7_77",
+        "rowWidth": 41,
+        "rowMinContentWidth": 41,
+        "rowWidthMinusMinContent": 0,
+        "rawLineBoxCount": 193,
+        "paintedNonEmptyLineBoxCount": 4,
+        "paintedLineBoxExtents": "y 2.65-17.05 x 1247.00-1250.45; y 18.60-33.00 x 1247.00-1253.45; y 18.60-33.00 x 1247.00-1253.45; y 34.55-34.55 x 1247.00-1256.30",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "podsAdded": 1,
+        "tabCountReference": 7,
+        "tabCountAlertShown": 7,
+        "podBarWidthReference": 1280,
+        "podBarWidthAlertShown": 1239,
+        "podBarWidthDifference": -41,
+        "panelMaxContentWidthReference": 1306,
+        "podsChromeClientWidthReference": 1280,
+        "P1.titleWidthReference": 66.088,
+        "P1.titleWidthAlertShown": 59.987,
+        "P2.titleWidthReference": 54.188,
+        "P2.titleWidthAlertShown": 48.5,
+        "P3.titleWidthReference": 47.487,
+        "P3.titleWidthAlertShown": 42.038,
+        "P4.titleWidthReference": 45.513,
+        "P4.titleWidthAlertShown": 40.125,
+        "fork.titleWidthReference": 78.263,
+        "fork.titleWidthAlertShown": 71.75,
+        "P5.titleWidthReference": 64.388,
+        "P5.titleWidthAlertShown": 58.35,
+        "P6.titleWidthReference": 58.375,
+        "P6.titleWidthAlertShown": 52.55,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "inline flex: 0 0 <2m>px on the fork-error alert row (the alert's parent element), m the row's measured min-content width",
+        "predicted": "the row's width exceeds m by more than tol",
+        "observed": "row inline flex \"0 0 82px\" (2m = 82px): row width 82, exceeds m 41 by 41 (tolerance 1); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O22",
+      "backlogRow": 8,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "tabCountReference": 5,
+        "tabCountAlertShown": 5,
+        "tabsInBoth": 5,
+        "alertCountAtMeasurement": 1,
+        "titlesNarrowerThanReferenceByMoreThanTol": 0,
+        "podBarWidthReference": 1227.85,
+        "podBarWidthAlertShown": 1084.175,
+        "alertWidth": 143.675,
+        "panelMaxContentWidthReference": 992.663,
+        "podsChromeClientWidthReference": 1280,
+        "P1.titleWidthReference": 69.95,
+        "P1.titleWidthAlertShown": 69.95,
+        "P1.scrollWidthReference": 70,
+        "P1.clientWidthReference": 70,
+        "P1.scrollWidthAlertShown": 70,
+        "P1.clientWidthAlertShown": 70,
+        "P2.titleWidthReference": 57.788,
+        "P2.titleWidthAlertShown": 57.788,
+        "P2.scrollWidthReference": 58,
+        "P2.clientWidthReference": 58,
+        "P2.scrollWidthAlertShown": 58,
+        "P2.clientWidthAlertShown": 58,
+        "P3.titleWidthReference": 50.95,
+        "P3.titleWidthAlertShown": 50.95,
+        "P3.scrollWidthReference": 51,
+        "P3.clientWidthReference": 51,
+        "P3.scrollWidthAlertShown": 51,
+        "P3.clientWidthAlertShown": 51,
+        "P4.titleWidthReference": 48.925,
+        "P4.titleWidthAlertShown": 48.925,
+        "P4.scrollWidthReference": 49,
+        "P4.clientWidthReference": 49,
+        "P4.scrollWidthAlertShown": 49,
+        "P4.clientWidthAlertShown": 49,
+        "fork.titleWidthReference": 82.4,
+        "fork.titleWidthAlertShown": 82.4,
+        "fork.scrollWidthReference": 82,
+        "fork.clientWidthReference": 82,
+        "fork.scrollWidthAlertShown": 82,
+        "fork.clientWidthAlertShown": 82,
+        "reorderAlertTextReference": "refused",
+        "reorderAlertWidthReference": "52.15",
+        "reorderAlertTextAlertShown": "refused",
+        "reorderAlertWidthAlertShown": "52.15",
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O19: with the pods-error alert shown, inline max-width on [data-testid=\"pod-bar\"] equal to half its measured width",
+        "predicted": "as O19: at least 1 Pod tab title is narrower than its reference by more than tol",
+        "observed": "pod-bar max-width 542.088px (bar width 542.088); title widths under control: P1 0 (reference 69.95), P2 0 (reference 57.788), P3 0 (reference 50.95), P4 0 (reference 48.925), fork 0 (reference 82.4); 5 of 5 narrower than reference by more than tolerance; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O23",
+      "backlogRow": 8,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "alertChromeChild": "div._alertRow_1del7_141",
+        "rawLineBoxCount": 14,
+        "paintedNonEmptyLineBoxCount": 3,
+        "rawLineBoxExtents": "y 2.65-17.05 x 1144.33-1265.64; y 18.60-33.00 x 1144.33-1238.29; y 34.55-48.95 x 1144.33-1268.51; y 50.50-64.90 x 1144.33-1252.74; y 66.45-80.85 x 1144.33-1232.70; y 82.40-96.80 x 1144.33-1256.19; y 98.35-112.75 x 1144.33-1201.46; y 114.30-128.70 x 1144.33-1254.43; y 130.25-144.65 x 1144.33-1271.90; y 146.20-160.60 x 1144.33-1260.69; y 162.15-176.55 x 1144.33-1253.05; y 178.10-192.50 x 1144.33-1260.15; y 194.05-208.45 x 1144.33-1201.74; y 210.00-224.40 x 1144.33-1252.81",
+        "paintedLineBoxExtents": "y 2.65-17.05 x 1144.33-1265.64; y 18.60-33.00 x 1144.33-1238.29; y 34.55-34.55 x 1144.33-1268.51",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "podsChromeBox": "y 0.00-37.20 x 0.00-1280.00",
+        "maxOutsideChromePx": -2.6500000953674316,
+        "alertWidth": 143.675,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O20, on the pods-error alert's chrome child: inline position: relative; top: <H>px, H the pods-chrome box height",
+        "predicted": "as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol",
+        "observed": "chrome child div._alertRow_1del7_141 top 37.2px (inline relative/37.2px): 3 non-empty painted line boxes (y 39.85-54.25 x 1144.33-1265.64; y 55.80-70.20 x 1144.33-1238.29; y 71.75-71.75 x 1144.33-1268.51), 3 outside the chrome box by more than tolerance (max 34.55); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O24",
+      "backlogRow": 9,
+      "verdict": "defect",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "w": 76.838,
+        "c": 1280,
+        "b": 1126.325,
+        "cMinusB": 153.675,
+        "absWMinusCMinusB": 76.837,
+        "bSource": "S5's reference panel max-content width",
+        "alertChild": "div._alertRow_1del7_141",
+        "panelWidth": 1203.162,
+        "panelFlexGrowComputed": "1",
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "with the open-error alert shown, inline flex-grow: 1 on the panel (the first element child of pods-chrome)",
+        "predicted": "abs(w - (c - b)) exceeds tol, w the open-error alert's chrome child's width, c the pods-chrome clientWidth, b S5's reference panel max-content width",
+        "observed": "inline flex-grow: 1 on the panel (computed flex-grow 1): w 76.838, c 1280, c - b 153.675, abs(w - (c - b)) 76.837 vs tol 1; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O25",
+      "backlogRow": 11,
+      "verdict": "defect",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "tabCountReference": 6,
+        "tabCountAlertShown": 6,
+        "tabsInBoth": 6,
+        "alertCountAtMeasurement": 1,
+        "titlesNarrowerThanReferenceByMoreThanTol": 6,
+        "podBarWidthReference": 1280,
+        "podBarWidthAlertShown": 971.663,
+        "alertWidth": 308.337,
+        "panelMaxContentWidthReference": 1126.325,
+        "podsChromeClientWidthReference": 1280,
+        "P1.titleWidthReference": 69.95,
+        "P1.titleWidthAlertShown": 43.138,
+        "P1.scrollWidthReference": 70,
+        "P1.clientWidthReference": 70,
+        "P1.scrollWidthAlertShown": 70,
+        "P1.clientWidthAlertShown": 43,
+        "P2.titleWidthReference": 57.788,
+        "P2.titleWidthAlertShown": 32.8,
+        "P2.scrollWidthReference": 58,
+        "P2.clientWidthReference": 58,
+        "P2.scrollWidthAlertShown": 58,
+        "P2.clientWidthAlertShown": 33,
+        "P3.titleWidthReference": 50.95,
+        "P3.titleWidthAlertShown": 26.975,
+        "P3.scrollWidthReference": 51,
+        "P3.clientWidthReference": 51,
+        "P3.scrollWidthAlertShown": 51,
+        "P3.clientWidthAlertShown": 27,
+        "P4.titleWidthReference": 48.925,
+        "P4.titleWidthAlertShown": 25.25,
+        "P4.scrollWidthReference": 49,
+        "P4.clientWidthReference": 49,
+        "P4.scrollWidthAlertShown": 49,
+        "P4.clientWidthAlertShown": 25,
+        "fork.titleWidthReference": 82.4,
+        "fork.titleWidthAlertShown": 53.737,
+        "fork.scrollWidthReference": 82,
+        "fork.clientWidthReference": 82,
+        "fork.scrollWidthAlertShown": 82,
+        "fork.clientWidthAlertShown": 54,
+        "P5.titleWidthReference": 68.213,
+        "P5.titleWidthAlertShown": 41.663,
+        "P5.scrollWidthReference": 68,
+        "P5.clientWidthReference": 68,
+        "P5.scrollWidthAlertShown": 68,
+        "P5.clientWidthAlertShown": 42,
+        "reorderAlertTextAlertShown": "updatePod: no pod with id eae3a6eb-0ed4-49b8-be7a-4d3b508e5bfb",
+        "reorderAlertWidthAlertShown": "308.337",
+        "m8Length": 62,
+        "podBarMaxContentWidthReference": 1126.325,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O19: with the reorder alert shown, inline max-width on [data-testid=\"pod-bar\"] equal to half its measured width",
+        "predicted": "as O19: at least 1 Pod tab title is narrower than its reference by more than tol",
+        "observed": "pod-bar max-width 485.831px (bar width 485.825); title widths under control: P1 0 (reference 69.95), P2 0 (reference 57.788), P3 0 (reference 50.95), P4 0 (reference 48.925), fork 0 (reference 82.4), P5 0 (reference 68.213); 6 of 6 narrower than reference by more than tolerance; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O26",
+      "backlogRow": 11,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "alertChromeChild": "div._panel_44f1f_1",
+        "rawLineBoxCount": 2,
+        "paintedNonEmptyLineBoxCount": 2,
+        "rawLineBoxExtents": "y 2.65-17.05 x 979.66-1248.28; y 18.60-33.00 x 979.66-1050.33",
+        "paintedLineBoxExtents": "y 2.65-17.05 x 979.66-1248.28; y 18.60-33.00 x 979.66-1050.33",
+        "clippingAncestors": "none",
+        "podsChromeBox": "y 0.00-37.20 x 0.00-1280.00",
+        "maxOutsideChromePx": -2.6500000953674316,
+        "alertWidth": 308.337,
+        "undoVerified": true,
+        "alertPanelChild": "p._reorderError_44f1f_25[role=\"alert\"]"
+      },
+      "control": {
+        "injection": "as O20, on the reorder alert's panel child: inline position: relative; top: <H>px, H the pods-chrome box height",
+        "predicted": "as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol",
+        "observed": "panel child p._reorderError_44f1f_25[role=\"alert\"] top 37.2px (inline relative/37.2px): 2 non-empty painted line boxes (y 39.85-54.25 x 979.66-1248.28; y 55.80-70.20 x 979.66-1050.33), 2 outside the chrome box by more than tolerance (max 33); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O27",
+      "backlogRow": 9,
+      "verdict": "defect",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "w": 308.337,
+        "c": 1280,
+        "b": 1126.325,
+        "cMinusB": 153.675,
+        "absWMinusCMinusB": 154.663,
+        "bSource": "S8's reference pod bar max-content width",
+        "alertChild": "p._reorderError_44f1f_25[role=\"alert\"]",
+        "panelWidth": 1280,
+        "podBarFlexGrowComputed": "1",
+        "undoVerified": true,
+        "podBarWidth": 971.663
+      },
+      "control": {
+        "injection": "with the reorder alert shown, inline flex-grow: 1 on [data-testid=\"pod-bar\"]",
+        "predicted": "abs(w - (c - b)) exceeds tol, w the reorder alert's panel child's width, c the panel's clientWidth, b S8's reference pod bar max-content width",
+        "observed": "inline flex-grow: 1 on [data-testid=\"pod-bar\"] (computed flex-grow 1): w 308.337, c 1280, c - b 153.675, abs(w - (c - b)) 154.663 vs tol 1; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O28",
+      "backlogRow": 10,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "alertCountAtMeasurement": 1,
+        "alertRow": "div._alertRow_1del7_141",
+        "rowWidth": 25.475,
+        "rowMinContentWidth": 25.475,
+        "rowWidthMinusMinContent": 0,
+        "rawLineBoxCount": 128,
+        "paintedNonEmptyLineBoxCount": 4,
+        "paintedLineBoxExtents": "y 2.65-17.05 x 1262.53-1267.61; y 18.60-33.00 x 1262.53-1270.47; y 18.60-33.00 x 1262.53-1270.47; y 34.55-34.55 x 1262.53-1269.01",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "tabCountAlertShown": 7,
+        "podBarWidthAlertShown": 1254.525,
+        "tabCountReference": 7,
+        "podBarWidthReference": 1280,
+        "podBarWidthDifference": -25.475,
+        "panelMaxContentWidthReference": 1306,
+        "podsChromeClientWidthReference": 1280,
+        "P1.titleWidthReference": 66.088,
+        "P1.titleWidthAlertShown": 62.3,
+        "P2.titleWidthReference": 54.188,
+        "P2.titleWidthAlertShown": 50.65,
+        "P3.titleWidthReference": 47.487,
+        "P3.titleWidthAlertShown": 44.1,
+        "P4.titleWidthReference": 45.513,
+        "P4.titleWidthAlertShown": 42.163,
+        "fork.titleWidthReference": 78.263,
+        "fork.titleWidthAlertShown": 74.213,
+        "P5.titleWidthReference": 64.388,
+        "P5.titleWidthAlertShown": 60.638,
+        "P6.titleWidthReference": 58.375,
+        "P6.titleWidthAlertShown": 54.763,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O21, on the open-error alert's chrome child (the row): inline flex: 0 0 <2m>px, m the row's measured min-content width",
+        "predicted": "as O21: the row's width exceeds m by more than tol",
+        "observed": "row inline flex \"0 0 50.95px\" (2m = 50.95px): row width 50.95, exceeds m 25.475 by 25.475 (tolerance 1); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O29",
+      "backlogRow": 10,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "alertChromeChild": "div._alertRow_1del7_141",
+        "rawLineBoxCount": 128,
+        "paintedNonEmptyLineBoxCount": 4,
+        "rawLineBoxExtents": "y 2.65-17.05 x 1262.53-1267.61; y 18.60-33.00 x 1262.53-1270.47; y 18.60-33.00 x 1262.53-1270.47; y 34.55-48.95 x 1262.53-1269.01; y 50.50-64.90 x 1262.53-1269.86; y 66.45-80.85 x 1262.53-1268.76; y 82.40-96.80 x 1262.53-1268.97; y 98.35-112.75 x 1262.53-1266.26; y 114.30-128.70 x 1262.53-1268.13; y 130.25-144.65 x 1262.53-1267.61; y 146.20-160.60 x 1262.53-1267.61; y 162.15-176.55 x 1262.53-1268.29; y 178.10-192.50 x 1262.53-1271.86; y 194.05-208.45 x 1262.53-1271.66; y 210.00-224.40 x 1262.53-1270.95; y 225.95-240.35 x 1262.53-1264.91; y 241.90-256.30 x 1262.53-1271.72; y 257.85-272.25 x 1262.53-1266.70; y 273.80-288.20 x 1262.53-1268.97; y 289.75-304.15 x 1262.53-1272.01; y 305.70-320.10 x 1262.53-1267.20; y 321.65-336.05 x 1262.53-1268.13; y 337.60-352.00 x 1262.53-1268.76; y 353.55-367.95 x 1262.53-1269.01; y 369.50-383.90 x 1262.53-1269.00; y 385.45-399.85 x 1262.53-1268.97; y 401.40-415.80 x 1262.53-1271.97; y 417.35-431.75 x 1262.53-1267.61; y 433.30-447.70 x 1262.53-1268.76; y 449.25-463.65 x 1262.53-1266.35; y 465.20-479.60 x 1262.53-1268.97; y 481.15-495.55 x 1262.53-1272.00; y 497.10-511.50 x 1262.53-1268.29; y 513.05-527.45 x 1262.53-1266.93; y 529.00-543.40 x 1262.53-1270.79; y 544.95-559.35 x 1262.53-1268.29; y 560.90-575.30 x 1262.53-1270.09; y 576.85-591.25 x 1262.53-1266.93; y 592.80-607.20 x 1262.53-1270.47; y 608.75-623.15 x 1262.53-1271.68; y 624.70-639.10 x 1262.53-1266.26; y 640.65-655.05 x 1262.53-1268.76; y 656.60-671.00 x 1262.53-1266.93; y 672.55-686.95 x 1262.53-1269.00; y 688.50-702.90 x 1262.53-1268.13; y 704.45-718.85 x 1262.53-1267.20; y 720.40-734.80 x 1262.53-1268.29; y 736.35-750.75 x 1262.53-1266.70; y 752.30-766.70 x 1262.53-1269.00; y 768.25-782.65 x 1262.53-1268.46; y 784.20-798.60 x 1262.53-1266.93; y 800.15-814.55 x 1262.53-1267.61; y 816.10-830.50 x 1262.53-1270.47; y 832.05-846.45 x 1262.53-1269.01; y 848.00-862.40 x 1262.53-1266.93; y 863.95-878.35 x 1262.53-1269.01; y 879.90-894.30 x 1262.53-1268.97; y 895.85-910.25 x 1262.53-1268.76; y 911.80-926.20 x 1262.53-1268.29; y 927.75-942.15 x 1262.53-1271.41; y 943.70-958.10 x 1262.53-1270.76; y 959.65-974.05 x 1262.53-1270.83; y 975.60-990.00 x 1262.53-1268.10; y 991.55-1005.95 x 1262.53-1270.76; y 1007.50-1021.90 x 1262.53-1270.68; y 1023.45-1037.85 x 1262.53-1268.76; y 1039.40-1053.80 x 1262.53-1268.97; y 1055.35-1069.75 x 1262.53-1267.20; y 1071.30-1085.70 x 1262.53-1268.76; y 1087.25-1101.65 x 1262.53-1267.61; y 1103.20-1117.60 x 1262.53-1268.76; y 1119.15-1133.55 x 1262.53-1271.30; y 1135.10-1149.50 x 1262.53-1268.29; y 1151.05-1165.45 x 1262.53-1268.97; y 1167.00-1181.40 x 1262.53-1266.35; y 1182.95-1197.35 x 1262.53-1271.68; y 1198.90-1213.30 x 1262.53-1266.35; y 1214.85-1229.25 x 1262.53-1268.29; y 1230.80-1245.20 x 1262.53-1271.34; y 1246.75-1261.15 x 1262.53-1268.97; y 1262.70-1277.10 x 1262.53-1271.68; y 1278.65-1293.05 x 1262.53-1264.91; y 1294.60-1309.00 x 1262.53-1270.93; y 1310.55-1324.95 x 1262.53-1271.85; y 1326.50-1340.90 x 1262.53-1271.88; y 1342.45-1356.85 x 1262.53-1269.09; y 1358.40-1372.80 x 1262.53-1268.97; y 1374.35-1388.75 x 1262.53-1272.01; y 1390.30-1404.70 x 1262.53-1267.20; y 1406.25-1420.65 x 1262.53-1268.13; y 1422.20-1436.60 x 1262.53-1268.76; y 1438.15-1452.55 x 1262.53-1269.01; y 1454.10-1468.50 x 1262.53-1269.00; y 1470.05-1484.45 x 1262.53-1268.97; y 1486.00-1500.40 x 1262.53-1271.97; y 1501.95-1516.35 x 1262.53-1267.61; y 1517.90-1532.30 x 1262.53-1268.76; y 1533.85-1548.25 x 1262.53-1266.35; y 1549.80-1564.20 x 1262.53-1268.97; y 1565.75-1580.15 x 1262.53-1272.00; y 1581.70-1596.10 x 1262.53-1268.29; y 1597.65-1612.05 x 1262.53-1266.93; y 1613.60-1628.00 x 1262.53-1270.79; y 1629.55-1643.95 x 1262.53-1268.29; y 1645.50-1659.90 x 1262.53-1270.09; y 1661.45-1675.85 x 1262.53-1266.93; y 1677.40-1691.80 x 1262.53-1270.47; y 1693.35-1707.75 x 1262.53-1271.68; y 1709.30-1723.70 x 1262.53-1266.26; y 1725.25-1739.65 x 1262.53-1268.76; y 1741.20-1755.60 x 1262.53-1266.93; y 1757.15-1771.55 x 1262.53-1269.00; y 1773.10-1787.50 x 1262.53-1268.13; y 1789.05-1803.45 x 1262.53-1267.20; y 1805.00-1819.40 x 1262.53-1268.29; y 1820.95-1835.35 x 1262.53-1266.70; y 1836.90-1851.30 x 1262.53-1269.00; y 1852.85-1867.25 x 1262.53-1268.46; y 1868.80-1883.20 x 1262.53-1266.93; y 1884.75-1899.15 x 1262.53-1267.61; y 1900.70-1915.10 x 1262.53-1270.47; y 1916.65-1931.05 x 1262.53-1269.01; y 1932.60-1947.00 x 1262.53-1266.93; y 1948.55-1962.95 x 1262.53-1269.01; y 1964.50-1978.90 x 1262.53-1268.97; y 1980.45-1994.85 x 1262.53-1268.76; y 1996.40-2010.80 x 1262.53-1270.81; y 2012.35-2026.75 x 1262.53-1265.85",
+        "paintedLineBoxExtents": "y 2.65-17.05 x 1262.53-1267.61; y 18.60-33.00 x 1262.53-1270.47; y 18.60-33.00 x 1262.53-1270.47; y 34.55-34.55 x 1262.53-1269.01",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "podsChromeBox": "y 0.00-37.20 x 0.00-1280.00",
+        "maxOutsideChromePx": -2.6500000953674316,
+        "alertWidth": 25.475,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O20: inline position: relative; top: <H>px on the open-error alert's chrome child, H the pods-chrome box height",
+        "predicted": "as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol",
+        "observed": "chrome child div._alertRow_1del7_141 top 37.2px (inline relative/37.2px): 4 non-empty painted line boxes (y 39.85-54.25 x 1262.53-1267.61; y 55.80-70.20 x 1262.53-1270.47; y 55.80-70.20 x 1262.53-1270.47; y 71.75-71.75 x 1262.53-1269.01), 4 outside the chrome box by more than tolerance (max 34.55); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O30",
+      "backlogRow": 9,
+      "verdict": "defect",
+      "measured": {
+        "tolerancePx": 0.999999985098839,
+        "devicePixelRatio": 1.0000000149011612,
+        "w": 143.675,
+        "c": 1280,
+        "b": 992.663,
+        "cMinusB": 287.337,
+        "absWMinusCMinusB": 143.662,
+        "bSource": "S7's reference panel max-content width",
+        "alertChild": "div._alertRow_1del7_141",
+        "panelWidth": 1136.325,
+        "panelFlexGrowComputed": "1",
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O24: with the pods-error alert shown, inline flex-grow: 1 on the panel",
+        "predicted": "as O24: abs(w - (c - b)) exceeds tol, w the pods-error alert's chrome child's width, b S7's reference panel max-content width",
+        "observed": "inline flex-grow: 1 on the panel (computed flex-grow 1): w 143.675, c 1280, c - b 287.337, abs(w - (c - b)) 143.662 vs tol 1; undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O31",
+      "backlogRow": 10,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.7142857036420279,
+        "alertCountAtMeasurement": 1,
+        "alertRow": "div._alertRow_1del7_141",
+        "rowWidth": 25.473,
+        "rowMinContentWidth": 25.473,
+        "rowWidthMinusMinContent": 0,
+        "rawLineBoxCount": 227,
+        "paintedNonEmptyLineBoxCount": 3,
+        "paintedLineBoxExtents": "y 2.77-17.62 x 896.81-903.29; y 18.71-33.57 x 896.81-903.26; y 18.71-33.57 x 896.81-903.26",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "tabCountAlertShown": 5,
+        "podBarWidthAlertShown": 836.67,
+        "P1.titleWidthAlertShown": 48.786,
+        "P2.titleWidthAlertShown": 38.063,
+        "P3.titleWidthAlertShown": 32.036,
+        "P4.titleWidthAlertShown": 30.25,
+        "fork.titleWidthAlertShown": 59.777,
+        "zoomFactor": 1.4,
+        "tolAtZoom": 0.7142857036420279,
+        "podBarMaxContentWidth": 937.759,
+        "podsChromeClientWidth": 914,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O28, on the pods-error alert's chrome child (the row): inline flex: 0 0 <2m>px, m the row's measured min-content width",
+        "predicted": "as O28: the row's width exceeds m by more than tol (tol re-read at S10's zoom)",
+        "observed": "row inline flex \"0 0 50.9464px\" (2m = 50.946px): row width 50.946, exceeds m 25.473 by 25.473 (tolerance 0.714); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    },
+    {
+      "id": "O32",
+      "backlogRow": 10,
+      "verdict": "pass",
+      "measured": {
+        "tolerancePx": 0.7142857036420279,
+        "alertChromeChild": "div._alertRow_1del7_141",
+        "rawLineBoxCount": 227,
+        "paintedNonEmptyLineBoxCount": 3,
+        "rawLineBoxExtents": "y 2.77-17.62 x 896.81-903.29; y 18.71-33.57 x 896.81-903.26; y 18.71-33.57 x 896.81-903.26; y 34.66-49.52 x 896.81-903.29; y 50.61-65.46 x 896.81-903.87; y 66.55-81.41 x 896.81-902.14; y 82.50-97.36 x 896.81-905.21; y 98.45-113.30 x 896.81-905.86; y 114.39-129.25 x 896.81-902.14; y 130.34-145.20 x 896.81-902.57; y 146.29-161.14 x 896.81-903.29; y 162.23-177.09 x 896.81-900.13; y 178.18-193.04 x 896.81-903.04; y 194.13-208.98 x 896.81-902.41; y 210.07-224.93 x 896.81-903.04; y 226.02-240.88 x 896.81-903.29; y 241.96-256.82 x 896.81-901.21; y 257.91-272.77 x 896.81-900.64; y 273.86-288.71 x 896.81-903.04; y 289.80-304.66 x 896.81-903.04; y 305.75-320.61 x 896.81-903.29; y 321.70-336.55 x 896.81-903.30; y 337.64-352.50 x 896.81-902.09; y 353.59-368.45 x 896.81-902.57; y 369.54-384.39 x 896.81-900.64; y 385.48-400.34 x 896.81-901.48; y 401.43-416.29 x 896.81-903.04; y 417.38-432.23 x 896.81-903.29; y 433.32-448.18 x 896.81-905.21; y 449.27-464.13 x 896.81-903.21; y 465.21-480.07 x 896.81-903.04; y 481.16-496.02 x 896.81-903.21; y 497.11-511.96 x 896.81-903.26; y 513.05-527.91 x 896.81-903.04; y 529.00-543.86 x 896.81-902.52; y 544.95-559.80 x 896.81-900.26; y 560.89-575.75 x 896.81-903.26; y 576.84-591.70 x 896.81-906.11; y 592.79-607.64 x 896.81-902.66; y 608.73-623.59 x 896.81-902.57; y 624.68-639.54 x 896.81-906.15; y 640.63-655.48 x 896.81-905.93; y 656.57-671.43 x 896.81-903.04; y 672.52-687.38 x 896.81-905.86; y 688.46-703.32 x 896.81-902.14; y 704.41-719.27 x 896.81-902.57; y 720.36-735.21 x 896.81-903.29; y 736.30-751.16 x 896.81-900.26; y 752.25-767.11 x 896.81-903.26; y 768.20-783.05 x 896.81-900.64; y 784.14-799.00 x 896.81-903.29; y 800.09-814.95 x 896.81-903.26; y 816.04-830.89 x 896.81-903.29; y 831.98-846.84 x 896.81-902.41; y 847.93-862.79 x 896.81-902.75; y 863.88-878.73 x 896.81-903.29; y 879.82-894.68 x 896.81-901.90; y 895.77-910.63 x 896.81-902.41; y 911.71-926.57 x 896.81-902.75; y 927.66-942.52 x 896.81-903.29; y 943.61-958.46 x 896.81-903.29; y 959.55-974.41 x 896.81-901.21; y 975.50-990.36 x 896.81-903.29; y 991.45-1006.30 x 896.81-902.75; y 1007.39-1022.25 x 896.81-902.75; y 1023.34-1038.20 x 896.81-902.75; y 1039.29-1054.14 x 896.81-901.21; y 1055.23-1070.09 x 896.81-902.75; y 1071.18-1086.04 x 896.81-902.75; y 1087.13-1101.98 x 896.81-902.75; y 1103.07-1117.93 x 896.81-902.41; y 1119.02-1133.88 x 896.81-901.21; y 1134.96-1149.82 x 896.81-902.75; y 1150.91-1165.77 x 896.81-901.90; y 1166.86-1181.71 x 896.81-903.29; y 1182.80-1197.66 x 896.81-904.66; y 1198.75-1213.61 x 896.81-900.98; y 1214.70-1229.55 x 896.81-902.75; y 1230.64-1245.50 x 896.81-902.75; y 1246.59-1261.45 x 896.81-902.75; y 1262.54-1277.39 x 896.81-902.75; y 1278.48-1293.34 x 896.81-902.75; y 1294.43-1309.29 x 896.81-900.98; y 1310.38-1325.23 x 896.81-902.75; y 1326.32-1341.18 x 896.81-906.19; y 1342.27-1357.13 x 896.81-900.98; y 1358.21-1373.07 x 896.81-902.41; y 1374.16-1389.02 x 896.81-904.80; y 1390.11-1404.96 x 896.81-902.57; y 1406.05-1420.91 x 896.81-906.15; y 1422.00-1436.86 x 896.81-905.93; y 1437.95-1452.80 x 896.81-903.04; y 1453.89-1468.75 x 896.81-903.29; y 1469.84-1484.70 x 896.81-906.19; y 1485.79-1500.64 x 896.81-906.19; y 1501.73-1516.59 x 896.81-902.75; y 1517.68-1532.54 x 896.81-900.98; y 1533.63-1548.48 x 896.81-902.75; y 1549.57-1564.43 x 896.81-901.21; y 1565.52-1580.38 x 896.81-905.34; y 1581.46-1596.32 x 896.81-902.75; y 1597.41-1612.27 x 896.81-902.75; y 1613.36-1628.21 x 896.81-901.21; y 1629.30-1644.16 x 896.81-902.75; y 1645.25-1660.11 x 896.81-902.57; y 1661.20-1676.05 x 896.81-902.75; y 1677.14-1692.00 x 896.81-902.75; y 1693.09-1707.95 x 896.81-901.21; y 1709.04-1723.89 x 896.81-903.29; y 1724.98-1739.84 x 896.81-902.75; y 1740.93-1755.79 x 896.81-902.75; y 1756.88-1771.73 x 896.81-903.29; y 1772.82-1787.68 x 896.81-905.38; y 1788.77-1803.63 x 896.81-901.90; y 1804.71-1819.57 x 896.81-901.90; y 1820.66-1835.52 x 896.81-902.41; y 1836.61-1851.46 x 896.81-902.75; y 1852.55-1867.41 x 896.81-902.75; y 1868.50-1883.36 x 896.81-903.29; y 1884.45-1899.30 x 896.81-901.90; y 1900.39-1915.25 x 896.81-906.19; y 1916.34-1931.20 x 896.81-902.75; y 1932.29-1947.14 x 896.81-903.29; y 1948.23-1963.09 x 896.81-902.52; y 1964.18-1979.04 x 896.81-902.66; y 1980.13-1994.98 x 896.81-902.57; y 1996.07-2010.93 x 896.81-906.15; y 2012.02-2026.88 x 896.81-905.93; y 2027.96-2042.82 x 896.81-903.04; y 2043.91-2058.77 x 896.81-903.29; y 2059.86-2074.71 x 896.81-906.19; y 2075.80-2090.66 x 896.81-906.19; y 2091.75-2106.61 x 896.81-902.75; y 2107.70-2122.55 x 896.81-900.98; y 2123.64-2138.50 x 896.81-902.75; y 2139.59-2154.45 x 896.81-901.21; y 2155.54-2170.39 x 896.81-905.34; y 2171.48-2186.34 x 896.81-902.75; y 2187.43-2202.29 x 896.81-902.75; y 2203.38-2218.23 x 896.81-901.21; y 2219.32-2234.18 x 896.81-902.75; y 2235.27-2250.13 x 896.81-902.57; y 2251.21-2266.07 x 896.81-902.75; y 2267.16-2282.02 x 896.81-902.75; y 2283.11-2297.96 x 896.81-901.21; y 2299.05-2313.91 x 896.81-903.29; y 2315.00-2329.86 x 896.81-902.75; y 2330.95-2345.80 x 896.81-902.75; y 2346.89-2361.75 x 896.81-903.29; y 2362.84-2377.70 x 896.81-905.38; y 2378.79-2393.64 x 896.81-901.90; y 2394.73-2409.59 x 896.81-901.90; y 2410.68-2425.54 x 896.81-902.41; y 2426.63-2441.48 x 896.81-902.75; y 2442.57-2457.43 x 896.81-902.75; y 2458.52-2473.38 x 896.81-903.29; y 2474.46-2489.32 x 896.81-901.90; y 2490.41-2505.27 x 896.81-906.19; y 2506.36-2521.21 x 896.81-902.75; y 2522.30-2537.16 x 896.81-903.29; y 2538.25-2553.11 x 896.81-903.04; y 2554.20-2569.05 x 896.81-903.26; y 2570.14-2585.00 x 896.81-900.54; y 2586.09-2600.95 x 896.81-900.26; y 2602.04-2616.89 x 896.81-903.26; y 2617.98-2632.84 x 896.81-903.04; y 2633.93-2648.79 x 896.81-903.04; y 2649.88-2664.73 x 896.81-903.29; y 2665.82-2680.68 x 896.81-905.71; y 2681.77-2696.63 x 896.81-903.29; y 2697.71-2712.57 x 896.81-900.64; y 2713.66-2728.52 x 896.81-905.93; y 2729.61-2744.46 x 896.81-902.57; y 2745.55-2760.41 x 896.81-905.63; y 2761.50-2776.36 x 896.81-905.96; y 2777.45-2792.30 x 896.81-900.64; y 2793.39-2808.25 x 896.81-902.57; y 2809.34-2824.20 x 896.81-905.63; y 2825.29-2840.14 x 896.81-903.26; y 2841.23-2856.09 x 896.81-905.96; y 2857.18-2872.04 x 896.81-900.26; y 2873.13-2887.98 x 896.81-903.26; y 2889.07-2903.93 x 896.81-900.64; y 2905.02-2919.88 x 896.81-906.01; y 2920.96-2935.82 x 896.81-900.98; y 2936.91-2951.77 x 896.81-903.26; y 2952.86-2967.71 x 896.81-906.29; y 2968.80-2983.66 x 896.81-901.48; y 2984.75-2999.61 x 896.81-902.41; y 3000.70-3015.55 x 896.81-903.04; y 3016.64-3031.50 x 896.81-903.29; y 3032.59-3047.45 x 896.81-903.29; y 3048.54-3063.39 x 896.81-903.26; y 3064.48-3079.34 x 896.81-906.27; y 3080.43-3095.29 x 896.81-901.90; y 3096.38-3111.23 x 896.81-903.04; y 3112.32-3127.18 x 896.81-900.64; y 3128.27-3143.13 x 896.81-903.26; y 3144.21-3159.07 x 896.81-906.29; y 3160.16-3175.02 x 896.81-902.57; y 3176.11-3190.96 x 896.81-901.21; y 3192.05-3206.91 x 896.81-905.08; y 3208.00-3222.86 x 896.81-902.57; y 3223.95-3238.80 x 896.81-904.37; y 3239.89-3254.75 x 896.81-901.21; y 3255.84-3270.70 x 896.81-904.77; y 3271.79-3286.64 x 896.81-905.96; y 3287.73-3302.59 x 896.81-900.54; y 3303.68-3318.54 x 896.81-903.04; y 3319.63-3334.48 x 896.81-901.21; y 3335.57-3350.43 x 896.81-903.29; y 3351.52-3366.38 x 896.81-902.41; y 3367.46-3382.32 x 896.81-901.48; y 3383.41-3398.27 x 896.81-902.57; y 3399.36-3414.21 x 896.81-904.81; y 3415.30-3430.16 x 896.81-902.57; y 3431.25-3446.11 x 896.81-903.29; y 3447.20-3462.05 x 896.81-903.26; y 3463.14-3478.00 x 896.81-905.65; y 3479.09-3493.95 x 896.81-905.95; y 3495.04-3509.89 x 896.81-905.08; y 3510.98-3525.84 x 896.81-903.04; y 3526.93-3541.79 x 896.81-901.21; y 3542.88-3557.73 x 896.81-900.64; y 3558.82-3573.68 x 896.81-902.57; y 3574.77-3589.63 x 896.81-903.29; y 3590.71-3605.57 x 896.81-903.26",
+        "paintedLineBoxExtents": "y 2.77-17.62 x 896.81-903.29; y 18.71-33.57 x 896.81-903.26; y 18.71-33.57 x 896.81-903.26",
+        "clippingAncestors": "p._listError_1del7_35[role=\"alert\"] overflow hidden/hidden",
+        "podsChromeBox": "y 0.00-37.43 x 0.00-914.29",
+        "maxOutsideChromePx": -2.767857313156128,
+        "alertWidth": 25.473,
+        "undoVerified": true
+      },
+      "control": {
+        "injection": "as O20, on the pods-error alert's chrome child: inline position: relative; top: <H>px, H the pods-chrome box height",
+        "predicted": "as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol (tol re-read at S10's zoom)",
+        "observed": "chrome child div._alertRow_1del7_141 top 37.429px (inline relative/37.4286px): 4 non-empty painted line boxes (y 40.20-55.05 x 896.81-903.29; y 56.14-71.00 x 896.81-903.26; y 56.14-71.00 x 896.81-903.26; y 72.09-72.09 x 896.81-903.29), 4 outside the chrome box by more than tolerance (max 34.661); undo verified true",
+        "fired": true
+      },
+      "reason": null
+    }
+  ]
+}
