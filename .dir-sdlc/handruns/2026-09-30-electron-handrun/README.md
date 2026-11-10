@@ -51,6 +51,11 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-FORK-UI-FOLLOWUPS.md`** (2026-11-09) — the fork-UI follow-ups: Pod tab titles
+  keep their width while the fork-error alert is shown (O17), and the alert is painted inside
+  the Pod-bar row (O18). 18 observations, all pass, every control fired; exit 0. O11 is now
+  scorable and passes. **Exception to the rule above:** `run-fork-ui.mjs` was amended in place
+  for this run, so its sha256 differs from the one both earlier fork-UI reports record.
 - **`FINDINGS-FORK-UI.md`** (2026-11-09) — the five fork-UI human checks, 16 observations
   each with an in-window control, driven by `run-fork-ui.mjs`: 14 pass, 1 defect (O10, the
   dismiss button straddles a two-line fork error), 1 instrument-invalid (O11); exit 2.

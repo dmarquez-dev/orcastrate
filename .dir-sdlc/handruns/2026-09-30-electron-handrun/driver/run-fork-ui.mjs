@@ -11,6 +11,20 @@
  *          readable under dark and light preferences            (O10-O13)
  *   row 5  Tab reaches the dismiss button with a visible ring, Enter closes the
  *          alert, and the ring lands on the Pods chrome         (O14-O16)
+ *   row 6  while the fork-error alert is shown, every Pod tab title keeps its
+ *          no-alert width, and the alert's text is painted inside the Pod-bar
+ *          row                                                  (O17, O18)
+ *
+ * AMENDED IN PLACE for the run with slug `fork-ui-followups` (2026-11-09): row 6
+ * (O17, O18) added; O10 counts only PAINTED line boxes (the text's client
+ * rects clipped by every overflow ancestor below the chrome, as O18 does), so
+ * lines hidden by the two-line clamp are not counted; O11's control is now `position: relative; top: <h>px`, and
+ * its prediction is a shift of the signed difference by `h`; O14's prediction
+ * states the decision the code computes; O16's control clicks the dismiss
+ * button of the alert its own failed fork produced; `tol` and every lookup
+ * that can yield null start as `null` and are listed in the refs that read
+ * them. The `fork-ui` and `fork-ui-recheck` reports were produced by the file
+ * before this amendment, so their recorded driver sha256 differs from this one.
  *
  * RULES THIS FILE KEEPS
  *   - No verdict compares a length with a literal. Lengths are compared with
@@ -32,7 +46,7 @@
  * Run `npm run build` first; this launches `<repoRoot>/out/main/index.js`.
  *
  *   node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs
- *        [--slug fork-ui|fork-ui-recheck] [--sandbox-root <abs path>] [--keep-sandbox]
+ *        [--slug fork-ui|fork-ui-recheck|fork-ui-followups] [--sandbox-root <abs path>] [--keep-sandbox]
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
@@ -46,7 +60,7 @@ import { buildSandbox, encodeCwdForProjects } from './sandbox.mjs';
 
 // ---------------------------------------------------------------- invocation
 
-const SLUGS = ['fork-ui', 'fork-ui-recheck'];
+const SLUGS = ['fork-ui', 'fork-ui-recheck', 'fork-ui-followups'];
 
 function parseArgs(argv) {
   const out = { slug: 'fork-ui', sandboxRoot: null, keepSandbox: false, error: null };
@@ -115,10 +129,10 @@ const PLAN = [
     predicted: 'null' },
   { id: 'O10', row: 4, state: 'S4',
     injection: "inline flex-direction: column on the dismiss button's parent",
-    predicted: '0 line boxes contain the button centre' },
+    predicted: '0 painted line boxes contain the button centre' },
   { id: 'O11', row: 4, state: 'S4',
-    injection: 'inline margin-top on the dismiss button equal to its own measured height',
-    predicted: 'difference equals half the button height within one device pixel, so exceeds the tolerance' },
+    injection: "inline position: relative; top: <h>px on the dismiss button, h its measured height; the line at the same index as O10's containing line is re-measured under the control",
+    predicted: '(signed difference under the control) minus (signed difference without it) equals h within one device pixel, and the absolute signed difference under the control exceeds one device pixel' },
   { id: 'O12', row: 4, state: 'S4',
     injection: 'inline color on the dismiss button set to the measured background colour (dark preference)',
     predicted: 'ratio 1.00' },
@@ -127,13 +141,19 @@ const PLAN = [
     predicted: 'ratio 1.00' },
   { id: 'O14', row: 5, state: 'S4',
     injection: 'added <style>: [aria-label="Dismiss fork error"]{outline:none !important}',
-    predicted: 'outline-style none; the clip is byte-identical to the control capture' },
+    predicted: 'outline-style none; the painted-ring decision ("the two captures differ") applied to two successive captures of the same clip, both taken under the control, reports not painted (the two are byte-identical)' },
   { id: 'O15', row: 5, state: 'S4',
     injection: 'on a second failed fork of P4, Shift (non-activating) pressed on the focused dismiss button instead of Enter',
     predicted: 'alert count stays 1' },
   { id: 'O16', row: 5, state: 'S4',
-    injection: 'a further failed fork of P4 dismissed by mouse click instead of Enter',
-    predicted: 'chrome focused; :focus-visible false' },
+    injection: 'a further failed fork of P4, dismissed by mouse click on the dismiss button in the alert row of the alert that fork produced (identified in the window); fork-error alert and dismiss-button counts recorded immediately before the click',
+    predicted: 'chrome focused; :focus-visible false; the clicked alert is absent afterwards' },
+  { id: 'O17', row: 6, state: 'S4',
+    injection: 'with the alert shown, inline max-width on [data-testid="pod-bar"] equal to half its measured width',
+    predicted: 'at least 1 Pod tab title is narrower than its reference by more than one device pixel' },
+  { id: 'O18', row: 6, state: 'S4',
+    injection: "inline position: relative; top: <H>px on the alert row (the alert's parent element), H the pods-chrome box height",
+    predicted: 'at least 1 non-empty clipped line box lies outside the pods-chrome box by more than one device pixel' },
 ];
 
 const observations = PLAN.map((p) => ({
@@ -307,28 +327,54 @@ function installHelpers() {
   const forkAlert = (prefix) =>
     [...document.querySelectorAll('[role="alert"]')].filter((e) => (e.textContent ?? '').startsWith(prefix));
   const dismissButtons = () => [...document.querySelectorAll('[aria-label="Dismiss fork error"]')];
-  /** Line boxes of the alert's text node, merged by vertical extent (one
-   *  line can yield several rects when runs split), and those containing `cy`. */
+  /** PAINTED line boxes of the alert's text node (contract C, O10 amended A2):
+   *  each `Range.getClientRects()` rect intersected with the box of every
+   *  element from the text node's parent up to, not including, pods-chrome
+   *  whose computed overflow-x or overflow-y is not `visible` (the same
+   *  clipping set and the same non-empty rule, right > left and bottom > top,
+   *  as O18), so lines hidden by the clamp are not counted. The kept rects are
+   *  merged by vertical extent (one line can yield several rects when runs
+   *  split). Returns those lines and the ones whose extent contains `cy`;
+   *  the raw (unclipped) lines are returned for the record only. */
   const lineBoxes = (alert, cy, tol) => {
     let text = null;
     text = [...alert.childNodes].find((n) => n.nodeType === Node.TEXT_NODE) ?? null;
     if (text === null) return null;
+    let chrome = null;
+    chrome = document.querySelector('[data-testid="pods-chrome"]');
+    if (chrome === null) return null;
+    const clips = [];
+    let e = text.parentElement;
+    for (; e !== null && e !== chrome; e = e.parentElement) {
+      const cs = getComputedStyle(e);
+      if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') clips.push(e.getBoundingClientRect());
+    }
+    if (e === null) return null;
     const range = document.createRange();
     range.selectNodeContents(text);
-    const raw = [...range.getClientRects()].filter((r) => r.width > 0 || r.height > 0);
-    const lines = [];
-    for (const r of raw) {
-      const same = lines.find((l) => Math.abs(l.top - r.top) <= tol && Math.abs(l.bottom - r.bottom) <= tol);
-      if (same) {
-        same.left = Math.min(same.left, r.left);
-        same.right = Math.max(same.right, r.right);
-      } else {
-        lines.push({ top: r.top, bottom: r.bottom, left: r.left, right: r.right });
+    const raw = [...range.getClientRects()].filter((r) => r.width > 0 || r.height > 0)
+      .map((r) => ({ top: r.top, bottom: r.bottom, left: r.left, right: r.right }));
+    const painted = raw.map((r) => clips.reduce((acc, c) => ({
+      top: Math.max(acc.top, c.top), bottom: Math.min(acc.bottom, c.bottom),
+      left: Math.max(acc.left, c.left), right: Math.min(acc.right, c.right),
+    }), r)).filter((r) => r.right > r.left && r.bottom > r.top);
+    const merge = (rects) => {
+      const out = [];
+      for (const r of rects) {
+        const same = out.find((l) => Math.abs(l.top - r.top) <= tol && Math.abs(l.bottom - r.bottom) <= tol);
+        if (same) {
+          same.left = Math.min(same.left, r.left);
+          same.right = Math.max(same.right, r.right);
+        } else {
+          out.push({ ...r });
+        }
       }
-    }
-    lines.sort((a, b) => a.top - b.top);
+      return out.sort((a, b) => a.top - b.top);
+    };
+    const lines = merge(painted);
+    const rawLines = merge(raw);
     const containing = lines.map((l, i) => ({ ...l, i })).filter((l) => l.top <= cy && cy <= l.bottom);
-    return { rawRectCount: raw.length, lines, containing };
+    return { rawRectCount: raw.length, paintedRectCount: painted.length, rawLines, lines, containing };
   };
   const tabbableCount = () =>
     [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')].filter(
@@ -506,7 +552,11 @@ async function main() {
     const winFacts = await win.evaluate(() => ({ dpr: window.devicePixelRatio, w: window.innerWidth, h: window.innerHeight }));
     meta.devicePixelRatio = winFacts.dpr;
     meta.viewport = { width: winFacts.w, height: winFacts.h };
-    const tol = 1 / winFacts.dpr;
+    // One device pixel, read in the window. A reference like any other: it
+    // starts null, and every observation whose decision reads it lists it in
+    // its refs.
+    let tol = null;
+    tol = typeof winFacts.dpr === 'number' && winFacts.dpr > 0 ? 1 / winFacts.dpr : null;
     const park = { x: winFacts.w - 1, y: winFacts.h - 1 };
     const parkMouse = () => win.mouse.move(park.x, park.y);
 
@@ -662,7 +712,7 @@ async function main() {
           `at font-size ${ctl.fork.fontSize}px; font-size pairs equal ${pairs(ctl, 'fontSize')} of 2; ` +
           `box height pairs equal ${pairs(ctl, 'height')} of 2, unscored)`;
       return {
-        refs: { m, ctl, undo },
+        refs: { m, ctl, undo, tol },
         pass: pairs(m, 'fontSize') === 2 && pairs(m, 'textHeight') === 2,
         fired: ctl !== null && pairs(ctl, 'textHeight') === 0 && undoOk,
       };
@@ -792,8 +842,53 @@ async function main() {
       return { refs: { t, ctl, exp }, pass: t.title === exp, fired: ctl.title === null };
     });
 
+    // ---------------------------------------------------------- O17 reference
+    // Taken after O9 and before P4's Fork click: five Pod tabs, no alert. The
+    // title element of a tab is the only descendant span whose textContent is
+    // exactly the Pod's title.
+    let podTitles = null;
+    const listedForTitles = await win.evaluate(() => window.orcastrate.pods.list());
+    if (listedForTitles?.ok === true) {
+      podTitles = {};
+      for (const p of listedForTitles.value) {
+        const label = Object.keys(pods).find((k) => pods[k].id === p.id) ?? (p.forkedFromPodId === P('P3') ? 'fork' : p.id);
+        podTitles[p.id] = { label, title: p.title };
+      }
+    }
+    const titleWidths = () => win.evaluate((titles) => {
+      let bar = null;
+      bar = document.querySelector('[data-testid="pod-bar"]');
+      if (bar === null) return null;
+      const tabs = {};
+      for (const tab of document.querySelectorAll('[data-testid^="pod-tab:"]')) {
+        const id = tab.getAttribute('data-testid').slice('pod-tab:'.length);
+        const info = titles[id];
+        if (info === undefined) { tabs[id] = { label: id, titleSpans: 0, width: null }; continue; }
+        const spans = [...tab.querySelectorAll('span')].filter((s) => s.textContent === info.title);
+        if (spans.length !== 1) { tabs[id] = { label: info.label, titleSpans: spans.length, width: null }; continue; }
+        const s = spans[0];
+        tabs[id] = {
+          label: info.label, titleSpans: 1, width: s.getBoundingClientRect().width,
+          scrollWidth: s.scrollWidth, clientWidth: s.clientWidth,
+        };
+      }
+      return {
+        barWidth: bar.getBoundingClientRect().width,
+        barInlineMaxWidth: bar.style.maxWidth,
+        tabCount: Object.keys(tabs).length,
+        tabs,
+      };
+    }, podTitles ?? {});
+    let o17Ref = null;
+    if (podTitles !== null) {
+      await parkMouse();
+      o17Ref = await titleWidths();
+    }
+    console.log('O17 reference:', JSON.stringify(o17Ref));
+
     // ---------------------------------------------------------- S4 fork fails
-    const prefix = expected.alertPrefix?.value ?? null;
+    let prefix = null;
+    prefix = expected.alertPrefix === null ? null : expected.alertPrefix.value;
     if (writeRoutes.used === null || attrs.P4.eligibility !== 'eligible' || prefix === null) {
       s4.evidence = `P4 eligibility ${attrs.P4.eligibility}; alert prefix ${prefix}; ${writeEvidence}`;
     } else {
@@ -803,7 +898,11 @@ async function main() {
         (p) => window.__forkui.forkAlert(p).length === 1, prefix, { timeout: 30000 },
       ).then(() => true).catch(() => false);
       const after = await win.evaluate(() => window.orcastrate.pods.list());
-      const alertText = await win.evaluate((p) => window.__forkui.forkAlert(p)[0]?.textContent ?? null, prefix);
+      let alertText = null;
+      alertText = await win.evaluate((p) => {
+        const found = window.__forkui.forkAlert(p);
+        return found.length === 0 ? null : found[0].textContent;
+      }, prefix);
       const nb = before?.ok === true ? before.value.length : null;
       const na = after?.ok === true ? after.value.length : null;
       s4.reached = shown && alertText !== null && nb !== null && nb === na;
@@ -813,15 +912,172 @@ async function main() {
     await parkMouse();
     await win.screenshot({ path: join(shotsDir, '03-s4-fork-error.png') });
 
+    // ---------------------------------------------------------- O17 tab titles
+    // After S4 is reached and before O10 (contract C ordering).
+    const alertCount = () => win.evaluate((p) => window.__forkui.forkAlert(p).length, prefix);
+    await observe('O17', async (o) => {
+      let m = null;
+      let ctl = null;
+      let undo = null;
+      let shownAtMeasure = null;
+      let half = null;
+      await parkMouse();
+      shownAtMeasure = await alertCount();
+      m = await titleWidths();
+      if (m !== null && shownAtMeasure === 1) {
+        half = m.barWidth / 2;
+        await win.evaluate((px) => {
+          document.querySelector('[data-testid="pod-bar"]').style.maxWidth = `${px}px`;
+        }, half);
+        await win.evaluate(() => window.__forkui.frames());
+        ctl = await titleWidths();
+        await win.evaluate(() => { document.querySelector('[data-testid="pod-bar"]').style.maxWidth = ''; });
+        await win.evaluate(() => window.__forkui.frames());
+        undo = await titleWidths();
+      }
+      const ids = o17Ref === null || m === null ? [] : Object.keys(o17Ref.tabs).filter(
+        (id) => m.tabs[id] !== undefined && o17Ref.tabs[id].width !== null && m.tabs[id].width !== null,
+      );
+      const near = (a, b) => Math.abs(a - b) <= tol;
+      const allEqual = (x) => x !== null && ids.every((id) => x.tabs[id] !== undefined && x.tabs[id].width !== null &&
+        near(x.tabs[id].width, o17Ref.tabs[id].width));
+      const narrowerUnderControl = ctl === null ? [] : ids.filter(
+        (id) => ctl.tabs[id] !== undefined && ctl.tabs[id].width !== null && ctl.tabs[id].width < o17Ref.tabs[id].width - tol,
+      );
+      const undoOk = undo !== null && m !== null && undo.barInlineMaxWidth === '' && near(undo.barWidth, m.barWidth) &&
+        ids.every((id) => undo.tabs[id] !== undefined && undo.tabs[id].width !== null && near(undo.tabs[id].width, m.tabs[id].width));
+      const fmt = (v) => (typeof v === 'number' ? Number(v.toFixed(3)) : (v === undefined ? null : v));
+      o.measured = {
+        tolerancePx: tol, devicePixelRatio: winFacts.dpr,
+        tabCountReference: o17Ref?.tabCount ?? null, tabCountAlertShown: m?.tabCount ?? null, tabsInBoth: ids.length,
+        alertCountAtMeasurement: shownAtMeasure,
+        podBarWidthReference: fmt(o17Ref?.barWidth), podBarWidthAlertShown: fmt(m?.barWidth),
+      };
+      for (const id of ids) {
+        const r = o17Ref.tabs[id];
+        const a = m.tabs[id];
+        const L = r.label;
+        Object.assign(o.measured, {
+          [`${L}.titleWidthReference`]: fmt(r.width), [`${L}.titleWidthAlertShown`]: fmt(a.width),
+          [`${L}.scrollWidthReference`]: r.scrollWidth, [`${L}.clientWidthReference`]: r.clientWidth,
+          [`${L}.scrollWidthAlertShown`]: a.scrollWidth, [`${L}.clientWidthAlertShown`]: a.clientWidth,
+        });
+      }
+      o.measured.undoVerified = undoOk;
+      o.control.observed = ctl === null ? 'not measurable under control'
+        : `pod-bar max-width ${fmt(half)}px (bar width ${fmt(ctl.barWidth)}); title widths under control: ` +
+          ids.map((id) => `${o17Ref.tabs[id].label} ${fmt(ctl.tabs[id]?.width)} (reference ${fmt(o17Ref.tabs[id].width)})`).join(', ') +
+          `; ${narrowerUnderControl.length} of ${ids.length} narrower than reference by more than tolerance; undo verified ${undoOk}`;
+      return {
+        refs: { o17Ref, podTitles, m, ctl, undo, half, shownAtMeasure, tol, prefix },
+        pass: shownAtMeasure === 1 && ids.length === 5 && allEqual(m) && ids.every((id) => o17Ref.tabs[id].width > tol),
+        fired: narrowerUnderControl.length >= 1 && undoOk,
+      };
+    });
+
+    // ---------------------------------------------------------- O18 alert painted in the row
+    const paintBoxes = () => win.evaluate((p) => {
+      const F = window.__forkui;
+      let alert = null;
+      const found = F.forkAlert(p);
+      alert = found.length === 0 ? null : found[0];
+      let chrome = null;
+      chrome = document.querySelector('[data-testid="pods-chrome"]');
+      if (alert === null || chrome === null) return null;
+      let text = null;
+      text = [...alert.childNodes].find((n) => n.nodeType === Node.TEXT_NODE) ?? null;
+      if (text === null) return null;
+      const clips = [];
+      let e = text.parentElement;
+      for (; e !== null && e !== chrome; e = e.parentElement) {
+        const cs = getComputedStyle(e);
+        if (cs.overflowX !== 'visible' || cs.overflowY !== 'visible') {
+          clips.push({ owner: F.describe(e), overflow: `${cs.overflowX}/${cs.overflowY}`, ...F.rect(e) });
+        }
+      }
+      // The chrome must be an ancestor of the alert; otherwise there is no box to measure against.
+      if (e === null) return null;
+      const range = document.createRange();
+      range.selectNodeContents(text);
+      const raw = [...range.getClientRects()].map((r) => ({ top: r.top, bottom: r.bottom, left: r.left, right: r.right }));
+      const clipped = raw.map((r) => clips.reduce((acc, c) => ({
+        top: Math.max(acc.top, c.top), bottom: Math.min(acc.bottom, c.bottom),
+        left: Math.max(acc.left, c.left), right: Math.min(acc.right, c.right),
+      }), r)).filter((r) => r.right > r.left && r.bottom > r.top);
+      const row = alert.parentElement;
+      return {
+        raw, clipped, clips, chrome: F.rect(chrome),
+        rowInline: row === null ? null : `${row.style.position}/${row.style.top}`,
+      };
+    }, prefix);
+    const outsideBy = (b, c) => Math.max(c.top - b.top, b.bottom - c.bottom, c.left - b.left, b.right - c.right);
+    const extents = (boxes) => boxes.map((b) => `y ${b.top.toFixed(2)}-${b.bottom.toFixed(2)} x ${b.left.toFixed(2)}-${b.right.toFixed(2)}`).join('; ');
+    await observe('O18', async (o) => {
+      let m = null;
+      let ctl = null;
+      let undo = null;
+      let H = null;
+      await parkMouse();
+      m = await paintBoxes();
+      if (m !== null) {
+        H = m.chrome.height;
+        await win.evaluate(({ p, px }) => {
+          const row = window.__forkui.forkAlert(p)[0].parentElement;
+          row.style.position = 'relative';
+          row.style.top = `${px}px`;
+        }, { p: prefix, px: H });
+        await win.evaluate(() => window.__forkui.frames());
+        ctl = await paintBoxes();
+        await win.evaluate((p) => {
+          const row = window.__forkui.forkAlert(p)[0].parentElement;
+          row.style.position = '';
+          row.style.top = '';
+        }, prefix);
+        await win.evaluate(() => window.__forkui.frames());
+        undo = await paintBoxes();
+      }
+      const undoOk = undo !== null && m !== null && undo.rowInline === '/' && undo.raw.length === m.raw.length &&
+        undo.raw.every((b, i) => Math.abs(b.top - m.raw[i].top) <= tol && Math.abs(b.left - m.raw[i].left) <= tol);
+      const maxOut = (x) => (x === null || x.clipped.length === 0 ? null : Math.max(...x.clipped.map((b) => outsideBy(b, x.chrome))));
+      const ctlOutside = ctl === null ? [] : ctl.clipped.filter((b) => outsideBy(b, ctl.chrome) > tol);
+      let c = null;
+      c = m === null ? null : m.chrome;
+      o.measured = {
+        tolerancePx: tol,
+        rawLineBoxCount: m?.raw.length ?? null,
+        clippedNonEmptyLineBoxCount: m?.clipped.length ?? null,
+        rawLineBoxExtents: m === null ? null : extents(m.raw),
+        clippedLineBoxExtents: m === null ? null : extents(m.clipped),
+        clippingAncestors: m === null ? null : m.clips.map((k) => `${k.owner} overflow ${k.overflow}`).join('; '),
+        podsChromeBox: c === null ? null : `y ${c.top.toFixed(2)}-${c.bottom.toFixed(2)} x ${c.left.toFixed(2)}-${c.right.toFixed(2)}`,
+        maxOutsideChromePx: maxOut(m),
+        undoVerified: undoOk,
+      };
+      o.control.observed = ctl === null ? 'not measurable under control'
+        : `alert row top ${H}px: ${ctl.clipped.length} non-empty clipped line boxes (${extents(ctl.clipped)}), ` +
+          `${ctlOutside.length} outside the chrome box by more than tolerance (max ${maxOut(ctl)}); undo verified ${undoOk}`;
+      return {
+        nullCause: m === null ? 'alert, its text node, or the pods-chrome ancestor not found' : null,
+        refs: { m, H, ctl, undo, tol, prefix },
+        pass: m.clipped.every((b) => outsideBy(b, m.chrome) <= tol),
+        fired: ctlOutside.length >= 1 && undoOk,
+      };
+    });
+
     // ---------------------------------------------------------- O10, O11 layout
     const layout = () => win.evaluate(({ p, tol }) => {
-      const alert = window.__forkui.forkAlert(p)[0] ?? null;
-      const btn = window.__forkui.dismissButtons()[0] ?? null;
+      let alert = null;
+      let btn = null;
+      const alerts = window.__forkui.forkAlert(p);
+      const buttons = window.__forkui.dismissButtons();
+      alert = alerts.length === 0 ? null : alerts[0];
+      btn = buttons.length === 0 ? null : buttons[0];
       if (alert === null || btn === null) return null;
       const b = window.__forkui.rect(btn);
       const cy = b.top + b.height / 2;
       const lb = window.__forkui.lineBoxes(alert, cy, tol);
-      return lb === null ? null : { button: b, cy, ...lb };
+      // `alertBox` is recorded only; no decision reads it.
+      return lb === null ? null : { button: b, cy, alertBox: window.__forkui.rect(alert), ...lb };
     }, { p: prefix, tol });
 
     let base = null;
@@ -841,13 +1097,22 @@ async function main() {
       undo = await layout();
       const undoOk = undo !== null && base !== null && undo.containing.length === base.containing.length &&
         Math.abs(undo.cy - base.cy) <= tol;
-      const line = base?.containing[0] ?? null;
+      let line = null;
+      line = base === null || base.containing.length === 0 ? null : base.containing[0];
+      const ys = (ls) => ls.map((l) => `${l.top.toFixed(2)}-${l.bottom.toFixed(2)}`).join('; ');
+      // Recorded, not scored: the count over the RAW (unclipped) lines, which
+      // the amended O10 no longer uses.
+      const rawContaining = (x) => x.rawLines.filter((l) => l.top <= x.cy && x.cy <= l.bottom).length;
       o.measured = {
-        lineBoxCount: base?.lines.length ?? null,
+        rawLineBoxCount: base?.rawLines.length ?? null,
+        paintedLineBoxCount: base?.lines.length ?? null,
         rawRectCount: base?.rawRectCount ?? null,
-        lineBoxesContainingButtonCentre: base?.containing.length ?? null,
-        lineBoxExtentsY: base === null ? null : base.lines.map((l) => `${l.top.toFixed(2)}-${l.bottom.toFixed(2)}`).join('; '),
+        paintedRectCount: base?.paintedRectCount ?? null,
+        paintedLineBoxesContainingButtonCentre: base?.containing.length ?? null,
+        paintedLineBoxExtentsY: base === null ? null : ys(base.lines),
+        rawLineBoxExtentsY: base === null ? null : ys(base.rawLines),
         buttonExtentY: base === null ? null : `${base.button.top.toFixed(2)}-${base.button.bottom.toFixed(2)}`,
+        alertBoxExtentY: base === null ? null : `${base.alertBox.top.toFixed(2)}-${base.alertBox.bottom.toFixed(2)}`,
         buttonCentreY: base?.cy ?? null,
         // Recorded, not scored: how close the centre is to a line edge, and the
         // count if containment were widened by one device pixel. The verdict
@@ -860,9 +1125,16 @@ async function main() {
         undoVerified: undoOk,
       };
       o.control.observed = ctl === null ? 'alert or button not found under control'
-        : `${ctl.containing.length} line boxes contain the centre`;
+        : `${ctl.containing.length} painted line boxes contain the centre` +
+          // Recorded, not scored: where the control put the button, which
+          // painted lines contain its centre, the alert element's own box, and
+          // the count over the raw lines.
+          ` (button y ${ctl.button.top.toFixed(2)}-${ctl.button.bottom.toFixed(2)}, centre ${ctl.cy.toFixed(3)}; containing ` +
+          `${ctl.containing.map((l) => `painted line ${l.i} y ${l.top.toFixed(2)}-${l.bottom.toFixed(2)}`).join(', ') || 'none'}; ` +
+          `alert box y ${ctl.alertBox.top.toFixed(2)}-${ctl.alertBox.bottom.toFixed(2)}; painted line boxes ${ctl.lines.length}, ` +
+          `raw ${ctl.rawLines.length}; raw line boxes containing the centre ${rawContaining(ctl)}, unscored)`;
       return {
-        refs: { base, ctl, undo },
+        refs: { base, ctl, undo, tol, prefix },
         pass: base.containing.length >= 1,
         fired: ctl.containing.length === 0 && undoOk,
       };
@@ -873,41 +1145,62 @@ async function main() {
       let ctl = null;
       let ctlLine = null;
       let undo = null;
-      let diff = null;
+      let signed = null;
       let h = null;
-      let ctlDiff = null;
-      line = base?.containing[0] ?? null;
-      if (line !== null) diff = Math.abs(base.cy - (line.top + line.bottom) / 2);
-      h = base?.button.height ?? null;
-      if (h !== null) {
-        await win.evaluate((px) => { window.__forkui.dismissButtons()[0].style.marginTop = `${px}px`; }, h);
+      let ctlSigned = null;
+      let shift = null;
+      let inlineAfterUndo = null;
+      const centre = (l) => (l.top + l.bottom) / 2;
+      line = base === null || base.containing.length === 0 ? null : base.containing[0];
+      // Signed: button centre minus line centre (positive = button lower).
+      if (line !== null) signed = base.cy - centre(line);
+      h = base === null ? null : base.button.height;
+      if (h !== null && line !== null) {
+        await win.evaluate((px) => {
+          const b = window.__forkui.dismissButtons()[0];
+          b.style.position = 'relative';
+          b.style.top = `${px}px`;
+        }, h);
         await win.evaluate(() => window.__forkui.frames());
         ctl = await layout();
-        await win.evaluate(() => { window.__forkui.dismissButtons()[0].style.marginTop = ''; });
+        await win.evaluate(() => {
+          const b = window.__forkui.dismissButtons()[0];
+          b.style.position = '';
+          b.style.top = '';
+        });
         await win.evaluate(() => window.__forkui.frames());
         undo = await layout();
+        inlineAfterUndo = await win.evaluate(() => {
+          const b = window.__forkui.dismissButtons()[0];
+          return `${b.style.position}/${b.style.top}`;
+        });
       }
-      ctlLine = line === null || ctl === null ? null : (ctl.lines[line.i] ?? null);
-      if (ctlLine !== null) ctlDiff = Math.abs(ctl.cy - (ctlLine.top + ctlLine.bottom) / 2);
-      const undoOk = undo !== null && Math.abs(undo.cy - base.cy) <= tol;
+      // The line at the SAME INDEX as O10's containing line, re-measured under the control.
+      ctlLine = line === null || ctl === null || ctl.lines[line.i] === undefined ? null : ctl.lines[line.i];
+      if (ctlLine !== null) ctlSigned = ctl.cy - centre(ctlLine);
+      if (ctlSigned !== null && signed !== null) shift = ctlSigned - signed;
+      const undoOk = undo !== null && base !== null && Math.abs(undo.cy - base.cy) <= tol && inlineAfterUndo === '/';
       o.measured = {
-        centreYDifference: diff, tolerancePx: tol, devicePixelRatio: winFacts.dpr,
-        buttonHeight: h, containingLineIndex: line?.i ?? null, lineBoxCount: base?.lines.length ?? null,
+        signedCentreYDifference: signed, absoluteCentreYDifference: signed === null ? null : Math.abs(signed),
+        tolerancePx: tol, devicePixelRatio: winFacts.dpr,
+        buttonHeight: h, containingLineIndex: line === null ? null : line.i, paintedLineBoxCount: base === null ? null : base.lines.length,
         // Recorded, not scored: the distance to the nearest line box's centre,
         // for the case where no line contains the button centre.
         nearestLineCentreYDifference: base === null || base.lines.length === 0 ? null
-          : Math.min(...base.lines.map((l) => Math.abs(base.cy - (l.top + l.bottom) / 2))),
+          : Math.min(...base.lines.map((l) => Math.abs(base.cy - centre(l)))),
         undoVerified: undoOk,
       };
-      o.control.observed = ctlDiff === null ? 'not measurable under control'
-        : `difference ${ctlDiff.toFixed(3)}; half button height ${(h / 2).toFixed(3)}; |difference - half| ${Math.abs(ctlDiff - h / 2).toFixed(3)} vs tolerance ${tol.toFixed(3)}`;
+      o.control.observed = ctlSigned === null || shift === null ? 'not measurable under control'
+        : `signed difference under control ${ctlSigned.toFixed(3)}; minus unperturbed ${signed.toFixed(3)} = ${shift.toFixed(3)}; ` +
+          `h ${h.toFixed(3)}; shift minus h ${(shift - h).toFixed(3)} vs tolerance ${tol.toFixed(3)}; ` +
+          `absolute difference under control ${Math.abs(ctlSigned).toFixed(3)}; undo verified ${undoOk}`;
       return {
         nullCause: line === null
           ? 'the containing line box comes from O10, and no line box of the alert text contains the button centre, so there is no line to centre on'
           : null,
-        refs: { line, diff, h, ctl, ctlLine, ctlDiff, undo },
-        pass: diff <= tol,
-        fired: Math.abs(ctlDiff - h / 2) <= tol && ctlDiff > tol && undoOk,
+        refs: { line, signed, h, ctl, ctlLine, ctlSigned, shift, undo, tol, prefix },
+        pass: Math.abs(signed) <= tol,
+        fired: Math.abs(shift - h) <= tol && Math.abs(ctlSigned) > tol && undoOk,
       };
     });
 
@@ -921,7 +1214,9 @@ async function main() {
       await parkMouse();
       await win.evaluate(() => window.__forkui.frames());
       const read = () => win.evaluate(() => {
-        const btn = window.__forkui.dismissButtons()[0] ?? null;
+        let btn = null;
+        const buttons = window.__forkui.dismissButtons();
+        btn = buttons.length === 0 ? null : buttons[0];
         return btn === null ? null : window.__forkui.contrast(btn, 'color');
       });
       m = await read();
@@ -958,8 +1253,13 @@ async function main() {
 
     // ---------------------------------------------------------- O14 focus ring
     const focusRing = (target) => win.evaluate((target) => {
-      const el = target === 'dismiss' ? (window.__forkui.dismissButtons()[0] ?? null)
-        : document.querySelector('[data-testid="pods-chrome"]');
+      let el = null;
+      if (target === 'dismiss') {
+        const buttons = window.__forkui.dismissButtons();
+        el = buttons.length === 0 ? null : buttons[0];
+      } else {
+        el = document.querySelector('[data-testid="pods-chrome"]');
+      }
       if (el === null) return null;
       const cs = getComputedStyle(el);
       const c = window.__forkui.contrast(el, 'outline-color');
@@ -1037,7 +1337,8 @@ async function main() {
         undoVerified: undoOk,
       };
       o.control.observed = ctl === null ? 'not measurable under control'
-        : `outline-style ${ctl.outlineStyle}; control capture repeated byte-identical: ${buffersEqual(capB, capB2)}`;
+        : `outline-style ${ctl.outlineStyle}; painted decision on two successive control captures: ` +
+          `${buffersEqual(capB, capB2) ? 'not painted' : 'painted'} (byte-identical: ${buffersEqual(capB, capB2)})`;
       return {
         refs: { tab, m, clip, capA, capB, capB2, ctl, undo, ratio: m?.ratio ?? null },
         pass: tab.reached && m.isActive && m.focusVisible && m.outlineStyle !== 'none' && m.outlineWidth > 0 &&
@@ -1063,7 +1364,7 @@ async function main() {
       await waitGone(5000);
       afterEnter = await counts();
       o.measured = { focusedBeforeEnter: focused, alertCountAfterEnter: afterEnter.alerts, buttonCountAfterEnter: afterEnter.buttons };
-      return { refs: { focused, afterEnter, ctl: 'pending' }, pass: afterEnter.alerts === 0 && afterEnter.buttons === 0, fired: true };
+      return { refs: { focused, afterEnter, prefix, ctl: 'pending' }, pass: afterEnter.alerts === 0 && afterEnter.buttons === 0, fired: true };
     });
     let chromeAfterEnter = null;
     await observe('O16', async (o) => {
@@ -1076,7 +1377,7 @@ async function main() {
         outlineContrast: m?.ratio === null || m === null ? null : Number(m.ratio.toFixed(3)), threshold: 3.0,
       };
       return {
-        refs: { m, ratio: m?.ratio ?? null, ctl: 'pending' },
+        refs: { m, ratio: m?.ratio ?? null, prefix, ctl: 'pending' },
         pass: m.isActive && m.active === '[data-testid="pods-chrome"]' && m.focusVisible && m.outlineStyle !== 'none' &&
           m.outlineWidth > 0 && m.ratio >= 3.0,
         fired: true,
@@ -1117,13 +1418,52 @@ async function main() {
     if (stateById.get('S4').reached && o16.reason === null) {
       try {
         let ctl = null;
+        let target = null;
+        let clickedGone = null;
         const shown = await refork();
-        await win.click(DISMISS);
-        await waitGone(5000);
+        // The alert this fork produced is the one refork() did not mark old.
+        // Its dismiss button is found in ITS alert row (the alert's parent),
+        // not by the first match of a selector; counts are taken just before
+        // the click.
+        target = await win.evaluate((p) => {
+          const F = window.__forkui;
+          let alert = null;
+          const fresh = F.forkAlert(p).filter((a) => a.__forkuiOld !== true);
+          alert = fresh.length === 1 ? fresh[0] : null;
+          if (alert === null) return { found: false, freshAlerts: fresh.length };
+          let btn = null;
+          const row = alert.parentElement;
+          const inRow = row === null ? [] : [...row.children].filter((c) => c.matches('button[aria-label="Dismiss fork error"]'));
+          btn = inRow.length === 1 ? inRow[0] : null;
+          if (btn === null) return { found: false, freshAlerts: fresh.length, buttonsInRow: inRow.length };
+          window.__forkuiO16Target = { alert, btn };
+          const r = btn.getBoundingClientRect();
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+          const hit = document.elementFromPoint(cx, cy);
+          return {
+            found: true, cx, cy, hitIsButton: hit !== null && (hit === btn || btn.contains(hit)),
+            alertsBeforeClick: F.forkAlert(p).length, buttonsBeforeClick: F.dismissButtons().length,
+          };
+        }, prefix);
+        if (target.found === true) {
+          await win.mouse.click(target.cx, target.cy);
+          await waitGone(5000);
+          clickedGone = await win.evaluate(() => {
+            const t = window.__forkuiO16Target;
+            delete window.__forkuiO16Target;
+            return t === undefined ? null : !t.alert.isConnected;
+          });
+        }
         ctl = await focusRing('chrome');
-        o16.control.observed = `further failed fork shown=${shown}; after mouse dismiss active ${ctl?.active ?? null}, ` +
-          `:focus-visible ${ctl?.focusVisible ?? null}`;
-        o16.control.fired = shown && ctl !== null && ctl.isActive === true && ctl.focusVisible === false;
+        o16.control.observed = `further failed fork shown=${shown}; ` +
+          (target.found === true
+            ? `immediately before the click: fork-error alerts ${target.alertsBeforeClick}, dismiss buttons ${target.buttonsBeforeClick}; ` +
+              `clicked the dismiss button in the new alert's row (hit-test on it ${target.hitIsButton}); clicked alert absent afterwards ${clickedGone}; `
+            : `the new alert's dismiss button was not identified (${JSON.stringify(target)}); `) +
+          `after mouse dismiss active ${ctl?.active ?? null}, :focus-visible ${ctl?.focusVisible ?? null}`;
+        o16.control.fired = shown && target.found === true && target.hitIsButton === true && clickedGone === true &&
+          ctl !== null && ctl.isActive === true && ctl.focusVisible === false;
       } catch (err) {
         o16.control.observed = `error: ${short(err)}`;
         o16.control.fired = false;
