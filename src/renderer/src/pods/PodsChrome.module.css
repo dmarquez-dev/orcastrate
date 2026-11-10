@@ -60,6 +60,34 @@
   -webkit-line-clamp: 2;
 }
 
+/*
+ * The open-error and pods-error alerts' row, bounded as the fork-error row is:
+ * `flex: 1 1 0`, a ZERO basis, so a long message no longer takes width from
+ * the Pod bar panel (with a bare alert paragraph in the `.chrome` row, its
+ * default `0 1 auto` basis was the message's whole one-line width, and the Pod
+ * tab titles collapsed). No `overflow` here, so the row keeps its min-content
+ * width as its automatic minimum.
+ */
+.alertRow {
+  display: flex;
+  flex: 1 1 0;
+  align-self: center;
+}
+
+/*
+ * The same two-line clamp as `.dismissible > .listError`, a rule of its own so
+ * the fork-error row's rules stay exactly as they are. The full message is the
+ * alert's `title` (`PodsChrome.tsx`).
+ */
+.alertRow > .listError {
+  display: -webkit-box;
+  max-height: var(--oc-pod-bar-height);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .dismiss {
   padding: 0 var(--oc-space-1);
   border: 0;

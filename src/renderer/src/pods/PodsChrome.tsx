@@ -279,9 +279,15 @@ export function PodsChrome({
       />
 
       {openError === null ? null : (
-        <p className={styles.listError} role="alert">
-          {openError}
-        </p>
+        // Bounded to the Pod-bar row like the fork error below
+        // (`PodsChrome.module.css`, `.alertRow`): the visible text is clamped,
+        // so the whole message is also the `title`, and `{openError}` stays a
+        // direct text-node child for the hand-run driver's `Range`.
+        <div className={styles.alertRow}>
+          <p className={styles.listError} role="alert" title={openError}>
+            {openError}
+          </p>
+        </div>
       )}
 
       {forkError === null ? null : (
@@ -306,9 +312,12 @@ export function PodsChrome({
       )}
 
       {pods.phase === 'error' && pods.error !== null ? (
-        <p className={styles.listError} role="alert">
-          {pods.error.message}
-        </p>
+        // Bounded as the open error above, with the whole message as `title`.
+        <div className={styles.alertRow}>
+          <p className={styles.listError} role="alert" title={pods.error.message}>
+            {pods.error.message}
+          </p>
+        </div>
       ) : null}
 
       {pods.phase === 'loading' ? (
