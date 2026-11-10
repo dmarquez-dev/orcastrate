@@ -2,9 +2,9 @@
   "id": "20261110-1821-slash-command-autocomplete",
   "name": "Slash-command autocomplete feasibility",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-10T18:21:56Z",
-  "ended": "2026-11-10T18:25:55Z",
+  "ended": "2026-11-10T18:29:41Z",
   "parent": null,
   "children": [],
   "criteria": [
@@ -19,6 +19,14 @@
       "sir": "1.0.27",
       "started": "2026-11-10T18:21:56Z",
       "ended": "2026-11-10T18:25:55Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "272a239b-9553-4e52-b326-e4adec23b04f",
+      "phase": "wrap",
+      "sir": "1.0.27",
+      "started": "2026-11-10T18:29:26Z",
+      "ended": "2026-11-10T18:29:41Z",
       "outcome": "complete"
     }
   ],
