@@ -286,9 +286,12 @@ export function PodsChrome({
 
       {forkError === null ? null : (
         // The dismiss control is a SIBLING of the alert, never inside it, so
-        // the alert's text stays exactly main's message.
+        // the alert's text stays exactly main's message. The visible text is
+        // clamped to the Pod-bar row (`PodsChrome.module.css`), so the whole
+        // message is also the alert's `title`. `{forkError}` stays a direct
+        // text-node child: the hand-run driver builds a `Range` over it.
         <div className={styles.dismissible}>
-          <p className={styles.listError} role="alert">
+          <p className={styles.listError} role="alert" title={forkError}>
             {forkError}
           </p>
           <button

@@ -28,11 +28,34 @@
  * button on the wrapped block put its middle between two lines. Top-aligned,
  * and one line box tall (no block padding or border on `.dismiss`, same font),
  * it sits on the first line whatever the line count.
+ *
+ * `flex: 1 1 0` — a ZERO basis, so the row takes only the width the Pod bar
+ * panel leaves over. With the default `0 1 auto` its basis was the message's
+ * whole one-line width, the two items shrank in proportion to their bases, and
+ * a long message took width from the bar until the tab titles collapsed.
  */
 .dismissible {
   display: flex;
+  flex: 1 1 0;
   align-items: flex-start;
   align-self: center;
+}
+
+/*
+ * The fork error's message, bounded to the Pod-bar row: a narrower row wraps
+ * the message onto more lines, so the visible text is clamped to two lines
+ * (two `--oc-text-xs` line boxes at the body's 1.45 line height fit in
+ * `--oc-pod-bar-height`), with `max-height` as the hard bound. The full
+ * message is the alert's `title` (`PodsChrome.tsx`). `overflow-wrap: anywhere`
+ * lets an unbroken path wrap instead of widening the row.
+ */
+.dismissible > .listError {
+  display: -webkit-box;
+  max-height: var(--oc-pod-bar-height);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .dismiss {

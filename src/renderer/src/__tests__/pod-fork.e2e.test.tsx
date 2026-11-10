@@ -463,6 +463,31 @@ describe('the fork-error alert can be dismissed', () => {
 });
 
 // ---------------------------------------------------------------------------
+// The fork-error alert's text: clamped on screen, whole in `title`, and a
+// direct text node (the hand-run driver builds a `Range` over it)
+// ---------------------------------------------------------------------------
+
+describe('the fork-error alert keeps the full message and its text node', () => {
+  it('carries main message verbatim as its title, since the visible text is clamped', async () => {
+    await failOneFork();
+
+    const [alert] = forkAlerts();
+    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
+    expect(alert.getAttribute('title')).toBe(FORK_FAILURE);
+  });
+
+  it('holds main message as a direct text-node child of the alert', async () => {
+    await failOneFork();
+
+    const [alert] = forkAlerts();
+    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
+    const first = alert.firstChild;
+    expect(first).toBeInstanceOf(Text);
+    expect(first instanceof Text ? first.data : null).toBe(FORK_FAILURE);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Criteria 16-19 — a fork's ancestry on its tab
 // ---------------------------------------------------------------------------
 
