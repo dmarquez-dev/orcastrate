@@ -29,10 +29,12 @@
  * and one line box tall (no block padding or border on `.dismiss`, same font),
  * it sits on the first line whatever the line count.
  *
- * `flex: 1 1 0` — a ZERO basis, so the row takes only the width the Pod bar
- * panel leaves over. With the default `0 1 auto` its basis was the message's
- * whole one-line width, the two items shrank in proportion to their bases, and
- * a long message took width from the bar until the tab titles collapsed.
+ * `flex: 1 1 0` — a ZERO basis, so the Pod bar panel keeps its content basis
+ * (the tab titles keep their widths) and the space left over beyond it is
+ * shared between the panel and this row, both growing at 1. With the default
+ * `0 1 auto` its basis was the message's whole one-line width, the two items
+ * shrank in proportion to their bases, and a long message took width from the
+ * bar until the tab titles collapsed.
  */
 .dismissible {
   display: flex;
