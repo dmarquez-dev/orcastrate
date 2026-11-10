@@ -2,10 +2,10 @@
   "id": "20261110-1618-chrome-alert-squeeze",
   "name": "chrome-alert-squeeze",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "brief": "Close backlog rows .sir/backlog.md:35 and :36 by measurement. In the Pod-bar .chrome flex row, the fork-error alert has a zero flex basis but no min-width: 0, so when the Pod tabs alone fill or overflow the row it may still take its min-content width from the Pod bar; and the open-error and pods-error alerts are bare .listError paragraphs with the default 0 1 auto basis of their whole message, the mechanism that once collapsed the tab titles under the fork error. The fork-UI hand-run driver gains observations that fill the row with tabs and compare Pod-bar and tab-title widths with and without each alert, each with a control predicted to fire. CSS changes only where a measurement shows a squeeze, bounding the alert the way the fork error is bounded (zero basis, two-line clamp, title holding the whole message, text a direct text node, role=alert kept). Each closing row cites a measured pass in the driver report.",
   "started": "2026-11-10T16:18:40Z",
-  "ended": null,
+  "ended": "2026-11-10T18:03:44Z",
   "parent": null,
   "children": [],
   "pushed": true,
@@ -41,7 +41,15 @@
       "started": "2026-11-10T17:52:33Z",
       "ended": "2026-11-10T18:00:48Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "43ec59cd-175b-411a-b60a-fe7240d5019e",
+      "sir": "1.0.27",
+      "started": "2026-11-10T18:03:19Z",
+      "ended": "2026-11-10T18:03:44Z",
+      "outcome": "complete"
     }
   ],
-  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
 }
