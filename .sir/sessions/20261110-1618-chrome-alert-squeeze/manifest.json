@@ -1,0 +1,118 @@
+{
+  "session": "20261110-1618-chrome-alert-squeeze",
+  "createdAt": "2026-11-10T16:46:54Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/chrome-alert-driver.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Amend the fork UI driver with states S5-S7 and observations O19-O23, and record the base run",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-chrome-alert-squeeze-base.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-chrome-alert-squeeze-base.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/chrome-alert-squeeze-base/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 base run: at this task's tip, which changes no file under `src/`, after `npm run build` in the worktree, `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs --slug chrome-alert-squeeze-base` writes `driven-report-chrome-alert-squeeze-base.json`, `driven-report-chrome-alert-squeeze-base.md` and `screenshots/chrome-alert-squeeze-base/`, the last holding the three screenshots contract section B adds. In the JSON, `meta.driverSha256` equals `sha256sum` of `driver/run-fork-ui.mjs` at this task's tip, and the process exit code equals `meta.exitCode`, which is 0 or 1 (2 would mean an observation was not scorable; see C10-C14).",
+        "C2 the base run measured the base tree: `meta.mainBundleSha256` is `025d3f6f2a0103c98791b6fcab5819c44809755557e37512554fa95198c152c8` and `meta.rendererCssSha256` is `9f238352b28f8fc6a4ae29c0057aa253d801d875ee1272f78e7e5f1135f0ea04`. Both were measured at authoring on the orchestrator's build of base 87b15e5: the first with `sha256sum out/main/index.js`, which also equals the `mainBundleSha256` that `driven-report-fork-ui-followups.json` and `driven-report-fork-ui-recheck.json` record, so the main build reproduces; the second with `python -I` over the one file `out/renderer/assets/index-DcH28GQD.css`, which `sha256sum` of that file matches. If a rebuild yields other values, the report gives them and the reason, and the run is not repeated against a changed tree.",
+        "C3 sandboxed and real home untouched (prior contract I1, unchanged): `meta.mainEnv.CLAUDE_CONFIG_DIR` is null, `meta.mainEnv.userData` begins with `meta.sandboxRoot`, and `meta.realSettingsSha256.before` equals `.after`.",
+        "C4 `meta` matches contract section B: counted with `python -I`, the set of keys of `meta` equals exactly the fifteen keys section B lists (the newest report at base, `driven-report-fork-ui-followups.json`, carries fourteen, counted with `python -I` at authoring; `rendererCssSha256` is the added key). `meta.sandboxRemoved` is true, the directory `meta.sandboxRoot` names does not exist after the run, and `meta.precondition` is null.",
+        "C5 states S1-S4: each is `reached: true` in `states`, by the prior contract's I3 routes.",
+        "C6 state S5 (contract section C): `reached: true`; its `evidence` records the panel max-content width and the `pods-chrome` `clientWidth` behind the free-space condition, the open-error alert count, and the `pods.list` length before and after the click.",
+        "C7 state S6 (contract section C): `reached: true`; its `evidence` records the number of Pods added, the panel max-content width and the `pods-chrome` `clientWidth` behind the overflow condition, and the smallest reference title width.",
+        "C8 state S7 (contract section C): `reached: true`; its `evidence` records both handler substitutions, the reorder alert's text at the reference and at the measurement, the pods-error alert count, and the Pod tab count.",
+        "C9 no regression at base: O1-O18 each have verdict `pass` with `control.fired` true (all 18 are `pass` with `control.fired` true in `driven-report-fork-ui-followups.json`, counted with `python -I` at authoring).",
+        "C10 O19 is scorable at base: verdict `pass` or `defect` with `control.fired` true, and `measured` carries every value contract section D lists for it.",
+        "C11 O20 is scorable at base: verdict `pass` or `defect` with `control.fired` true, and `measured` carries every value contract section D lists for it.",
+        "C12 O21 is scorable at base: verdict `pass` or `defect` with `control.fired` true, and `measured` carries every value contract section D lists for it, including `podBarWidthReference` and `podBarWidthAlertShown`.",
+        "C13 O22 is scorable at base: verdict `pass` or `defect` with `control.fired` true, and `measured` carries every value contract section D lists for it.",
+        "C14 O23 is scorable at base: verdict `pass` or `defect` with `control.fired` true, and `measured` carries every value contract section D lists for it.",
+        "C15 encodes test discipline, Coverage (a test is shown able to fail): `PLAN` holds O1-O23, each with `injection` and `predicted` written before the run; O19-O23 carry contract section D's state, backlog row, injection and prediction. O1-O18's entries are unchanged, preserved and newly tested by a whole-window hash: `python -I -c \"import hashlib,sys;L=open(sys.argv[1],encoding='utf8').read().splitlines();n=int(sys.argv[2]);print(sum(hashlib.sha256(('\\n'.join(L[i:i+n])+'\\n').encode()).hexdigest()==sys.argv[3] for i in range(len(L)-n+1)))\" .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs 54 d232ea9ff3b070d3dd1cc5f11f3df1a2c4d52d9062a7bf974c8bce2c8dc5a550` prints 1. At base it prints 1, matching base lines 103-156 (156-103+1 = 54 lines, the O1 entry through the O18 entry); the window 104-157 hashes to `885d5f00437fc1ac33f427d834cc9059c7badf3952c7e2159612df3b967aa71f`, so the instrument is position-exact. The file's header comment lists rows 7 and 8 and the two slugs `chrome-alert-squeeze-base` and `chrome-alert-squeeze`.",
+        "C16 null-initialised references (prior I4 binding rule 2, and the followups contract's rule on `tol`): every reference that O19-O23's `pass` or `fired` decision reads, `tol` included, is declared `null` and assigned from a measurement, and appears in the `refs` that observation returns.",
+        "C17 controls are in-window only (prior I4): no file in the worktree is modified to run a control or to reach a state. The only filesystem write outside the outputs is S5's directory under `meta.sandboxRoot`, and S7's handler substitution lives only in the running main process.",
+        "C18 slug whitelist kept (prior I1), preserved and newly tested: `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs --slug chrome-alert-squeeze-nope` exits 2, and afterwards no file matching `driven-report-chrome-alert-squeeze-nope.*` and no directory `screenshots/chrome-alert-squeeze-nope` exists.",
+        "C19 the gate input (contract section E): the report gives one row per observation O19-O23, each with its base verdict, section E's prediction, and whether they match. A mismatch is stated as an input to the gate rule, never resolved by changing the driver.",
+        "C20 harness copy (lesson 2026-11-09): where the harness blocks this task's edit tools under `.dir-sdlc/handruns/`, the task writes the driver's full text into its own scratch directory, and its report asks the orchestrator to copy it in before C1's run. The report states the sha256 of the text it handed over, and that sha256 equals `sha256sum` of `driver/run-fork-ui.mjs` in the worktree.",
+        "C21 no session path: `grep -c '\\.sir/'` prints 0 for `run-fork-ui.mjs` and for `driven-report-chrome-alert-squeeze-base.md` (base: the driver prints 0).",
+        "C22 earlier artifacts byte-identical (preserved, checked mechanically): in Git Bash, `H=C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261110-1618-chrome-alert-squeeze/.dir-sdlc/handruns/2026-09-30-electron-handrun; find \"$H\" -type f ! -path \"$H/screenshots/chrome-alert-squeeze*\" ! -iname '*chrome-alert-squeeze*' ! -name README.md ! -path \"$H/driver/run-fork-ui.mjs\" | sort | xargs sha256sum | sha256sum` prints `e7d68bd746a7a57832af686b5413c55af36b8dc51a0388208b98ecbd868e6527`, and the same `find` piped to `wc -l` prints 119. Both measured at base 87b15e5. There, the unfiltered `find \"$H\" -type f | wc -l` printed 121, and `git ls-files` over the directory also printed 121, so the filter removed exactly the driver and README."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Bound the open-error and pods-error alerts the way the fork-error alert is bounded",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/chrome-alert-layout.styles.test.ts",
+        "src/renderer/src/__tests__/chrome-alerts.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C1 measure-first (contract section E): the report quotes, from `.dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-chrome-alert-squeeze-base.json` as T1 committed it, the verdict and `control.fired` of O19 (open error) and O22 (pods error), with the reference and alert-shown title widths of at least one Pod tab for each. For each alert it bounds, it names the `file:line` in the base stylesheet that produces the measured squeeze. Architect's reading, to be confirmed or refuted: `.listError` (`src/renderer/src/pods/PodsChrome.module.css:18-24`) sets no `flex`, so a bare alert paragraph in the `.chrome` row keeps the default `0 1 auto` basis of its whole message. Each alert's criteria below apply only when its gating observation is `defect` there; otherwise they are removed by amendment before dispatch.",
+        "C2 open-error alert, zero basis on a wrapper (encodes the Gate 1 decision, `discussion.md:30`, bound it the way the fork error is bounded, and Gate 2 D5): the open-error alert's `role=\"alert\"` element (`PodsChrome.tsx:282` at base) is no longer a direct child of `pods-chrome` but sits inside a wrapper element that is, as the fork-error `<p>` sits inside `.dismissible` (`PodsChrome.tsx:293-294`). The declarations that apply to that wrapper give it the fork-error row's flex, `flex: 1 1 0` (`PodsChrome.module.css:41`), and leave its `overflow` `visible` (no `overflow`, `overflow-x` or `overflow-y` declaration applies to it), so its automatic minimum width stays its min-content width. At base, the alert element is a direct child of `pods-chrome` (`PodsChrome.tsx:281-285`) and no rule applying to it sets `flex`, `flex-basis` or `flex-grow` (`:18-24`). The scored evidence is O19 in T3's fix run.",
+        "C3 open-error alert, two-line clamp (same decision): the declarations that apply to the open-error alert element include those of `.dismissible > .listError` (`PodsChrome.module.css:54-61`): `display: -webkit-box`, `-webkit-box-orient: vertical`, `-webkit-line-clamp: 2`, `max-height: var(--oc-pod-bar-height)`, `overflow: hidden` and `overflow-wrap: anywhere`. At base, none of the six applies to it. The scored evidence is O20 in T3's fix run.",
+        "C4 open-error alert, whole message available (same decision): the element carries a `title` equal to main's message verbatim. A jsdom test in `src/renderer/src/__tests__/chrome-alerts.e2e.test.tsx` fails `pods.open` with a message and asserts `alert.getAttribute('title')` equals it. At base, no `title` is set on that element (`PodsChrome.tsx:282`). The report shows the test failing before the change (red step: command and output).",
+        "C5 pods-error alert, zero basis on a wrapper (same decisions): as C2, for the pods-error alert's `role=\"alert\"` element (`PodsChrome.tsx:309` at base, a direct child of `pods-chrome` at `:308-312`): it sits inside a wrapper child of `pods-chrome` whose applying declarations give it `flex: 1 1 0` and no `overflow`, `overflow-x` or `overflow-y`. The scored evidence is O22 in T3's fix run.",
+        "C6 pods-error alert, two-line clamp (same decision): as C3, for the pods-error alert element. The scored evidence is O23 in T3's fix run.",
+        "C7 pods-error alert, whole message available (same decision): as C4, for the pods-error alert, with the jsdom test failing `pods.list` (at base no `title` is set, `PodsChrome.tsx:309`), red step shown.",
+        "C8 DOM hooks kept (contract section A, consumed by T3), preserved and newly tested: for each of the two alerts, a jsdom test in `chrome-alerts.e2e.test.tsx` asserts `role=\"alert\"`, `textContent` exactly the failure message, and a `firstChild` that is a `Text` node whose `data` equals it. Discrimination is shown once per alert: wrap `{openError}` (base `PodsChrome.tsx:283`), and in a separate run `{pods.error.message}` (base `:310`), in a `<span>`; run `npx vitest run src/renderer/src/__tests__/chrome-alerts.e2e.test.tsx`; quote the failure; restore. Each window is reported (what was injected, at which line, the command run under it, and that it was restored). The existing tests at `failure-paths.e2e.test.tsx:720-738` and `:853-860` still pass unmodified.",
+        "C9 regression test (encodes test discipline, Coverage: a bug fix arrives with the test that reproduces it, and a test is shown able to fail). A node-environment test, `src/renderer/src/pods/chrome-alert-layout.styles.test.ts`, reads `PodsChrome.module.css` as text after the `#?raw` import at `PodsChrome.styles.test.ts:16` and asserts, for the rule or rules that apply to each alert, the declarations C2, C3, C5 and C6 name. A stylesheet-text test is the project's route for layout that jsdom cannot lay out (`fork-ui-regression.styles.test.ts:7-13`). Demonstrated discrimination, once for each rule that carries an alert's `flex`: revert that one declaration, run `npx vitest run src/renderer/src/pods/chrome-alert-layout.styles.test.ts`, quote the failure, restore, and quote the passing run. Each window is reported.",
+        "C10 the fork-error alert is unchanged (contract section E: O21 gates only an escalation, so this session makes no `.sir/backlog.md:35` change). Every declaration that applies to `.dismissible`, to `.dismissible > .listError` and to `.chrome > :first-child` at base (`PodsChrome.module.css:39-44`, `:54-61`, `:13-16`) still applies, with the same value, and no declaration is added to any of them, including through a changed `.listError` rule. `fork-error-layout.styles.test.ts` and `fork-ui-regression.styles.test.ts`, neither in this task's `owns`, pass unmodified. Preserved, re-measured: T3's O10-O18 and O21.",
+        "C11 no token change: `src/renderer/src/styles/tokens.css` is not in this task's `owns`. A bound that needs a new or changed token is reported as an escalation, with no partial fix. Every `var(--oc-*)` the changed stylesheet uses is in the frozen TOKENS map, which `PodsChrome.styles.test.ts` checks.",
+        "C12 encodes the project frontend fragment (indexed access under `noUncheckedIndexedAccess`): no added line in an owned production file uses a non-null assertion `!`, or an `as` cast, as the guard for an indexed or destructured value.",
+        "C13 no session path: `grep -c '\\.sir/'` over each owned file prints 0 (`PodsChrome.tsx` and `PodsChrome.module.css` each print 0 at base 87b15e5; the two test files do not exist at base).",
+        "C14 `npm run typecheck` in the worktree exits 0 at this task's tip.",
+        "C15 `npm test` in the worktree exits 0 at this task's tip, with 0 failed files and 0 failed tests; the report gives the passed file and test counts (base: 158 files / 2554 tests, the orchestrator's probe)."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Record the fix run, write the findings and the README bullet",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-chrome-alert-squeeze.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-chrome-alert-squeeze.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/chrome-alert-squeeze/**",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-CHROME-ALERT-SQUEEZE.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/README.md"
+      ],
+      "dependsOn": [
+        "T2"
+      ],
+      "acceptance": [
+        "C1 fix run: at this task's tip, after `npm run build` in the worktree, `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs --slug chrome-alert-squeeze` writes `driven-report-chrome-alert-squeeze.json`, `driven-report-chrome-alert-squeeze.md` and `screenshots/chrome-alert-squeeze/`. The process exit code equals `meta.exitCode`, which is 0.",
+        "C2 same instrument as the base run: `meta.driverSha256` equals `sha256sum` of `driver/run-fork-ui.mjs` at this task's tip, and equals `meta.driverSha256` in `driven-report-chrome-alert-squeeze-base.json`. The driver is not in this task's `owns`.",
+        "C3 the fix run measured T2's tree (Gate 2 D3): `meta.mainBundleSha256` equals the base report's (`025d3f6f2a0103c98791b6fcab5819c44809755557e37512554fa95198c152c8` per T1 C2, since T2 changes no main-process file). `meta.rendererCssSha256` differs from the base report's (`9f238352b28f8fc6a4ae29c0057aa253d801d875ee1272f78e7e5f1135f0ea04` per T1 C2) if `sha256sum src/renderer/src/pods/PodsChrome.module.css` in the worktree at this task's tip differs from `75b891cfbbed3c9d931f656cc2a402bc24880d5b64f3b62ff8bf960d7f684a0c` (that file's on-disk CRLF bytes at base 87b15e5, measured at Gate 2), and equals it otherwise (T2 pruned, or changing no stylesheet). The report quotes the `sha256sum` output and both `rendererCssSha256` values.",
+        "C4 sandboxed and real home untouched: `meta.mainEnv.CLAUDE_CONFIG_DIR` is null, `meta.mainEnv.userData` begins with `meta.sandboxRoot`, `meta.realSettingsSha256.before` equals `.after`, `meta.sandboxRemoved` is true, and `meta.precondition` is null. Counted with `python -I`, `meta` has exactly the fifteen keys contract section B lists.",
+        "C5 states: S1-S7 are each `reached: true` in `states`, by contract section C's and prior I3's routes.",
+        "C6 no regression: O1-O18 each have verdict `pass` with `control.fired` true.",
+        "C7 O19 (backlog row 8, the open-error alert's Pod tab titles): verdict `pass` with `control.fired` true. If it is `defect`, T2's bound did not hold: report it as an escalation, not as a driver change.",
+        "C8 O20 (backlog row 8, the open-error alert painted inside the Pod-bar row): verdict `pass` with `control.fired` true. If `defect`, escalate as in C7.",
+        "C9 O21 (backlog row 7, the fork-error row with the Pod tabs overflowing `.chrome`): verdict `pass` with `control.fired` true. If `defect`, escalate.",
+        "C10 O22 (backlog row 8, the pods-error alert's Pod tab titles): verdict `pass` with `control.fired` true. If `defect`, escalate as in C7.",
+        "C11 O23 (backlog row 8, the pods-error alert painted inside the Pod-bar row): verdict `pass` with `control.fired` true. If `defect`, escalate as in C7.",
+        "C12 findings verdict table: `FINDINGS-CHROME-ALERT-SQUEEZE.md` holds exactly two tables. The first has the header `| Obs | Backlog row | Verdict | Measured | Control | Predicted | Observed |` and 23 data rows, O1-O23 in order, whose Verdict cells equal the fix run's JSON verdicts. Counted with `python -I`, splitting each row on `|`, every data row has the header's field count. Control: the header line yields 9 fields under the same split.",
+        "C13 findings before/after table: the second table has the header `| Obs | Backlog row | Alert | Base verdict | Fix-run verdict |` and 5 data rows, O19-O23 in order. Each Base verdict cell equals that observation's verdict in `driven-report-chrome-alert-squeeze-base.json`, and each Fix-run verdict cell equals it in `driven-report-chrome-alert-squeeze.json`. Counted with `python -I`, every data row has the header's field count. Control: the header line yields 7 fields under the same split.",
+        "C14 findings summary: below the tables, the file states: both runs' exit codes, each equal to its `meta.exitCode`; `devicePixelRatio`; the viewport; the route of S5, S6 and S7; the number of Pods S6 added, and the panel max-content width against the `pods-chrome` `clientWidth`; for backlog rows 7 and 8, whether every mapped observation is `pass` in the fix run; O21's `podBarWidthReference`, `podBarWidthAlertShown` and their difference, against its measured row min-content width (the check `.sir/backlog.md:35` names); and, for O19 and O22, one Pod tab's reference and alert-shown title widths in each run.",
+        "C15 README: the `## Later runs in this directory` list in `README.md` gains one bullet, placed first, in the form of the bullet at `README.md:54-58`. It names `FINDINGS-CHROME-ALERT-SQUEEZE.md`, both slugs, the run's headline result, and that `run-fork-ui.mjs` was amended in place again, so its sha256 differs from the one `driven-report-fork-ui-followups.json` records. No existing line of `README.md` changes.",
+        "C16 harness copy (lesson 2026-11-09): where the harness blocks this task's edit tools under `.dir-sdlc/handruns/`, the task writes the file's full text into its own scratch directory, and its report asks the orchestrator to copy it in. The report states the sha256 of the text it handed over, and that sha256 equals `sha256sum` of the file in the worktree. This applies to `FINDINGS-CHROME-ALERT-SQUEEZE.md` and `README.md`.",
+        "C17 no session path: `grep -c '\\.sir/'` prints 0 for `FINDINGS-CHROME-ALERT-SQUEEZE.md` and `driven-report-chrome-alert-squeeze.md`.",
+        "C18 earlier artifacts byte-identical at this task's tip: the T1 C22 command prints `e7d68bd746a7a57832af686b5413c55af36b8dc51a0388208b98ecbd868e6527`, and its `find` piped to `wc -l` prints 119 (both measured at base 87b15e5).",
+        "C19 DAG tail typecheck (project lesson: vitest does not typecheck): `npm run typecheck` in the worktree exits 0 at this task's tip.",
+        "C20 DAG tail suite: `npm test` in the worktree exits 0 at this task's tip, with 0 failed files and 0 failed tests; the report gives the passed file and test counts."
+      ]
+    }
+  ]
+}

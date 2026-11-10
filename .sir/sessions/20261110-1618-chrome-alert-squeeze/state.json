@@ -1,0 +1,29 @@
+{
+  "session": "20261110-1618-chrome-alert-squeeze",
+  "updatedAt": "2026-11-10T18:00:48Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261110-1618-chrome-alert-squeeze",
+  "branch": "agent/20261110-1618-chrome-alert-squeeze",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "both scripts echoed (`tsc --noEmit -p tsconfig.node.json --composite false`, `tsc --noEmit -p tsconfig.web.json --composite false`), no diagnostics, exit=0 (run as `npm --prefix <worktree> run typecheck`; the worktree has no node_modules of its own)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  158 passed (158) / Tests  2554 passed (2554), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "typecheck then electron-vite build; last line `✓ built in 1.08s`, exit=0; wrote out/main/index.js inside the worktree (ignored); `git status --short` empty afterwards"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "87b15e5fed67084d22bae9d9800d3048adc50cdf", "commit": "47e0ce596c7fb7255be1730195a20baf5e15d3c8", "model": "opus" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "47e0ce596c7fb7255be1730195a20baf5e15d3c8", "commit": "1ecc2b6a2306f0e6897c8486ae53e48b3ca69365", "model": "opus" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "1ecc2b6a2306f0e6897c8486ae53e48b3ca69365", "commit": "24e2da05da41c5c5a186e9f98308e869fd46b657", "model": "opus" }
+  ],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
