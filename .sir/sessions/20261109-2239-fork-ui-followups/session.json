@@ -1,0 +1,47 @@
+{
+  "id": "20261109-2239-fork-ui-followups",
+  "name": "fork-ui-followups",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Clear three fork-UI follow-ups from .sir/backlog.md:34-41. T1 fixes the Pod tab titles collapsing while the fork-error alert is shown: in the .chrome flex row the alert's flex basis is its whole one-line message, so it takes width from the Pod bar. T1 also bounds the alert's text to the 38px row and keeps the DOM hooks the driver reads, with a stylesheet-text regression test. T2 then amends the Playwright fork-UI driver in place. O11's control becomes position:relative;top:h, so the dismiss-button centring can be scored; tol and the ?? null lookups come under the null-initialised-reference rule; O14's wording and O16's control are fixed; meta's extra keys are folded into the report contract. T2 adds O17 (tab title widths) and O18 (alert inside the row), runs --slug fork-ui-followups, and records FINDINGS-FORK-UI-FOLLOWUPS.md. At Gate 3, backlog row :34 closes only if O11 passes.",
+  "started": "2026-11-09T22:39:54Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "pushed": true,
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "8cb86782-6237-49f5-be0b-e1e5553f97b5",
+      "sir": "1.0.26",
+      "started": "2026-11-09T22:39:54Z",
+      "ended": "2026-11-09T22:46:31Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "7d9d3f6d-07f8-41c5-86ca-c9d6c1932fdf",
+      "sir": "1.0.26",
+      "started": "2026-11-09T22:47:56Z",
+      "ended": "2026-11-10T00:33:45Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "75f5380f-b461-4bbc-8594-f7116babddcb",
+      "sir": "1.0.26",
+      "started": "2026-11-10T00:37:18Z",
+      "ended": "2026-11-10T01:29:22Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "52be3567-f5ad-4433-9ea1-d35bb45b3ffe",
+      "sir": "1.0.26",
+      "started": "2026-11-10T01:33:57Z",
+      "ended": "2026-11-10T01:45:24Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

@@ -1,0 +1,138 @@
+{
+  "session": "20261109-2239-fork-ui-followups",
+  "updatedAt": "2026-11-10T01:45:24Z",
+  "worktree": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.claude-worktrees\\20261109-2239-fork-ui-followups",
+  "branch": "agent/20261109-2239-fork-ui-followups",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "both scripts echoed (`tsc --noEmit -p tsconfig.node.json --composite false`, `tsc --noEmit -p tsconfig.web.json --composite false`), no diagnostics, exit=0 (tsc resolved from the main checkout's node_modules; the worktree has none)"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  157 passed (157) / Tests  2544 passed (2544), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "typecheck then electron-vite build; last line `✓ built in 905ms`, exit=0; wrote out/ inside the worktree (ignored); `git status --short` empty afterwards"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 1, "redispatches": 0, "startRef": "74e79ffb0637b12ff54b46f14c697951255bbb05", "model": "opus", "commit": "ce69b20", "note": "f6d2ddc is the original T1 commit; ce69b20 is revision round 1, the Gate 3 fix-now of advisory A1 (comment wording)." },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "f6d2ddc", "model": "opus", "commit": "4326d23" }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "question": "Once the Pod tabs keep their width, a long fork error wraps past the 38px Pod-bar row. How is it shown?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "At Gate 2: clamp the visible text to the row, and give the alert a title holding the full message (T1 C4 and C5, reworded to state the decision).",
+      "options": [
+        {
+          "summary": "Clamp the visible text to the row; the alert carries the full message as its title",
+          "rationale": "Keeps the row height and the tabs; the full text stays readable on hover and verbatim for assistive tech",
+          "evidence": { "kind": "repo", "sources": ["src/renderer/src/styles/tokens.css:189", "src/renderer/src/pods/PodsChrome.tsx:291-293"] }
+        },
+        {
+          "summary": "Clamp the visible text with no tooltip",
+          "rationale": "Smaller change; the full text is reachable only through assistive tech, and T1 C5 is dropped",
+          "evidence": { "kind": "judgment" }
+        },
+        {
+          "summary": "Move the fork error out of the Pod-bar row",
+          "rationale": "No clamp needed, but it is a layout and grid change outside T1's ownership, and O18 would need redefining",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T2",
+      "question": "Amend run-fork-ui.mjs in place, or follow README.md:44-47 and ship a new driver?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "At Gate 2: amend run-fork-ui.mjs in place; the README bullet records the exception (T2 C20 as drafted).",
+      "options": [
+        {
+          "summary": "Amend in place and record the exception in the README bullet",
+          "rationale": "The advisories name this file; the earlier reports keep the old sha256 as history",
+          "evidence": { "kind": "repo", "sources": [".sir/backlog.md:38-41", ".sir/sessions/20261109-2239-fork-ui-followups/discussion.md"] }
+        },
+        {
+          "summary": "Copy to a new driver, run-fork-ui-followups.mjs",
+          "rationale": "Follows the README convention, but leaves the advisories unfixed in the old file and duplicates about 1,200 lines",
+          "evidence": { "kind": "repo", "sources": [".dir-sdlc/handruns/2026-09-30-electron-handrun/README.md:44-52"] }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "taskId": "T1",
+      "question": "T1 C2 says the fix 'keeps the Pod bar at the width it has without an alert, so each Pod tab title keeps its width'. Under flex: 1 1 0 the title widths are kept but the pod-bar element's own width is not (both flex items grow into leftover space). Which clause is the requirement?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "The title-width clause is the requirement; amend C2's wording to match (A1). T1 is committed as it stands.",
+      "options": [
+        {
+          "summary": "The title-width clause is the requirement; amend C2's wording to match",
+          "rationale": "O17, the scored evidence C2 cites, passes on title widths and only records the pod-bar width",
+          "evidence": { "kind": "repo", "sources": [".sir/sessions/20261109-2239-fork-ui-followups/contracts/fork-ui-driver-followups.md:106"] }
+        },
+        {
+          "summary": "Keep the letter: the pod-bar width must not change (e.g. .dismissible flex: 0 1 0)",
+          "rationale": "The panel absorbs all leftover space, but the alert row shrinks to min-content, about one glyph per line, so the visible message is mostly unreadable",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E4",
+      "taskId": "T2",
+      "question": "O10's control no longer fires against T1's 2-line clamp: Range.getClientRects() returns all 10 laid-out lines, including 8 the clamp hides, so under the flex-direction:column control the button centre (34.55) still falls inside hidden line 2 and O10 is instrument-invalid (T2 C8 unmet). How should O10 be decided?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Count painted lines only: amend contract section C with an O10 row over painted line boxes (A2); T2 amends the driver, re-runs it, and writes the findings and README.",
+      "options": [
+        {
+          "summary": "Amend contract C with an O10 row that counts only painted line boxes (raw rects clipped by overflow ancestors below pods-chrome, non-empty kept, as O18 does)",
+          "rationale": "Measures what the user sees and reuses O18's instrument, already shown able to fail in this run; the control then predicts 0 since 34.55 is below the painted lines ending at 26.57",
+          "evidence": { "kind": "repo", "sources": [".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui-followups.json"] }
+        },
+        {
+          "summary": "Amend O10's control to move the button below the whole raw line stack",
+          "rationale": "Keeps O10's measurement as written, but still counts lines nobody can see, with a prediction built around the clamp",
+          "evidence": { "kind": "judgment" }
+        },
+        {
+          "summary": "Accept O10 as instrument-invalid at Gate 3 and carry it to the backlog",
+          "rationale": "No contract change; C8 is recorded not met",
+          "evidence": { "kind": "repo", "sources": [".sir/sessions/20261109-1642-fork-ui-human-checks/contracts/fork-ui-driver.md:168"] }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E3",
+      "artifact": "manifest.json",
+      "before": "T1 C2: the fix keeps the Pod bar at the width it has without an alert, so each Pod tab title keeps its width ... declarations make the bar's width independent of the alert's message length.",
+      "after": "T1 C2: the fix keeps each Pod tab title at the width it has without an alert (the pod-bar element's own width may change; O17 records it without scoring it) ... declarations make the title widths independent of the alert's message length.",
+      "inFlight": []
+    },
+    {
+      "id": "A2",
+      "escalation": "E4",
+      "artifact": "contracts/fork-ui-driver-followups.md",
+      "before": "Section C had no O10 row; prior I4's O10 counted all line boxes of the alert's text node (Range.getClientRects()), and the supersession clause kept O1-O10 unchanged.",
+      "after": "Section C adds an O10 row counting only painted line boxes (raw rects clipped by every clipping ancestor as in O18, non-empty kept), control unchanged, predicted 0 painted line boxes contain the centre; supersession lists O10.",
+      "inFlight": []
+    }
+  ],
+  "metrics": { "userInteractions": 6, "escalationsRaised": 4, "reviewRounds": 1 }
+}

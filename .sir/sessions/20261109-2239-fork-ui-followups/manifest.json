@@ -1,0 +1,85 @@
+{
+  "session": "20261109-2239-fork-ui-followups",
+  "createdAt": "2026-11-09T23:00:39Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/fork-ui-driver-followups.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Keep Pod tab titles visible while the fork-error alert is shown",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/PodBarPanel.module.css",
+        "src/renderer/src/pods/PodBar.module.css",
+        "src/renderer/src/pods/PodsChrome.styles.test.ts",
+        "src/renderer/src/pods/PodBar.styles.test.ts",
+        "src/renderer/src/pods/fork-ui-regression.styles.test.ts",
+        "src/renderer/src/pods/fork-error-layout.styles.test.ts",
+        "src/renderer/src/__tests__/pod-fork.e2e.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 cause named: the report names the cause of the Pod tab titles collapsing while the fork-error alert is shown, at `file:line` in the code at base 74e79ff, and says how the change removes it. (Architect's reading, to be confirmed or refuted by the implementer: in the `.chrome` flex row, `PodsChrome.module.css:13-16` gives the Pod bar panel `flex: 1 1 auto`, while the fork-error row `.dismissible` (`:32-36`) keeps the default `flex: 0 1 auto` and so a flex basis of the message's full one-line width; the two shrink in proportion to their bases, so a long message takes width from the bar, whose `.title` spans (`PodBar.module.css:106-112`, `overflow: hidden`, inside `min-width: 0` tabs) collapse first.)",
+        "C2 the fix keeps each Pod tab title at the width it has without an alert while the fork-error alert is shown (amended A1, E3: the title widths are the requirement; the `pod-bar` element's own width may change, and O17 records it without scoring it). The scored evidence is the driver's O17 in T2 (contract section C); this task's evidence is C3's test plus the report's statement of which declarations make the title widths independent of the alert's message length.",
+        "C3 regression test (encodes test discipline, Coverage: a bug fix arrives with the test that reproduces it, and a test is shown able to fail). A test in the node environment reads the changed stylesheet(s) as text, after the `#?raw` pattern of `src/renderer/src/pods/PodsChrome.styles.test.ts:16`, in `fork-error-layout.styles.test.ts` or an owned `*.styles.test.ts`, and asserts the declarations C2's statement names. A stylesheet-text test is the project's route for layout defects that jsdom cannot lay out (`fork-ui-regression.styles.test.ts:7-13`). Demonstrated discrimination: the report names one `file:line` of the fix, reverts that one declaration, runs `npx vitest run <that test file>` and quotes the failure, then restores it and quotes the passing run. The window is reported (what was reverted, the command run under it, that it was restored).",
+        "C4 the alert's text is not painted outside the Pod-bar row. The bar row is 38px (`--oc-pod-bar-height`, `src/renderer/src/styles/tokens.css:189`); a message that no longer takes width from the bar wraps onto more lines, so the fix bounds the alert's painted text to the row (decided at Gate 2, E1: the visible text is clamped to the row). The scored evidence is the driver's O18 in T2; this task's report states the declaration(s) that bound it, and C3's test asserts them.",
+        "C5 full message still available (decided at Gate 2, E1): the fork-error alert element carries a `title` equal to main's message, verbatim. A jsdom test in `src/renderer/src/__tests__/pod-fork.e2e.test.tsx` asserts `alert.getAttribute('title')` equals the failure message; at base no `title` is set on the alert (`PodsChrome.tsx:291-293`), and the report shows the test failing before the change (red step: command and output).",
+        "C6 DOM hooks kept (contract section A, consumed by T2): the alert's message is a direct text-node child of the `role=\"alert\"` element. Preserved, newly tested: a jsdom test in `pod-fork.e2e.test.tsx` asserts that the alert's `firstChild` is a `Text` node whose `data` equals the failure message. Its discrimination is shown by wrapping `{forkError}` in a `<span>` at `PodsChrome.tsx:292`, running `npx vitest run src/renderer/src/__tests__/pod-fork.e2e.test.tsx`, quoting the failure, and restoring. The existing tests at `pod-fork.e2e.test.tsx:359-395` (native button, aria-hidden glyph, button outside the alert with alert text exactly main's message, click removes the alert) still pass unmodified.",
+        "C7 O10's fix preserved: `fork-ui-regression.styles.test.ts` keeps its four `it` blocks with their assertions unweakened (in particular `.dismissible`'s `align-items` is `['flex-start']`, `:45`), and passes.",
+        "C8 no token change: `src/renderer/src/styles/tokens.css` is not in this task's `owns`; a fix that needs a new or changed token is reported as an escalation, with no partial fix (as in the prior session's contract I5). Every `var(--oc-*)` the changed stylesheets use is in the frozen TOKENS map, which `PodsChrome.styles.test.ts:48-54` and the matching PodBar test check.",
+        "C9 encodes frontend discipline, Accessibility floor (keyboard reachable; focus visible and predictable): `Dismiss fork error` stays a native `button` outside the alert, and the chrome stays programmatically focusable: `grep -c 'tabIndex={-1}' src/renderer/src/pods/PodsChrome.tsx` prints 1 (base prints 1, measured at 74e79ff).",
+        "C10 encodes the project frontend fragment (indexed access under `noUncheckedIndexedAccess`): no added line in an owned production file uses a non-null assertion `!` or an `as` cast as the guard for an indexed or destructured value.",
+        "C11 no session path: `grep -c '\\.sir/'` over each owned file prints 0 (each existing owned file prints 0 at base 74e79ff).",
+        "C12 `npm run typecheck` in the worktree exits 0 at this task's tip.",
+        "C13 `npm test` in the worktree exits 0 at this task's tip, 0 failed files and 0 failed tests; the report gives the passed file and test counts (base: 157 files / 2544 tests, the orchestrator's probe)."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Amend the fork UI driver, add O17/O18, run it, record the findings",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui-followups.json",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/driven-report-fork-ui-followups.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/screenshots/fork-ui-followups/**",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-FORK-UI-FOLLOWUPS.md",
+        ".dir-sdlc/handruns/2026-09-30-electron-handrun/README.md"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C1 run: at this task's tip, after `npm run build` in the worktree, `node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs --slug fork-ui-followups` writes `driven-report-fork-ui-followups.json`, `driven-report-fork-ui-followups.md` and `screenshots/fork-ui-followups/`. In the JSON, `meta.driverSha256` equals `sha256sum` of `driver/run-fork-ui.mjs` at this task's tip, and `meta.mainBundleSha256` equals `sha256sum` of `out/main/index.js` as built after T1's commit. The process exit code equals `meta.exitCode`.",
+        "C2 sandboxed and real home untouched (prior contract I1, unchanged): `meta.mainEnv.CLAUDE_CONFIG_DIR` is null, `meta.mainEnv.userData` begins with `meta.sandboxRoot`, and `meta.realSettingsSha256.before` equals `.after`.",
+        "C3 `meta` matches contract section B (backlog.md:40, folded into the report contract): counted with `python -I`, the set of keys of `meta` equals exactly the fourteen keys contract B lists (the recheck report at base already carries these fourteen, counted with `python -I` over `driven-report-fork-ui-recheck.json`); `meta.sandboxRemoved` is true, the directory `meta.sandboxRoot` names does not exist after the run, and `meta.precondition` is null. Preserved, newly tested: the two keys exist at base (`run-fork-ui.mjs:365-366`), and this is the first check of the key set against a contract.",
+        "C4 states: S1, S2, S3 and S4 are each `reached: true` in `states`, by the prior contract's I3 routes.",
+        "C5 O17 Pod tab titles (backlog.md:36): verdict `pass` and `control.fired` true. `measured` gives, per Pod tab, the reference and alert-shown title widths, the tab count (5), and `tol`; `control.observed` gives the title widths under the half-width `max-width` control. If O17 is `defect`, T1's fix did not hold: report it as an escalation, not a driver change.",
+        "C6 O18 alert painted inside the Pod-bar row: verdict `pass` and `control.fired` true, with `measured` giving the raw and clipped line-box counts, their extents, and the `pods-chrome` box. If `defect`, escalate as in C5.",
+        "C7 O11 scorable (backlog.md:37): `control.fired` is true and the verdict is `pass` or `defect`. `measured` gives the signed centre difference, the button height `h`, and `tol`; `control.observed` gives the signed difference under the control and its difference from the unperturbed one, compared with `h`. The FINDINGS summary states O11's verdict and, from it, whether backlog.md:34 closes (`pass`) or stays with the re-measured values (`defect`).",
+        "C8 no regression: O1-O10 and O12-O16 each have verdict `pass` with `control.fired` true (all sixteen were `pass` or, for O11, `instrument-invalid` in `driven-report-fork-ui-recheck.json`; O10 was `pass` there).",
+        "C9 O11's control and prediction are contract section C's: the control is an inline `position: relative; top: <h>px` on the dismiss button, and the `fired` decision is that (signed difference under the control) minus (signed difference without it) equals `h` within `tol` and the absolute difference under the control exceeds `tol`. `grep -c 'half the button height' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0 (base prints 1, PLAN at :121).",
+        "C10 O14 wording matches what is computed (backlog.md:39): `grep -c 'byte-identical to the control capture' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0 (base prints 1, PLAN at :130). O14's PLAN `predicted` string states contract section C's wording (the painted decision applied to two captures both under the control reports not painted). Preserved by design: O14's `fired` still requires `buffersEqual(capB, capB2)` (base :1045) and `paintedClipDiffersFromControl` still compares the ring capture with the control capture (base :1029).",
+        "C11 O16's control dismisses the right alert (backlog.md:41): `grep -c 'win.click(DISMISS)' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0 (base prints 1, at :1121). The control clicks the dismiss button in the alert row of the alert the further failed fork produced, identified in the window; O16's `control.observed` in the JSON records the fork-error alert count and dismiss-button count immediately before the click, and its `fired` decision also requires that alert to be absent afterwards.",
+        "C12 `tol` under the null-initialised-reference rule (backlog.md:38): `grep -cE '^\\s*const tol\\b' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0 (base prints 1, at :509); `tol` is declared with `null` as its initial value and assigned from the `devicePixelRatio` read in the window; and every observation whose `pass` or `fired` decision reads `tol`, directly or through a helper it passes `tol` to (at base: O2 at :635/:646, O10 via `layout()` at :817-825 and :843, O11 at :892/:909-910; added: O17, O18), lists `tol` in the `refs` it returns.",
+        "C13 `const x = ... ?? null` lookups under the same rule (backlog.md:38): `grep -cE '^\\s*const \\w+ = .*\\?\\? null' .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs` prints 0. Base prints 7 (lines 796, 806, 818, 819, 844, 924, 961); predicate checked by eye at authoring: it matches `:818` (`const alert = window.__forkui.forkAlert(p)[0] ?? null;`) and does not match `:314` (`text = [...].find(...) ?? null;`, not a `const`). Control against reshaping: every line printed by `grep -nE '^\\s*const \\w+ =\\s*$'` over the same file begins a statement whose initialiser contains no `?? null` (base prints one line, `474:        const script =`).",
+        "C14 encodes test discipline, Coverage (a test is shown able to fail): `PLAN` holds O1-O18, each with `injection` and `predicted` written before the run, as a literal or a rule over the same window's measurements; O17 and O18 have `backlogRow` 6 per contract section B; the file's header comment lists row 6 and the slug `fork-ui-followups`. Controls are in-window only; no file in the worktree is modified to run one.",
+        "C15 findings table: `FINDINGS-FORK-UI-FOLLOWUPS.md` has exactly one table whose header is `| Obs | Backlog row | Verdict | Measured | Control | Predicted | Observed |`, with 18 data rows O1-O18 in order. Counted with `python -I`, splitting each row on `|`, every data row has the header's field count. Control: the header line yields 9 fields under the same split.",
+        "C16 findings summary: below the table, the file states the exit code (equal to `meta.exitCode`), `devicePixelRatio`, viewport, route per state, for each backlog row 1-6 whether every mapped observation is `pass`, O11's verdict with its consequence for backlog.md:34 (C7), and a before/after line for O11 (`instrument-invalid` in `driven-report-fork-ui-recheck.json`) and for the tab titles (seen unscored at `FINDINGS-FORK-UI-RECHECK.md:103-105`, now O17).",
+        "C17 harness copy (lesson 2026-11-09): where the harness blocks this task's edit tools under `.dir-sdlc/handruns/`, the task writes the file's full text into its own scratch directory and its report asks the orchestrator to copy it in; the report states the sha256 of the text it handed over, and that sha256 equals `sha256sum` of the file in the worktree. This applies to `run-fork-ui.mjs` (needed before C1's run), `FINDINGS-FORK-UI-FOLLOWUPS.md` and `README.md`.",
+        "C18 no session path: `grep -c '\\.sir/'` prints 0 for each of `run-fork-ui.mjs`, `FINDINGS-FORK-UI-FOLLOWUPS.md` and `driven-report-fork-ui-followups.md` (base: the driver prints 0).",
+        "C19 earlier artifacts byte-identical (preserved by design, checked mechanically): in Git Bash, `H=C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261109-2239-fork-ui-followups/.dir-sdlc/handruns/2026-09-30-electron-handrun; find \"$H\" -type f ! -path \"$H/screenshots/fork-ui-followups/*\" ! -iname '*fork-ui-followups*' ! -name README.md ! -path \"$H/driver/run-fork-ui.mjs\" | sort | xargs sha256sum | sha256sum` prints `b7be6357ed127a8f3c9e6d1a9e0987cd3e81f265e4b9371fdf7fb6c5de14d38d`, and the same `find` piped to `wc -l` prints 106. Both measured at base 74e79ff; the unfiltered `find \"$H\" -type f | wc -l` printed 108 there, and a `python -I` `os.walk` count printed 108, so the filter removed exactly the driver and README.",
+        "C20 README: the `## Later runs in this directory` list in `README.md` gains one bullet, in the form of the bullet at README.md:54-57, naming `FINDINGS-FORK-UI-FOLLOWUPS.md`, the run's headline result, and that `run-fork-ui.mjs` was amended in place so its sha256 differs from the one both earlier fork-UI reports record. No existing line of README.md changes.",
+        "C21 DAG tail typecheck (project lesson: vitest does not typecheck): `npm run typecheck` in the worktree exits 0 at this task's tip.",
+        "C22 DAG tail suite: `npm test` in the worktree exits 0 at this task's tip, 0 failed files and 0 failed tests; the report gives the passed file and test counts."
+      ]
+    }
+  ]
+}
