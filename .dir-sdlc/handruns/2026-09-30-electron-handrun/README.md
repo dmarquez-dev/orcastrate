@@ -51,6 +51,14 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-CHROME-ALERT-SQUEEZE.md`** (2026-11-10) — the open-error and pods-error alerts
+  in the Pod-bar row, before and after the fix. Slug `chrome-alert-squeeze-base` (before):
+  exit 1, the two alerts squeezed every Pod tab title to 0 wide (O19, O22) and the pods-error
+  text was painted above the row (O23). Slug `chrome-alert-squeeze` (after): 23 observations,
+  all pass, every control fired; exit 0. O21 confirms the fork-error row keeps only its
+  min-content width when the tabs overflow. **Exception to the rule above, again:**
+  `run-fork-ui.mjs` was amended in place for these runs, so its sha256 differs from the one
+  `driven-report-fork-ui-followups.json` records.
 - **`FINDINGS-FORK-UI-FOLLOWUPS.md`** (2026-11-09) — the fork-UI follow-ups: Pod tab titles
   keep their width while the fork-error alert is shown (O17), and the alert is painted inside
   the Pod-bar row (O18). 18 observations, all pass, every control fired; exit 0. O11 is now
