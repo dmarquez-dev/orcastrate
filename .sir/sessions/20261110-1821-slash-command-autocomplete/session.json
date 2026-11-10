@@ -1,0 +1,26 @@
+{
+  "id": "20261110-1821-slash-command-autocomplete",
+  "name": "Slash-command autocomplete feasibility",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-10T18:21:56Z",
+  "ended": "2026-11-10T18:25:55Z",
+  "parent": null,
+  "children": [],
+  "criteria": [
+    "Feasibility of runtime slash-command autocomplete in the Composer is settled from repository evidence, naming the SDK surface that supplies the command list and how it tracks plugin changes.",
+    "If feasible, exactly one line is appended to .sir/backlog.md under Ungrouped, dated, carrying this session id, with file:line anchors re-measured in this session.",
+    "No source file is changed."
+  ],
+  "runs": [
+    {
+      "cc": "272a239b-9553-4e52-b326-e4adec23b04f",
+      "phase": "small",
+      "sir": "1.0.27",
+      "started": "2026-11-10T18:21:56Z",
+      "ended": "2026-11-10T18:25:55Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}
