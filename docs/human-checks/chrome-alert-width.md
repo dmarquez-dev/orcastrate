@@ -4,6 +4,12 @@ Session `20261110-1857-chrome-alert-width`. These are eight checks for you to ru
 hand before Gate 3. H1-H5 cover this session's change. H6-H8 are checks earlier sessions
 left in the backlog. Tell the orchestrator the result of each one, in your own words.
 
+**Note, added 2026-11-11.** The in-row alerts this file checks, the open-error, pods-error,
+fork-error and reorder alerts in the Pod tab header, were replaced by the notification
+region at the window's bottom-right corner. The region's checks are in
+`docs/human-checks/message-alerting.md`. Every `file:line` citation in this file describes
+the app at commit `7489152` and is not updated.
+
 ## What changed, in one paragraph
 
 While an open-error or pods-error alert is shown beside the Pod tabs, the tabs now keep
