@@ -1,0 +1,47 @@
+{
+  "id": "20261110-1857-chrome-alert-width",
+  "name": "chrome-alert-width",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Close the three alert-width backlog rows left by 20261110-1618-chrome-alert-squeeze. The fork-UI hand-run driver gains S8-S10 and O24-O32: the reorder alert's effect on the Pod tab titles, the open-error and pods-error alerts with the Pod tabs overflowing, and a width-policy check for each alert. A base run happens before any renderer change. T2 then applies the width policy the user chooses at Gate 2 to the open-error and pods-error rows, and bounds PodBarPanel's reorder alert (wrapper, two-line clamp, title) only if the base run shows it squeezing the tabs. A fix run on the same driver bytes scores the result, and the findings file and a README bullet record it. Last, T4 writes docs/human-checks/chrome-alert-width.md, numbered steps the user follows before Gate 3, covering this session's visible changes and five pending human checks (fork mark, fork-error tooltip and clamp, open/pods-error clamp and tooltip, and whether the alert width tells the user enough). Four tasks run in a serial chain, because the driver, the build and vitest share one worktree.",
+  "started": "2026-11-10T18:57:50Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "pushed": true,
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "c2fbe242-5a71-4028-9b01-6c8aeb3d752f",
+      "sir": "1.0.29",
+      "started": "2026-11-10T18:57:50Z",
+      "ended": "2026-11-10T19:16:30Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "0aafa5a0-f176-4c2d-92ea-40b8eb3dadae",
+      "sir": "1.0.29",
+      "started": "2026-11-10T19:19:01Z",
+      "ended": "2026-11-10T19:56:04Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "286812c1-ad56-4606-967f-3f563e4a5ba9",
+      "sir": "1.0.29",
+      "started": "2026-11-10T20:02:18Z",
+      "ended": "2026-11-10T22:00:44Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "4c284f83-ba01-415b-9935-833e26c6f190",
+      "sir": "1.0.29",
+      "started": "2026-11-10T22:13:37Z",
+      "ended": "2026-11-11T01:29:57Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}
