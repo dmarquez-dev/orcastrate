@@ -70,4 +70,39 @@ describe('PodBarPanel', () => {
     });
     expect(screen.getByRole('alert').textContent).toBe('tabOrder was rejected');
   });
+
+  // The reorder alert is clamped to two lines inside the Pod-bar row
+  // (`PodBarPanel.module.css`), so the whole message is its `title`.
+  it('carries the failed reorder message verbatim as the alert title', async () => {
+    const message = 'updatePod: no pod with id 00000000-0000-0000-0000-000000000000';
+    const reorderPods = vi.fn(async (): Promise<ActionResult<void>> => ({
+      ok: false,
+      error: ipcError('NOT_FOUND', message),
+    }));
+    renderPanel(reorderPods);
+
+    dragThirdToFirst();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.getAttribute('title')).toBe(message);
+  });
+
+  // The hand-run driver reads the alert's text as its direct text-node child.
+  it('renders the message as the first text node of the alert element itself', async () => {
+    const message = 'tabOrder was rejected';
+    const reorderPods = vi.fn(async (): Promise<ActionResult<void>> => ({
+      ok: false,
+      error: ipcError('CONFLICT', message),
+    }));
+    renderPanel(reorderPods);
+
+    dragThirdToFirst();
+
+    const alert = await screen.findByRole('alert');
+    expect(alert.getAttribute('role')).toBe('alert');
+    expect(alert.textContent).toBe(message);
+    const first = alert.firstChild;
+    expect(first).toBeInstanceOf(Text);
+    expect(first instanceof Text ? first.data : null).toBe(message);
+  });
 });

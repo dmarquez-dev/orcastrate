@@ -15,6 +15,16 @@
   flex: 1 1 auto;
 }
 
+/*
+ * While an open-error or pods-error alert row is shown, the Pod bar panel
+ * keeps its content width and the alert row takes all the space left over
+ * (the Gate 2 width policy). The fork-error row `.dismissible` is not named
+ * here, so with it the panel still grows as `.chrome > :first-child` gives it.
+ */
+.chrome:has(> .alertRow) > :first-child {
+  flex-grow: 0;
+}
+
 .listError {
   align-self: center;
   padding-inline: var(--oc-space-2);

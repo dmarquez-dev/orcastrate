@@ -51,6 +51,16 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-CHROME-ALERT-WIDTH.md`** (2026-11-10) — how much of the Pod-bar row the
+  open-error, pods-error and reorder alerts get, before and after the width policy. Slug
+  `chrome-alert-width-base` (before): exit 1, the open-error and pods-error alerts got less
+  than the space the Pod tabs leave free (O24, O30), and the reorder alert narrowed every
+  Pod tab title (O25) and took more than the free space (O27). Slug `chrome-alert-width`
+  (after): 32 observations, all pass, every control fired; exit 0. O28 and O31 confirm the
+  open-error and pods-error rows keep only their min-content width when the tabs overflow.
+  **Exception to the rule above, again:** `run-fork-ui.mjs` was amended in place again for
+  these runs, so its sha256 differs from the one `driven-report-chrome-alert-squeeze.json`
+  records.
 - **`FINDINGS-CHROME-ALERT-SQUEEZE.md`** (2026-11-10) — the open-error and pods-error alerts
   in the Pod-bar row, before and after the fix. Slug `chrome-alert-squeeze-base` (before):
   exit 1, the two alerts squeezed every Pod tab title to 0 wide (O19, O22) and the pods-error

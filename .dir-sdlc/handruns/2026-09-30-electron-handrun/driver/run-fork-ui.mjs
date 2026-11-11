@@ -20,6 +20,25 @@
  *          tabs leaving free space, every Pod tab title keeps its no-alert
  *          width, and the alert's text is painted inside the Pods chrome
  *                                                               (O19, O20, O22, O23)
+ *   row 9  while the open-error, pods-error or reorder alert is shown beside
+ *          Pod tabs leaving free space, the tabs keep their content width and
+ *          the alert takes all the space left over        (O24, O27, O30)
+ *   row 10 when the Pod tabs alone overflow the Pods chrome, the open-error
+ *          and pods-error rows keep only their min-content width and their
+ *          text is painted inside the Pods chrome         (O28, O29, O31, O32)
+ *   row 11 while PodBarPanel's reorder alert is shown, every Pod tab title
+ *          keeps its no-alert width, and the alert's text is painted inside
+ *          the Pods chrome                                (O25, O26)
+ *
+ * AMENDED IN PLACE for the runs with slugs `chrome-alert-width-base` (the base
+ * tree) and `chrome-alert-width` (the fix run) (2026-11-10): rows 9-11
+ * (O24-O32) and states S8-S10 added. Run order after O16's control: S5 (O19,
+ * O20, O24), S8 (O25, O26, O27), S6 (O21), S9 (O28, O29), S7 (O22, O23, O30),
+ * S10 (O31, O32). S8 replaces the `pod:update` handler in the running main
+ * process with one resolving main's own not-found message for P5 (its prefix
+ * read from the store's source); S7 replaces it again. S10 raises the
+ * window's zoom factor in the running app and re-reads `tol` there. `meta` is
+ * unchanged. O1-O23, S1-S7 and their routes are as before.
  *
  * AMENDED IN PLACE for the runs with slugs `chrome-alert-squeeze-base` (the
  * base tree) and `chrome-alert-squeeze` (the fix run) (2026-11-10): rows 7 and
@@ -61,7 +80,8 @@
  * Run `npm run build` first; this launches `<repoRoot>/out/main/index.js`.
  *
  *   node .dir-sdlc/handruns/2026-09-30-electron-handrun/driver/run-fork-ui.mjs
- *        [--slug fork-ui|fork-ui-recheck|fork-ui-followups|chrome-alert-squeeze-base|chrome-alert-squeeze]
+ *        [--slug fork-ui|fork-ui-recheck|fork-ui-followups|chrome-alert-squeeze-base|chrome-alert-squeeze
+ *                |chrome-alert-width-base|chrome-alert-width]
  *        [--sandbox-root <abs path>] [--keep-sandbox]
  */
 import { createHash, randomUUID } from 'node:crypto';
@@ -76,7 +96,10 @@ import { buildSandbox, encodeCwdForProjects } from './sandbox.mjs';
 
 // ---------------------------------------------------------------- invocation
 
-const SLUGS = ['fork-ui', 'fork-ui-recheck', 'fork-ui-followups', 'chrome-alert-squeeze-base', 'chrome-alert-squeeze'];
+const SLUGS = [
+  'fork-ui', 'fork-ui-recheck', 'fork-ui-followups', 'chrome-alert-squeeze-base', 'chrome-alert-squeeze',
+  'chrome-alert-width-base', 'chrome-alert-width',
+];
 
 function parseArgs(argv) {
   const out = { slug: 'fork-ui', sandboxRoot: null, keepSandbox: false, error: null };
@@ -185,6 +208,33 @@ const PLAN = [
   { id: 'O23', row: 8, state: 'S7',
     injection: "as O20, on the pods-error alert's chrome child: inline position: relative; top: <H>px, H the pods-chrome box height",
     predicted: 'as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol' },
+  { id: 'O24', row: 9, state: 'S5',
+    injection: 'with the open-error alert shown, inline flex-grow: 1 on the panel (the first element child of pods-chrome)',
+    predicted: "abs(w - (c - b)) exceeds tol, w the open-error alert's chrome child's width, c the pods-chrome clientWidth, b S5's reference panel max-content width" },
+  { id: 'O25', row: 11, state: 'S8',
+    injection: 'as O19: with the reorder alert shown, inline max-width on [data-testid="pod-bar"] equal to half its measured width',
+    predicted: 'as O19: at least 1 Pod tab title is narrower than its reference by more than tol' },
+  { id: 'O26', row: 11, state: 'S8',
+    injection: "as O20, on the reorder alert's panel child: inline position: relative; top: <H>px, H the pods-chrome box height",
+    predicted: 'as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol' },
+  { id: 'O27', row: 9, state: 'S8',
+    injection: 'with the reorder alert shown, inline flex-grow: 1 on [data-testid="pod-bar"]',
+    predicted: "abs(w - (c - b)) exceeds tol, w the reorder alert's panel child's width, c the panel's clientWidth, b S8's reference pod bar max-content width" },
+  { id: 'O28', row: 10, state: 'S9',
+    injection: "as O21, on the open-error alert's chrome child (the row): inline flex: 0 0 <2m>px, m the row's measured min-content width",
+    predicted: "as O21: the row's width exceeds m by more than tol" },
+  { id: 'O29', row: 10, state: 'S9',
+    injection: "as O20: inline position: relative; top: <H>px on the open-error alert's chrome child, H the pods-chrome box height",
+    predicted: 'as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol' },
+  { id: 'O30', row: 9, state: 'S7',
+    injection: 'as O24: with the pods-error alert shown, inline flex-grow: 1 on the panel',
+    predicted: "as O24: abs(w - (c - b)) exceeds tol, w the pods-error alert's chrome child's width, b S7's reference panel max-content width" },
+  { id: 'O31', row: 10, state: 'S10',
+    injection: "as O28, on the pods-error alert's chrome child (the row): inline flex: 0 0 <2m>px, m the row's measured min-content width",
+    predicted: "as O28: the row's width exceeds m by more than tol (tol re-read at S10's zoom)" },
+  { id: 'O32', row: 10, state: 'S10',
+    injection: "as O20, on the pods-error alert's chrome child: inline position: relative; top: <H>px, H the pods-chrome box height",
+    predicted: 'as O20: at least 1 non-empty painted line box lies outside the pods-chrome box by more than tol (tol re-read at S10\'s zoom)' },
 ];
 
 const observations = PLAN.map((p) => ({
@@ -198,7 +248,7 @@ const observations = PLAN.map((p) => ({
 const obsById = new Map(observations.map((o) => [o.id, o]));
 const stateOf = new Map(PLAN.map((p) => [p.id, p.state]));
 
-const states = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7'].map((id) => ({ id, route: '', reached: false, evidence: '' }));
+const states = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'S8', 'S9', 'S10'].map((id) => ({ id, route: '', reached: false, evidence: '' }));
 const stateById = new Map(states.map((s) => [s.id, s]));
 
 /** The session-id write attempts, shared by S3 and S4. */
@@ -255,9 +305,9 @@ async function observe(id, fn) {
   const o = obsById.get(id);
   const st = stateById.get(stateOf.get(id));
   if (!st.reached) {
-    // The session-id write gates S3 and S4 (prior I3); S5-S7 have routes of
+    // The session-id write gates S3 and S4 (prior I3); S5-S10 have routes of
     // their own, so an unreached one is never `not-run` on that account.
-    const bothRoutes = !['S5', 'S6', 'S7'].includes(st.id) &&
+    const bothRoutes = !['S5', 'S6', 'S7', 'S8', 'S9', 'S10'].includes(st.id) &&
       writeRoutes.route1 !== null && writeRoutes.route2 !== null &&
       writeRoutes.route1.ok === false && writeRoutes.route2.ok === false;
     if (bothRoutes) {
@@ -538,10 +588,70 @@ function installChromeAlertHelpers() {
       left: Math.max(acc.left, k.left), right: Math.min(acc.right, k.right),
     }), r)).filter((r) => r.right > r.left && r.bottom > r.top);
     const child = chromeChildOf(alert);
+    const pchild = panelChildOf(alert);
     return {
       raw, painted, clips, chrome: rect(c), alertWidth: alert.getBoundingClientRect().width,
       chromeChild: describe(child), childInline: child === null ? null : `${child.style.position}/${child.style.top}`,
+      panelChild: describe(pchild), panelChildInline: pchild === null ? null : `${pchild.style.position}/${pchild.style.top}`,
     };
+  };
+  /** The child element of the panel that is, or contains, `el`; null when
+   *  `el` is not inside the panel (contract A, "Reorder alert's panel child"). */
+  const panelChildOf = (el) => {
+    const p = panel();
+    if (p === null) return null;
+    let e = el;
+    while (e !== null && e.parentElement !== p) e = e.parentElement;
+    return e;
+  };
+  /** Sets (`px` a number) or clears (`px` null) inline position/top on the
+   *  panel child of the one alert `sel` selects (O26's control). */
+  const shiftPanelChild = (sel, px) => {
+    const found = findAlerts(sel);
+    if (found.length !== 1) return false;
+    const child = panelChildOf(found[0]);
+    if (child === null) return false;
+    child.style.position = px === null ? '' : 'relative';
+    child.style.top = px === null ? '' : `${px}px`;
+    return true;
+  };
+  /** Pod bar max-content width (contract C, S8 and S10): inline `flex: none;
+   *  width: max-content` on the pod bar, read after two animation frames, both
+   *  cleared, and the undo verified (inline style empty, pod-bar width back
+   *  within tol). */
+  const podBarMaxContent = async (tol) => {
+    let bar = null;
+    let c = null;
+    let p = null;
+    bar = document.querySelector('[data-testid="pod-bar"]');
+    c = chrome();
+    p = panel();
+    if (bar === null || c === null || p === null) return null;
+    const hadStyle = bar.hasAttribute('style');
+    const inlineBefore = bar.style.cssText;
+    const barBefore = bar.getBoundingClientRect().width;
+    bar.style.flex = 'none';
+    bar.style.width = 'max-content';
+    await frames();
+    const width = bar.getBoundingClientRect().width;
+    bar.style.flex = '';
+    bar.style.width = '';
+    if (!hadStyle && bar.getAttribute('style') === '') bar.removeAttribute('style');
+    await frames();
+    const barAfter = bar.getBoundingClientRect().width;
+    const inlineAfter = bar.style.cssText;
+    return {
+      width, chromeClientWidth: c.clientWidth, panelClientWidth: p.clientWidth, barBefore, barAfter, inlineBefore, inlineAfter,
+      undoOk: inlineBefore === '' && inlineAfter === '' && Math.abs(barAfter - barBefore) <= tol,
+    };
+  };
+  /** All role="alert" elements in the document, split by whether they lie
+   *  inside the panel. */
+  const alertsInsideOutsidePanel = () => {
+    const p = panel();
+    const all = [...document.querySelectorAll('[role="alert"]')];
+    const inside = p === null ? 0 : all.filter((a) => p.contains(a)).length;
+    return { total: all.length, insidePanel: inside, outsidePanel: all.length - inside };
   };
   /** Sets (`px` a number) or clears (`px` null) inline position/top on the
    *  chrome child of the one alert `sel` selects. */
@@ -557,6 +667,7 @@ function installChromeAlertHelpers() {
   window.__cas = {
     frames, rect, describe, chrome, panel, chromeChildOf, findAlerts, chromeAlertCount, reorderAlerts,
     panelMaxContent, paint, shiftChromeChild,
+    panelChildOf, shiftPanelChild, podBarMaxContent, alertsInsideOutsidePanel,
   };
   return true;
 }
@@ -603,6 +714,9 @@ async function main() {
     openErrorPrefix: sourceLiteral('src/main/pod/pod-runner.ts', /`(cwd is not accessible: )\$\{cwd\}/),
     podListChannel: sourceLiteral('src/shared/contracts/ipc.ts', /^\s*podList: '([^']*)',$/),
     podUpdateChannel: sourceLiteral('src/shared/contracts/ipc.ts', /^\s*podUpdate: '([^']*)',$/),
+    // S8 (contract C): main's not-found message for a Pod the store does not
+    // hold; M8 is this prefix followed by P5's id.
+    m8Prefix: sourceLiteral('src/main/store/sqlite-event-store.ts', /`(updatePod: no pod with id )\$\{id\}`/),
   };
   console.log('expected texts:', JSON.stringify(expected));
 
@@ -1806,27 +1920,32 @@ async function main() {
 
     /** O20, O23 (contract D): the alert's painted line boxes lie within the
      *  pods-chrome box; control: the alert's chrome child moved down by the
-     *  chrome's height. */
-    const paintObs = (id, sel) => observe(id, async (o) => {
+     *  chrome's height. O26 (contract D) moves the alert's PANEL child
+     *  instead (`target: 'panel'`); O29 and O32 use the chrome child, as O20. */
+    const paintObs = (id, sel, { target = 'chrome' } = {}) => observe(id, async (o) => {
       let m = null;
       let ctl = null;
       let undo = null;
       let H = null;
       let set = null;
       let cleared = null;
+      const shift = target === 'panel'
+        ? (s, px) => win.evaluate(({ s, px }) => window.__cas.shiftPanelChild(s, px), { s, px })
+        : (s, px) => win.evaluate(({ s, px }) => window.__cas.shiftChromeChild(s, px), { s, px });
+      const inlineOf = (x) => (target === 'panel' ? x.panelChildInline : x.childInline);
       await parkMouse();
       await settle();
       m = await paintOf(sel);
       if (m !== null) {
         H = m.chrome.height;
-        set = await win.evaluate(({ s, px }) => window.__cas.shiftChromeChild(s, px), { s: sel, px: H });
+        set = await shift(sel, H);
         await settle();
         ctl = await paintOf(sel);
-        cleared = await win.evaluate((s) => window.__cas.shiftChromeChild(s, null), sel);
+        cleared = await shift(sel, null);
         await settle();
         undo = await paintOf(sel);
       }
-      const undoOk = undo !== null && m !== null && cleared === true && undo.childInline === '/' &&
+      const undoOk = undo !== null && m !== null && cleared === true && inlineOf(undo) === '/' &&
         undo.raw.length === m.raw.length &&
         undo.raw.every((b, i) => Math.abs(b.top - m.raw[i].top) <= tol && Math.abs(b.left - m.raw[i].left) <= tol);
       const maxOut = (x) => (x === null || x.painted.length === 0 ? null : Math.max(...x.painted.map((b) => outsideBy(b, x.chrome))));
@@ -1846,8 +1965,10 @@ async function main() {
         alertWidth: fmt3(m?.alertWidth),
         undoVerified: undoOk,
       };
+      if (target === 'panel') o.measured.alertPanelChild = m?.panelChild ?? null;
       o.control.observed = ctl === null ? 'not measurable under control'
-        : `chrome child ${ctl.chromeChild} top ${fmt3(H)}px (inline ${ctl.childInline}): ${ctl.painted.length} non-empty painted line boxes ` +
+        : `${target === 'panel' ? `panel child ${ctl.panelChild}` : `chrome child ${ctl.chromeChild}`} top ${fmt3(H)}px ` +
+          `(inline ${inlineOf(ctl)}): ${ctl.painted.length} non-empty painted line boxes ` +
           `(${extents(ctl.painted)}), ${ctlOutside.length} outside the chrome box by more than tolerance (max ${fmt3(maxOut(ctl))}); ` +
           `undo verified ${undoOk}`;
       return {
@@ -1855,6 +1976,204 @@ async function main() {
         refs: { m, H, set, ctl, cleared, undo, tol, sel },
         pass: m.painted.length >= 1 && m.painted.every((b) => outsideBy(b, m.chrome) <= tol),
         fired: set === true && ctlOutside.length >= 1 && undoOk,
+      };
+    });
+
+    // ---------------------------------------------------------- S8-S10 helpers
+    // Contract C/D (chrome-alert-width). Every function below that writes an
+    // inline style clears it and reports what it read after the clear.
+    const podBarMax = () => win.evaluate((t) => window.__cas.podBarMaxContent(t), tol);
+    const alertSplit = () => win.evaluate(() => window.__cas.alertsInsideOutsidePanel());
+    const substituteHandler = (ch, result) => app.evaluate(({ ipcMain }, { ch, result }) => {
+      ipcMain.removeHandler(ch);
+      ipcMain.handle(ch, async () => result);
+      return `${ch} replaced`;
+    }, { ch, result });
+    const barMaxText = (bm) => (bm === null ? 'pod bar not found'
+      : `pod bar max-content width ${fmt3(bm.width)}, pods-chrome clientWidth ${bm.chromeClientWidth}, panel clientWidth ` +
+        `${bm.panelClientWidth}, undo verified ${bm.undoOk} (pod-bar width ${fmt3(bm.barBefore)} -> ${fmt3(bm.barAfter)}, ` +
+        `pod-bar inline style after "${bm.inlineAfter}")`);
+
+    /** O24, O27, O30 (contract D, section F option A). `scope` 'chrome': w =
+     *  the alert's chrome child's width, c = the pods-chrome clientWidth, the
+     *  control's flex-grow on the panel. `scope` 'panel': w = the alert's
+     *  panel child's width, c = the panel's clientWidth, the control's
+     *  flex-grow on the pod bar. `pass` when abs(w - (c - b)) <= tol. */
+    const policyRead = (sel, scope) => win.evaluate(({ s, scope }) => {
+      const F = window.__cas;
+      let alert = null;
+      const found = F.findAlerts(s);
+      alert = found.length === 1 ? found[0] : null;
+      if (alert === null) return null;
+      let container = null;
+      let child = null;
+      let grower = null;
+      container = scope === 'panel' ? F.panel() : F.chrome();
+      child = scope === 'panel' ? F.panelChildOf(alert) : F.chromeChildOf(alert);
+      grower = scope === 'panel' ? document.querySelector('[data-testid="pod-bar"]') : F.panel();
+      if (container === null || child === null || grower === null || child === grower) return null;
+      const panel = F.panel();
+      return {
+        w: child.getBoundingClientRect().width, c: container.clientWidth, child: F.describe(child),
+        growerWidth: grower.getBoundingClientRect().width, growerInline: grower.style.cssText,
+        growerFlexGrow: getComputedStyle(grower).flexGrow,
+        panelWidth: panel === null ? null : panel.getBoundingClientRect().width,
+      };
+    }, { s: sel, scope });
+    const setGrow = (scope, v) => win.evaluate(({ scope, v }) => {
+      let g = null;
+      g = scope === 'panel' ? document.querySelector('[data-testid="pod-bar"]') : window.__cas.panel();
+      if (g === null) return false;
+      g.style.flexGrow = v;
+      if (v === '' && g.getAttribute('style') === '') g.removeAttribute('style');
+      return true;
+    }, { scope, v });
+    const policyObs = (id, { sel, b: bRef, bName, scope }) => observe(id, async (o) => {
+      let m = null;
+      let ctl = null;
+      let undo = null;
+      let b = null;
+      let set = null;
+      let cleared = null;
+      b = typeof bRef === 'number' ? bRef : null;
+      await parkMouse();
+      await settle();
+      m = await policyRead(sel, scope);
+      if (m !== null) {
+        set = await setGrow(scope, '1');
+        await settle();
+        ctl = await policyRead(sel, scope);
+        cleared = await setGrow(scope, '');
+        await settle();
+        undo = await policyRead(sel, scope);
+      }
+      const dev = (x) => (x === null || b === null ? null : Math.abs(x.w - (x.c - b)));
+      const undoOk = m !== null && undo !== null && cleared === true && undo.growerInline === m.growerInline &&
+        Math.abs(undo.w - m.w) <= tol && Math.abs(undo.growerWidth - m.growerWidth) <= tol;
+      const growerName = scope === 'panel' ? '[data-testid="pod-bar"]' : 'the panel';
+      o.measured = {
+        tolerancePx: tol, devicePixelRatio: winFacts.dpr,
+        w: fmt3(m?.w), c: m?.c ?? null, b: fmt3(b), cMinusB: m === null || b === null ? null : fmt3(m.c - b),
+        absWMinusCMinusB: fmt3(dev(m)),
+        bSource: bName,
+        alertChild: m?.child ?? null,
+        panelWidth: fmt3(m?.panelWidth),
+        [`${scope === 'panel' ? 'podBar' : 'panel'}FlexGrowComputed`]: m?.growerFlexGrow ?? null,
+        undoVerified: undoOk,
+      };
+      if (scope === 'panel') o.measured.podBarWidth = fmt3(m?.growerWidth);
+      o.control.observed = ctl === null ? 'not measurable under control'
+        : `inline flex-grow: 1 on ${growerName} (computed flex-grow ${ctl.growerFlexGrow}): w ${fmt3(ctl.w)}, c ${ctl.c}, ` +
+          `c - b ${fmt3(ctl.c - b)}, abs(w - (c - b)) ${fmt3(dev(ctl))} vs tol ${fmt3(tol)}; undo verified ${undoOk}`;
+      return {
+        nullCause: m === null ? 'exactly one matching alert, its container child, or the element the control styles not found' : null,
+        refs: { m, b, set, ctl, cleared, undo, tol, sel },
+        pass: dev(m) !== null && dev(m) <= tol,
+        fired: set === true && dev(ctl) !== null && dev(ctl) > tol && undoOk,
+      };
+    });
+
+    /** O28, O31 (contract D: as O21 over the alert's chrome child, the row). */
+    const rowMinObs = (id, { sel, ref, titles, extra }) => observe(id, async (o) => {
+      let shownAtMeasure = null;
+      let row = null;
+      let mc = null;
+      let paintM = null;
+      let m = null;
+      let ctl = null;
+      let undo = null;
+      let refWidths = null;
+      refWidths = ref === null ? null : ref.widths;
+      await parkMouse();
+      await settle();
+      shownAtMeasure = await countAlerts(sel);
+      if (shownAtMeasure === 1) {
+        row = await win.evaluate(async ({ s, tol }) => {
+          const F = window.__cas;
+          const found = F.findAlerts(s);
+          if (found.length !== 1) return null;
+          const r = F.chromeChildOf(found[0]);
+          if (r === null) return null;
+          const inlineBefore = r.style.cssText;
+          const width = r.getBoundingClientRect().width;
+          r.style.flex = 'none';
+          r.style.width = 'min-content';
+          await F.frames();
+          const minContent = r.getBoundingClientRect().width;
+          r.style.flex = '';
+          r.style.width = '';
+          await F.frames();
+          const widthAfter = r.getBoundingClientRect().width;
+          const inlineAfter = r.style.cssText;
+          return {
+            owner: F.describe(r), width, minContent, widthAfter, inlineBefore, inlineAfter,
+            undoOk: inlineBefore === '' && inlineAfter === '' && Math.abs(widthAfter - width) <= tol,
+          };
+        }, { s: sel, tol });
+        paintM = await paintOf(sel);
+        m = await titleWidthsFor(titles ?? {});
+        if (row !== null) {
+          mc = row.minContent;
+          ctl = await win.evaluate(async ({ s, px }) => {
+            const r = window.__cas.chromeChildOf(window.__cas.findAlerts(s)[0]);
+            r.style.flex = `0 0 ${px}px`;
+            await window.__cas.frames();
+            return { width: r.getBoundingClientRect().width, inline: r.style.flex };
+          }, { s: sel, px: 2 * mc });
+          undo = await win.evaluate(async (s) => {
+            const r = window.__cas.chromeChildOf(window.__cas.findAlerts(s)[0]);
+            r.style.flex = '';
+            await window.__cas.frames();
+            return { width: r.getBoundingClientRect().width, inline: r.style.cssText };
+          }, sel);
+        }
+      }
+      const undoOk = row !== null && row.undoOk === true && undo !== null && undo.inline === '' &&
+        Math.abs(undo.width - row.width) <= tol;
+      const ids = refWidths === null || m === null ? [] : Object.keys(refWidths.tabs).filter(
+        (k) => m.tabs[k] !== undefined && refWidths.tabs[k].width !== null && m.tabs[k].width !== null,
+      );
+      o.measured = {
+        tolerancePx: tol,
+        alertCountAtMeasurement: shownAtMeasure,
+        alertRow: row?.owner ?? null,
+        rowWidth: fmt3(row?.width), rowMinContentWidth: fmt3(row?.minContent),
+        rowWidthMinusMinContent: row === null ? null : fmt3(row.width - row.minContent),
+        rawLineBoxCount: paintM?.raw.length ?? null,
+        paintedNonEmptyLineBoxCount: paintM?.painted.length ?? null,
+        paintedLineBoxExtents: paintM === null ? null : extents(paintM.painted),
+        clippingAncestors: paintM === null ? null : (paintM.clips.map((k) => `${k.owner} overflow ${k.overflow}`).join('; ') || 'none'),
+        // Recorded, unscored (contract D, O28 / O31).
+        tabCountAlertShown: m?.tabCount ?? null,
+        podBarWidthAlertShown: fmt3(m?.barWidth),
+      };
+      if (ref !== null) {
+        const refPanel = ref.panel;
+        Object.assign(o.measured, {
+          tabCountReference: refWidths?.tabCount ?? null,
+          podBarWidthReference: fmt3(refWidths?.barWidth),
+          podBarWidthDifference: refWidths === null || m === null ? null : fmt3(m.barWidth - refWidths.barWidth),
+          panelMaxContentWidthReference: fmt3(refPanel?.width), podsChromeClientWidthReference: refPanel?.chromeClientWidth ?? null,
+        });
+        for (const k of ids) {
+          const L = refWidths.tabs[k].label;
+          Object.assign(o.measured, {
+            [`${L}.titleWidthReference`]: fmt3(refWidths.tabs[k].width), [`${L}.titleWidthAlertShown`]: fmt3(m.tabs[k].width),
+          });
+        }
+      } else if (m !== null) {
+        for (const t of Object.values(m.tabs)) o.measured[`${t.label}.titleWidthAlertShown`] = fmt3(t.width);
+      }
+      if (extra) Object.assign(o.measured, extra());
+      o.measured.undoVerified = undoOk;
+      o.control.observed = ctl === null ? 'not measurable under control'
+        : `row inline flex "${ctl.inline}" (2m = ${fmt3(2 * mc)}px): row width ${fmt3(ctl.width)}, exceeds m ${fmt3(mc)} by ` +
+          `${fmt3(ctl.width - mc)} (tolerance ${fmt3(tol)}); undo verified ${undoOk}`;
+      return {
+        nullCause: row === null ? "exactly one matching alert with a chrome child (its row) not found" : null,
+        refs: { shownAtMeasure, row, mc, paintM, ctl, undo, tol, sel },
+        pass: row !== null && paintM !== null && row.width <= row.minContent + tol && paintM.painted.length >= 1,
+        fired: ctl !== null && ctl.width > mc + tol && undoOk,
       };
     });
 
@@ -1914,6 +2233,93 @@ async function main() {
 
     await titleKeepObs('O19', { sel: openSel, ref: s5Ref, titles: s5Titles, expectedTabs: 6, extra: null });
     await paintObs('O20', openSel);
+    await policyObs('O24', {
+      sel: openSel, scope: 'chrome',
+      b: s5Ref === null || s5Ref.panel === null ? null : s5Ref.panel.width, bName: "S5's reference panel max-content width",
+    });
+
+    // ---------------------------------------------------------- S8 reorder error, free space
+    const s8 = stateById.get('S8');
+    let m8Sel = null;
+    let M8 = null;
+    let s8Ref = null;
+    let s8Titles = null;
+    let s8BarMax = null;
+    s8.route = 'reload (clears the open error; 6 Pod tabs); free-space reference with no alert shown and the mouse parked ' +
+      '(every Pod tab title width, the pod bar max-content width); in main, the pod:update handler replaced (ipcMain.removeHandler, ' +
+      'then ipcMain.handle) by one resolving { ok: false, error: { code: NOT_FOUND, message: M8 } }, M8 = the not-found prefix read ' +
+      "from src/main/store/sqlite-event-store.ts followed by P5's id; P1 tab focused, Control+ArrowRight";
+    try {
+      const updateCh = expected.podUpdateChannel === null ? null : expected.podUpdateChannel.value;
+      if (updateCh === null) throw new Error('pod:update channel name not found in src/shared/contracts/ipc.ts');
+      if (expected.m8Prefix === null) throw new Error('not-found prefix not read from src/main/store/sqlite-event-store.ts');
+      if (p5Id === null) throw new Error('P5 was not created, so M8 cannot be formed');
+      M8 = `${expected.m8Prefix.value}${p5Id}`;
+      m8Sel = { kind: 'exact', text: M8 };
+      const tabsOk = await reloadTo(6);
+      await parkMouse();
+      await settle();
+      const alertsBefore = await alertSplit();
+      const pm = await panelMax();
+      s8Titles = await titleMapNow();
+      await parkMouse();
+      let widths = null;
+      widths = s8Titles === null ? null : await titleWidthsFor(s8Titles);
+      s8BarMax = await podBarMax();
+      s8Ref = { widths, panel: pm, bar: s8BarMax };
+      console.log('S8 reference:', JSON.stringify(s8Ref));
+      const fs = freeSpace(pm);
+      const sub = await substituteHandler(updateCh, { ok: false, error: { code: 'NOT_FOUND', message: M8 } });
+      const before = await win.evaluate(() => window.orcastrate.pods.list());
+      const p1Tab = `[data-testid="pod-tab:${P('P1')}"]`;
+      await win.focus(p1Tab);
+      await win.keyboard.press('Control+ArrowRight');
+      const shown = await win.waitForFunction(
+        (t) => window.__cas.reorderAlerts().some((a) => a.text === t), M8, { timeout: 30000 },
+      ).then(() => true).catch(() => false);
+      await parkMouse();
+      await settle();
+      const after = await win.evaluate(() => window.orcastrate.pods.list());
+      const reorder = await reorderNow();
+      const split = await alertSplit();
+      const n = await countAlerts(m8Sel);
+      const tabsNow = await tabCount();
+      const nb = before?.ok === true ? before.value.length : null;
+      const na = after?.ok === true ? after.value.length : null;
+      const barOk = s8BarMax !== null && s8BarMax.undoOk === true;
+      s8.reached = tabsOk && alertsBefore.total === 0 && widths !== null && fs && barOk && shown &&
+        reorder.length === 1 && reorder[0].text === M8 && n === 1 && split.outsidePanel === 0 && tabsNow === 6 &&
+        nb === 6 && na === 6;
+      s8.evidence = `substitution: "${sub}" resolving NOT_FOUND with M8; M8 (${M8.length} characters): ${M8}; prefix ` +
+        `"${expected.m8Prefix.value}" read from src/main/store/sqlite-event-store.ts:${expected.m8Prefix.line}; ` +
+        `Pod tabs after reload 6: ${tabsOk}; alerts in the document before the substitution ${alertsBefore.total}; ` +
+        `free space at the reference: ${fs} (${pmText(pm)}); ${barMaxText(s8BarMax)}; reorder alert shown ${shown}, ` +
+        `reorder alerts at the measurement ${JSON.stringify(reorder.map((a) => a.text))}; alerts equal to M8 ${n}; ` +
+        `alerts outside the panel ${split.outsidePanel}; Pod tab count ${tabsNow}; pods.list length ${nb} -> ${na}`;
+    } catch (err) {
+      s8.evidence = `${s8.evidence ? `${s8.evidence}; ` : ''}error: ${short(err)}`;
+    }
+    console.log('S8:', s8.reached, s8.evidence);
+    await parkMouse();
+    await win.screenshot({ path: join(shotsDir, '08-s8-reorder-error.png') });
+
+    await titleKeepObs('O25', {
+      sel: m8Sel, ref: s8Ref, titles: s8Titles, expectedTabs: 6,
+      extra: {
+        atMeasure: () => reorderNow(),
+        record: (now) => ({
+          reorderAlertTextAlertShown: now === null ? null : now.map((a) => a.text).join(' / '),
+          reorderAlertWidthAlertShown: now === null ? null : now.map((a) => fmt3(a.width)).join(' / '),
+          m8Length: M8 === null ? null : M8.length,
+          podBarMaxContentWidthReference: fmt3(s8BarMax?.width),
+        }),
+      },
+    });
+    await paintObs('O26', m8Sel, { target: 'panel' });
+    await policyObs('O27', {
+      sel: m8Sel, scope: 'panel',
+      b: s8BarMax === null ? null : s8BarMax.width, bName: "S8's reference pod bar max-content width",
+    });
 
     // ---------------------------------------------------------- S6 fork error, overflow
     let forkSel6 = null;
@@ -2068,6 +2474,59 @@ async function main() {
       };
     });
 
+    // ---------------------------------------------------------- S9 open error, overflow
+    const s9 = stateById.get('S9');
+    let s9Ref = null;
+    let s9Titles = null;
+    s9.route = "in S6's state: reload (clears the fork error); overflow reference with no alert shown and the mouse parked " +
+      '(every Pod tab title width, unscored); click P5 run control (data-verb="reconnect"); main raises CWD_MISSING before any spawn';
+    try {
+      if (openSel === null) throw new Error('open-error literal not found in src/main/pod/pod-runner.ts');
+      if (p5Id === null) throw new Error('P5 was not created');
+      const expectedTabs = 6 + s6Added.length;
+      const tabsOk = await reloadTo(expectedTabs);
+      await parkMouse();
+      await settle();
+      const alertsBefore = await chromeAlerts();
+      const pm = await panelMax();
+      s9Titles = await titleMapNow();
+      await parkMouse();
+      let widths = null;
+      widths = s9Titles === null ? null : await titleWidthsFor(s9Titles);
+      s9Ref = { widths, panel: pm };
+      console.log('S9 reference:', JSON.stringify(s9Ref));
+      const ov = overflowing(pm);
+      const runSel = `[data-testid="pod-tab-open:${p5Id}"]`;
+      const verb = await win.evaluate((s) => document.querySelector(s)?.getAttribute('data-verb') ?? null, runSel);
+      const before = await win.evaluate(() => window.orcastrate.pods.list());
+      let shown = false;
+      if (verb === 'reconnect') {
+        await win.click(runSel);
+        shown = await win.waitForFunction(
+          (s) => window.__cas.findAlerts(s).length >= 1, openSel, { timeout: 30000 },
+        ).then(() => true).catch(() => false);
+      }
+      await settle();
+      const after = await win.evaluate(() => window.orcastrate.pods.list());
+      const n = await countAlerts(openSel);
+      const text = await alertText(openSel);
+      const nb = before?.ok === true ? before.value.length : null;
+      const na = after?.ok === true ? after.value.length : null;
+      s9.reached = tabsOk && alertsBefore === 0 && ov && widths !== null && verb === 'reconnect' && shown && n === 1 &&
+        nb !== null && nb === na;
+      s9.evidence = `Pod tabs after reload ${expectedTabs}: ${tabsOk}; alerts in pods-chrome before the click ${alertsBefore}; ` +
+        `overflow at the reference: ${ov} (${pmText(pm)}); P5 ${p5Id} run control data-verb=${verb}; open-error alerts after ` +
+        `the click ${n} (text starts with "${openSel.text}"); pods.list length ${nb} -> ${na}; alert text: ${text}`;
+    } catch (err) {
+      s9.evidence = `${s9.evidence ? `${s9.evidence}; ` : ''}error: ${short(err)}`;
+    }
+    console.log('S9:', s9.reached, s9.evidence);
+    await parkMouse();
+    await win.screenshot({ path: join(shotsDir, '09-s9-overflow-open-error.png') });
+
+    await rowMinObs('O28', { sel: openSel, ref: s9Ref, titles: s9Titles, extra: null });
+    await paintObs('O29', openSel);
+
     // ---------------------------------------------------------- S7 pods error
     let m7Sel = null;
     let s7Ref = null;
@@ -2154,6 +2613,69 @@ async function main() {
       },
     });
     await paintObs('O23', m7Sel);
+    await policyObs('O30', {
+      sel: m7Sel, scope: 'chrome',
+      b: s7Ref === null || s7Ref.panel === null ? null : s7Ref.panel.width, bName: "S7's reference panel max-content width",
+    });
+
+    // ---------------------------------------------------------- S10 pods error, overflow by zoom
+    // No reload: it would refetch through the replaced pod:list handler. The
+    // zoom lives only in the running app; `tol` is re-read at each step, and
+    // O31 and O32 read the value reached here.
+    const s10 = stateById.get('S10');
+    let s10Zoom = null;
+    let s10Tol = null;
+    let s10BarMax = null;
+    s10.route = "in S7's final state (the pods-error alert still shown; no reload): the window's zoom raised by " +
+      'webContents.setZoomFactor from 1.0 in steps of 0.1, at most to 2.0, each step followed by two animation frames and a ' +
+      're-read of tol, until the pod bar max-content width exceeds the pods-chrome clientWidth by more than tol';
+    try {
+      if (!s7.reached || m7Sel === null) throw new Error("S7 not reached, so its final state is absent");
+      const trail = [];
+      let ov = false;
+      for (let k = 11; k <= 20 && !ov; k += 1) {
+        const z = k / 10;
+        const got = await app.evaluate(({ BrowserWindow }, z) => {
+          const wins = BrowserWindow.getAllWindows();
+          for (const w of wins) w.webContents.setZoomFactor(z);
+          return wins.map((w) => w.webContents.getZoomFactor());
+        }, z);
+        const want = winFacts.dpr * z;
+        await win.waitForFunction((d) => Math.abs(window.devicePixelRatio - d) < 0.005, want, { timeout: 5000 }).catch(() => {});
+        await settle();
+        const dpr = await win.evaluate(() => window.devicePixelRatio);
+        s10Tol = null;
+        s10Tol = typeof dpr === 'number' && dpr > 0 ? 1 / dpr : null;
+        tol = s10Tol;
+        s10Zoom = got.length === 1 ? got[0] : null;
+        s10BarMax = await podBarMax();
+        ov = s10Zoom !== null && s10Tol !== null && s10BarMax !== null && s10BarMax.undoOk === true &&
+          s10BarMax.width > s10BarMax.chromeClientWidth + s10Tol;
+        trail.push(`zoom ${got.join(',')}: dpr ${fmt3(dpr)}, tol ${fmt3(s10Tol)}, pod bar max-content ${fmt3(s10BarMax?.width)} ` +
+          `vs pods-chrome clientWidth ${s10BarMax?.chromeClientWidth ?? null}`);
+      }
+      await parkMouse();
+      await settle();
+      const n = await countAlerts(m7Sel);
+      const tabsNow = await tabCount();
+      s10.reached = ov && n === 1 && tabsNow === 5;
+      s10.evidence = `overflow at the zoom reached: ${ov}; zoom factor ${s10Zoom}; tol ${s10Tol}; ${barMaxText(s10BarMax)}; ` +
+        `alerts equal to M7 ${n}; Pod tab count ${tabsNow}; trail: ${trail.join('; ')}`;
+    } catch (err) {
+      s10.evidence = `${s10.evidence ? `${s10.evidence}; ` : ''}error: ${short(err)}`;
+    }
+    console.log('S10:', s10.reached, s10.evidence);
+    await parkMouse();
+    await win.screenshot({ path: join(shotsDir, '10-s10-overflow-pods-error.png') });
+
+    await rowMinObs('O31', {
+      sel: m7Sel, ref: null, titles: s7Titles,
+      extra: () => ({
+        zoomFactor: s10Zoom, tolAtZoom: s10Tol,
+        podBarMaxContentWidth: fmt3(s10BarMax?.width), podsChromeClientWidth: s10BarMax?.chromeClientWidth ?? null,
+      }),
+    });
+    await paintObs('O32', m7Sel);
   } catch (err) {
     console.error('run error:', err);
     for (const o of observations) {

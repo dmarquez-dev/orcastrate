@@ -95,9 +95,14 @@ export function PodBarPanel({
         tabs={ordered}
       />
       {reorderError === null ? null : (
-        <p className={styles.reorderError} role="alert">
-          {reorderError}
-        </p>
+        // The row gives the alert a zero flex basis, and the message is
+        // clamped to two lines (`PodBarPanel.module.css`); `title` keeps the
+        // whole message available.
+        <div className={styles.reorderRow}>
+          <p className={styles.reorderError} role="alert" title={reorderError}>
+            {reorderError}
+          </p>
+        </div>
       )}
     </div>
   );

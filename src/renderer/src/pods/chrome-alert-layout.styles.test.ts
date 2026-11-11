@@ -132,6 +132,58 @@ describe('the open-error and pods-error alerts take no width the Pod bar needs',
   });
 });
 
+/** `body`'s declarations, trimmed, empty ones dropped, in source order. */
+function declarationsOf(body: string): string[] {
+  return body
+    .split(';')
+    .map((one) => one.trim().replace(/\s+/g, ' '))
+    .filter((one) => one !== '');
+}
+
+const PANEL = '.chrome > :first-child';
+const PANEL_BESIDE_ALERT_ROW = '.chrome:has(> .alertRow) > :first-child';
+const FLEX_PROPERTIES = ['flex', 'flex-grow', 'flex-shrink', 'flex-basis'] as const;
+
+describe('the panel lookups read what they claim to', () => {
+  const fixture = '.c > :first-child { min-width: 0; flex: 1 1 auto; }\n.c:has(> .r) > :first-child { flex-grow: 0; }';
+
+  it('finds a :has() rule by its exact selector, distinct from the plain one', () => {
+    expect(declarationsOf(ruleIn(fixture, '.c:has(> .r) > :first-child') ?? '')).toEqual(['flex-grow: 0']);
+    expect(declarationsOf(ruleIn(fixture, '.c > :first-child') ?? '')).toEqual(['min-width: 0', 'flex: 1 1 auto']);
+    expect(rulesWithSubject(fixture, 'r')).toEqual([]);
+  });
+});
+
+describe('while an alert row is shown, the Pod bar panel keeps its content width', () => {
+  it('stops the panel growing while an .alertRow is a child of .chrome', () => {
+    const body = ruleIn(chrome, PANEL_BESIDE_ALERT_ROW);
+    expect(body).not.toBeNull();
+    expect(declarationsOf(body ?? '')).toEqual(['flex-grow: 0']);
+  });
+
+  it('leaves the panel exactly as it is with no alert row', () => {
+    expect(declarationsOf(ruleIn(chrome, PANEL) ?? '')).toEqual(['min-width: 0', 'flex: 1 1 auto']);
+  });
+
+  it('sets flex on the panel in those two rules only', () => {
+    const others = rulesOf(chrome).filter(
+      (rule) =>
+        !rule.selectors.includes(PANEL) &&
+        !rule.selectors.includes(PANEL_BESIDE_ALERT_ROW) &&
+        rule.selectors.some((selector) => /:first-child$/.test(selector)),
+    );
+    for (const property of FLEX_PROPERTIES) {
+      expect(others.flatMap((rule) => valuesOf(rule.body, property))).toEqual([]);
+    }
+  });
+
+  it('does not name the fork-error row, which keeps the shared growth', () => {
+    expect(rulesOf(chrome).filter((rule) => rule.selectors.some((s) => s.includes(':has(')))).toEqual([
+      { selectors: [PANEL_BESIDE_ALERT_ROW], body: ruleIn(chrome, PANEL_BESIDE_ALERT_ROW) },
+    ]);
+  });
+});
+
 describe('the open-error and pods-error messages are painted inside the Pod-bar row', () => {
   const body = (): string => ruleIn(chrome, MESSAGE) ?? '';
 
