@@ -84,17 +84,3 @@ describe('the container shows an inset focus ring when keyboard-focused', () => 
     );
   });
 });
-
-describe('the fork-error dismiss control shows a focus ring when keyboard-focused', () => {
-  const FOCUSED = '.dismiss:focus-visible';
-
-  it('has a rule under the exact selector .dismiss:focus-visible', () => {
-    expect(ruleFor(FOCUSED)).not.toBeNull();
-  });
-
-  it('draws the ring at the thick border width in the focus-ring colour', () => {
-    expect(ruleFor(FOCUSED)).toMatch(
-      /outline:\s*var\(--oc-border-thick\)\s+solid\s+var\(--oc-focus-ring\)\s*(;|$)/,
-    );
-  });
-});

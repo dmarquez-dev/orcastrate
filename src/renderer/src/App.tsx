@@ -21,7 +21,12 @@ import { EmptyWorkspace, LoadingWorkspace } from './shell/EmptyWorkspace';
 import { PanelBar } from './shell/PanelBar';
 import { PanelRegion } from './shell/PanelRegion';
 import { PanelCloseGuardProvider, usePanelCloseGuardHost } from './shell/panel-close-guard';
+import { WorkspaceAlerts } from './shell/WorkspaceAlerts';
 import { WorkspaceLayout } from './shell/WorkspaceLayout';
+import { NotificationProvider, useNotify } from './notifications';
+
+/** The key rows S8 and E7 share (`contracts/action-messages.md`). */
+const INTERRUPT_KEY = 'pod-interrupt';
 
 /**
  * The workspace, assembled.
@@ -30,8 +35,25 @@ import { WorkspaceLayout } from './shell/WorkspaceLayout';
  * data to the component that owns that region, and renders nothing itself. The
  * regions come from four different tasks and `WorkspaceLayout` knows about
  * none of them — they arrive as slots (frozen `renderer-view.ts`).
+ *
+ * THE WHOLE TREE SITS INSIDE ONE `NotificationProvider`, which renders the
+ * notification viewport once, after everything else
+ * (`contracts/notifications.ts`). The arranging itself happens one level down,
+ * in `Workspace`, because a component cannot read a context it provides:
+ * `useNotify()` has to be called from below the provider, and the interrupt
+ * outcome below is reported through it.
  */
 export function App(): JSX.Element {
+  return (
+    <NotificationProvider>
+      <Workspace />
+    </NotificationProvider>
+  );
+}
+
+/** `App`'s body: the arranger, rendered inside the notification region. */
+function Workspace(): JSX.Element {
+  const notifier = useNotify();
   const [newPodOpen, setNewPodOpen] = useState(false);
 
   // WHICH PANEL IS OPEN LIVES HERE AND NOWHERE ELSE. It is client interaction
@@ -216,7 +238,17 @@ export function App(): JSX.Element {
             actions.setComposerText(podId, text);
           }}
           onInterrupt={() => {
-            void actions.interruptPod(podId);
+            // Rows S8 and E7 of `contracts/action-messages.md`. The standing
+            // error is cleared as the next interrupt starts, and either outcome
+            // lands on the same key, so a successful retry replaces a failure.
+            notifier.dismiss(INTERRUPT_KEY);
+            void actions.interruptPod(podId).then((result) => {
+              if (result.ok) {
+                notifier.notify({ kind: 'info', message: 'Interrupt sent', key: INTERRUPT_KEY });
+              } else {
+                notifier.notify({ kind: 'error', message: result.error.message, key: INTERRUPT_KEY });
+              }
+            });
           }}
           onSend={() => {
             void actions.sendComposer(podId);
@@ -228,6 +260,7 @@ export function App(): JSX.Element {
 
   return (
     <PanelCloseGuardProvider host={panelGuard}>
+      <WorkspaceAlerts />
       <WorkspaceLayout
         composer={composerNode}
         empty={empty}

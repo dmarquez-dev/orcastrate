@@ -20,8 +20,9 @@ export interface PodBarPanelProps {
   forkingPodIds: ReadonlySet<PodId>;
   onNewPod(): void;
   /**
-   * `WorkspaceActions.reorderPods`. Resolves and never rejects (frozen
-   * `renderer-state.ts`), so there is no `catch` here by design.
+   * Commits a reorder. Resolves and never rejects (frozen `renderer-state.ts`),
+   * so there is no `catch` here by design. The caller reports the outcome; the
+   * panel only reads `settled` to drop its optimistic order.
    */
   reorderPods(orderedPodIds: PodId[]): Promise<ActionResult<void>>;
 }
@@ -34,6 +35,9 @@ export interface PodBarPanelProps {
  * optimistic order is discarded and `tabs` — which the state layer has by then
  * refetched — is what renders, so the bar cannot keep an order the main
  * process rejected. It does not depend on the `tabs` array changing identity.
+ *
+ * It renders no message of its own: `PodsChrome`, which hands `reorderPods`
+ * down, raises the outcome in the notification region.
  */
 export function PodBarPanel({
   tabs,
@@ -47,7 +51,6 @@ export function PodBarPanel({
   reorderPods,
 }: PodBarPanelProps): JSX.Element {
   const [optimisticIds, setOptimisticIds] = useState<PodId[] | null>(null);
-  const [reorderError, setReorderError] = useState<string | null>(null);
   const generation = useRef(0);
   const mounted = useRef(true);
 
@@ -72,12 +75,11 @@ export function PodBarPanel({
   function handleReorder(orderedPodIds: PodId[]): void {
     const ticket = ++generation.current;
     setOptimisticIds(orderedPodIds);
-    setReorderError(null);
 
-    void reorderPods(orderedPodIds).then((result) => {
+    void reorderPods(orderedPodIds).then(() => {
       if (!mounted.current || ticket !== generation.current) return;
+      // Success or failure alike: `tabs` is now the order to show.
       setOptimisticIds(null);
-      setReorderError(result.ok ? null : result.error.message);
     });
   }
 
@@ -94,16 +96,6 @@ export function PodBarPanel({
         onSelect={onSelect}
         tabs={ordered}
       />
-      {reorderError === null ? null : (
-        // The row gives the alert a zero flex basis, and the message is
-        // clamped to two lines (`PodBarPanel.module.css`); `title` keeps the
-        // whole message available.
-        <div className={styles.reorderRow}>
-          <p className={styles.reorderError} role="alert" title={reorderError}>
-            {reorderError}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

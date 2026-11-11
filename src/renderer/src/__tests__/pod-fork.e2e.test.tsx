@@ -8,7 +8,7 @@
  * callback — the question is whether the CHANNEL was reached.
  */
 
-import { act, screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -18,6 +18,7 @@ import type { IpcResult } from '@shared/contracts/ipc';
 import { App } from '../App';
 import type { WorkspaceActions } from '../contracts/renderer-state';
 import { TEST_IDS } from '../contracts/renderer-view';
+import { NOTIFICATION_TEST_IDS } from '../notifications';
 import { PODS_CHROME_TEST_ID } from '../pods/PodsChrome';
 import { POD_TAB_FORK_TEST_ID, POD_TAB_OPEN_TEST_ID } from '../pods/PodTab';
 import { renderedPodIds } from '../pods/test-fixtures';
@@ -331,18 +332,48 @@ describe('a fork that main refuses', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Dismissing the fork-error alert
+// Dismissing the fork-error notification
 // ---------------------------------------------------------------------------
 
-const FORK_FAILURE = 'fork of pod-alpha failed: the SDK could not fork the session';
-const DISMISS_NAME = 'Dismiss fork error';
+/*
+ * The fork error is raised in the notification region (row E4 of the session
+ * `20261111-0156-message-alerting` contract `action-messages.md`), so these
+ * tests drive the region's own `Dismiss notification` control
+ * (`contracts/notifications.ts`, DOM guarantees) on the fork's item.
+ */
 
-/** Every `role="alert"` element whose text is exactly main's fork message. */
-function forkAlerts(): HTMLElement[] {
-  return screen.queryAllByRole('alert').filter((alert) => alert.textContent === FORK_FAILURE);
+const FORK_FAILURE = 'fork of pod-alpha failed: the SDK could not fork the session';
+const DISMISS_NAME = 'Dismiss notification';
+
+function viewport(): HTMLElement {
+  return screen.getByTestId(NOTIFICATION_TEST_IDS.viewport);
 }
 
-/** Mounts Alpha and Bravo, fails a fork of Alpha, and waits for the alert. */
+/** Every `role="alert"` element in the viewport whose text is exactly main's fork message. */
+function forkAlerts(): HTMLElement[] {
+  return within(viewport())
+    .queryAllByRole('alert')
+    .filter((alert) => alert.textContent === FORK_FAILURE);
+}
+
+/** The notification item carrying the fork error; throws when there is not exactly one. */
+function forkItem(): HTMLElement {
+  const items = within(viewport())
+    .queryAllByTestId(NOTIFICATION_TEST_IDS.item)
+    .filter((item) => forkAlerts().some((alert) => item.contains(alert)));
+  const [only] = items;
+  if (items.length !== 1 || only === undefined) {
+    throw new Error(`expected one fork-error notification item, found ${items.length}`);
+  }
+  return only;
+}
+
+/** The fork-error item's dismiss control, found by its accessible name. */
+function forkDismiss(): HTMLElement {
+  return within(forkItem()).getByRole('button', { name: DISMISS_NAME });
+}
+
+/** Mounts Alpha and Bravo, fails a fork of Alpha, and waits for the notification. */
 async function failOneFork(): Promise<void> {
   const user = userEvent.setup();
   const api = stubOrcastrateApi({ pods: listing([ALPHA_POD, BRAVO_POD]) });
@@ -351,82 +382,97 @@ async function failOneFork(): Promise<void> {
 
   await user.click(forkControl(ALPHA));
   await flushPendingWork();
-  await screen.findByRole('alert');
+  await within(viewport()).findByRole('alert');
   expect(forkAlerts()).toHaveLength(1);
 }
 
-describe('the fork-error alert can be dismissed', () => {
-  it('renders a native button named "Dismiss fork error" with the alert', async () => {
+describe('the fork-error notification can be dismissed', () => {
+  it('renders a native button named "Dismiss notification" on the fork-error item', async () => {
     await failOneFork();
 
-    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    const dismiss = forkDismiss();
     expect(dismiss.tagName).toBe('BUTTON');
     expect(dismiss.getAttribute('type')).toBe('button');
+    expect(dismiss.getAttribute('data-testid')).toBe(NOTIFICATION_TEST_IDS.dismiss);
   });
 
-  it('shows the × glyph in an aria-hidden element inside the dismiss button', async () => {
+  it('keeps the dismiss glyph aria-hidden, so the control is named only by its label', async () => {
     await failOneFork();
 
-    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    const dismiss = forkDismiss();
     const hidden = [...dismiss.querySelectorAll('[aria-hidden="true"]')];
-    expect(hidden.map((element) => element.textContent)).toEqual(['×']);
-    expect(dismiss.textContent).toBe('×');
+    expect(hidden.length).toBeGreaterThan(0);
+    // Every visible character of the button sits inside an aria-hidden element.
+    expect(hidden.map((element) => element.textContent).join('')).toBe(dismiss.textContent);
+    expect(dismiss.textContent).not.toBe('');
   });
 
   it('keeps the dismiss button outside the alert, so the alert text is exactly main message', async () => {
     await failOneFork();
 
     const [alert] = forkAlerts();
-    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
-    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    if (alert === undefined) throw new Error('the fork-error notification was not rendered');
+    const dismiss = forkDismiss();
     expect(alert.contains(dismiss)).toBe(false);
     expect(alert.textContent).toBe(FORK_FAILURE);
   });
 
-  it('removes the alert when the dismiss button is clicked', async () => {
+  it('leaves no alert in the Pod header', async () => {
+    await failOneFork();
+
+    expect(within(screen.getByTestId(PODS_CHROME_TEST_ID)).queryAllByRole('alert')).toEqual([]);
+  });
+
+  it('removes the notification when the dismiss button is clicked', async () => {
     const user = userEvent.setup();
     await failOneFork();
 
-    await user.click(screen.getByRole('button', { name: DISMISS_NAME }));
+    await user.click(forkDismiss());
     await flushPendingWork();
 
     expect(forkAlerts()).toEqual([]);
-    expect(screen.queryByRole('button', { name: DISMISS_NAME })).toBeNull();
+    expect(within(viewport()).queryByRole('button', { name: DISMISS_NAME })).toBeNull();
   });
 
-  it('removes the alert when the focused dismiss button is activated with Enter', async () => {
+  it('removes the notification when the focused dismiss button is activated with Enter', async () => {
     const user = userEvent.setup();
     await failOneFork();
 
-    screen.getByRole('button', { name: DISMISS_NAME }).focus();
+    forkDismiss().focus();
     await user.keyboard('{Enter}');
     await flushPendingWork();
 
     expect(forkAlerts()).toEqual([]);
   });
 
-  it('removes the alert when the focused dismiss button is activated with Space', async () => {
+  it('removes the notification when the focused dismiss button is activated with Space', async () => {
     const user = userEvent.setup();
     await failOneFork();
 
-    screen.getByRole('button', { name: DISMISS_NAME }).focus();
+    forkDismiss().focus();
     await user.keyboard(' ');
     await flushPendingWork();
 
     expect(forkAlerts()).toEqual([]);
   });
 
-  it('moves focus to the Pods chrome container after dismissal', async () => {
+  // `contracts/notifications.ts`, FOCUS AFTER A DISMISS-CONTROL ACTIVATION:
+  // with no item left, focus moves to the viewport element.
+  it('moves focus to the notification viewport when the dismissed item was the only one', async () => {
     const user = userEvent.setup();
     await failOneFork();
+    // Present-first: the fork error is the only live item, so the rule's
+    // "no item remains" branch is the one under test.
+    expect(within(viewport()).queryAllByTestId(NOTIFICATION_TEST_IDS.item)).toHaveLength(1);
 
-    const dismiss = screen.getByRole('button', { name: DISMISS_NAME });
+    const dismiss = forkDismiss();
     dismiss.focus();
     expect(document.activeElement).toBe(dismiss);
     await user.keyboard('{Enter}');
     await flushPendingWork();
 
-    expect(document.activeElement).toBe(screen.getByTestId(PODS_CHROME_TEST_ID));
+    expect(within(viewport()).queryAllByTestId(NOTIFICATION_TEST_IDS.item)).toEqual([]);
+    expect(document.activeElement).toBe(viewport());
   });
 
   it('clears the alert as soon as another fork starts, while that fork is still pending', async () => {
@@ -463,24 +509,18 @@ describe('the fork-error alert can be dismissed', () => {
 });
 
 // ---------------------------------------------------------------------------
-// The fork-error alert's text: clamped on screen, whole in `title`, and a
-// direct text node (the hand-run driver builds a `Range` over it)
+// The fork-error message element's text is a direct text node (the hand-run
+// driver builds a `Range` over it). The region shows the whole message, so
+// the `title` the clamped header alert carried is gone with it.
 // ---------------------------------------------------------------------------
 
-describe('the fork-error alert keeps the full message and its text node', () => {
-  it('carries main message verbatim as its title, since the visible text is clamped', async () => {
+describe('the fork-error notification keeps its message as a text node', () => {
+  it('holds main message as a direct text-node child of the viewport message element', async () => {
     await failOneFork();
 
     const [alert] = forkAlerts();
-    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
-    expect(alert.getAttribute('title')).toBe(FORK_FAILURE);
-  });
-
-  it('holds main message as a direct text-node child of the alert', async () => {
-    await failOneFork();
-
-    const [alert] = forkAlerts();
-    if (alert === undefined) throw new Error('the fork-error alert was not rendered');
+    if (alert === undefined) throw new Error('the fork-error notification was not rendered');
+    expect(forkItem().contains(alert)).toBe(true);
     const first = alert.firstChild;
     expect(first).toBeInstanceOf(Text);
     expect(first instanceof Text ? first.data : null).toBe(FORK_FAILURE);

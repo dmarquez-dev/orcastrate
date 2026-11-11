@@ -405,6 +405,33 @@ describe('error discipline (criterion 3)', () => {
     store.stop();
   });
 
+  it('appRoutingMode failure records the SAME IpcError as routingModeError', async () => {
+    const api = stubOrcastrateApi();
+    const error = ipcError('INTERNAL', 'no mode');
+    api.failInvoke('appRoutingMode', error);
+    const store = makeStore(api);
+
+    expect(store.getState().routingModeError).toBeNull();
+    store.start();
+    await flush();
+
+    expect(store.getState().routingModeError).toBe(error);
+    expect(store.getState().routingMode).toBeNull();
+    store.stop();
+  });
+
+  it('appRoutingMode success leaves routingModeError null', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+
+    store.start();
+    await flush();
+
+    expect(store.getState().routingMode).toBe('lanes');
+    expect(store.getState().routingModeError).toBeNull();
+    store.stop();
+  });
+
   it('answers every action with INTERNAL when there is no bridge at all', async () => {
     const store = new WorkspaceStateStore(null);
     expect(store.getState().podsPhase).toBe('error');

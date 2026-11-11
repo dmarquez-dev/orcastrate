@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type JSX } from 'react';
 
 import type { Pod, PodId } from '@shared/contracts/events';
+import type { ActionResult } from '../contracts/renderer-state';
+import { useNotify } from '../notifications';
 import { usePods, useWorkspaceActions } from '../state';
 import { TEST_IDS, type NewPodDraft } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
@@ -30,6 +32,14 @@ export interface PodsChromeProps {
  * side; `PodBar`, `PodTab`, `NewPodDialog` and `DeletePodDialog` below it are
  * presentational and take data and callbacks. Nothing here reaches the preload
  * bridge — the state layer is its only caller (spec, definition-of-done 16).
+ *
+ * OUTCOMES GO TO THE NOTIFICATION REGION. Every Pod-header row of the frozen
+ * `contracts/action-messages.md` (session 20261111-0156-message-alerting,
+ * S1-S7 and E1-E6) is raised here through `useNotify()`, with that file's
+ * wording and key. The region owns those messages; nothing here keeps a copy,
+ * and the header renders no alert element of its own. Create and delete
+ * FAILURES are the exception the contract names: they stay inline in their
+ * dialogs, where the user acted.
  */
 export function PodsChrome({
   dialogOpen,
@@ -38,9 +48,30 @@ export function PodsChrome({
 }: PodsChromeProps): JSX.Element {
   const pods = usePods();
   const actions = useWorkspaceActions();
+  const notifier = useNotify();
   const [createError, setCreateError] = useState<string | null>(null);
-  const [openError, setOpenError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  /*
+   * E1: the Pod list failed. Raised while `pods.phase` is `'error'`, dismissed
+   * as soon as it leaves it. Keyed, so StrictMode's double effect run and any
+   * re-run with the same inputs still leave exactly one item.
+   */
+  const listError = pods.phase === 'error' ? pods.error : null;
+  useEffect(() => {
+    if (listError !== null) {
+      notifier.notify({ kind: 'error', message: listError.message, key: 'pods-load' });
+    } else {
+      notifier.dismiss('pods-load');
+    }
+  }, [notifier, listError]);
+
+  /*
+   * Only the LATEST reorder reports. `PodBarPanel` ignores a superseded
+   * reorder's result for its optimistic order; this does the same for the
+   * notification, so a slow earlier call cannot replace a later outcome.
+   */
+  const reorderGeneration = useRef(0);
 
   // The focus destination of last resort for both dialogs, the same role
   // `BeachcomberPanel`'s `panelRef` plays for its preview. Each dialog can
@@ -61,11 +92,10 @@ export function PodsChrome({
 
   /*
    * The fork's interaction state: which Pods have a fork in flight (their Fork
-   * controls report busy), main's message when one fails, and the new Pod
-   * whose tab should take focus once it renders.
+   * controls report busy), and the new Pod whose tab should take focus once it
+   * renders. A failure's message is the notification region's (E4).
    */
   const [forkingPodIds, setForkingPodIds] = useState<ReadonlySet<PodId>>(() => new Set());
-  const [forkError, setForkError] = useState<string | null>(null);
   const [focusPodId, setFocusPodId] = useState<PodId | null>(null);
 
   /*
@@ -88,11 +118,12 @@ export function PodsChrome({
   /**
    * `forkPod`'s only component caller. Resolves and never rejects (frozen
    * `renderer-state.ts`), so there is no `catch`. On failure the bar is
-   * untouched — the state layer added nothing — and main's message is shown
-   * verbatim.
+   * untouched — the state layer added nothing — and main's message is raised
+   * verbatim (E4). A standing fork outcome is dismissed as the next Fork
+   * activation STARTS, before anything settles.
    */
   function handleFork(podId: PodId): void {
-    setForkError(null);
+    notifier.dismiss('pod-fork');
     setForkingPodIds((current) => new Set(current).add(podId));
     void actions.forkPod(podId).then((result) => {
       setForkingPodIds((current) => {
@@ -101,30 +132,57 @@ export function PodsChrome({
         return next;
       });
       if (!result.ok) {
-        setForkError(result.error.message);
+        notifier.notify({ kind: 'error', message: result.error.message, key: 'pod-fork' });
         return;
       }
+      notifier.notify({
+        kind: 'success',
+        message: `Pod forked: ${result.value.title}`,
+        key: 'pod-fork',
+      });
       setFocusPodId(result.value.id);
     });
-  }
-
-  /**
-   * Closes the fork-error alert. `forkError` is the alert's only visibility
-   * state, so dismissal is clearing it. The control that was pressed unmounts
-   * with the alert, so focus moves to the chrome container, the destination of
-   * last resort above.
-   */
-  function handleDismissForkError(): void {
-    setForkError(null);
-    chromeRef.current?.focus();
   }
 
   function handleSelect(podId: PodId): void {
     actions.setActivePod(podId);
   }
 
+  /**
+   * `closePod` resolves `void`, so the title is read from the row as the stop
+   * starts (S6). A failure is raised verbatim (E6) — it used to be discarded.
+   */
   function handleStop(podId: PodId): void {
-    void actions.closePod(podId);
+    notifier.dismiss('pod-close');
+    const title = pods.value.find((candidate) => candidate.pod.id === podId)?.pod.title;
+    void actions.closePod(podId).then((result) => {
+      if (!result.ok) {
+        notifier.notify({ kind: 'error', message: result.error.message, key: 'pod-close' });
+        return;
+      }
+      // A row that was not listed has no title to name; the stop still happened.
+      if (title === undefined) return;
+      notifier.notify({ kind: 'info', message: `Pod stopped: ${title}`, key: 'pod-close' });
+    });
+  }
+
+  /**
+   * Handed to `PodBarPanel`, which keeps the optimistic order and drops it when
+   * this settles. The outcome is reported here (S7, E5), not in the panel.
+   */
+  function handleReorder(orderedPodIds: PodId[]): Promise<ActionResult<void>> {
+    const ticket = ++reorderGeneration.current;
+    notifier.dismiss('pod-reorder');
+    const reordered = actions.reorderPods(orderedPodIds);
+    void reordered.then((result) => {
+      if (ticket !== reorderGeneration.current) return;
+      if (!result.ok) {
+        notifier.notify({ kind: 'error', message: result.error.message, key: 'pod-reorder' });
+        return;
+      }
+      notifier.notify({ kind: 'success', message: 'Pod order saved', key: 'pod-reorder' });
+    });
+    return reordered;
   }
 
   /**
@@ -154,16 +212,24 @@ export function PodsChrome({
    * this has no `catch` by design — the same shape as `handleCreate` below.
    */
   function handleRun(podId: PodId): void {
-    setOpenError(null);
+    // E2/E3: a standing open outcome goes as the next activation STARTS.
+    notifier.dismiss('pod-open');
     const tab = pods.value.find((candidate) => candidate.pod.id === podId);
     if (tab === undefined) return;
-    const started =
-      runControlFor(tab.status, tab.pod.title).verb === 'reconnect'
-        ? actions.reconnectPod(podId)
-        : actions.openPod(podId);
+    const reconnecting = runControlFor(tab.status, tab.pod.title).verb === 'reconnect';
+    const started = reconnecting ? actions.reconnectPod(podId) : actions.openPod(podId);
     void started.then((result) => {
-      // The row stays listed either way; only the message is new.
-      if (!result.ok) setOpenError(result.error.message);
+      // The row stays listed either way; only the notification is new.
+      if (!result.ok) {
+        notifier.notify({ kind: 'error', message: result.error.message, key: 'pod-open' });
+        return;
+      }
+      const title = result.value.title;
+      notifier.notify({
+        kind: 'info',
+        message: reconnecting ? `Pod reconnected: ${title}` : `Pod started: ${title}`,
+        key: 'pod-open',
+      });
     });
   }
 
@@ -212,6 +278,7 @@ export function PodsChrome({
         return;
       }
       setPendingDelete(null);
+      notifier.notify({ kind: 'success', message: `Pod deleted: ${pod.title}`, key: 'pod-delete' });
     });
   }
 
@@ -256,6 +323,11 @@ export function PodsChrome({
         }
         actions.setActivePod(result.value.id);
         onDismissNewPod();
+        notifier.notify({
+          kind: 'success',
+          message: `Pod created: ${result.value.title}`,
+          key: 'pod-create',
+        });
       });
   }
 
@@ -274,51 +346,9 @@ export function PodsChrome({
         onNewPod={handleNewPod}
         onOpen={handleRun}
         onSelect={handleSelect}
-        reorderPods={actions.reorderPods}
+        reorderPods={handleReorder}
         tabs={pods.value}
       />
-
-      {openError === null ? null : (
-        // Bounded to the Pod-bar row like the fork error below
-        // (`PodsChrome.module.css`, `.alertRow`): the visible text is clamped,
-        // so the whole message is also the `title`, and `{openError}` stays a
-        // direct text-node child for the hand-run driver's `Range`.
-        <div className={styles.alertRow}>
-          <p className={styles.listError} role="alert" title={openError}>
-            {openError}
-          </p>
-        </div>
-      )}
-
-      {forkError === null ? null : (
-        // The dismiss control is a SIBLING of the alert, never inside it, so
-        // the alert's text stays exactly main's message. The visible text is
-        // clamped to the Pod-bar row (`PodsChrome.module.css`), so the whole
-        // message is also the alert's `title`. `{forkError}` stays a direct
-        // text-node child: the hand-run driver builds a `Range` over it.
-        <div className={styles.dismissible}>
-          <p className={styles.listError} role="alert" title={forkError}>
-            {forkError}
-          </p>
-          <button
-            aria-label="Dismiss fork error"
-            className={styles.dismiss}
-            onClick={handleDismissForkError}
-            type="button"
-          >
-            <span aria-hidden="true">{'×'}</span>
-          </button>
-        </div>
-      )}
-
-      {pods.phase === 'error' && pods.error !== null ? (
-        // Bounded as the open error above, with the whole message as `title`.
-        <div className={styles.alertRow}>
-          <p className={styles.listError} role="alert" title={pods.error.message}>
-            {pods.error.message}
-          </p>
-        </div>
-      ) : null}
 
       {pods.phase === 'loading' ? (
         <p className={styles.listStatus} role="status">

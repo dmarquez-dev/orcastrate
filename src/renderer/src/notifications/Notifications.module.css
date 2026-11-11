@@ -1,0 +1,86 @@
+/*
+ * The notification viewport, taken out of flow at the window's bottom-right
+ * corner. It is NOT a full-window overlay: only two edges are pinned, it paints
+ * no background of its own, and so it neither veils nor blocks the window.
+ * `z-index: 3` stacks it above the dialog scrims (1) and Helm's confirm
+ * scrim (2), so an error raised while a dialog is open is still seen.
+ */
+.viewport {
+  position: fixed;
+  z-index: 3;
+  right: var(--oc-space-4);
+  bottom: var(--oc-space-4);
+  display: flex;
+  width: max-content;
+  max-width: calc(var(--oc-lane-rail-width) * 2);
+  flex-direction: column;
+  gap: var(--oc-space-2);
+}
+
+.viewport:focus-visible {
+  outline: var(--oc-border-thick) solid var(--oc-focus-ring);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  padding: var(--oc-space-2) var(--oc-space-3);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-md);
+  background: var(--oc-bg-raised);
+  color: var(--oc-fg-primary);
+  gap: var(--oc-space-2);
+}
+
+.marker {
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-bold);
+}
+
+.message {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 0;
+  font-size: var(--oc-text-sm);
+  overflow-wrap: anywhere;
+}
+
+.dismiss {
+  padding: 0 var(--oc-space-1);
+  border: 0;
+  background: transparent;
+  color: var(--oc-fg-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--oc-text-sm);
+}
+
+.dismiss:hover {
+  color: var(--oc-fg-primary);
+}
+
+.dismiss:focus-visible {
+  outline: var(--oc-border-thick) solid var(--oc-focus-ring);
+}
+
+.error {
+  border-color: var(--oc-danger);
+  background: var(--oc-danger-bg);
+}
+
+.error .marker {
+  color: var(--oc-danger);
+}
+
+.info .marker {
+  color: var(--oc-fg-muted);
+}
+
+.success {
+  border-color: var(--oc-status-done);
+}
+
+.success .marker {
+  color: var(--oc-status-done);
+}

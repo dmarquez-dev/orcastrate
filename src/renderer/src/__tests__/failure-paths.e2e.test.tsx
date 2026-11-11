@@ -19,9 +19,18 @@
  *      which element carries the message and what the app does around it —
  *      the dialog stays open, the draft survives, the card stays.
  *
- * ARITHMETIC. There are TWENTY-TWO invoke channels. FIFTEEN reach a rendered
- * error surface; SEVEN do not. See `SURFACELESS_CHANNELS` for the seven and
- * why each is there. This is a finding about the app, not about the suite.
+ * ARITHMETIC. There are TWENTY-TWO invoke channels. TWENTY reach a rendered
+ * error surface; TWO do not, and those two are exactly `UNREACHABLE_CHANNELS`:
+ * no affordance calls them, so there is no failure to surface. See
+ * `SURFACELESS_CHANNELS` for the two and why each is there. This is a finding
+ * about the app, not about the suite.
+ *
+ * THE NOTIFICATION REGION MOVED FIVE NAMES OFF THE ALLOWLIST (session
+ * 20261111-0156-message-alerting). `podClose`, `podInterrupt`, `laneList`,
+ * `eventsRead` and `appRoutingMode` each used to fail with nothing on screen;
+ * each now raises its `IpcError.message` as an error notification in the
+ * viewport (`contracts/action-messages.md` rows E6-E10), and the focused tests
+ * below say which element carries it.
  *
  * `pod:fork` IS THE TWENTY-SECOND, and it SURFACES: the tab's Fork control
  * calls `forkPod`, and `PodsChrome` renders a refused fork's message above the
@@ -73,11 +82,13 @@ import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { BEACHCOMBER_LOCAL_TEST_IDS } from '../beachcomber';
 import { HELM_SAFETY_TEST_IDS } from '../helm/test-ids';
+import { NOTIFICATION_TEST_IDS } from '../notifications';
 import { DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
 import {
   POD_TAB_DELETE_TEST_ID,
   POD_TAB_FORK_TEST_ID,
   POD_TAB_OPEN_TEST_ID,
+  POD_TAB_STOP_TEST_ID,
 } from '../pods/PodTab';
 import {
   ipcError,
@@ -149,25 +160,24 @@ function laneApi(): StubOrcastrateApi {
  * a surface; adding one makes it demand silence. Neither can happen by
  * accident, which is the point — a comment cannot go stale here.
  *
- *   podUpdate            Only `reorderPods` calls it, and only a drag commits
- *                        a reorder. `PodBarPanel` has the surface; no click
- *                        reaches it.
- *   podClose             `PodsChrome` calls `closePod` as `void actions...`
- *                        and discards the result.
- *   podInterrupt         `App` calls `interruptPod` as `void actions...` and
- *                        discards the result.
+ *   podUpdate            Only `reorderPods` calls it, and only a drag or a
+ *                        Ctrl/Cmd+Arrow keypress on a tab commits a reorder.
+ *                        The reorder failure HAS a surface (row E5 of
+ *                        `contracts/action-messages.md`); this sweep only
+ *                        clicks, so it never reaches the channel.
  *   podSetPermissionMode No affordance changes an existing Pod's mode; the
  *                        dialog's mode picker is create-time only.
- *   laneList             The error reaches `lanesError`, but `LaneRail`
- *                        renders no error at all.
- *   eventsRead           The error reaches `runtime.backfill.error`, which
- *                        nothing reads. `TranscriptPane` DOES render
- *                        `view.error.message`, but that field comes from
- *                        `transcripts[laneId].error`, which the store only
- *                        ever writes as `null` — so the pane's error branch is
- *                        unreachable and the backfill failure is silent.
- *   appRoutingMode       A failure leaves `routingMode` null, which renders
- *                        the waiting `EmptyWorkspace` rather than a message.
+ *
+ * Both are also on `UNREACHABLE_CHANNELS`, and the two lists are now the same
+ * set: every channel the sweep can reach surfaces its failure.
+ *
+ * FIVE NAMES LEFT THIS LIST WITH THE NOTIFICATION REGION. `podClose`,
+ * `podInterrupt`, `laneList`, `eventsRead` and `appRoutingMode` used to fail
+ * silently — a discarded `void actions...` result, an error no component
+ * rendered, a `routingMode` left null behind the loading workspace. Each now
+ * raises an error notification carrying main's message verbatim
+ * (`contracts/action-messages.md` rows E6-E10), and a focused test in "the
+ * message main wrote is the message on screen" pins it inside the viewport.
  *
  * `podDelete` AND `podReconnect` ARE NO LONGER HERE, and `pod-deletion.ts`
  * forbids the first from ever coming back: "a delete that silently does
@@ -180,15 +190,7 @@ function laneApi(): StubOrcastrateApi {
  * focused tests below say which element carries each message. If one of them
  * ever stops surfacing, the fix is the panel, not this list.
  */
-const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = [
-  'podUpdate',
-  'podClose',
-  'podInterrupt',
-  'podSetPermissionMode',
-  'laneList',
-  'eventsRead',
-  'appRoutingMode',
-];
+const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = ['podUpdate', 'podSetPermissionMode'];
 
 /**
  * The subset of `SURFACELESS_CHANNELS` that no affordance calls AT ALL, so
@@ -567,14 +569,14 @@ describe('which channels can say what went wrong', () => {
     expect(new Set(SURFACELESS_CHANNELS).size).toBe(SURFACELESS_CHANNELS.length);
     expect(new Set(UNREACHABLE_CHANNELS).size).toBe(UNREACHABLE_CHANNELS.length);
     expect(SURFACELESS_CHANNELS).toEqual(expect.arrayContaining([...UNREACHABLE_CHANNELS]));
-    // FIFTEEN of TWENTY-TWO surface, and SEVEN do not. Both halves are pinned,
+    // TWENTY of TWENTY-TWO surface, and TWO do not. Both halves are pinned,
     // not just their difference: a channel added to the frozen map without a
     // classification would move the total and be caught here, and a name added
     // to the allowlist would move the other. If either moves, this file's
     // header is stale and saying so is this assertion's whole job.
     expect(INVOKE_KEYS.length).toBe(22);
-    expect(SURFACELESS_CHANNELS.length).toBe(7);
-    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(15);
+    expect(SURFACELESS_CHANNELS.length).toBe(2);
+    expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(20);
     // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
     // `PodStatus` and added a `system` subtype; it added NO channel in either
     // direction, and this is where that stays true. A push channel is not
@@ -651,7 +653,11 @@ describe('every invoke channel failing in turn', () => {
 
     mountWorkspace(api);
 
-    expect(await screen.findByText('the bridge is down')).toBeDefined();
+    // ONE MESSAGE, SEVERAL SURFACES. Every channel fails with the same text,
+    // and each failure the notification region reports (the Pod list and the
+    // routing mode both fail on mount here) raises its own item carrying it,
+    // so the query accepts every match and asks for at least one.
+    expect((await screen.findAllByText('the bridge is down')).length).toBeGreaterThanOrEqual(1);
     await user.click(screen.getByTestId(TEST_IDS.newPodButton));
     expect(await screen.findByTestId(TEST_IDS.newPodDialog)).toBeDefined();
   });
@@ -659,7 +665,7 @@ describe('every invoke channel failing in turn', () => {
 
 /**
  * One test per channel the sweep above classified as HAVING a surface — all
- * FIFTEEN of them. The sweep proves the message reaches some pixel; these prove
+ * TWENTY of them. The sweep proves the message reaches some pixel; these prove
  * WHICH pixel, and what the app does around it.
  */
 describe('the message main wrote is the message on screen', () => {
@@ -674,11 +680,16 @@ describe('the message main wrote is the message on screen', () => {
       'podCreate',
       'podDelete',
       'podOpen',
+      'podClose',
       'podSend',
+      'podInterrupt',
       'podReconnect',
       'podFork',
+      'laneList',
+      'eventsRead',
       'permissionRespond',
       'dialogPickDirectory',
+      'appRoutingMode',
       'beachcomberScan',
       'beachcomberPreview',
       'beachcomberTrash',
@@ -948,7 +959,91 @@ describe('the message main wrote is the message on screen', () => {
       'the decision never reached the Pod',
     );
   });
+
+  /*
+   * THE FIVE CHANNELS THE NOTIFICATION REGION GAVE A SURFACE. Each one's
+   * message is asserted to be the `textContent` of a `role="alert"` element
+   * INSIDE the viewport, verbatim — not merely somewhere on the page, which is
+   * all the classification sweep above can say.
+   */
+  it('shows the pods.close failure as an alert in the notification viewport', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [{ ...POD_ALPHA, status: 'running' }] }) },
+    });
+    api.failInvoke('podClose', ipcError('IO', 'the Pod would not stop'));
+
+    mountWorkspace(api);
+
+    await user.click(await screen.findByTestId(testId(POD_TAB_STOP_TEST_ID, ALPHA_ID)));
+    await flushPendingWork();
+
+    await expectAlertInViewport('the Pod would not stop');
+  });
+
+  it('shows the pods.interrupt failure as an alert in the notification viewport', async () => {
+    const user = userEvent.setup();
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [{ ...POD_BRAVO, status: 'running' }] }) },
+      lanes: { list: async () => ({ ok: true, value: [MATRIARCH] }) },
+    });
+    api.failInvoke('podInterrupt', ipcError('NOT_RUNNING', 'the interrupt never reached the Pod'));
+
+    mountWorkspace(api);
+
+    await user.type(await screen.findByTestId(TEST_IDS.composerInput), '{Escape}');
+    await flushPendingWork();
+
+    await expectAlertInViewport('the interrupt never reached the Pod');
+  });
+
+  it('shows the lanes.list failure as an alert in the notification viewport', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_BRAVO] }) },
+    });
+    api.failInvoke('laneList', ipcError('IO', 'the lane registry could not be read'));
+
+    mountWorkspace(api);
+
+    await expectAlertInViewport('the lane registry could not be read');
+  });
+
+  it('shows the events.read failure as an alert in the notification viewport', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: [POD_BRAVO] }) },
+      lanes: { list: async () => ({ ok: true, value: [MATRIARCH] }) },
+    });
+    api.failInvoke('eventsRead', ipcError('IO', 'the transcript could not be read'));
+
+    mountWorkspace(api);
+
+    await expectAlertInViewport('the transcript could not be read');
+  });
+
+  it('shows the app.routingMode failure as an alert in the notification viewport', async () => {
+    const api = stubOrcastrateApi();
+    api.failInvoke('appRoutingMode', ipcError('INTERNAL', 'the routing mode could not be read'));
+
+    mountWorkspace(api);
+
+    await expectAlertInViewport('the routing mode could not be read');
+  });
 });
+
+/**
+ * Waits for a `role="alert"` element INSIDE the notification viewport whose
+ * `textContent` is exactly `message`. `getByTestId` throws while the region is
+ * absent, so an app that never mounted it cannot satisfy this.
+ */
+async function expectAlertInViewport(message: string): Promise<void> {
+  await waitFor(() => {
+    const viewport = screen.getByTestId(NOTIFICATION_TEST_IDS.viewport);
+    const texts = within(viewport)
+      .queryAllByRole('alert')
+      .map((alert) => alert.textContent);
+    expect(texts).toContain(message);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // The two panels, driven from the assembled app (acceptance criteria 4-9, 15)
