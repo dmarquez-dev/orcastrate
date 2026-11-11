@@ -1,0 +1,251 @@
+{
+  "session": "20261111-0156-message-alerting",
+  "updatedAt": "2026-11-11T19:07:52Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261111-0156-message-alerting",
+  "branch": "agent/20261111-0156-message-alerting",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false (after typecheck:node), exit=0"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  161 passed (161) / Tests  2589 passed (2589), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "✓ built in 918ms, exit=0; git status --short afterwards printed nothing"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "7489152112171423fccb62b85b2a64a209ea1221",
+      "model": "opus",
+      "commit": "fed4297"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "7489152112171423fccb62b85b2a64a209ea1221",
+      "model": "opus",
+      "commit": "28df675"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "fed4297b08cc8019ecf3c813681e7e922f78d548",
+      "model": "opus",
+      "commit": "d9f3c8e"
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "d9f3c8e5a1c26672b54ea1ec951829828ef1a7f8",
+      "model": "opus",
+      "commit": "fbeb36d"
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "fbeb36dcaf9d42ca2c43cfadf38fcdecd04e2d15",
+      "model": "opus",
+      "commit": "3227124"
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "revisionRounds": 0,
+      "startRef": "3227124df3dc05415d2f69856e4aa182b4254253",
+      "model": "opus",
+      "commit": "c200154"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "Which alerting mechanism: in-app notification region (A), OS Notification (B), or A plus OS Notification when unfocused (C)?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "A: in-app notification region, renderer-only",
+          "rationale": "Only option that can guarantee an error always appears; no IPC, no dependency; fits the verbatim-message rule existing tests pin",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "package.json",
+              "src/renderer/src/__tests__/failure-paths.e2e.test.tsx",
+              "src/renderer/src/helm/Notice.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "C: A plus an OS Notification while the window is unfocused",
+          "rationale": "Adds reach for long events but needs a new IPC channel and guarantees nothing extra; better as follow-up",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "B: OS Notification only",
+          "rationale": "Suppressible by OS notification settings, so cannot meet 'always produces an error'; noise for actions in the focused window",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "A: the in-app notification region, as recommended. B and C are deferred to the backlog at Gate 3. At Gate 3 the user dropped both B and C: no backlog row was written."
+    },
+    {
+      "id": "E2",
+      "question": "Do sendComposer and respondToPermission successes get a notification?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "No: the in-context change is the message",
+          "rationale": "The composer clears and a transcript row appears; the permission card is removed by permissionResolved",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/composer/Composer.tsx",
+              "src/renderer/src/permissions/PermissionCardList.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "Yes: an info notification per send and per answer",
+          "rationale": "Literal reading of 'every data-altering action', at the cost of a notification on every turn",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "No notification for sendComposer or respondToPermission success, as recommended."
+    },
+    {
+      "id": "E3",
+      "question": "Is the E10 routing-mode failure, which needs a new WorkspaceStore field, in scope?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Include it as T2",
+          "rationale": "At base a failed app.routingMode leaves the app on the loading workspace forever with no message",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/state/store.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Defer it to the backlog and drop T2",
+          "rationale": "Keeps the store contract untouched; DoD 23-24 and row E10 leave the session",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Include E10 as T2, as recommended."
+    },
+    {
+      "id": "E4",
+      "taskId": "T6",
+      "question": "T6 C2 requires a human check that an error raised WHILE the New Pod or Delete dialog is open is drawn above the scrim; no UI route raises an error while a dialog is open. How should C2 be resolved?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "Accept N5 and amend C2 to 'an error showing while the New Pod or Delete dialog is open'",
+          "rationale": "Stacking is a fixed z-index (3 vs 1/1) with the region rendered after the app, so when the error was raised does not change it",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/renderer/src/notifications/Notifications.module.css",
+              "src/renderer/src/pods/NewPodDialog.module.css",
+              "src/renderer/src/pods/DeletePodDialog.module.css",
+              "src/renderer/src/App.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "Keep C2 and add a staged raised-while-open step (dev trigger or slow network folder)",
+          "rationale": "Meets the letter, at the cost of new machinery or an unreliable timing step for a property option 1 covers",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Leave C2 not met and carry a raised-while-open stacking check to the backlog",
+          "rationale": "Honest about the letter, but defers a check N5 already performs in substance",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Amend C2 to 'an error showing while the New Pod or Delete dialog is open' and accept N5 as written (recommended option)."
+    },
+    {
+      "id": "E5",
+      "taskId": "T5",
+      "question": "T5 C19 says PodBarPanel 'calls no state hook'. Its reviewer met it reading 'state hook' as a state-layer (global) hook, per the cited discipline rule; PodBarPanel still uses React useState for the optimistic order the same criterion preserves. Which reading governs?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "options": [
+        {
+          "summary": "State-layer hook: confirm the reviewer's reading; amend C19 to 'calls no state-layer hook (nothing from ../state)'",
+          "rationale": "Matches the cited rule ('reaching around its props into global state') and the criterion's own preserved optimistic order, which needs local state",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".sir/sessions/20261111-0156-message-alerting/disciplines/frontend.md",
+              "src/renderer/src/pods/PodBarPanel.tsx"
+            ]
+          }
+        },
+        {
+          "summary": "Any React state hook: C19 not met; move the optimistic order out of PodBarPanel",
+          "rationale": "The literal reading; requires a revision of T5 and moving state into PodsChrome",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "State-layer hook: confirm the reviewer's reading and amend C19's wording; PodBarPanel keeps useState (recommended option)."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E4",
+      "artifact": "manifest.json",
+      "before": "T6 C2: ...a check that an error raised while the New Pod or Delete dialog is open is drawn above the dialog scrim.",
+      "after": "T6 C2: ...a check that an error showing while the New Pod or Delete dialog is open is drawn above the dialog scrim.",
+      "inFlight": []
+    },
+    {
+      "id": "A2",
+      "escalation": "E5",
+      "artifact": "manifest.json",
+      "before": "T5 C19: PodBarPanel raises no notification and calls no state hook (frontend discipline...)",
+      "after": "T5 C19: PodBarPanel raises no notification and calls no state-layer hook, meaning nothing imported from ../state; React's own useState for the optimistic order is allowed (frontend discipline...)",
+      "inFlight": []
+    }
+  ],
+  "metrics": {
+    "userInteractions": 5,
+    "escalationsRaised": 5,
+    "reviewRounds": 0
+  }
+}

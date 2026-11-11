@@ -1,0 +1,203 @@
+{
+  "session": "20261111-0156-message-alerting",
+  "createdAt": "2026-11-11T02:33:02Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/notifications.ts",
+    "contracts/workspace-store-routing-error.ts",
+    "contracts/action-messages.md"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Build the in-app notification region",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": ["src/renderer/src/notifications/**"],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 `src/renderer/src/notifications/index.ts` exports `NotificationKind`, `NotificationRequest`, `Notifier`, `NotificationProviderProps`, `NotificationProvider`, `useNotify` and `NOTIFICATION_TEST_IDS` with exactly the names, types and values the frozen `contracts/notifications.ts` declares. At 7489152 the directory does not exist (`ls src/renderer/src/notifications` fails).",
+        "C2 A test under `src/renderer/src/notifications/` renders `NotificationProvider` with an explicit `autoDismissMs`, calls `notify({ kind: 'error', ... })`, advances fake timers by ten times `autoDismissMs`, and asserts the error item is still in the viewport.",
+        "C3 A test asserts an `info` notification is present after `autoDismissMs - 1` ms of fake time and absent after `autoDismissMs` ms.",
+        "C4 A test asserts a `success` notification is present after `autoDismissMs - 1` ms of fake time and absent after `autoDismissMs` ms.",
+        "C5 A test asserts two `notify` calls with the same `key` leave exactly one item in the viewport, carrying the second call's message and `data-kind`, at the first item's DOM position when another item sits after it.",
+        "C6 A test asserts `dismiss(key)` removes the item with that key and leaves every other item, and a second test asserts `dismiss` with a key no live item carries does not throw and changes nothing.",
+        "C7 A test asserts every item, for each of the three kinds, holds a native `<button type=\"button\">` whose accessible name is `Dismiss notification`, that it is not inside the message element, and that clicking it removes that item only.",
+        "C8 A test asserts the message element of an `error` item has `role=\"alert\"`, and of `info` and `success` items has `role=\"status\"`; that its `textContent` equals the message exactly; and that its first child is a `Text` node whose `data` is the message.",
+        "C9 A test asserts each item carries `data-kind` equal to its kind and an `aria-hidden=\"true\"` marker whose text differs between the three kinds (frontend discipline, Accessibility floor: \"Color is never the only carrier of meaning\"; precedent `src/renderer/src/helm/Notice.tsx:18-23`).",
+        "C10 A test asserts the provider renders exactly one element with `data-testid=\"notification-viewport\"` and `aria-label=\"Notifications\"` when no notification has been raised, and that it comes after the provider's children in document order.",
+        "C11 A test asserts `useNotify()` called in a component rendered outside any `NotificationProvider` throws an `Error` whose message contains `NotificationProvider`.",
+        "C12 A test asserts the `Notifier` returned by `useNotify()` is the same object (`Object.is`) across a re-render of its caller.",
+        "C13 A test asserts that after four `info` notifications without keys, three remain and the first one raised is the one gone.",
+        "C14 A test asserts that with one `error` live, four further `info` notifications leave the error in the viewport.",
+        "C15 A test asserts an `info` notification is still present after `autoDismissMs` ms of fake time while the pointer is over the viewport (`mouseEnter`), and is removed once the pointer has left and `autoDismissMs` further ms pass.",
+        "C16 A test asserts an `info` notification is still present after `autoDismissMs` ms of fake time while focus is on one of its dismiss controls.",
+        "C17 A test asserts `notify` of each kind leaves `document.activeElement` unchanged.",
+        "C18 A test asserts that activating the dismiss control of the first of two items moves focus to the remaining item's dismiss control.",
+        "C19 A test asserts that activating the dismiss control of the only item moves focus to the viewport element.",
+        "C20 A test asserts that after unmounting the provider with an `info` notification live, `vi.getTimerCount()` is 0.",
+        "C21 Every `.module.css` file under `src/renderer/src/notifications/` has a styles test beside it that reads the file as text and asserts it references only tokens the `TOKENS` map in `src/renderer/src/contracts/renderer-theme.ts` names (precedent: `src/renderer/src/pods/PodsChrome.styles.test.ts:48`).",
+        "C22 `npx vitest run src/renderer/src/__tests__/hygiene.test.ts` exits 0 with the new stylesheet present. That suite censuses every renderer module stylesheet, and its full-window-scrim test pins exactly four scrim rules (`hygiene.test.ts:1500-1505` at 7489152), so a viewport that is a full-window overlay fails it.",
+        "C23 Schedule safety (T1 runs beside T2, which injects into `src/renderer/src/state/store.ts`): no file under `src/renderer/src/notifications/` imports from `../state`, `../test-utils` or `../__tests__`. Evidence: `grep -rnE \"from '\\.\\./(state|test-utils|__tests__)\" src/renderer/src/notifications` prints nothing; control: the same pattern over `src/renderer/src/pods/PodsChrome.tsx` prints 1 line (its `../state` import, line 4 at 7489152).",
+        "C24 Demonstrated discrimination for C2, C3, C5 and C11: for each, the report names the defect injected into a file under `src/renderer/src/notifications/` (file and line), the command `npx vitest run src/renderer/src/notifications` run under it, the failure observed, and that it was reverted before the next injection.",
+        "C25 `npx vitest run src/renderer/src/notifications` exits 0. No repo-wide `npm test` or `npm run typecheck` is run by this task while T2 is in flight."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "Record a failed routing-mode load on WorkspaceStore",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-state.ts",
+        "src/renderer/src/state/store.ts",
+        "src/renderer/src/state/workspace-provider.tsx",
+        "src/renderer/src/state/store.test.ts",
+        "src/renderer/src/state/panel-provider.test.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1 `WorkspaceStore` in `src/renderer/src/contracts/renderer-state.ts` gains `routingModeError: IpcError | null` with a docblock stating the semantics of the frozen `contracts/workspace-store-routing-error.ts`, and the diff to that file adds nothing else.",
+        "C2 A test in `src/renderer/src/state/store.test.ts` asserts that when `app.routingMode` resolves `{ ok: false, error }`, `routingModeError` is that same `error` object (`toBe`) and `routingMode` is still `null`. The existing test 'appRoutingMode failure leaves routingMode null and does not throw' (`store.test.ts:396` at 7489152) is kept.",
+        "C3 A test asserts `routingModeError` is `null` after `app.routingMode` resolves ok.",
+        "C4 A test reading `useWorkspace()` through the provider asserts `routingModeError` carries the failure's `IpcError` (the value reaches the hook, not only the store).",
+        "C5 The keys pin in `src/renderer/src/state/panel-provider.test.tsx` (`:464` at 7489152) becomes `['actions', 'activePodId', 'pods', 'routingMode', 'routingModeError', 'session']`, and the forbidden-name loop after it is unchanged.",
+        "C6 Demonstrated discrimination: the report names the injection at the failure branch of `loadRoutingMode` (`if (!result.ok) return;`, `src/renderer/src/state/store.ts:312` at 7489152) that leaves `routingModeError` unwritten (type-valid, so a peer's typecheck is unaffected), the command `npx vitest run src/renderer/src/state/store.test.ts` and the C2 failure it produced, and that it was reverted and the revert verified before any wider command ran.",
+        "C7 `npx vitest run src/renderer/src/state` exits 0. No repo-wide `npm test` or `npm run typecheck` is run by this task while T1 is in flight."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Write the message-coverage suite first, red against the base behaviour",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "src/renderer/src/__tests__/message-alerting.e2e.test.tsx",
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx"
+      ],
+      "dependsOn": ["T1", "T2"],
+      "acceptance": [
+        "C1 `src/renderer/src/__tests__/message-alerting.e2e.test.tsx` mounts through `mountWorkspace` (`src/renderer/src/__tests__/harness.tsx:73`) and holds exactly one `it` per row S1-S8, E1-E10 and R1 of the frozen `contracts/action-messages.md` (19 in all), each titled starting with its row id. Count: `grep -cE \"^\\s*it\\('(S[1-8]|E[0-9]+|R1) \" src/renderer/src/__tests__/message-alerting.e2e.test.tsx` prints 19.",
+        "C2 Each S row's test asserts, inside the element with `data-testid=\"notification-viewport\"`, an item with that row's `data-kind` whose message element's `textContent` is that row's wording with `{title}` filled. The wording is a literal in the test file; the file imports no wording from a product module.",
+        "C3 Each E row's test asserts, inside the viewport, an item with `data-kind=\"error\"` and a `role=\"alert\"` message element whose `textContent` is exactly the failing stub's `IpcError.message`.",
+        "C4 The E1-E6 tests each also assert `within(screen.getByTestId('pods-chrome')).queryAllByRole('alert')` is empty.",
+        "C5 Test R1 mounts a Pod whose backfill holds a `system` event with subtype `STARTUP_RECONCILIATION_SUBTYPE` (imported from `src/shared/startup-reconciliation-notice.ts`), waits for that row to render in the transcript, asserts the viewport is present with `screen.getByTestId('notification-viewport')` (a query that throws when it is absent, so R1 cannot pass before the region is mounted), and asserts that viewport holds no item. This encodes the decision that the startup-reconciliation 'No modal, no toast, no dismissible banner' rule stands (preserved, newly tested).",
+        "C6 The E2 and E4 tests each assert the error item is gone once the next run-control (E2) or Fork (E4) activation starts, which is the behaviour `PodsChrome.tsx:157` and `:95` give at 7489152 (preserved, newly tested at the new surface).",
+        "C7 Red step, reproducible by the reviewer at T3 review (before T4 or T5 run): `npx vitest run src/renderer/src/__tests__/message-alerting.e2e.test.tsx` exits non-zero and all 19 tests fail: every S and E test because nothing raises a notification yet, and R1 because `App` does not mount the viewport yet. The report quotes the per-test pass/fail lines.",
+        "C8 In `src/renderer/src/__tests__/failure-paths.e2e.test.tsx`, `SURFACELESS_CHANNELS` (`:183-191` at 7489152) becomes exactly `['podUpdate', 'podSetPermissionMode']`, the members of `UNREACHABLE_CHANNELS`. The count assertions at `:576-577` become 2 and 20, and the header ARITHMETIC paragraph (`:22-24`) and the allowlist docblock are rewritten to the new split.",
+        "C9 The `surfaced` list in 'covers every channel the sweep found a surface for' (`:671-688` at 7489152) gains `podClose`, `podInterrupt`, `laneList`, `eventsRead` and `appRoutingMode`, in `INVOKE_KEYS` declaration order.",
+        "C10 'the message main wrote is the message on screen' gains a test for `podClose` asserting its message is the `textContent` of a `role=\"alert\"` element inside the notification viewport.",
+        "C11 That block gains the same kind of test for `podInterrupt`.",
+        "C12 That block gains the same kind of test for `laneList`.",
+        "C13 That block gains the same kind of test for `eventsRead`.",
+        "C14 That block gains the same kind of test for `appRoutingMode`.",
+        "C15 In 'survives every channel failing at once' (`:654` at 7489152), `findByText('the bridge is down')` becomes a query that accepts several matches and asserts at least one, because several surfaces now show the same message. No other existing assertion in the file is removed or loosened; the report lists every changed line range with the reason.",
+        "C16 `npm run typecheck` exits 0 (nothing else runs beside T3).",
+        "C17 `npx vitest run src/renderer/src/__tests__/hygiene.test.ts` exits 0 with the new test file present."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Mount the region in App and report workspace-level outcomes",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/shell/WorkspaceAlerts.tsx",
+        "src/renderer/src/shell/WorkspaceAlerts.test.tsx"
+      ],
+      "dependsOn": ["T3"],
+      "acceptance": [
+        "C1 `App` renders its whole tree inside one `NotificationProvider` imported from `src/renderer/src/notifications/index.ts`. A test in `src/renderer/src/shell/WorkspaceAlerts.test.tsx` mounting `<App />` through `mountWorkspace` asserts exactly one `notification-viewport` exists and that it is not inside `data-testid=\"pods-chrome\"`.",
+        "C2 `src/renderer/src/shell/WorkspaceAlerts.tsx` exports a component that returns `null` and raises rows E8, E9 and E10 of `contracts/action-messages.md` from `useLaneRail()`, `useWorkspace().session.backfill` and `useWorkspace().routingModeError`; `App` renders it once. `App` stays an arranger (its docblock, `App.tsx:26-33` at 7489152).",
+        "C3 The `onInterrupt` callback in `App.tsx` (`void actions.interruptPod(podId);`, `:219` at 7489152) branches on the result: rows S8 and E7.",
+        "C4 `npx vitest run src/renderer/src/__tests__/message-alerting.e2e.test.tsx -t \"S8\"` passes.",
+        "C5 The same command with `-t \"E7\"` passes.",
+        "C6 The same command with `-t \"E8\"` passes.",
+        "C7 The same command with `-t \"E9\"` passes.",
+        "C8 The same command with `-t \"E10\"` passes.",
+        "C9 The same command with `-t \"R1\"` passes.",
+        "C10 `npx vitest run src/renderer/src/__tests__/failure-paths.e2e.test.tsx -t \"puts the podInterrupt failure\"` passes.",
+        "C11 The same command with `-t \"puts the laneList failure\"` passes.",
+        "C12 The same command with `-t \"puts the eventsRead failure\"` passes.",
+        "C13 The same command with `-t \"puts the appRoutingMode failure\"` passes.",
+        "C14 A test in `WorkspaceAlerts.test.tsx` asserts that under `StrictMode` (which `mountWorkspace` applies, `harness.tsx:64-70`) a single lanes-load failure produces exactly one error item, not two.",
+        "C15 A test asserts the E8 error item is removed when the same Pod's lane load later succeeds.",
+        "C16 Demonstrated discrimination: the report names the injection that restores `void actions.interruptPod(podId);` with no result handling in `App.tsx`, the command `npx vitest run src/renderer/src/__tests__/message-alerting.e2e.test.tsx -t \"E7\"` and the failure observed, and the revert.",
+        "C17 `npm run typecheck` exits 0.",
+        "C18 `npx vitest run src/renderer/src/shell src/renderer/src/notifications src/renderer/src/state` exits 0. `failure-paths.e2e.test.tsx`'s `podClose` sweep test and the message-alerting S1-S7 and E1-E6 tests are expected to stay red until T5, and the report lists their state."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Move the Pod tab header alerts onto the region",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/pods/PodsChrome.tsx",
+        "src/renderer/src/pods/PodsChrome.module.css",
+        "src/renderer/src/pods/PodsChrome.styles.test.ts",
+        "src/renderer/src/pods/PodBarPanel.tsx",
+        "src/renderer/src/pods/PodBarPanel.module.css",
+        "src/renderer/src/pods/PodBarPanel.test.tsx",
+        "src/renderer/src/pods/chrome-alert-layout.styles.test.ts",
+        "src/renderer/src/pods/fork-error-layout.styles.test.ts",
+        "src/renderer/src/pods/reorder-alert-layout.styles.test.ts",
+        "src/renderer/src/pods/fork-ui-regression.styles.test.ts",
+        "src/renderer/src/__tests__/chrome-alerts.e2e.test.tsx",
+        "src/renderer/src/__tests__/pod-fork.e2e.test.tsx"
+      ],
+      "dependsOn": ["T4"],
+      "acceptance": [
+        "C1 `npx vitest run src/renderer/src/__tests__/message-alerting.e2e.test.tsx -t \"S1\"` passes.",
+        "C2 The same command with `-t \"S2\"` passes.",
+        "C3 The same command with `-t \"S3\"` passes.",
+        "C4 The same command with `-t \"S4\"` passes.",
+        "C5 The same command with `-t \"S5\"` passes.",
+        "C6 The same command with `-t \"S6\"` passes.",
+        "C7 The same command with `-t \"S7\"` passes.",
+        "C8 The same command with `-t \"E1 \"` (trailing space, so E10 is not selected) passes, and the run reports exactly one test executed.",
+        "C9 The same command with `-t \"E2\"` passes.",
+        "C10 The same command with `-t \"E3\"` passes.",
+        "C11 The same command with `-t \"E4\"` passes.",
+        "C12 The same command with `-t \"E5\"` passes.",
+        "C13 The same command with `-t \"E6\"` passes.",
+        "C14 `npx vitest run src/renderer/src/__tests__/failure-paths.e2e.test.tsx` exits 0 (this closes the last surfaceless reachable channel, `podClose`).",
+        "C15 `handleStop` no longer discards `closePod`'s result (`void actions.closePod(podId);`, `PodsChrome.tsx:127` at 7489152).",
+        "C16 The in-row alert markup and rules are gone. `grep -cE \"\\b(alertRow|reorderRow|dismissible|reorderError)\\b\"` prints 0 for each of `PodsChrome.tsx`, `PodsChrome.module.css`, `PodBarPanel.tsx` and `PodBarPanel.module.css` (base: 4, 7, 5, 6 at 7489152). Control: the same command over `src/renderer/src/transcript/transcript-filter.ts` prints 1 before and after (prose at `:255`, outside the population).",
+        "C17 `grep -c 'role=\"alert\"'` prints 0 for `src/renderer/src/pods/PodsChrome.tsx` and for `src/renderer/src/pods/PodBarPanel.tsx` (base 3 and 1). Control: the same command over `src/renderer/src/pods/DeletePodDialog.tsx` prints 1 before and after.",
+        "C18 One owner per fact (frontend discipline, State ownership: \"Every piece of state has exactly one owner\"): the open, fork and reorder messages live only in the notification provider. `grep -cE \"\\b(openError|forkError|setOpenError|setForkError)\\b\" src/renderer/src/pods/PodsChrome.tsx` prints 0 (base 16) and `grep -cE \"\\b(reorderError|setReorderError)\\b\" src/renderer/src/pods/PodBarPanel.tsx` prints 0 (base 6).",
+        "C19 `PodBarPanel` raises no notification and calls no state-layer hook, meaning nothing imported from `../state`; React's own `useState` for the optimistic order is allowed (frontend discipline, Component boundaries: \"Props are an interface\"). The reorder outcome is reported by `PodsChrome` from the `reorderPods` call it hands down. `PodBarPanel.test.tsx` keeps a test asserting the optimistic order is dropped on a failed reorder, the behaviour `PodBarPanel.tsx:77-81` gives at 7489152 (preserved).",
+        "C20 The four layout style tests (`chrome-alert-layout`, `fork-error-layout`, `reorder-alert-layout`, `fork-ui-regression`) and `__tests__/chrome-alerts.e2e.test.tsx` are each deleted or rewritten. For each deleted file the report names the CSS rule or DOM shape it pinned that no longer exists, and the T3 row, if any, that now covers its behaviour. In `PodsChrome.styles.test.ts` only the `.dismiss:focus-visible` block (`:88-100` at 7489152) may go, and only if `.dismiss` is removed.",
+        "C21 In `__tests__/pod-fork.e2e.test.tsx` the 'fork-error alert can be dismissed' tests are rewritten against the viewport's `Dismiss notification` control; the test that another fork clears the earlier fork's error (`:432` at 7489152) is kept and passes (preserved); the direct-text-node test (`:479`) is kept against the viewport's message element. The focus test at `:419` is rewritten to the focus rule in `contracts/notifications.ts`. Only the `title` test (`:471`) may be removed, because the region shows the whole message.",
+        "C22 Demonstrated discrimination: the report names the injection that restores `void actions.closePod(podId);` in `handleStop`, the command `npx vitest run src/renderer/src/__tests__/message-alerting.e2e.test.tsx -t \"E6\"` and the failure observed, and the revert.",
+        "C23 `npm run typecheck` exits 0.",
+        "C24 `npm test` exits 0. The report gives the file and test totals it printed."
+      ]
+    },
+    {
+      "id": "T6",
+      "title": "Write the human checks for the region and run the final gate",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "docs/human-checks/message-alerting.md",
+        "docs/human-checks/chrome-alert-width.md"
+      ],
+      "dependsOn": ["T5"],
+      "acceptance": [
+        "C1 `docs/human-checks/message-alerting.md` exists with numbered checks, each with steps and an expected result, that cover what jsdom cannot show: where the viewport sits in the window and that it covers no Pod tab.",
+        "C2 It has a check that an error showing while the New Pod or Delete dialog is open is drawn above the dialog scrim.",
+        "C3 It has a check that an info or success notification leaves on its own and an error stays until dismissed.",
+        "C4 It has a check that a long error message is shown whole and the Pod tab titles keep their width while it shows. The check names the backlog request it settles by its session and its own words (session `20261110-1857-chrome-alert-width`, the request to measure an open-error or pods-error alert shown together with a long reorder alert), never by a `.sir/backlog.md` line number, because Gate 3 removes that row; and it says the measurement is moot because no alert remains in the tab-header row. Evidence: `grep -c 'backlog.md:' docs/human-checks/message-alerting.md` prints 0.",
+        "C5 Before its first step, the file lists every step that creates, deletes or changes anything in the user's real profile, Claude home or disk, with the side effect of each, in the form `docs/human-checks/chrome-alert-width.md:18-63` uses (its 'Before you start' section). No step asks the user to run a console IPC call that deletes or overwrites data.",
+        "C6 `docs/human-checks/chrome-alert-width.md` gains a note before its first section saying the in-row alerts it checks were replaced by the notification region and naming `docs/human-checks/message-alerting.md`, and stating that every `file:line` citation in the file describes the app at commit `7489152` and is not updated. Nothing else in it changes. No line in either file cites a path under `.sir/sessions/`.",
+        "C7 Every `file:line` that `docs/human-checks/message-alerting.md` cites is re-measured at the T5 tip and quoted correctly. `docs/human-checks/chrome-alert-width.md`'s citations are out of this criterion's scope: C6 dates them to `7489152`.",
+        "C8 `npm run typecheck` exits 0.",
+        "C9 `npm test` exits 0, with the file and test totals quoted.",
+        "C10 `npm run build` exits 0."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "id": "20261111-0156-message-alerting",
+  "name": "message-alerting",
+  "scope": "standard",
+  "status": "MERGED",
+  "brief": "Add an in-app notification region to Orcastrate's renderer (errors persist until dismissed; info and success auto-dismiss) and move the Pod tab header's in-row alerts (.alertRow, the fork-error .dismissible, .reorderRow) onto it. Every data-altering Pod action (create, delete, fork, open, reconnect, close, reorder, interrupt) reports success or info, and every unrecoverable failure reports main's message verbatim as an error, including five channels that are silent today (close, interrupt, lanes.list, events.read backfill, app.routingMode, the last via a new WorkspaceStore.routingModeError). Inline dialog and panel messages stay where they are; startup reconciliation stays quiet. Closes the two chrome-alert-width backlog rows.",
+  "started": "2026-11-11T01:56:32Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "77198103-0251-4bf9-a0ea-202916f47cbf",
+      "sir": "1.0.30",
+      "started": "2026-11-11T01:56:32Z",
+      "ended": "2026-11-11T02:06:43Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "685b2dee-b901-46ed-96a7-b896a71fa382",
+      "sir": "1.0.30",
+      "started": "2026-11-11T02:08:33Z",
+      "ended": "2026-11-11T16:56:49Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "685b2dee-b901-46ed-96a7-b896a71fa382",
+      "sir": "1.0.30",
+      "started": "2026-11-11T16:58:54Z",
+      "ended": "2026-11-11T18:49:58Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "de8c71d0-3302-43f0-9906-345590f14867",
+      "sir": "1.0.30",
+      "started": "2026-11-11T18:53:24Z",
+      "ended": "2026-11-11T19:08:49Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 5,
+    "escalationsRaised": 5,
+    "reviewRounds": 0
+  },
+  "pushed": true
+}
