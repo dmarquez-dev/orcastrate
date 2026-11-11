@@ -133,6 +133,8 @@ export interface WorkspaceState {
   podsError: IpcError | null;
   activePodId: PodId | null;
   routingMode: RoutingMode | null;
+  /** The failed `app.routingMode()` answer, unmodified; `null` otherwise. */
+  routingModeError: IpcError | null;
   runtimes: Record<PodId, PodRuntimeState | undefined>;
 }
 
@@ -216,6 +218,8 @@ export class WorkspaceStateStore {
       podsError: bridgeError,
       activePodId: null,
       routingMode: null,
+      // Stays null with no bridge: that case surfaces through `podsError`.
+      routingModeError: null,
       runtimes: {},
     };
     this.actions = this.buildActions();
@@ -304,12 +308,20 @@ export class WorkspaceStateStore {
     for (const unsubscribe of subs) unsubscribe();
   }
 
-  /** Read once at startup, then constant for the app's lifetime. */
+  /**
+   * Read once at startup, then constant for the app's lifetime. The only
+   * writer of `routingModeError`: a failure is recorded as the very `IpcError`
+   * the bridge answered, and `routingMode` stays `null`. No retry.
+   */
   private async loadRoutingMode(): Promise<void> {
     const api = this.api;
     if (api === null) return;
     const result = await safeInvoke(() => api.app.routingMode());
-    if (!result.ok) return;
+    if (!result.ok) {
+      const error = result.error;
+      this.update((state) => ({ ...state, routingModeError: error }));
+      return;
+    }
     const mode = result.value;
     this.update((state) => (state.routingMode === mode ? state : { ...state, routingMode: mode }));
   }

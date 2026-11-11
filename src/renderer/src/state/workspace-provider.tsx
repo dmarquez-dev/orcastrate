@@ -113,6 +113,7 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
       activePodId: state.activePodId,
       session: deriveSession(state, nowMs),
       routingMode: state.routingMode,
+      routingModeError: state.routingModeError,
       actions: store.actions,
     }),
     [state, nowMs, store],

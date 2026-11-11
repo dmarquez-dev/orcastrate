@@ -150,6 +150,21 @@ export interface WorkspaceStore {
    * A consumer MUST NOT hardcode either branch.
    */
   routingMode: RoutingMode | null;
+  /**
+   * Non-null IF AND ONLY IF `app.routingMode()` resolved `{ ok: false }`; it is
+   * then that `IpcError` object, passed through unmodified (same message, same
+   * code), and `routingMode` stays `null`. `null` before the call settles and
+   * after a successful one. One writer: the store's routing-mode load. No retry
+   * exists, so once non-null it stays non-null for the app's lifetime, like
+   * `routingMode` itself.
+   *
+   * No bridge (`api === null`): stays `null` — that case already surfaces
+   * through `pods`' `INTERNAL` error.
+   *
+   * Amendment frozen in session 20261111-0156-message-alerting
+   * (`contracts/workspace-store-routing-error.ts`).
+   */
+  routingModeError: IpcError | null;
   actions: WorkspaceActions;
 }
 

@@ -461,13 +461,47 @@ describe('which panel is open is not workspace state (criterion 13)', () => {
     });
 
     const keys = Object.keys(store ?? {});
-    expect(keys.sort()).toEqual(['actions', 'activePodId', 'pods', 'routingMode', 'session']);
+    expect(keys.sort()).toEqual([
+      'actions',
+      'activePodId',
+      'pods',
+      'routingMode',
+      'routingModeError',
+      'session',
+    ]);
     // Spelled out as well as counted, because the failure this guards against
     // is a field ADDED here that also lives in `App.tsx` — two owners of one
     // fact, which disagree the moment either one moves.
     for (const forbidden of ['panel', 'openPanel', 'activePanel', 'panelKey', 'panelOpen']) {
       expect(keys).not.toContain(forbidden);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A failed routing-mode load reaches the hook, not only the store
+// ---------------------------------------------------------------------------
+
+describe('useWorkspace().routingModeError', () => {
+  it('carries the IpcError a failed app.routingMode() answered', async () => {
+    const api = stubOrcastrateApi();
+    const error = ipcError('INTERNAL', 'routing probe unavailable');
+    api.failInvoke('appRoutingMode', error);
+    // A holder rather than a `let`: TypeScript does not see the assignment
+    // inside `Probe`, and would narrow a bare `let` to `null` here.
+    const latest: { store: Contract.WorkspaceStore | null } = { store: null };
+    function Probe(): ReactNode {
+      latest.store = useWorkspace();
+      return null;
+    }
+    await act(async () => {
+      renderWithWorkspace(<Probe />, { api });
+    });
+
+    const seen = latest.store;
+    if (seen === null) throw new Error('Probe never read useWorkspace()');
+    expect(seen.routingModeError).toBe(error);
+    expect(seen.routingMode).toBeNull();
   });
 });
 
