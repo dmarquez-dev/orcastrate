@@ -579,10 +579,12 @@ describe('which channels can say what went wrong', () => {
     expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(20);
     // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
     // `PodStatus` and added a `system` subtype; it added NO channel in either
-    // direction, and this is where that stays true. A push channel is not
-    // classified for an error surface — pushes carry no envelope — so the only
-    // thing to pin here is the count.
-    expect(Object.keys(EVENT_CHANNELS).length).toBe(6);
+    // direction. The slash-command session then added ONE push channel,
+    // `podCommands`, which carries a Pod's command list to the composer, and
+    // no invoke channel, which is why the invoke total above did not move. A
+    // push channel is not classified for an error surface — pushes carry no
+    // envelope — so the only thing to pin here is the count.
+    expect(Object.keys(EVENT_CHANNELS).length).toBe(7);
   });
 
   it.each(INVOKE_KEYS)(
