@@ -13,8 +13,18 @@
  * item's timer again from the full `autoDismissMs`.
  *
  * FOCUS. `notify` and `dismiss` never move focus. Only the dismiss control
- * does: focus goes to the following item's control, else the preceding one's,
- * else the viewport (contract, "FOCUS AFTER A DISMISS-CONTROL ACTIVATION").
+ * and the action control do, and both to the same target: the following
+ * item's dismiss control, else the preceding one's, else the viewport
+ * (contract, "FOCUS AFTER A DISMISS-CONTROL ACTIVATION").
+ *
+ * ACTION CONTROL. Activating it records that focus target, removes its item
+ * (only that one), then calls `action.onAction()` once. If `onAction`
+ * synchronously calls `notify` with the item's key, the old item is already
+ * gone, so the request adds a new item at the end, and focus still lands on
+ * the recorded target. A keyed replacement takes the new request's `kind`,
+ * `message` AND `action`, so a replacement without `action` removes the
+ * control. An action changes nothing about lifetime, the transient cap or
+ * pausing.
  */
 
 import {
@@ -97,6 +107,7 @@ function addOrReplace(
     ...existing,
     kind: request.kind,
     message: request.message,
+    action: request.action,
     revision: existing.revision + 1,
   };
   return applyTransientCap(next, existing.id);
@@ -206,6 +217,17 @@ export function NotificationProvider({
     remove(id);
   }
 
+  function handleActionControl(id: number): void {
+    const index = items.findIndex((item) => item.id === id);
+    const item = items[index];
+    // A control whose item is no longer in the rendered list has nothing to act on.
+    if (item === undefined || item.action === undefined) return;
+    const neighbour = items[index + 1] ?? items[index - 1];
+    focusAfterRemoval.current = neighbour === undefined ? 'viewport' : neighbour.id;
+    remove(id);
+    item.action.onAction();
+  }
+
   return (
     <NotifierContext.Provider value={notifier}>
       {children}
@@ -224,6 +246,7 @@ export function NotificationProvider({
       >
         {items.map((item) => (
           <NotificationItem
+            action={item.action}
             dismissRef={(element) => {
               if (element === null) dismissControls.current.delete(item.id);
               else dismissControls.current.set(item.id, element);
@@ -231,6 +254,7 @@ export function NotificationProvider({
             key={item.id}
             kind={item.kind}
             message={item.message}
+            onAction={() => handleActionControl(item.id)}
             onDismiss={() => handleDismissControl(item.id)}
           />
         ))}

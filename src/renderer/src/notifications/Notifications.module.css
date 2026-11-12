@@ -54,6 +54,32 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * The optional action control, a text button between the message and the
+ * dismiss control. Tokens only, and the dismiss control's thick focus ring.
+ */
+.action {
+  flex: 0 0 auto;
+  padding: 0 var(--oc-space-2);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-sm);
+  background: var(--oc-bg-panel);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--oc-text-sm);
+  font-weight: var(--oc-weight-medium);
+  white-space: nowrap;
+}
+
+.action:hover {
+  background: var(--oc-bg-hover);
+}
+
+.action:focus-visible {
+  outline: var(--oc-border-thick) solid var(--oc-focus-ring);
+}
+
 .dismiss {
   padding: 0 var(--oc-space-1);
   border: 0;

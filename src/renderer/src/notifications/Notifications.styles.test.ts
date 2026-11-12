@@ -82,7 +82,11 @@ describe('the viewport sits at one corner and is not a full-window overlay', () 
 });
 
 describe('focus rings', () => {
-  for (const selector of ['.viewport:focus-visible', '.dismiss:focus-visible']) {
+  for (const selector of [
+    '.viewport:focus-visible',
+    '.dismiss:focus-visible',
+    '.action:focus-visible',
+  ]) {
     it(`draws a thick focus-ring outline under ${selector}`, () => {
       expect(ruleFor(selector)).toMatch(
         /outline:\s*var\(--oc-border-thick\)\s+solid\s+var\(--oc-focus-ring\)\s*(;|$)/,
