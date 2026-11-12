@@ -6,9 +6,10 @@
  * decides a hue AND a mono glyph, the `helm/Notice.tsx` idiom. The glyph is
  * `aria-hidden` because the message already says what happened.
  *
- * The message element holds `message` as its only child, so its first child is
- * the one Text node React renders for a non-empty string, and the dismiss
- * control is its sibling, never inside it (contract DOM guarantees).
+ * The message element holds nothing but `message`, rendered as given. For a
+ * non-empty message its first child is the one Text node React renders; for an
+ * empty message it has no child nodes and its `textContent` is `''`. The
+ * dismiss control is its sibling, never inside it.
  */
 
 import type { JSX, Ref } from 'react';

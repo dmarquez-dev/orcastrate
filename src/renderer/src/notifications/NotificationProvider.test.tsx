@@ -262,6 +262,20 @@ describe('item structure', () => {
     }
   });
 
+  it('renders an empty message, for every kind, as a message element with no child nodes and empty textContent', () => {
+    renderRegion();
+    for (const kind of KINDS) notify({ kind, message: '' });
+    for (const kind of KINDS) {
+      const item = only(
+        items().filter((one) => one.dataset.kind === kind),
+        `${kind} item`,
+      );
+      const message = messageOf(item);
+      expect(message.childNodes.length).toBe(0);
+      expect(message.textContent).toBe('');
+    }
+  });
+
   it('marks each kind with data-kind and an aria-hidden glyph that differs per kind (C9)', () => {
     renderRegion();
     for (const kind of KINDS) notify({ kind, message: kind });
