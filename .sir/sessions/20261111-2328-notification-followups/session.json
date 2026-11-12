@@ -1,0 +1,47 @@
+{
+  "id": "20261111-2328-notification-followups",
+  "name": "notification-followups",
+  "scope": "standard",
+  "status": "MERGED",
+  "pushed": true,
+  "started": "2026-11-11T23:28:42Z",
+  "ended": null,
+  "brief": "Close three code-level advisories that session 20261111-0156-message-alerting left in .sir/backlog.md about the in-app notification region. First, the empty-message promise: NotificationItem.tsx promises the message element's first child is a Text node, which React does not render for an empty string. Second, the silent stop of an unlisted Pod: PodsChrome.tsx handleStop returns without notifying when the stopped Pod has no row in pods.value. Third, the invisible focus outline on the empty notification viewport: Notifications.module.css gives the focused empty viewport no size. Each row gets one behaviour choice, decided at Gate 2, plus a test. Any behaviour change gets a test that fails at base. The DAG tail carries a repo-wide typecheck and an unscoped suite run. The backlog rows are removed at Gate 3. The Narrator check (row 36), the human checks N3, N5, N6 and N7 step 5, the E8-E10 retry affordance and the src session-id cleanup are out of scope.",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "d8f51316-1b62-4664-a5c2-d8d8c4340292",
+      "phase": "discuss",
+      "sir": "1.0.32",
+      "started": "2026-11-11T23:28:42Z",
+      "ended": "2026-11-11T23:32:17Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "1fcd9cd7-586e-423f-b352-c47401dcf920",
+      "phase": "spec",
+      "sir": "1.0.32",
+      "started": "2026-11-11T23:34:24Z",
+      "ended": "2026-11-11T23:58:50Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "3a008e2b-1fd2-4fa3-b39b-3916ba89dace",
+      "phase": "implement",
+      "sir": "1.0.32",
+      "started": "2026-11-12T00:01:29Z",
+      "ended": "2026-11-12T00:34:33Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "6a8b22f8-bfe3-4320-bed7-68a23972554b",
+      "phase": "review",
+      "sir": "1.0.32",
+      "started": "2026-11-12T00:36:07Z",
+      "ended": "2026-11-12T00:57:40Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 1, "escalationsRaised": 0, "reviewRounds": 0 }
+}

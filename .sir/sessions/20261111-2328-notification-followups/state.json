@@ -1,0 +1,31 @@
+{
+  "session": "20261111-2328-notification-followups",
+  "updatedAt": "2026-11-12T00:57:02Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261111-2328-notification-followups",
+  "branch": "agent/20261111-2328-notification-followups",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false (after typecheck:node), exit=0"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  160 passed (160) / Tests  2605 passed (2605), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "✓ built in 1.03s, exit=0; git status --short afterwards printed nothing"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "292bee64612c30a1a225114b81f2febfb50bbf8e", "model": "opus", "commit": "e22b110be003d7de581c26c0379c9ab44cc1b6a1" },
+    { "id": "T3", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "e22b110be003d7de581c26c0379c9ab44cc1b6a1", "model": "opus", "commit": "c7a7b9dbd10b36ee5a21a13b1723f21c5964e5d3" },
+    { "id": "T2", "status": "done", "revisionRounds": 0, "redispatches": 0, "startRef": "c7a7b9dbd10b36ee5a21a13b1723f21c5964e5d3", "model": "opus", "commit": "af958814e112b66b18c3dbae72b90d299232f87f" }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 0, "reviewRounds": 0 }
+}
