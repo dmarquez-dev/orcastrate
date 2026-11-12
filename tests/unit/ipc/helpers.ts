@@ -130,6 +130,12 @@ export interface HarnessOptions {
    * built on this harness can reach the SDK's real `forkSession` by omission.
    */
   forkSession?: ForkSession;
+  /**
+   * The `supportedCommands` answer for the fake SDK session behind each runner,
+   * chosen per Pod. Default: none, so the session has no command surface and
+   * the runner resolves `null` — no read is logged and nothing is pushed.
+   */
+  supportedCommands?: (podId: PodId) => (() => Promise<unknown>) | undefined;
 }
 
 /** The harness default: refuses, and says why. */
@@ -146,7 +152,11 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
   const runnerCounts = new Map<PodId, number>();
 
   const createRunner: CreatePodRunner = (runnerOptions) => {
-    const fake = makeFakeSdk({ autoInitialize: true });
+    const answer = options.supportedCommands?.(runnerOptions.podId);
+    const fake = makeFakeSdk({
+      autoInitialize: true,
+      ...(answer !== undefined ? { supportedCommands: answer } : {}),
+    });
     sdks.set(runnerOptions.podId, fake);
     runnerCounts.set(runnerOptions.podId, (runnerCounts.get(runnerOptions.podId) ?? 0) + 1);
     return createPodRunnerWith(fake.bridge)(runnerOptions);

@@ -80,7 +80,9 @@ export interface FakeSdk {
    * object's own state.
    */
   readonly promptClosed: boolean;
-  bridge: (params: { prompt: AsyncIterable<unknown>; options: SdkOptions }) => SdkSession;
+  /** How many times the runner called the session's `supportedCommands`. */
+  readonly supportedCommandsCalls: number;
+  bridge:(params: { prompt: AsyncIterable<unknown>; options: SdkOptions }) => SdkSession;
 }
 
 export interface CanUseToolCallOptions {
@@ -96,7 +98,16 @@ export interface CanUseToolCallOptions {
  * directions. `initialized()` is deliberately NOT auto-resolved unless
  * `autoInitialize` is set, so startup failures can be provoked.
  */
-export function makeFakeSdk(opts: { autoInitialize?: boolean } = {}): FakeSdk {
+export interface FakeSdkOptions {
+  autoInitialize?: boolean;
+  /**
+   * The session's `supportedCommands` answer. Omitted, the session has NO
+   * `supportedCommands` member at all — a bridge with no command surface.
+   */
+  supportedCommands?: () => Promise<unknown>;
+}
+
+export function makeFakeSdk(opts: FakeSdkOptions = {}): FakeSdk {
   const calls: { prompt: AsyncIterable<unknown>; options: SdkOptions }[] = [];
   const sent: unknown[] = [];
   const out = new InputQueue<PodStreamItem>();
@@ -110,7 +121,8 @@ export function makeFakeSdk(opts: { autoInitialize?: boolean } = {}): FakeSdk {
   });
   initPromise.catch(() => undefined);
 
-  const state = { interrupts: 0 };
+  const state = { interrupts: 0, supportedCommandsCalls: 0 };
+  const answerCommands = opts.supportedCommands;
   const permissionModes: string[] = [];
 
   const fake: FakeSdk = {
@@ -125,6 +137,9 @@ export function makeFakeSdk(opts: { autoInitialize?: boolean } = {}): FakeSdk {
     },
     get interrupts() {
       return state.interrupts;
+    },
+    get supportedCommandsCalls() {
+      return state.supportedCommandsCalls;
     },
     permissionModes,
     emit(item) {
@@ -199,6 +214,14 @@ export function makeFakeSdk(opts: { autoInitialize?: boolean } = {}): FakeSdk {
         async initialized() {
           await initPromise;
         },
+        ...(answerCommands !== undefined
+          ? {
+              supportedCommands(): Promise<unknown> {
+                state.supportedCommandsCalls += 1;
+                return answerCommands();
+              },
+            }
+          : {}),
       };
     },
   };

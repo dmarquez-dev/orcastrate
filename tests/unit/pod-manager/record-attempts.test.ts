@@ -18,13 +18,14 @@ import type { Pushes } from '../../../src/main/pod-manager';
 import { createPushes } from '../../../src/main/pod-manager';
 import { recordAttempts, type Pushed } from './helpers';
 
-/** The five `Pushes` methods (`src/main/pod-manager/pushes.ts`). */
+/** The `Pushes` methods (`src/main/pod-manager/pushes.ts`); the test below keeps this list whole. */
 const PUSH_METHODS = [
   'podEvent',
   'podStatus',
   'laneChanged',
   'permissionRequested',
   'permissionResolved',
+  'podCommands',
 ] as const satisfies readonly (keyof Pushes)[];
 
 describe('recordAttempts forwards every argument to the underlying method', () => {

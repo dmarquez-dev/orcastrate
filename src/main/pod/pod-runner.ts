@@ -486,6 +486,19 @@ class PodRunnerImpl implements PodRunner {
     return { supported: false };
   }
 
+  /**
+   * The SDK's answer, unvalidated: normalizing it is the manager's job. `null`
+   * when the bridge has no command surface. NOT_RUNNING before `start()` and
+   * after `stop()`, like `send`; the method is `async`, so that throw arrives
+   * as a rejection.
+   */
+  async supportedCommands(): Promise<unknown> {
+    this.#assertRunning('supportedCommands');
+    const session = this.#session;
+    if (session === null || session.supportedCommands === undefined) return null;
+    return session.supportedCommands();
+  }
+
   // -------------------------------------------------------------------------
   // internals
   // -------------------------------------------------------------------------

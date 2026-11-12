@@ -16,6 +16,11 @@ export { createPushes } from './pushes';
 export type { Pushes, SendToRenderer } from './pushes';
 export { ROUTING_MODE } from './routing-mode';
 export {
+  normalizeSlashCommands,
+  SLASH_COMMANDS_READ_TIMEOUT_MS,
+  SlashCommandState,
+} from './slash-commands';
+export {
   STARTUP_RECONCILIATION_REASON,
   STARTUP_RECONCILIATION_SUBTYPE,
 } from './startup-reconciliation';

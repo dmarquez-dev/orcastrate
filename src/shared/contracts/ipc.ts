@@ -124,6 +124,8 @@ export const EVENT_CHANNELS = {
   permissionResolved: 'push:permissionResolved',
   /** Advisory only. See the `helm.ts` header: the watch is never a guard. */
   helmChanged: 'push:helmChanged',
+  /** One Pod's visible slash-command list. See `PodCommandsPush`. */
+  podCommands: 'push:podCommands',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -304,6 +306,41 @@ export interface PermissionResolvedPush {
   outcome: 'allow' | 'allow_always' | 'deny' | 'aborted';
 }
 
+/**
+ * One slash command as the Agent SDK reports it (its `SlashCommand` type),
+ * after main has normalized it. Main is the only normalizer, and these are
+ * its rules:
+ *
+ * - `name` is a non-empty string with no leading slash, which is the SDK's own
+ *   convention. An SDK entry that is not an object, or whose `name` is not a
+ *   non-empty string, is DROPPED, and the entries after it keep their order.
+ * - `description` and `argumentHint` are the SDK's string, or `''` when the
+ *   SDK value is not a string.
+ * - `aliases` holds the string members of the SDK's array, in order. It is
+ *   `[]` when the SDK omits the field or sends something that is not an array.
+ */
+export interface SlashCommandInfo {
+  name: string;
+  description: string;
+  argumentHint: string;
+  aliases: string[];
+}
+
+/**
+ * The WHOLE visible slash-command list for one Pod: a snapshot, not a delta.
+ * Each push replaces whatever the renderer held for that Pod, and pushes for
+ * one Pod arrive in the order main emitted them, so the latest push is the
+ * current list. No push carries a revision.
+ */
+export interface PodCommandsPush {
+  podId: PodId;
+  /**
+   * In the SDK's order, with every command the Pod's latest `system`/`init`
+   * names in `terminal_slash_commands` removed. May be empty.
+   */
+  commands: SlashCommandInfo[];
+}
+
 // ---------------------------------------------------------------------------
 // The object exposed on `window.orcastrate`
 // ---------------------------------------------------------------------------
@@ -436,6 +473,8 @@ export interface OrcastrateApi {
     permissionResolved(cb: (p: PermissionResolvedPush) => void): Unsubscribe;
     /** Advisory. The form goes stale; it does NOT become safe to save. */
     helmChanged(cb: (p: HelmChangedPush) => void): Unsubscribe;
+    /** A Pod's visible slash-command list, whole. The latest push wins. */
+    podCommands(cb: (p: PodCommandsPush) => void): Unsubscribe;
   };
 
   /**
