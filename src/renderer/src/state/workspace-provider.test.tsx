@@ -118,7 +118,9 @@ const ACTION_NAMES = [
   'showLane',
   'hideLane',
   'jumpToLane',
+  'retryLanes',
   'loadMoreEvents',
+  'retryRoutingMode',
   'respondToPermission',
   'pickDirectory',
 ] as const;

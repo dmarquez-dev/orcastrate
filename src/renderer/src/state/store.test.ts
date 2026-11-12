@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest';
 import type { Lane, NormalizedEvent, Pod } from '@shared/contracts/events';
 import type { IpcError, IpcResult, ReadEventsResponse } from '@shared/contracts/ipc';
 import { INVOKE_CHANNELS } from '@shared/contracts/ipc';
+import type { RoutingMode } from '@shared/contracts/lane-router';
 
 import type { ActionResult } from '../contracts/renderer-state';
 import {
@@ -116,8 +117,9 @@ function forceRuntime(
 
 /**
  * Every invoke channel, paired with the action that reaches it. `laneList` and
- * `appRoutingMode` have no action of their own — they are read by the
- * provider's lifecycle — and are asserted separately below.
+ * `appRoutingMode` are also read by the lifecycle — on activation and at
+ * startup, asserted separately below — and are run here through their retry
+ * actions, `retryLanes` and `retryRoutingMode`.
  * `podSetPermissionMode` has no renderer action at all and is named in the
  * coverage sweep instead.
  */
@@ -204,10 +206,24 @@ const ACTION_CASES: ChannelCase[] = [
     },
   },
   {
+    channel: 'laneList',
+    run: (store) => store.actions.retryLanes(POD),
+    reject: (api) => {
+      api.lanes.list = boom;
+    },
+  },
+  {
     channel: 'eventsRead',
     run: (store) => store.actions.loadMoreEvents(POD),
     reject: (api) => {
       api.events.read = boom;
+    },
+  },
+  {
+    channel: 'appRoutingMode',
+    run: (store) => store.actions.retryRoutingMode(),
+    reject: (api) => {
+      api.app.routingMode = boom;
     },
   },
   {
@@ -305,8 +321,6 @@ describe('error discipline (criterion 3)', () => {
   it('covers every invoke channel between the action table and the lifecycle reads', () => {
     const covered = new Set<InvokeChannelKey>(ACTION_CASES.map((c) => c.channel));
     for (const testCase of PANEL_ACTION_CASES) covered.add(testCase.channel);
-    covered.add('laneList');
-    covered.add('appRoutingMode');
     // No renderer action reaches this channel. The store's permission-mode
     // action had no caller (no affordance changes an existing Pod's mode; the
     // dialog's mode picker is create-time only) and was removed, while the
@@ -728,6 +742,243 @@ describe('backfill paging (criterion 7)', () => {
     api.clearInvokeFailure('eventsRead');
     expect((await store.actions.loadMoreEvents(POD)).ok).toBe(true);
     expect(runtimeOf(store).backfill.phase).toBe('ready');
+  });
+
+  it('a loadMoreEvents call after a failed page re-reads the same page with the same arguments', async () => {
+    const api = stubOrcastrateApi();
+    api.failInvoke('eventsRead', ipcError('IO', 'database locked'));
+    const store = makeStore(api);
+
+    await store.actions.loadMoreEvents(POD);
+    api.clearInvokeFailure('eventsRead');
+    await store.actions.loadMoreEvents(POD);
+
+    expect(api.calls.eventsRead).toHaveLength(2);
+    expect(api.calls.eventsRead[1]).toEqual(api.calls.eventsRead[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Retrying a failed lane load or routing-mode read
+// ---------------------------------------------------------------------------
+
+/** A promise whose settlement the test controls. */
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (value: T) => void;
+}
+
+function deferred<T>(): Deferred<T> {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((settle) => {
+    resolve = settle;
+  });
+  return { promise, resolve };
+}
+
+describe('retryLanes', () => {
+  it('after a failed lane load, a successful retry makes the lanes ready with the answer and no error', async () => {
+    const api = stubOrcastrateApi();
+    // Keeps the stub's call recording and `failInvoke`, but answers a real
+    // lane, so `lanes` after the retry cannot equal the empty initial list by
+    // accident.
+    const recorded = api.lanes.list;
+    api.lanes.list = async (podId) => {
+      const result = await recorded(podId);
+      return result.ok ? { ok: true, value: [MATRIARCH] } : result;
+    };
+    api.failInvoke('laneList', ipcError('IO', 'lane list failed'));
+    const store = makeStore(api);
+
+    store.actions.setActivePod(POD);
+    await flush();
+    expect(runtimeOf(store).lanesPhase).toBe('error');
+
+    api.clearInvokeFailure('laneList');
+    const result = await store.actions.retryLanes(POD);
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(runtimeOf(store).lanesPhase).toBe('ready');
+    expect(runtimeOf(store).lanesError).toBeNull();
+    expect(runtimeOf(store).lanes).toEqual([MATRIARCH]);
+    expect(api.calls.laneList).toHaveLength(2);
+  });
+
+  it('a retry that fails again records and resolves the second IpcError object itself', async () => {
+    const api = stubOrcastrateApi();
+    const first = ipcError('IO', 'lane list failed');
+    api.failInvoke('laneList', first);
+    const store = makeStore(api);
+    store.actions.setActivePod(POD);
+    await flush();
+    expect(runtimeOf(store).lanesError).toBe(first);
+
+    const second = ipcError('IO', 'lane list failed again');
+    api.failInvoke('laneList', second);
+    const result = await store.actions.retryLanes(POD);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(second);
+    expect(runtimeOf(store).lanesError).toBe(second);
+    expect(runtimeOf(store).lanesPhase).toBe('error');
+  });
+
+  it('while a retry is in flight the lanes are loading with no error', async () => {
+    const first = ipcError('IO', 'lane list failed');
+    const held = deferred<IpcResult<Lane[]>>();
+    let call = 0;
+    const api = stubOrcastrateApi({
+      lanes: {
+        list: () => {
+          call += 1;
+          return call === 1
+            ? Promise.resolve<IpcResult<Lane[]>>({ ok: false, error: first })
+            : held.promise;
+        },
+      },
+    });
+    const store = makeStore(api);
+    store.actions.setActivePod(POD);
+    await flush();
+    expect(runtimeOf(store).lanesError).toBe(first);
+
+    const retry = store.actions.retryLanes(POD);
+
+    expect(runtimeOf(store).lanesPhase).toBe('loading');
+    expect(runtimeOf(store).lanesError).toBeNull();
+
+    held.resolve({ ok: true, value: [MATRIARCH] });
+    await retry;
+  });
+
+  it('two retries during the activation lane load issue no second lanes.list and resolve its outcome', async () => {
+    const pending: Deferred<IpcResult<Lane[]>>[] = [];
+    const api = stubOrcastrateApi({
+      lanes: {
+        list: () => {
+          const held = deferred<IpcResult<Lane[]>>();
+          pending.push(held);
+          return held.promise;
+        },
+      },
+    });
+    const store = makeStore(api);
+
+    store.actions.setActivePod(POD);
+    const a = store.actions.retryLanes(POD);
+    const b = store.actions.retryLanes(POD);
+    for (const held of pending) held.resolve({ ok: true, value: [MATRIARCH] });
+    const [ra, rb] = await Promise.all([a, b]);
+
+    expect(pending).toHaveLength(1);
+    expect(ra).toEqual({ ok: true, value: undefined });
+    expect(rb).toEqual({ ok: true, value: undefined });
+    expect(runtimeOf(store).lanes).toEqual([MATRIARCH]);
+  });
+});
+
+describe('retryRoutingMode', () => {
+  it('after a failed startup read, a successful retry sets the mode and clears routingModeError', async () => {
+    const api = stubOrcastrateApi();
+    api.failInvoke('appRoutingMode', ipcError('INTERNAL', 'no mode'));
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().routingModeError).not.toBeNull();
+    expect(store.getState().routingMode).toBeNull();
+
+    api.clearInvokeFailure('appRoutingMode');
+    const result = await store.actions.retryRoutingMode();
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(store.getState().routingMode).toBe('lanes');
+    expect(store.getState().routingModeError).toBeNull();
+    expect(api.calls.appRoutingMode).toHaveLength(2);
+    store.stop();
+  });
+
+  it('a retry that fails again records and resolves the second IpcError object itself', async () => {
+    const api = stubOrcastrateApi();
+    const first = ipcError('INTERNAL', 'no mode');
+    api.failInvoke('appRoutingMode', first);
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().routingModeError).toBe(first);
+
+    const second = ipcError('INTERNAL', 'still no mode');
+    api.failInvoke('appRoutingMode', second);
+    const result = await store.actions.retryRoutingMode();
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(second);
+    expect(store.getState().routingModeError).toBe(second);
+    expect(store.getState().routingMode).toBeNull();
+    store.stop();
+  });
+
+  it('while a retry is in flight routingModeError is null', async () => {
+    const first = ipcError('INTERNAL', 'no mode');
+    const held = deferred<IpcResult<RoutingMode>>();
+    let call = 0;
+    const api = stubOrcastrateApi({
+      app: {
+        routingMode: () => {
+          call += 1;
+          return call === 1
+            ? Promise.resolve<IpcResult<RoutingMode>>({ ok: false, error: first })
+            : held.promise;
+        },
+      },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().routingModeError).toBe(first);
+
+    const retry = store.actions.retryRoutingMode();
+
+    expect(store.getState().routingModeError).toBeNull();
+
+    held.resolve({ ok: true, value: 'lanes' });
+    await retry;
+    store.stop();
+  });
+
+  it('after a successful startup read, a retry issues no call and changes nothing', async () => {
+    const api = stubOrcastrateApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(store.getState().routingMode).toBe('lanes');
+
+    const result = await store.actions.retryRoutingMode();
+
+    expect(result).toEqual({ ok: true, value: undefined });
+    expect(api.calls.appRoutingMode).toHaveLength(1);
+    expect(store.getState().routingMode).toBe('lanes');
+    expect(store.getState().routingModeError).toBeNull();
+    store.stop();
+  });
+
+  it('a retry during the startup read issues no second call and resolves the same failure the store records', async () => {
+    const api = stubOrcastrateApi();
+    const error = ipcError('INTERNAL', 'no mode');
+    api.failInvoke('appRoutingMode', error);
+    const store = makeStore(api);
+
+    store.start();
+    const result = await store.actions.retryRoutingMode();
+    await flush();
+
+    expect(api.calls.appRoutingMode).toHaveLength(1);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error).toBe(error);
+    expect(store.getState().routingModeError).toBe(error);
+    store.stop();
   });
 });
 
@@ -1169,7 +1420,9 @@ describe('the pane model (criterion 10)', () => {
       showLane: [POD, 'lane-a'],
       hideLane: [POD, 'lane-a'],
       jumpToLane: [POD, 'lane-a'],
+      retryLanes: [POD],
       loadMoreEvents: [POD],
+      retryRoutingMode: [],
       respondToPermission: [{ podId: POD, requestId: 'r1', decision: 'allow' }],
       pickDirectory: [],
     };
