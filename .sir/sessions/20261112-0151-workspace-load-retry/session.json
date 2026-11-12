@@ -2,9 +2,9 @@
   "id": "20261112-0151-workspace-load-retry",
   "name": "workspace-load-retry",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-12T01:51:40Z",
-  "ended": null,
+  "ended": "2026-11-12T18:00:57Z",
   "parent": null,
   "children": [],
   "runs": [
@@ -39,12 +39,20 @@
       "started": "2026-11-12T17:36:19Z",
       "ended": "2026-11-12T17:56:17Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "b20e608f-4905-4f0f-ae00-88f7fb044c10",
+      "sir": "1.0.33",
+      "started": "2026-11-12T18:00:26Z",
+      "ended": "2026-11-12T18:00:57Z",
+      "outcome": "complete"
     }
   ],
   "metrics": {
-    "userInteractions": 1,
+    "userInteractions": 4,
     "escalationsRaised": 0,
-    "reviewRounds": 0
+    "reviewRounds": 1
   },
   "brief": "Give the workspace-level load-error notifications E8 (lanes.list, key lanes-load:{podId}), E9 (events.read backfill, key events-load:{podId}) and E10 (app.routingMode, key routing-mode) a Retry action, so recovery no longer needs an app restart. The notification API gains an optional, opt-in action that notifications raised without one ignore entirely; the notification item renders it as a keyboard-operable button that moves focus predictably when the item leaves. The workspace store gains public retry entry points for the lane list and the routing mode (the backfill already has one, loadMoreEvents), and a successful routing-mode retry clears routingModeError. WorkspaceAlerts wires each of the three errors to its retry, and E10 is newly dismissed by key once routingModeError clears. Out of scope: the other open backlog rows.",
   "pushed": true
