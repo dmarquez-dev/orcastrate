@@ -49,6 +49,7 @@ import type {
   IpcError,
   PermissionRespondRequest,
   PodDeletionResult,
+  SlashCommandInfo,
   UpdatePodRequest,
 } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
@@ -122,8 +123,8 @@ export interface WorkspaceProviderProps {
 }
 
 /**
- * SUBSCRIPTION GUARANTEE. The provider subscribes to all five push channels
- * exactly once on mount and calls every returned `Unsubscribe` on unmount. No
+ * SUBSCRIPTION GUARANTEE. The provider subscribes to every push channel
+ * `EVENT_CHANNELS` declares exactly once on mount and calls every returned `Unsubscribe` on unmount. No
  * consumer subscribes; a component that calls `window.orcastrate.on.*` is
  * outside this contract and will double-count events.
  */
@@ -784,6 +785,27 @@ export declare function useComposer(): ComposerState | undefined;
  * renders these inline in that lane. Returns `[]` for any other lane.
  */
 export declare function usePermissionCards(laneId: LaneId | null): PermissionCardVm[];
+
+/**
+ * The ACTIVE Pod's latest pushed slash-command list, exactly as the last
+ * `push:podCommands` for that Pod delivered it: same order, same entries, no
+ * filtering or reordering in the renderer.
+ *
+ * - No active Pod, or no push received yet for the active Pod: an empty array.
+ * - Per Pod: a push for Pod B never changes what the hook returns while Pod A
+ *   is active. Making B active returns B's latest list at once, with no IPC
+ *   call.
+ * - A push REPLACES that Pod's list wholesale. An empty push empties it.
+ * - Referentially stable: between two renders with no new push for the
+ *   active Pod and no change of active Pod, it returns the same array object.
+ * - Never throws and issues no IPC call. The list arrives only by push.
+ *
+ * The store subscribes to `on.podCommands` in `start()` together with the
+ * other push channels, and calls the returned unsubscribe exactly once in
+ * `stop()`. A push for a Pod the store holds no record for creates that Pod's
+ * runtime record, as the other per-Pod pushes do.
+ */
+export declare function useSlashCommands(): readonly SlashCommandInfo[];
 
 /** Actions are referentially stable for the provider's lifetime. */
 export declare function useWorkspaceActions(): WorkspaceActions;

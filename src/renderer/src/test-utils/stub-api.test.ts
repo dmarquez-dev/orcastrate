@@ -11,7 +11,12 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { EVENT_CHANNELS, INVOKE_CHANNELS, type IpcResult } from '@shared/contracts/ipc';
+import {
+  EVENT_CHANNELS,
+  INVOKE_CHANNELS,
+  type IpcResult,
+  type PodCommandsPush,
+} from '@shared/contracts/ipc';
 import { BEACHCOMBER_ROOTS } from '@shared/contracts/beachcomber';
 
 import {
@@ -58,7 +63,7 @@ describe('stubOrcastrateApi — coverage of the frozen surface', () => {
 
   it('maps every EVENT_CHANNELS member to a stub subscriber', () => {
     expect(Object.keys(EVENT_CHANNEL_METHODS).sort()).toEqual([...eventKeys].sort());
-    expect(eventKeys.length).toBe(6);
+    expect(eventKeys.length).toBe(7);
   });
 
   it('covers all 22 invoke channels, so the stub cannot lag the surface', () => {
@@ -141,6 +146,32 @@ describe('stubOrcastrateApi — driving pushes', () => {
     off();
     api.emit.podStatus({ podId: 'pod-1', status: 'idle' });
     expect(calls).toBe(1);
+  });
+
+  it('fans one podCommands push object out to every subscriber, and none after unsubscribe', () => {
+    const api = stubOrcastrateApi();
+    const first: PodCommandsPush[] = [];
+    const second: PodCommandsPush[] = [];
+    const offFirst = api.on.podCommands((p) => first.push(p));
+    api.on.podCommands((p) => second.push(p));
+
+    const push: PodCommandsPush = {
+      podId: 'pod-1',
+      commands: [{ name: 'compact', description: 'Compact the context', argumentHint: '', aliases: [] }],
+    };
+    api.emit.podCommands(push);
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    expect(first[0]).toBe(push);
+    expect(second[0]).toBe(push);
+
+    offFirst();
+    expect(api.listenerCount('podCommands')).toBe(1);
+    const later: PodCommandsPush = { podId: 'pod-1', commands: [] };
+    api.emit.podCommands(later);
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(2);
+    expect(second[1]).toBe(later);
   });
 });
 

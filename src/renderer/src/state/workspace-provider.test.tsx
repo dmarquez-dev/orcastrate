@@ -2,7 +2,7 @@
 
 /**
  * The React half of the state layer: the provider's mount/unmount contract,
- * the seven hooks, and every derivation that turns raw store state into the
+ * the focused hooks, and every derivation that turns raw store state into the
  * view models the frozen `renderer-state.ts` declares.
  *
  * The behavioural rules (error discipline, merge, permissions, selection) are
@@ -38,6 +38,7 @@ import {
   usePermissionCards,
   usePodSession,
   usePods,
+  useSlashCommands,
   useTranscript,
   useWorkspace,
   useWorkspaceActions,
@@ -73,6 +74,7 @@ const surface: {
   useTranscript: typeof Contract.useTranscript;
   useComposer: typeof Contract.useComposer;
   usePermissionCards: typeof Contract.usePermissionCards;
+  useSlashCommands: typeof Contract.useSlashCommands;
   useWorkspaceActions: typeof Contract.useWorkspaceActions;
   steerPrefill: typeof Contract.steerPrefill;
   // The panel seams, declared by the second frozen contract file. Same rule:
@@ -90,6 +92,7 @@ const surface: {
   useTranscript,
   useComposer,
   usePermissionCards,
+  useSlashCommands,
   useWorkspaceActions,
   steerPrefill,
   useBeachcomber,
@@ -180,9 +183,10 @@ function countingApi(): CountingApi {
   const subscribes: Record<string, number> = {};
   const unsubscribes: Record<string, number> = {};
   const base = stubOrcastrateApi();
-  // Read off the FROZEN constant rather than listed by hand, so a seventh push
-  // channel cannot be added without this guarantee extending to cover it. It is
-  // six today: the five workspace channels plus `helmChanged`.
+  // Read off the FROZEN constant rather than listed by hand, so a push channel
+  // cannot be added without this guarantee extending to cover it: the workspace
+  // store's channels, `podCommands` among them, plus the panel store's
+  // `helmChanged`.
   const names = Object.keys(EVENT_CHANNELS) as (keyof StubOrcastrateApi['on'])[];
 
   for (const name of names) {

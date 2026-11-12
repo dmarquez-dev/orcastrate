@@ -1,5 +1,5 @@
 /**
- * `WorkspaceProvider` and the seven focused hooks — the whole access path the
+ * `WorkspaceProvider` and the focused hooks — the whole access path the
  * frozen `renderer-state.ts` declares. Consumers import from here (or from the
  * `state/` barrel) and never from `store.ts`.
  *
@@ -9,8 +9,8 @@
  *     clamping, `elapsedMs`, `highWaterSeq`, `opened`, `disabled`. None of
  *     them is stored, so none of them can go stale.
  *
- * SUBSCRIPTION GUARANTEE: the provider subscribes to all five push channels
- * exactly once on mount and calls every returned `Unsubscribe` on unmount. No
+ * SUBSCRIPTION GUARANTEE: the provider subscribes to every push channel
+ * `EVENT_CHANNELS` declares exactly once on mount and calls every returned `Unsubscribe` on unmount. No
  * consumer subscribes.
  */
 
@@ -25,7 +25,7 @@ import {
 } from 'react';
 
 import type { Lane, LaneId, PodId, PodStatus } from '@shared/contracts/events';
-import type { OrcastrateApi } from '@shared/contracts/ipc';
+import type { OrcastrateApi, SlashCommandInfo } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
 
 import type {
@@ -45,13 +45,26 @@ import type {
 import { highWaterSeq } from './merge';
 import { PanelProvider } from './panel-provider';
 import { orderLanes, orderPods } from './ordering';
-import { WorkspaceStateStore, type PodRuntimeState, type WorkspaceState } from './store';
+import {
+  NO_SLASH_COMMANDS,
+  WorkspaceStateStore,
+  type PodRuntimeState,
+  type WorkspaceState,
+} from './store';
 
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
 
 const WorkspaceContext = createContext<WorkspaceStore | null>(null);
+
+/**
+ * The active Pod's slash-command list, on a context of its own because
+ * `WorkspaceStore` does not carry it. Its value is the very array the store
+ * holds for the active Pod, so it changes identity only when a push for the
+ * active Pod lands or the active Pod changes.
+ */
+const SlashCommandsContext = createContext<readonly SlashCommandInfo[]>(NO_SLASH_COMMANDS);
 
 /** How often a RUNNING lane's `elapsedMs` is recomputed. */
 const ELAPSED_TICK_MS = 1000;
@@ -106,6 +119,9 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
   // The timer is owned here, once, rather than by each row: a finished lane's
   // elapsed time is frozen and stops re-rendering.
   const nowMs = useElapsedClock(hasRunningLane);
+  // Read straight off the raw record: a Pod with no push holds the shared
+  // empty array, and so does "no Pod active".
+  const slashCommands = activeRuntime?.slashCommands ?? NO_SLASH_COMMANDS;
 
   const value = useMemo<WorkspaceStore>(
     () => ({
@@ -121,7 +137,9 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
 
   return (
     <WorkspaceContext.Provider value={value}>
-      <PanelProvider api={resolved}>{children}</PanelProvider>
+      <SlashCommandsContext.Provider value={slashCommands}>
+        <PanelProvider api={resolved}>{children}</PanelProvider>
+      </SlashCommandsContext.Provider>
     </WorkspaceContext.Provider>
   );
 }
@@ -391,6 +409,19 @@ export function usePermissionCards(laneId: LaneId | null): PermissionCardVm[] {
     const cards = pending.filter((card) => card.laneId === laneId);
     return cards.length === 0 ? EMPTY_CARDS : cards;
   }, [pending, laneId]);
+}
+
+/**
+ * The active Pod's latest pushed slash-command list, as delivered: same order,
+ * same entries. Empty when no Pod is active or no push has arrived for the
+ * active Pod. The same array object across renders until a push for the
+ * active Pod lands or the active Pod changes. Issues no IPC call — the list
+ * arrives only by push — and, like every hook here, must be rendered inside
+ * `<WorkspaceProvider>`.
+ */
+export function useSlashCommands(): readonly SlashCommandInfo[] {
+  useWorkspace();
+  return useContext(SlashCommandsContext);
 }
 
 /** Referentially stable for the provider's lifetime. */
