@@ -1,0 +1,60 @@
+{
+  "session": "20261112-0151-workspace-load-retry",
+  "updatedAt": "2026-11-12T17:56:17Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261112-0151-workspace-load-retry",
+  "branch": "agent/20261112-0151-workspace-load-retry",
+  "verification": [
+    {
+      "command": "npm run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false (after typecheck:node), exit=0"
+    },
+    {
+      "command": "npm test",
+      "runnable": true,
+      "probe": "Test Files  161 passed (161) / Tests  2613 passed (2613), exit=0"
+    },
+    {
+      "command": "npm run build",
+      "runnable": true,
+      "probe": "✓ built in 923ms, exit=0; git status --short afterwards printed nothing"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "startRef": "e2e3b0a",
+      "commit": "95863f8",
+      "model": "opus",
+      "note": "Round 1 committed 5a24334. Round 2, the Gate 3 fix-now of advisory A1-T1 (the index.ts header), committed 95863f8."
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "e2e3b0a",
+      "commit": "c88f4cc",
+      "model": "opus"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "c88f4cc",
+      "commit": "68ef24e",
+      "model": "opus"
+    }
+  ],
+  "escalations": [],
+  "amendments": [],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 0,
+    "reviewRounds": 1
+  }
+}
