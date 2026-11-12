@@ -139,6 +139,7 @@ describe('Composer.module.css', () => {
       'border: 0',
       'border: var(--oc-border-hairline) solid var(--oc-border)',
       'border: var(--oc-border-hairline) solid var(--oc-border-strong)',
+      'border: var(--oc-border-hairline) solid var(--oc-border-strong)',
     ]);
   });
 
