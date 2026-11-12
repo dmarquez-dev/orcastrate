@@ -151,6 +151,12 @@ export function PodsChrome({
   /**
    * `closePod` resolves `void`, so the title is read from the row as the stop
    * starts (S6). A failure is raised verbatim (E6) — it used to be discarded.
+   *
+   * A Pod that `pods.value` does not hold is still stopped: `closePod` is
+   * called for it, and a successful stop raises the untitled info
+   * `Pod stopped`, with the same key `pod-close`, because there is no title to
+   * name. The rendered Pod bar never delivers such an id — it renders only
+   * rows of `pods.value` — so this branch is defensive, not a user path.
    */
   function handleStop(podId: PodId): void {
     notifier.dismiss('pod-close');
@@ -160,8 +166,12 @@ export function PodsChrome({
         notifier.notify({ kind: 'error', message: result.error.message, key: 'pod-close' });
         return;
       }
-      // A row that was not listed has no title to name; the stop still happened.
-      if (title === undefined) return;
+      // An unlisted Pod has no title to name, but the stop happened: raise the
+      // untitled info `Pod stopped`, keyed `pod-close` like the titled one.
+      if (title === undefined) {
+        notifier.notify({ kind: 'info', message: 'Pod stopped', key: 'pod-close' });
+        return;
+      }
       notifier.notify({ kind: 'info', message: `Pod stopped: ${title}`, key: 'pod-close' });
     });
   }
