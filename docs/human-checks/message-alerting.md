@@ -155,7 +155,7 @@ corner and covers no Pod tab, no part of the Pod bar and no part of the panel st
 4. Read the message. It should be shown whole: the full folder path, every character of it,
    with nothing cut off and no "…" at the end. A long message wraps onto as many lines as
    it needs inside the notification (`overflow-wrap: anywhere`,
-   `src/renderer/src/notifications/Notifications.module.css:46`), whose width is at most
+   `src/renderer/src/notifications/Notifications.module.css:54`), whose width is at most
    480 px (`max-width`, `:15`; `--oc-lane-rail-width` is 240 px,
    `src/renderer/src/styles/tokens.css:190`). You do not need to hover to read it.
 5. Compare the Pod bar with your screenshot from step 2. Every Pod tab title is as wide as
@@ -251,15 +251,17 @@ step 4, both without focus moving to them.
 2. Click once on the error's text, not on its ×. Then press `Tab`. Focus should land on the
    notification's × button. If it lands somewhere else, keep pressing `Tab` until it reaches
    the ×.
-3. Look at the ×. It shows a blue outline (`src/renderer/src/notifications/Notifications.module.css:63-65`;
+3. Look at the ×. It shows a blue outline (`src/renderer/src/notifications/Notifications.module.css:71-73`;
    `--oc-border-thick` is 2 px, `src/renderer/src/styles/tokens.css:164`; `--oc-focus-ring`,
    `:57`).
 4. Press `Enter`. The notification goes. It was the only one, so focus moves to the region
    itself (`src/renderer/src/notifications/NotificationProvider.tsx:187-188`), which shows
-   the same outline (`src/renderer/src/notifications/Notifications.module.css:20-22`).
-5. Look at the bottom-right corner, about 16 px in from each edge. The region is empty now
-   and has no padding, so, from reading its CSS, its outline should be only a small blue
-   square about 4 px across. This size was not measured.
+   the same outline (`src/renderer/src/notifications/Notifications.module.css:26-30`).
+5. Look at the bottom-right corner, about 16 px in from each edge. The region is empty now,
+   but while it is focused it is at least `--oc-space-6` wide and high
+   (`src/renderer/src/notifications/Notifications.module.css:27-28`; `--oc-space-6` is
+   24 px, `src/renderer/src/styles/tokens.css:140`). So, from reading its CSS, its outline
+   should be a blue square about 24 px across. This size was not measured.
 
 **Passes when:** you see the outline on the × at step 3 and an outline at the bottom-right
 corner at step 4. Say whether the step-4 outline is big enough to notice.

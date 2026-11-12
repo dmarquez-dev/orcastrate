@@ -17,7 +17,15 @@
   gap: var(--oc-space-2);
 }
 
+/*
+ * Focus lands on the region itself when its last notification is dismissed, and
+ * an empty region has no size, so its outline would be a speck. The minimum size
+ * applies only under focus, so the unfocused region never becomes a fixed box in
+ * the corner that catches clicks.
+ */
 .viewport:focus-visible {
+  min-width: var(--oc-space-6);
+  min-height: var(--oc-space-6);
   outline: var(--oc-border-thick) solid var(--oc-focus-ring);
 }
 
