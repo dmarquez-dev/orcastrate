@@ -90,3 +90,38 @@ describe('focus rings', () => {
     });
   }
 });
+
+/**
+ * The space tokens of 16px or more (`--oc-space-4` 16px, `--oc-space-6` 24px,
+ * `--oc-space-8` 32px in `../styles/tokens.css`). The smaller steps are 4px, 8px
+ * and 12px, and an empty focused region sized by one of those is a speck.
+ */
+const MIN_FOCUS_SIZE_TOKENS = ['--oc-space-4', '--oc-space-6', '--oc-space-8'];
+
+/** The token named by a `property: var(--token);` declaration in `body`, or `null`. */
+function singleTokenFor(body: string | null, property: string): string | null {
+  const match = new RegExp(`(^|[;\\s])${property}:\\s*var\\((--[\\w-]+)\\)\\s*(;|$)`).exec(
+    body ?? '',
+  );
+  return match?.[2] ?? null;
+}
+
+describe('the empty region keeps a visible size only while it is focused', () => {
+  for (const property of ['min-width', 'min-height']) {
+    it(`when focused, the viewport declares ${property} as one space token of 16px or more`, () => {
+      const token = singleTokenFor(ruleFor('.viewport:focus-visible'), property);
+      expect(token).not.toBeNull();
+      expect(MIN_FOCUS_SIZE_TOKENS).toContain(token);
+    });
+  }
+
+  it('when unfocused, the viewport declares no minimum size, height or padding and keeps its content width', () => {
+    const body = ruleFor('.viewport');
+    expect(body).not.toBeNull();
+    expect(body).not.toMatch(/(^|[;\s])(min-width|min-height|height|padding(-[\w-]+)?)\s*:/);
+    expect(body).toMatch(/(^|[;\s])width:\s*max-content\s*;/);
+    expect(body).toMatch(
+      /(^|[;\s])max-width:\s*calc\(var\(--oc-lane-rail-width\)\s*\*\s*2\)\s*;/,
+    );
+  });
+});
