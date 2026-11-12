@@ -18,6 +18,7 @@ import {
   NOTIFICATION_TEST_IDS,
   NotificationProvider,
   useNotify,
+  type NotificationAction,
   type NotificationKind,
   type NotificationProviderProps,
   type NotificationRequest,
@@ -131,7 +132,9 @@ describe('the public surface (C1)', () => {
       kind: NotificationKind;
       message: string;
       key?: string;
+      action?: NotificationAction;
     }>();
+    expectTypeOf<NotificationAction>().toEqualTypeOf<{ label: string; onAction: () => void }>();
     expectTypeOf<Notifier['notify']>().toEqualTypeOf<(request: NotificationRequest) => void>();
     expectTypeOf<Notifier['dismiss']>().toEqualTypeOf<(key: string) => void>();
     expectTypeOf<NotificationProviderProps>().toEqualTypeOf<{
@@ -429,5 +432,188 @@ describe('unmount', () => {
     expect(vi.getTimerCount()).toBeGreaterThan(0);
     view.unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+function itemWith(message: string): HTMLElement {
+  return only(
+    items().filter((one) => messageOf(one).textContent === message),
+    `item with message ${JSON.stringify(message)}`,
+  );
+}
+
+function actionControlOf(item: HTMLElement, label: string): HTMLElement {
+  return within(item).getByRole('button', { name: label });
+}
+
+function noop(): void {}
+
+describe('an item without an action', () => {
+  it('has, for every kind, exactly a marker, a message element without an id, and a dismiss button, in that order', () => {
+    renderRegion();
+    for (const kind of KINDS) notify({ kind, message: `${kind} text` });
+    for (const kind of KINDS) {
+      const item = only(
+        items().filter((one) => one.dataset.kind === kind),
+        `${kind} item`,
+      );
+      const children = [...item.children];
+      expect(children).toHaveLength(3);
+      const [marker, message, dismissButton] = children;
+      expect(marker?.tagName).toBe('SPAN');
+      expect(marker?.getAttribute('aria-hidden')).toBe('true');
+      expect(message).toBe(messageOf(item));
+      expect(message?.hasAttribute('id')).toBe(false);
+      expect(dismissButton).toBe(dismissControlOf(item));
+      expect(item.querySelectorAll('button')).toHaveLength(1);
+    }
+  });
+});
+
+describe('the action control', () => {
+  it('renders as a native button labelled only by its text, between the message and the dismiss control', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'Could not load lanes', action: { label: 'Retry', onAction: noop } });
+    const item = only(items(), 'item');
+    const children = [...item.children];
+    expect(children).toHaveLength(4);
+    const [marker, message, control, dismissButton] = children;
+    expect(marker?.tagName).toBe('SPAN');
+    expect(marker?.getAttribute('aria-hidden')).toBe('true');
+    expect(message).toBe(messageOf(item));
+    expect(dismissButton).toBe(dismissControlOf(item));
+    expect(control).toBeInstanceOf(HTMLButtonElement);
+    expect(control?.getAttribute('type')).toBe('button');
+    expect(control?.textContent).toBe('Retry');
+    expect(actionControlOf(item, 'Retry')).toBe(control);
+    expect(control?.hasAttribute('aria-label')).toBe(false);
+    expect(control?.hasAttribute('aria-labelledby')).toBe(false);
+    expect(messageOf(item).contains(control ?? null)).toBe(false);
+    expect(messageOf(item).textContent).toBe('Could not load lanes');
+    expect(messageOf(item).childNodes.length).toBe(1);
+  });
+
+  it('describes each of two same-labelled action controls by its own item’s message element', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'Lanes failed', action: { label: 'Retry', onAction: noop } });
+    notify({ kind: 'error', message: 'Events failed', action: { label: 'Retry', onAction: noop } });
+    for (const text of ['Lanes failed', 'Events failed']) {
+      const item = itemWith(text);
+      const id = actionControlOf(item, 'Retry').getAttribute('aria-describedby') ?? '';
+      expect(id).not.toBe('');
+      expect(document.getElementById(id)).toBe(messageOf(item));
+    }
+  });
+
+  it('on click calls onAction once and removes only its own item', () => {
+    renderRegion();
+    const onAction = vi.fn();
+    notify({ kind: 'error', message: 'before' });
+    notify({ kind: 'error', message: 'acted on', action: { label: 'Retry', onAction } });
+    notify({ kind: 'info', message: 'after' });
+    fireEvent.click(actionControlOf(itemWith('acted on'), 'Retry'));
+    expect(onAction).toHaveBeenCalledTimes(1);
+    expect(messages()).toEqual(['before', 'after']);
+  });
+
+  it('on click of the middle of three items moves focus to the following item’s dismiss control', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'first' });
+    notify({ kind: 'error', message: 'middle', action: { label: 'Retry', onAction: noop } });
+    notify({ kind: 'error', message: 'last' });
+    fireEvent.click(actionControlOf(itemWith('middle'), 'Retry'));
+    expect(document.activeElement).toBe(dismissControlOf(itemWith('last')));
+  });
+
+  it('on click of the last of two items moves focus to the preceding item’s dismiss control', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'first' });
+    notify({ kind: 'error', message: 'last', action: { label: 'Retry', onAction: noop } });
+    fireEvent.click(actionControlOf(itemWith('last'), 'Retry'));
+    expect(document.activeElement).toBe(dismissControlOf(itemWith('first')));
+  });
+
+  it('on click of the only item moves focus to the viewport', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'only', action: { label: 'Retry', onAction: noop } });
+    fireEvent.click(actionControlOf(only(items(), 'item'), 'Retry'));
+    expect(items()).toEqual([]);
+    expect(document.activeElement).toBe(viewport());
+  });
+
+  it('when onAction re-notifies the same key, leaves one item with the new message and action and focuses the viewport', () => {
+    renderRegion();
+    notify({
+      kind: 'error',
+      message: 'Could not load',
+      key: 'k',
+      action: {
+        label: 'Retry',
+        onAction: () =>
+          latest().notify({
+            kind: 'error',
+            message: 'Still could not load',
+            key: 'k',
+            action: { label: 'Retry again', onAction: noop },
+          }),
+      },
+    });
+    fireEvent.click(actionControlOf(only(items(), 'item'), 'Retry'));
+    const item = only(items(), 'item');
+    expect(messageOf(item).textContent).toBe('Still could not load');
+    expect(actionControlOf(item, 'Retry again')).toBeInstanceOf(HTMLButtonElement);
+    expect(document.activeElement).toBe(viewport());
+  });
+});
+
+describe('the action control under keyed replacement', () => {
+  it('takes the replacement’s label and callback, never calling the replaced callback', () => {
+    renderRegion();
+    const first = vi.fn();
+    const second = vi.fn();
+    notify({ kind: 'error', message: 'one', key: 'k', action: { label: 'First', onAction: first } });
+    notify({ kind: 'error', message: 'two', key: 'k', action: { label: 'Second', onAction: second } });
+    const item = only(items(), 'item');
+    const control = actionControlOf(item, 'Second');
+    expect(control.textContent).toBe('Second');
+    fireEvent.click(control);
+    expect(second).toHaveBeenCalledTimes(1);
+    expect(first).toHaveBeenCalledTimes(0);
+  });
+
+  it('is removed when the replacement carries no action, leaving only the dismiss button', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'one', key: 'k', action: { label: 'Retry', onAction: noop } });
+    notify({ kind: 'error', message: 'two', key: 'k' });
+    const item = only(items(), 'item');
+    expect(item.querySelectorAll('button')).toHaveLength(1);
+    expect(item.querySelector('button')).toBe(dismissControlOf(item));
+    expect(messageOf(item).textContent).toBe('two');
+  });
+
+  it('is added when the replacement carries an action the replaced item lacked', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'one', key: 'k' });
+    notify({ kind: 'error', message: 'two', key: 'k', action: { label: 'Retry', onAction: noop } });
+    const item = only(items(), 'item');
+    expect(actionControlOf(item, 'Retry').textContent).toBe('Retry');
+  });
+});
+
+describe('the action control and lifetimes', () => {
+  it('removes an info with an action at exactly autoDismissMs', () => {
+    renderRegion();
+    notify({ kind: 'info', message: 'info with action', action: { label: 'Undo', onAction: noop } });
+    advance(MS - 1);
+    expect(messages()).toEqual(['info with action']);
+    advance(1);
+    expect(items()).toEqual([]);
+  });
+
+  it('keeps an error with an action after ten times autoDismissMs', () => {
+    renderRegion();
+    notify({ kind: 'error', message: 'error with action', action: { label: 'Retry', onAction: noop } });
+    advance(MS * 10);
+    expect(messages()).toEqual(['error with action']);
   });
 });

@@ -201,6 +201,15 @@ export class WorkspaceStateStore {
   private readonly inflightSend = new Map<PodId, Promise<ActionResult<void>>>();
   private readonly inflightFork = new Map<PodId, Promise<ActionResult<Pod>>>();
   private readonly inflightRespond = new Set<string>();
+  /**
+   * The one `lanes.list` per Pod that may be in flight, whoever started it —
+   * the activation load in `setActivePod` or `retryLanes`. A call made while
+   * one is registered here resolves that load's outcome instead of issuing a
+   * second read.
+   */
+  private readonly inflightLanes = new Map<PodId, Promise<ActionResult<void>>>();
+  /** The one `app.routingMode()` that may be in flight: startup's or a retry's. */
+  private inflightRoutingMode: Promise<ActionResult<void>> | null = null;
 
   readonly actions: WorkspaceActions;
 
@@ -309,21 +318,43 @@ export class WorkspaceStateStore {
   }
 
   /**
-   * Read once at startup, then constant for the app's lifetime. The only
-   * writer of `routingModeError`: a failure is recorded as the very `IpcError`
-   * the bridge answered, and `routingMode` stays `null`. No retry.
+   * The routing-mode read. Issued by `start()` and, after that read failed,
+   * by `retryRoutingMode` — the second writer of `routingModeError`, and the
+   * only other one. A failure is recorded as the very `IpcError` the bridge
+   * answered, and `routingMode` stays `null`; a success sets the mode, which
+   * is constant from then on, and leaves `routingModeError` `null`.
+   *
+   * At most one read is in flight: a call made while one is registered in
+   * `inflightRoutingMode` resolves that read's outcome.
    */
-  private async loadRoutingMode(): Promise<void> {
+  private async loadRoutingMode(): Promise<ActionResult<void>> {
     const api = this.api;
-    if (api === null) return;
-    const result = await safeInvoke(() => api.app.routingMode());
-    if (!result.ok) {
-      const error = result.error;
-      this.update((state) => ({ ...state, routingModeError: error }));
-      return;
+    if (api === null) return this.failClosed<void>();
+    const inflight = this.inflightRoutingMode;
+    if (inflight !== null) return inflight;
+
+    const promise = (async (): Promise<ActionResult<void>> => {
+      const result = await safeInvoke(() => api.app.routingMode());
+      if (!result.ok) {
+        const error = result.error;
+        this.update((state) => ({ ...state, routingModeError: error }));
+        return result;
+      }
+      const mode = result.value;
+      this.update((state) =>
+        state.routingMode === mode && state.routingModeError === null
+          ? state
+          : { ...state, routingMode: mode, routingModeError: null },
+      );
+      return { ok: true, value: undefined };
+    })();
+
+    this.inflightRoutingMode = promise;
+    try {
+      return await promise;
+    } finally {
+      this.inflightRoutingMode = null;
     }
-    const mode = result.value;
-    this.update((state) => (state.routingMode === mode ? state : { ...state, routingMode: mode }));
   }
 
   // --- push handlers -------------------------------------------------------
@@ -830,6 +861,18 @@ export class WorkspaceStateStore {
         store.actions.showLane(podId, laneId);
       },
 
+      /**
+       * Re-reads `lanes.list` for the Pod in any lane phase, through the same
+       * `loadLanes` the activation uses — so it makes the same synchronous
+       * `'loading'`/`null` write, records a failure as the same `IpcError`
+       * object, and coalesces into a read already in flight for that Pod,
+       * `setActivePod`'s included. It does not activate the Pod, does not
+       * touch `activePodId`, and does not read the backfill.
+       */
+      retryLanes(podId: PodId): Promise<ActionResult<void>> {
+        return store.loadLanes(podId);
+      },
+
       // --- Events ---------------------------------------------------------
 
       /**
@@ -892,6 +935,29 @@ export class WorkspaceStateStore {
         } finally {
           store.inflightBackfill.delete(podId);
         }
+      },
+
+      // --- Routing mode -----------------------------------------------------
+
+      /**
+       * Re-reads `app.routingMode()` while the mode is unresolved. A NO-OP once
+       * `routingMode` is non-null: the mode is constant from then on. A call
+       * while a read is in flight — the startup read included — coalesces into
+       * it. Otherwise `routingModeError` becomes `null` HERE, synchronously and
+       * before the call, so it is `null` for as long as the read is in flight
+       * and a subscriber sees it change even when the bridge answers the same
+       * error object twice.
+       */
+      async retryRoutingMode(): Promise<ActionResult<void>> {
+        const api = store.api;
+        if (api === null) return store.failClosed<void>();
+        if (store.state.routingMode !== null) return { ok: true, value: undefined };
+        const inflight = store.inflightRoutingMode;
+        if (inflight !== null) return inflight;
+        store.update((state) =>
+          state.routingModeError === null ? state : { ...state, routingModeError: null },
+        );
+        return store.loadRoutingMode();
       },
 
       // --- Permissions ------------------------------------------------------
@@ -976,31 +1042,55 @@ export class WorkspaceStateStore {
     });
   }
 
-  private async loadLanes(podId: PodId): Promise<void> {
+  /**
+   * The lane read for one Pod, from `setActivePod`'s first activation and from
+   * `retryLanes`. `lanesPhase` becomes `'loading'` and `lanesError` `null`
+   * synchronously, before the call. A failure records the very `IpcError`
+   * object and leaves the existing `lanes` as they were; a success replaces
+   * them and repairs the pane model.
+   *
+   * At most one read per Pod is in flight: a call made while one is
+   * registered in `inflightLanes` writes nothing and resolves that read's
+   * outcome.
+   */
+  private async loadLanes(podId: PodId): Promise<ActionResult<void>> {
     const api = this.api;
-    if (api === null) return;
-    this.patchRuntime(podId, (runtime) => ({
-      ...runtime,
-      lanesPhase: 'loading',
-      lanesError: null,
-    }));
-    const result = await safeInvoke(() => api.lanes.list(podId));
-    if (!result.ok) {
+    if (api === null) return this.failClosed<void>();
+    const inflight = this.inflightLanes.get(podId);
+    if (inflight !== undefined) return inflight;
+
+    const promise = (async (): Promise<ActionResult<void>> => {
       this.patchRuntime(podId, (runtime) => ({
         ...runtime,
-        lanesPhase: 'error',
-        lanesError: result.error,
-      }));
-      return;
-    }
-    this.patchRuntime(podId, (runtime) =>
-      repairSelection({
-        ...runtime,
-        lanes: result.value,
-        lanesPhase: 'ready',
+        lanesPhase: 'loading',
         lanesError: null,
-      }),
-    );
+      }));
+      const result = await safeInvoke(() => api.lanes.list(podId));
+      if (!result.ok) {
+        this.patchRuntime(podId, (runtime) => ({
+          ...runtime,
+          lanesPhase: 'error',
+          lanesError: result.error,
+        }));
+        return result;
+      }
+      this.patchRuntime(podId, (runtime) =>
+        repairSelection({
+          ...runtime,
+          lanes: result.value,
+          lanesPhase: 'ready',
+          lanesError: null,
+        }),
+      );
+      return { ok: true, value: undefined };
+    })();
+
+    this.inflightLanes.set(podId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.inflightLanes.delete(podId);
+    }
   }
 }
 

@@ -140,8 +140,9 @@ export interface WorkspaceStore {
   /** Undefined when no Pod is active, or the active Pod has not been opened. */
   session: PodSessionView | undefined;
   /**
-   * Resolved once at startup from `app.routingMode()`, then constant for the
-   * app's lifetime (frozen contract, `ipc.ts`). `null` while unresolved.
+   * `null` while unresolved. Resolved from `app.routingMode()` by the startup
+   * read or, after that read failed, by a successful `retryRoutingMode()`;
+   * constant for the app's lifetime from then on (frozen contract, `ipc.ts`).
    *
    * 'lanes'  -> render the lane rail and route events per lane.
    * 'inline' -> spec 4.3's fallback: every event carries the Matriarch's
@@ -151,18 +152,16 @@ export interface WorkspaceStore {
    */
   routingMode: RoutingMode | null;
   /**
-   * Non-null IF AND ONLY IF `app.routingMode()` resolved `{ ok: false }`; it is
-   * then that `IpcError` object, passed through unmodified (same message, same
-   * code), and `routingMode` stays `null`. `null` before the call settles and
-   * after a successful one. One writer: the store's routing-mode load. No retry
-   * exists, so once non-null it stays non-null for the app's lifetime, like
-   * `routingMode` itself.
+   * Non-null IF AND ONLY IF the most recent SETTLED routing-mode read — the
+   * startup read or `retryRoutingMode()` — resolved `{ ok: false }`, and no
+   * retry is in flight; it is then that `IpcError` object, passed through
+   * unmodified (same message, same code), and `routingMode` stays `null`.
+   * `null` before the startup read settles, while a retry is in flight, and
+   * after a success. Writers: the startup read and `retryRoutingMode`, nothing
+   * else.
    *
    * No bridge (`api === null`): stays `null` — that case already surfaces
    * through `pods`' `INTERNAL` error.
-   *
-   * Amendment frozen in session 20261111-0156-message-alerting
-   * (`contracts/workspace-store-routing-error.ts`).
    */
   routingModeError: IpcError | null;
   actions: WorkspaceActions;
@@ -677,14 +676,61 @@ export interface WorkspaceActions {
    */
   jumpToLane(podId: PodId, laneId: LaneId): void;
 
+  /**
+   * Re-reads `lanes.list(podId)` for that Pod, in any lane phase.
+   *
+   * - Synchronously, before the call is issued, the Pod's `lanesPhase` becomes
+   *   `'loading'` and its `lanesError` becomes `null` — the same writes the
+   *   activation load makes.
+   * - `{ ok: false }`: `lanesPhase` `'error'`, `lanesError` that very
+   *   `IpcError` object; resolves `{ ok: false, error }` with the same object.
+   *   The Pod's existing `lanes` are left as they were.
+   * - `{ ok: true }`: `lanes` become the answer, `lanesPhase` `'ready'`,
+   *   `lanesError` `null`, and the lane selection is repaired exactly as the
+   *   activation load repairs it; resolves `{ ok: true, value: undefined }`.
+   * - COALESCES: a call while a `lanes.list` for the same Pod is in flight —
+   *   the one `setActivePod` starts included — issues no second call and
+   *   resolves that load's outcome.
+   * - Does not activate the Pod, does not change `activePodId`, and does not
+   *   read the backfill.
+   */
+  retryLanes(podId: PodId): Promise<ActionResult<void>>;
+
   // --- Events -------------------------------------------------------------
 
   /**
-   * Fetches the next backfill page for the active Pod. A no-op when
-   * `backfill.hasMore` is false or a page is already in flight. Concurrent
-   * calls coalesce into one request.
+   * Fetches the next backfill page for the Pod. The no-op is keyed on
+   * `backfill.phase === 'ready' && !backfill.hasMore` ONLY: a page that came
+   * back is the only proof of exhaustion. After a failed read the phase is
+   * `'error'` and `cursorSeq` is unchanged, so a call re-reads the very page
+   * that failed — this is the backfill's retry. While a page is in flight a
+   * call coalesces into it. The phase becomes `'loading'` with `error` `null`
+   * before the call; a failure sets `'error'` with that very `IpcError`; a
+   * success sets `'ready'`.
    */
   loadMoreEvents(podId: PodId): Promise<ActionResult<void>>;
+
+  // --- Routing mode -------------------------------------------------------
+
+  /**
+   * Re-reads `app.routingMode()` when the mode is still unresolved.
+   *
+   * - `routingMode` already non-null: NO-OP. No IPC call, no state change;
+   *   resolves `{ ok: true, value: undefined }`. The mode, once read, is
+   *   constant for the app's lifetime.
+   * - COALESCES with a routing-mode read already in flight (the startup read
+   *   included): no second call; resolves that read's outcome.
+   * - Otherwise, synchronously before the call is issued, `routingModeError`
+   *   becomes `null`, so it is `null` for as long as the read is in flight.
+   * - `{ ok: false }`: `routingModeError` becomes that very `IpcError` object
+   *   — and because it passed through `null` while in flight, a subscriber
+   *   sees it change even when the bridge answers the same object twice — and
+   *   `routingMode` stays `null`; resolves `{ ok: false, error }` with the same
+   *   object.
+   * - `{ ok: true }`: `routingMode` becomes the answer and `routingModeError`
+   *   is `null`; resolves `{ ok: true, value: undefined }`.
+   */
+  retryRoutingMode(): Promise<ActionResult<void>>;
 
   // --- Permissions --------------------------------------------------------
 
