@@ -113,6 +113,13 @@ class LaneRouterImpl implements LaneRouter {
   private readonly byToolUseId = new Map<ToolUseId, LaneId>();
   private readonly byAgentId = new Map<AgentId, LaneId>();
 
+  /**
+   * True once an `assistant_text` has been routed to the Matriarch lane since
+   * the last `result` (or since construction). Set in `emit`, read and reset in
+   * `routeResult`. See `routeResult` for why it exists.
+   */
+  private matriarchTextSinceResult = false;
+
   constructor(options: LaneRouterOptions) {
     this.podId = options.podId;
     this.matriarchLaneId = options.matriarchLaneId;
@@ -404,9 +411,31 @@ class LaneRouterImpl implements LaneRouter {
    * that lane's id. A `task_progress` with no `tool_use_id`, or one naming a
    * lane this router has not registered, falls back to the Matriarch and is
    * never dropped, exactly as an unknown `parent_tool_use_id` does.
+   *
+   * `local_command_output` is the output of a local slash command, declared by
+   * the SDK as `SDKLocalCommandOutputMessage` and described there as
+   * "Displayed as assistant-style text in the transcript". So when its
+   * `content` is a non-empty string it becomes ONE Matriarch `assistant_text`
+   * carrying that string, IN PLACE OF the `system` event. When `content` is
+   * absent, empty or not a string there is nothing to display as text, and
+   * the message keeps the ordinary Matriarch `system` event below. The
+   * `assistant_text` goes through `emit`, so it also counts as Matriarch text
+   * for the bypassed-turn test in `routeResult`: the command's result does not
+   * repeat what its local output already showed.
    */
   private routeSystem(message: Record<string, unknown>, out: NewEvent[]): void {
     const subtype = str(message, 'subtype') ?? 'unknown';
+
+    if (subtype === 'local_command_output') {
+      const content = str(message, 'content');
+      if (content !== null && content.length > 0) {
+        this.emit(out, this.matriarchLaneId, 'assistant_text', {
+          type: 'assistant_text',
+          text: content,
+        }, message);
+        return;
+      }
+    }
 
     if (subtype === 'task_progress') {
       // `emit` materializes the resolved lane before appending, so criterion 7's
@@ -494,9 +523,32 @@ class LaneRouterImpl implements LaneRouter {
    * The turn's `result` message. This produces a transcript event only — it
    * does NOT close lanes. Orphan closing belongs to `onTurnBoundary()`, which
    * the contract makes the caller's explicit call, and which is idempotent.
+   *
+   * A turn that BYPASSED the model loop (a local slash command such as an
+   * unavailable `/theme`) produces no `assistant` message: its only text is the
+   * `result` string. So that string is emitted as a Matriarch `assistant_text`
+   * BEFORE the unchanged `system` `result:success` event, when ALL of these
+   * hold: `subtype` is `'success'`, `is_error` is not `true`, the `result` is
+   * a non-empty string, and both halves of the bypass discriminator agree —
+   *
+   *   1. `terminal_reason` is unset. The SDK's `TerminalReason` is documented
+   *      "Unset when the loop was bypassed (local slash command)"; any value,
+   *      `'completed'` included, means the loop ran and its text already
+   *      arrived as `assistant` messages.
+   *   2. No `assistant_text` was routed to the Matriarch lane since the
+   *      previous `result`. This keeps a CLI that never sends
+   *      `terminal_reason` from showing every reply twice: a turn that ran the
+   *      loop has already emitted the Matriarch's text. Text routed to a Calf
+   *      lane is not the Matriarch's reply and does not count.
+   *
+   * The Matriarch-text record is reset at EVERY `result`, error or not, so
+   * each turn is judged on its own text. An `is_error` result yields only its
+   * `error` event, as it always has.
    */
   private routeResult(message: Record<string, unknown>, out: NewEvent[]): void {
     const subtype = str(message, 'subtype') ?? 'unknown';
+    const matriarchTextThisTurn = this.matriarchTextSinceResult;
+    this.matriarchTextSinceResult = false;
 
     if (message['is_error'] === true) {
       out.push(
@@ -507,6 +559,23 @@ class LaneRouterImpl implements LaneRouter {
         }, message),
       );
       return;
+    }
+
+    const resultText = str(message, 'result');
+    const loopBypassed = message['terminal_reason'] === undefined || message['terminal_reason'] === null;
+    if (
+      subtype === 'success' &&
+      resultText !== null &&
+      resultText.length > 0 &&
+      loopBypassed &&
+      !matriarchTextThisTurn
+    ) {
+      out.push(
+        this.event(this.matriarchLaneId, 'assistant_text', {
+          type: 'assistant_text',
+          text: resultText,
+        }, message),
+      );
     }
 
     out.push(
@@ -671,6 +740,10 @@ class LaneRouterImpl implements LaneRouter {
   /**
    * Appends an event, materializing its lane first so criterion 7's ordering
    * guarantee holds for every path, not just the dispatch path.
+   *
+   * It also records Matriarch `assistant_text` for `routeResult`'s bypassed-turn
+   * test. The lane checked is the ROUTED one, before inline mode collapses it,
+   * so a Calf's text never counts as the Matriarch's reply in either mode.
    */
   private emit(
     out: NewEvent[],
@@ -679,6 +752,9 @@ class LaneRouterImpl implements LaneRouter {
     payload: EventPayload,
     raw?: unknown,
   ): void {
+    if (type === 'assistant_text' && laneId === this.matriarchLaneId) {
+      this.matriarchTextSinceResult = true;
+    }
     const state = this.states.get(laneId);
     if (state) this.materialize(out, state);
     out.push(this.event(laneId, type, payload, raw));
