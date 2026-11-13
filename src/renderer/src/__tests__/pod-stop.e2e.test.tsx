@@ -20,8 +20,9 @@
  * So the world below is REAL on both sides of the boundary: a migrated
  * in-memory `EventStore`, a real `PodManager`, its real `openPod`, its real
  * `closePod` and the lane sweep inside it — wired to the renderer through the
- * same `IpcResult` envelopes and the same five push channels the preload
- * bridge carries. NOTHING in this file writes `'stopped'` into a fixture:
+ * same `IpcResult` envelopes and five of the preload bridge's push channels
+ * (podStatus, podEvent, laneChanged, permissionRequested,
+ * permissionResolved). NOTHING in this file writes `'stopped'` into a fixture:
  * every lane status the renderer sees was computed by `PodManager` from a
  * click on the Pod tab's stop control.
  *

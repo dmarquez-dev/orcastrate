@@ -18,7 +18,8 @@
  * So the world below is REAL on both sides of the boundary: a migrated
  * in-memory `EventStore`, a real `PodManager`, its real `reconcileStartup()`,
  * and a real `closePod` — wired to the renderer through the same `IpcResult`
- * envelopes and the same five push channels the preload bridge carries. The
+ * envelopes and five of the preload bridge's push channels (podStatus,
+ * podEvent, laneChanged, permissionRequested, permissionResolved). The
  * only double is the `PodRunner`, which stands in for the Claude Code child
  * process: a boundary this suite genuinely cannot cross, and the one thing that
  * is never under test here.
