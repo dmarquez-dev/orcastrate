@@ -66,6 +66,7 @@ import type {
   PermissionRespondRequest,
   ReadEventsRequest,
   ReadEventsResponse,
+  SlashCommandInfo,
   UpdatePodRequest,
 } from '../../shared/contracts/ipc';
 import type {
@@ -88,6 +89,7 @@ import {
   type PendingEcho,
 } from './pending-echo';
 import type { Pushes } from './pushes';
+import { SLASH_COMMANDS_READ_TIMEOUT_MS, SlashCommandState } from './slash-commands';
 import {
   RESUME_FALLBACK_REASON,
   RESUME_FALLBACK_SUBTYPE,
@@ -186,8 +188,17 @@ interface PodSession {
    * other's record, and so a record cannot outlive the session that armed it.
    */
   pendingEchoes: PendingEcho[];
+  /**
+   * This session's slash-command catalog and terminal set. Per SESSION, not per
+   * Pod, so a reopened Pod starts unknown and its first defined list is always
+   * pushed, replacing whatever the previous session left in the renderer.
+   */
+  commands: SlashCommandState;
   disposed: boolean;
 }
+
+/** The value the read's timeout race resolves with when the clock wins. */
+const READ_TIMED_OUT: unique symbol = Symbol('supportedCommands timed out');
 
 interface PendingPermission {
   podId: PodId;
@@ -742,6 +753,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
       knownLanes: new Set(lanes.map((lane) => lane.id)),
       pending: new Map(),
       pendingEchoes: [],
+      commands: new SlashCommandState(),
       disposed: false,
       runner: this.#createRunner({
         podId: pod.id,
@@ -812,7 +824,75 @@ export class PodManager implements PodManagerApi, StartupReconciler {
 
     const opened = this.#store.updatePod(pod.id, { status: 'idle' });
     this.#push.podStatus({ podId: pod.id, status: 'idle' });
+    // NOT AWAITED. Open, reconnect and the resume-fallback retry all come
+    // through here, and none of them waits on the command list.
+    this.#readSlashCommands(session);
     return opened;
+  }
+
+  /**
+   * The INITIAL READ of the session's slash commands, once, after `start()`.
+   *
+   * - A runner with no `supportedCommands` member reads nothing.
+   * - BOUNDED by `SLASH_COMMANDS_READ_TIMEOUT_MS`. The SDK's call takes no abort
+   *   signal, so the timeout is the whole of its cancellation, and an answer
+   *   that lands after the timeout is ignored.
+   * - A rejection or a timeout logs ONE warn naming the Pod and leaves the
+   *   catalog as it was. Nothing is swallowed silently, and nothing crosses
+   *   to the renderer: the push carries no error envelope.
+   * - `null` means the runner's bridge has no command surface. It leaves the
+   *   catalog as it was and logs nothing, because nothing went wrong.
+   * - A session disposed before the read settles drops the answer silently:
+   *   nothing is pushed for a disposed session, and a close is not a failure.
+   */
+  #readSlashCommands(session: PodSession): void {
+    const runner = session.runner;
+    if (runner.supportedCommands === undefined) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<typeof READ_TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => resolve(READ_TIMED_OUT), SLASH_COMMANDS_READ_TIMEOUT_MS);
+      // Never hold an Electron main process (or a test runner) open on this.
+      timer.unref?.();
+    });
+    // A synchronous throw from the runner becomes a rejection here too.
+    const read = new Promise<unknown>((resolve) => {
+      resolve(runner.supportedCommands?.());
+    });
+
+    void Promise.race([read, timedOut]).then(
+      (value) => {
+        clearTimeout(timer);
+        if (session.disposed) return;
+        if (value === READ_TIMED_OUT) {
+          this.#log.warn(
+            `[orcastrate] supportedCommands for pod ${session.podId} did not answer within ` +
+              `${SLASH_COMMANDS_READ_TIMEOUT_MS} ms; its slash-command list stays as it was`,
+          );
+          return;
+        }
+        if (value === null) return;
+        this.#publishCommands(session, session.commands.acceptInitialRead(value));
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        if (session.disposed) return;
+        this.#log.warn(
+          `[orcastrate] supportedCommands for pod ${session.podId} failed; its slash-command ` +
+            `list stays as it was: ${describe(err)}`,
+        );
+      },
+    );
+  }
+
+  /**
+   * Pushes a visible list the session's state reported as changed. The
+   * disposed check lives with each caller: the read's settle handler above,
+   * and the handler guard for stream messages.
+   */
+  #publishCommands(session: PodSession, commands: SlashCommandInfo[] | null): void {
+    if (commands === null) return;
+    this.#push.podCommands({ podId: session.podId, commands });
   }
 
   /**
@@ -1290,6 +1370,12 @@ export class PodManager implements PodManagerApi, StartupReconciler {
           // therefore read as the ROUTER produced it, before `#routeLane`'s
           // unknown-lane restamping moves a Calf's events onto the Matriarch.
           this.#persist(session, this.#suppressEchoes(session, session.router.ingest(message)));
+        });
+        // A SEPARATE guard, after the ingest: the message is only READ for the
+        // command list, never consumed, and a persistence failure above must
+        // not also cost the Pod its list update (nor the reverse).
+        guard('slash commands', () => {
+          this.#publishCommands(session, session.commands.observe(message));
         });
       },
       onTurnEnd: () => {

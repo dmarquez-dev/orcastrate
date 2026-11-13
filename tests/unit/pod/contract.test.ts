@@ -23,6 +23,7 @@ const EXPECTED_MEMBERS = [
   'setPermissionMode',
   'stop',
   'sendToAgent',
+  'supportedCommands',
 ] as const;
 
 function membersOf(instance: object): string[] {

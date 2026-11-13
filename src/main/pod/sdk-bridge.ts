@@ -38,6 +38,12 @@ export interface SdkSession {
    * against a startup failure.
    */
   initialized?(): Promise<void>;
+  /**
+   * Backs `PodRunner.supportedCommands()`: the SDK's `Query.supportedCommands()`
+   * answer, passed through unvalidated. Optional: a bridge without it has no
+   * command surface, and the runner then resolves `null`.
+   */
+  supportedCommands?(): Promise<unknown>;
 }
 
 export type SdkBridge = (params: {
@@ -77,6 +83,9 @@ export const defaultSdkBridge: SdkBridge = ({ prompt, options }) => {
     },
     async initialized() {
       await q.initializationResult();
+    },
+    async supportedCommands() {
+      return q.supportedCommands();
     },
   };
 };

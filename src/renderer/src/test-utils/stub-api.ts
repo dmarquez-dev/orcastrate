@@ -35,6 +35,7 @@ import type {
   LaneChangedPush,
   PermissionRequestedPush,
   PermissionResolvedPush,
+  PodCommandsPush,
   CreatePodRequest,
   DeletePodRequest,
   PodDeletionResult,
@@ -108,6 +109,7 @@ export const EVENT_CHANNEL_METHODS = {
   permissionRequested: 'permissionRequested',
   permissionResolved: 'permissionResolved',
   helmChanged: 'helmChanged',
+  podCommands: 'podCommands',
 } as const satisfies Record<EventChannelKey, keyof OrcastrateApi['on']>;
 
 // ---------------------------------------------------------------------------
@@ -484,9 +486,10 @@ export function makeStubHelmDocument(
 // The stub
 // ---------------------------------------------------------------------------
 
-/** Drives the six push channels. Each call is synchronous and fans out to
- *  every live subscriber; a subscriber added during the fan-out is not called
- *  for the in-flight emit. */
+/** Drives every push channel `EVENT_CHANNELS` declares. Each call is
+ *  synchronous and fans out the SAME payload object to every live subscriber;
+ *  a subscriber added during the fan-out is not called for the in-flight
+ *  emit. */
 export interface StubEmitters {
   podEvent(push: PodEventPush): void;
   podStatus(push: PodStatusPush): void;
@@ -495,6 +498,8 @@ export interface StubEmitters {
   permissionResolved(push: PermissionResolvedPush): void;
   /** Advisory. Drives the staleness banner, never the save safety. */
   helmChanged(push: HelmChangedPush): void;
+  /** One Pod's whole slash-command list, as main pushes it. */
+  podCommands(push: PodCommandsPush): void;
 }
 
 /**
@@ -745,6 +750,7 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       permissionRequested: subscribe<PermissionRequestedPush>('permissionRequested'),
       permissionResolved: subscribe<PermissionResolvedPush>('permissionResolved'),
       helmChanged: subscribe<HelmChangedPush>('helmChanged'),
+      podCommands: subscribe<PodCommandsPush>('podCommands'),
       ...overrides.on,
     },
 
@@ -755,6 +761,7 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       permissionRequested: (push) => emitTo('permissionRequested', push),
       permissionResolved: (push) => emitTo('permissionResolved', push),
       helmChanged: (push) => emitTo('helmChanged', push),
+      podCommands: (push) => emitTo('podCommands', push),
     },
 
     failInvoke(channelKey, error) {

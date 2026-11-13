@@ -40,9 +40,11 @@ import type {
   PermissionRequestedPush,
   PermissionResolvedPush,
   PermissionRespondRequest,
+  PodCommandsPush,
   PodDeletionResult,
   PodEventPush,
   PodStatusPush,
+  SlashCommandInfo,
   Unsubscribe,
   UpdatePodRequest,
 } from '@shared/contracts/ipc';
@@ -118,6 +120,14 @@ export interface PodRuntimeState {
   // session removed. See `contracts/renderer-lifecycle.ts` section 1.
   unreadEventCount: number;
   laneUnread: Record<LaneId, number>;
+  /**
+   * The Pod's latest pushed slash-command list, held as the very array the
+   * last `podCommands` push for this Pod delivered: no copy, no filter, no
+   * reordering. A push replaces it wholesale. Before any push it is the shared
+   * `NO_SLASH_COMMANDS` array, so a Pod that never received one reads as empty
+   * and keeps one identity across renders.
+   */
+  slashCommands: readonly SlashCommandInfo[];
   /** Set the first time this Pod becomes active, so backfill starts once. */
   activated: boolean;
 }
@@ -153,6 +163,14 @@ export interface WorkspaceStoreOptions {
   pageSize?: number;
 }
 
+/**
+ * The one empty command list. Every Pod that has received no `podCommands`
+ * push holds this array, and the provider answers it when no Pod is active,
+ * so "nothing to suggest" has a single identity and never re-renders a
+ * consumer on its own. Frozen so no holder can grow it for everyone.
+ */
+export const NO_SLASH_COMMANDS: readonly SlashCommandInfo[] = Object.freeze([]);
+
 export function newRuntime(
   phase: LoadPhase,
   error: IpcError | null,
@@ -179,6 +197,7 @@ export function newRuntime(
     composerError: null,
     unreadEventCount: 0,
     laneUnread: {},
+    slashCommands: NO_SLASH_COMMANDS,
     activated: false,
   };
 }
@@ -283,8 +302,9 @@ export class WorkspaceStateStore {
   // --- lifecycle -----------------------------------------------------------
 
   /**
-   * Mount. Subscribes to all five push channels exactly once and issues the
-   * two startup reads together — they are independent, so chaining them would
+   * Mount. Subscribes exactly once to every workspace push channel — each
+   * `EVENT_CHANNELS` member except `helmChanged`, which the panel store owns —
+   * and issues the two startup reads together — they are independent, so chaining them would
    * be a waterfall for no reason.
    *
    * Idempotent while started, so React StrictMode's double-invoke cannot
@@ -302,6 +322,7 @@ export class WorkspaceStateStore {
       api.on.laneChanged((push) => this.onLaneChanged(push)),
       api.on.permissionRequested((push) => this.onPermissionRequested(push)),
       api.on.permissionResolved((push) => this.onPermissionResolved(push)),
+      api.on.podCommands((push) => this.onPodCommands(push)),
     ];
 
     void this.loadRoutingMode();
@@ -483,6 +504,18 @@ export class WorkspaceStateStore {
       return { ...runtime, pendingPermissions: remaining };
     });
     this.inflightRespond.delete(push.requestId);
+  }
+
+  /**
+   * A Pod's slash-command list, WHOLE. The push is written to the Pod it
+   * names — `push.podId`, never the active Pod — so a list for a backgrounded
+   * Pod waits on that Pod's record until it is activated, and activating it
+   * reads the list with no IPC call. The array replaces the previous one
+   * wholesale, an empty one included. A push for a Pod with no record creates
+   * the record, as every other per-Pod push does.
+   */
+  private onPodCommands(push: PodCommandsPush): void {
+    this.patchRuntime(push.podId, (runtime) => ({ ...runtime, slashCommands: push.commands }));
   }
 
   // --- actions -------------------------------------------------------------

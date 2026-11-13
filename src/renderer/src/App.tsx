@@ -7,6 +7,7 @@ import {
   useComposer,
   useLaneRail,
   usePermissionCards,
+  useSlashCommands,
   useTranscript,
   useWorkspace,
 } from './state';
@@ -91,6 +92,10 @@ function Workspace(): JSX.Element {
   const primaryCards = usePermissionCards(primaryLaneId);
   const splitCards = usePermissionCards(followerLaneId);
   const composer = useComposer();
+  // The active Pod's latest pushed command list, passed through untouched: the
+  // renderer names no command of its own, so what the composer suggests is
+  // only ever what the Pod reported, in the order it reported it.
+  const slashCommands = useSlashCommands();
 
   const podBar = (
     <PodsChrome
@@ -234,6 +239,7 @@ function Workspace(): JSX.Element {
     composerNode =
       composer === undefined ? null : (
         <Composer
+          commands={slashCommands}
           onChange={(text) => {
             actions.setComposerText(podId, text);
           }}

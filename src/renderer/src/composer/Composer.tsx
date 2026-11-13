@@ -10,16 +10,30 @@
  *
  * It is a pure function of `ComposerProps`. It never touches
  * `window.orcastrate` and never imports from `../state`.
+ *
+ * SLASH-COMMAND SUGGESTIONS. A draft that is a leading `/` with no whitespace
+ * after it opens a list of at most five of `commands`, those whose name or an
+ * alias starts with the text after `/` (`matchSlashCommands` holds that rule).
+ * The list never opens while the composer is disabled. While it is open the
+ * keys change meaning: ArrowDown and ArrowUp move the selection and wrap;
+ * Tab and Enter write `'/' + name + ' '` through `onChange` and neither send
+ * nor interrupt; Esc closes the list and neither interrupts nor edits. While
+ * it is closed every key does exactly what it does without it. The only state
+ * the composer keeps for this is interaction state: which row is selected,
+ * and which draft Esc dismissed the list for. The rows themselves are derived
+ * on every render, never stored.
  */
 
 import { useEffect, useId, useRef, useState, type JSX, type KeyboardEvent } from 'react';
 
-import type { IpcError } from '@shared/contracts/ipc';
+import type { IpcError, SlashCommandInfo } from '@shared/contracts/ipc';
 import type { ComposerState } from '../contracts/renderer-state';
 import type { ComposerProps } from '../contracts/renderer-view';
 import { TEST_IDS } from '../contracts/renderer-view';
 
 import styles from './Composer.module.css';
+import { matchSlashCommands } from './slash-suggestions';
+import { SlashCommandList, slashOptionId } from './SlashCommandList';
 
 /**
  * Why the composer is not accepting input. Every branch of the frozen
@@ -41,11 +55,43 @@ export function disabledMessage(state: ComposerState): string | null {
   return DISABLED_COPY[state.disabledReason];
 }
 
-export function Composer({ state, onChange, onSend, onInterrupt }: ComposerProps): JSX.Element {
+/**
+ * The selection the user last made, and the rows it was made over. It counts
+ * only while those are still the rows shown: a different set of rows, by
+ * identity and order, puts the selection back on row 0.
+ */
+interface SuggestionSelection {
+  rows: readonly SlashCommandInfo[];
+  index: number;
+}
+
+function sameRows(a: readonly SlashCommandInfo[], b: readonly SlashCommandInfo[]): boolean {
+  return a.length === b.length && a.every((row, index) => row === b[index]);
+}
+
+export function Composer({ state, onChange, onSend, onInterrupt, commands }: ComposerProps): JSX.Element {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const labelId = useId();
   const noteId = useId();
   const errorId = useId();
+  const listboxId = `${labelId}-commands`;
+
+  /**
+   * The draft Esc dismissed the list for, or `null`. The list stays closed
+   * only while the draft is still that exact text; any edit clears it, so the
+   * next keystroke that still matches shows the list again.
+   */
+  const [dismissedFor, setDismissedFor] = useState<string | null>(null);
+  const [selection, setSelection] = useState<SuggestionSelection | null>(null);
+
+  const matches = state.disabled ? [] : matchSlashCommands(state.text, commands);
+  const listOpen = matches.length > 0 && dismissedFor !== state.text;
+  const rows = listOpen ? matches : [];
+  const selectedIndex = selection !== null && sameRows(selection.rows, rows) ? selection.index : 0;
+
+  // A closed list forgets its selection, so the next time it opens it opens
+  // on row 0 even if it shows the same rows as before.
+  if (!listOpen && selection !== null) setSelection(null);
 
   /**
    * The last value this composer itself produced. Two things read it, and
@@ -88,7 +134,56 @@ export function Composer({ state, onChange, onSend, onInterrupt }: ComposerProps
   function handleChange(next: string): void {
     lastLocalEdit.current = next;
     setSuppressedError(state.error);
+    setDismissedFor(null);
     onChange(next);
+  }
+
+  /**
+   * Accepts row `index`: writes `'/' + name + ' '`, the canonical name even
+   * when only an alias matched. The trailing space is what closes the list,
+   * because a draft with whitespace after the `/` matches nothing.
+   */
+  function acceptRow(index: number): void {
+    const row = rows[index];
+    if (row === undefined) throw new Error(`no suggestion row at index ${index}`);
+    handleChange(`/${row.name} `);
+  }
+
+  /**
+   * The keys the open list takes over. Returns true when it handled the key,
+   * so the base handling below does not also run. Esc closes the list with or
+   * without modifiers. Shift+Tab and Shift+Enter, and any other modified or
+   * composing key, are left to the base handling.
+   */
+  function handleListKey(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
+    if (!listOpen) return false;
+    if (event.key === 'Escape') {
+      // Closes the list only. It does not interrupt and does not edit.
+      event.preventDefault();
+      setDismissedFor(state.text);
+      setSelection(null);
+      return true;
+    }
+    const plain =
+      !event.shiftKey && !event.altKey && !event.ctrlKey && !event.metaKey && !event.nativeEvent.isComposing;
+    if (!plain) return false;
+
+    switch (event.key) {
+      case 'ArrowDown':
+      case 'ArrowUp': {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        setSelection({ rows, index: (selectedIndex + step + rows.length) % rows.length });
+        return true;
+      }
+      case 'Tab':
+      case 'Enter':
+        event.preventDefault();
+        acceptRow(selectedIndex);
+        return true;
+      default:
+        return false;
+    }
   }
 
   function handleSend(): void {
@@ -100,6 +195,8 @@ export function Composer({ state, onChange, onSend, onInterrupt }: ComposerProps
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>): void {
+    if (handleListKey(event)) return;
+
     if (event.key === 'Escape') {
       // Interrupts the active Pod's turn. It deliberately does NOT clear the
       // draft — the user's typing survives an interrupt (spec 5.4).
@@ -127,6 +224,9 @@ export function Composer({ state, onChange, onSend, onInterrupt }: ComposerProps
       <label className={styles.srOnly} id={labelId} htmlFor={`${labelId}-input`}>
         Message this Pod
       </label>
+      {listOpen && (
+        <SlashCommandList rows={rows} selectedIndex={selectedIndex} listboxId={listboxId} onPick={acceptRow} />
+      )}
       <textarea
         id={`${labelId}-input`}
         ref={inputRef}
@@ -144,6 +244,9 @@ export function Composer({ state, onChange, onSend, onInterrupt }: ComposerProps
         readOnly={state.disabled}
         aria-readonly={state.disabled}
         aria-describedby={describedBy.length > 0 ? describedBy : undefined}
+        aria-autocomplete={listOpen ? 'list' : undefined}
+        aria-controls={listOpen ? listboxId : undefined}
+        aria-activedescendant={listOpen ? slashOptionId(listboxId, selectedIndex) : undefined}
         placeholder="Message this Pod. Enter sends, Shift+Enter adds a line."
         spellCheck
       />

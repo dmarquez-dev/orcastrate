@@ -28,10 +28,11 @@ import {
 } from './index';
 
 /**
- * A minimal provider standing in for T5's. It does what the contract's
- * SUBSCRIPTION GUARANTEE requires — subscribe to all five push channels once
- * on mount, unsubscribe every one on unmount — and surfaces just enough state
- * to assert against.
+ * A minimal provider standing in for T5's. For the five push channels it
+ * wires — podEvent, podStatus, laneChanged, permissionRequested,
+ * permissionResolved — it does what the contract's SUBSCRIPTION GUARANTEE
+ * requires: subscribe to each once on mount, unsubscribe every one on
+ * unmount. It surfaces just enough state to assert against.
  */
 function TestProvider({ children, api }: WorkspaceProviderProps): ReactNode {
   const [status, setStatus] = useState<string>('none');

@@ -29,6 +29,7 @@ export {
   useTranscript,
   useComposer,
   usePermissionCards,
+  useSlashCommands,
   useWorkspaceActions,
 } from './workspace-provider';
 

@@ -27,8 +27,8 @@ import { driveFixture, findings, makeHarness, openPod, tick, type Harness } from
 
 const harnesses: Harness[] = [];
 
-function harness(): Harness {
-  const made = makeHarness();
+function harness(options: Parameters<typeof makeHarness>[0] = {}): Harness {
+  const made = makeHarness(options);
   harnesses.push(made);
   return made;
 }
@@ -45,9 +45,9 @@ describe('the frozen channel constants themselves', () => {
     expect(new Set(values).size).toBe(values.length);
   });
 
-  it('declares exactly 6 push channels, all with distinct wire names', () => {
+  it('declares exactly 7 push channels, all with distinct wire names', () => {
     const values = Object.values(EVENT_CHANNELS);
-    expect(Object.keys(EVENT_CHANNELS).length).toBe(6);
+    expect(Object.keys(EVENT_CHANNELS).length).toBe(7);
     expect(new Set(values).size).toBe(values.length);
   });
 
@@ -129,7 +129,14 @@ describe('invoke channels (criterion 2)', () => {
 
 describe('push channels (criterion 2)', () => {
   it('main emits every channel in EVENT_CHANNELS', async () => {
-    const h = harness();
+    // `push:podCommands` comes from opening a Pod whose fake SDK session
+    // answers `supportedCommands`, exactly as the real query would, rather
+    // than from calling a push sink by hand.
+    const h = harness({
+      supportedCommands: () => async () => [
+        { name: 'review', description: 'Review a diff', argumentHint: '', aliases: [] },
+      ],
+    });
     const podId = await openPod(h);
 
     await driveFixture(h, podId, '01-parallel-dispatch.ndjson');

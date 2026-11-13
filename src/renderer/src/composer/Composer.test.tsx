@@ -79,6 +79,7 @@ function Harness(props: {
           setState((prev) => ({ ...prev, sending: true }));
         }}
         onInterrupt={() => props.onInterrupt?.()}
+        commands={[]}
       />
     </div>
   );
@@ -145,7 +146,7 @@ describe('Composer — sending (criterion 2)', () => {
   });
 
   it('shows "Sending…" as well as the disabled state — colour is not the only signal', () => {
-    render(<Composer state={composerState({ sending: true })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />);
+    render(<Composer state={composerState({ sending: true })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />);
     expect(sendButton().textContent).toBe('Sending…');
     expect(sendButton().getAttribute('aria-busy')).toBe('true');
   });
@@ -163,6 +164,7 @@ describe('Composer — sending (criterion 2)', () => {
         onChange={vi.fn()}
         onSend={onSend}
         onInterrupt={vi.fn()}
+        commands={[]}
       />,
     );
 
@@ -204,7 +206,7 @@ describe('Composer — send failure (criterion 4)', () => {
   const error: IpcError = { code: 'NOT_RUNNING', message: 'Pod process is not running.' };
 
   it('renders state.error.message verbatim', () => {
-    render(<Composer state={composerState({ error })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />);
+    render(<Composer state={composerState({ error })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />);
     const shown = screen.getByTestId('composer-error');
     expect(shown.textContent).toContain('Pod process is not running.');
     expect(shown.getAttribute('role')).toBe('alert');
@@ -222,7 +224,7 @@ describe('Composer — send failure (criterion 4)', () => {
   it('shows a NEW failure that arrives after an edit', async () => {
     const user = userEvent.setup();
     const { rerender } = render(
-      <Composer state={composerState({ error })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />,
+      <Composer state={composerState({ error })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />,
     );
     await user.type(input(), 'x');
     const second: IpcError = { code: 'IO', message: 'Write failed.' };
@@ -232,6 +234,7 @@ describe('Composer — send failure (criterion 4)', () => {
         onChange={vi.fn()}
         onSend={vi.fn()}
         onInterrupt={vi.fn()}
+        commands={[]}
       />,
     );
     expect(screen.getByTestId('composer-error').textContent).toContain('Write failed.');
@@ -242,7 +245,7 @@ describe('Composer — Steer prefill arrives as ordinary text (criterion 5)', ()
   it('renders the string it was handed and focuses the input', () => {
     const prefill = `${STEER_PREFILL_PREFIX}agent_7: rerun the failing test`;
     render(
-      <Composer state={composerState({ text: prefill })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />,
+      <Composer state={composerState({ text: prefill })} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />,
     );
 
     expect(input().value).toBe(prefill);
@@ -253,7 +256,7 @@ describe('Composer — Steer prefill arrives as ordinary text (criterion 5)', ()
     const user = userEvent.setup();
     const onChange = vi.fn();
     const { rerender } = render(
-      <Composer state={composerState()} onChange={onChange} onSend={vi.fn()} onInterrupt={vi.fn()} />,
+      <Composer state={composerState()} onChange={onChange} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />,
     );
 
     const outside = document.createElement('button');
@@ -267,6 +270,7 @@ describe('Composer — Steer prefill arrives as ordinary text (criterion 5)', ()
         onChange={onChange}
         onSend={vi.fn()}
         onInterrupt={vi.fn()}
+        commands={[]}
       />,
     );
     expect(document.activeElement).toBe(input());
@@ -281,14 +285,14 @@ describe('Composer — Steer prefill arrives as ordinary text (criterion 5)', ()
 
 describe('Composer — contract surface (criteria 12, 13)', () => {
   it('carries every composer data-testid the contract names', () => {
-    render(<Composer state={composerState()} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />);
+    render(<Composer state={composerState()} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />);
     expect(screen.getByTestId(TEST_IDS.composer)).toBeTruthy();
     expect(screen.getByTestId(TEST_IDS.composerInput)).toBeTruthy();
     expect(screen.getByTestId(TEST_IDS.composerSend)).toBeTruthy();
   });
 
   it('labels the textarea programmatically', () => {
-    render(<Composer state={composerState()} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} />);
+    render(<Composer state={composerState()} onChange={vi.fn()} onSend={vi.fn()} onInterrupt={vi.fn()} commands={[]} />);
     expect(screen.getByLabelText('Message this Pod')).toBe(input());
   });
 

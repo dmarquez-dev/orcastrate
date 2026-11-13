@@ -252,6 +252,7 @@ describe('push subscriptions', () => {
     ['permissionRequested', EVENT_CHANNELS.permissionRequested],
     ['permissionResolved', EVENT_CHANNELS.permissionResolved],
     ['helmChanged', EVENT_CHANNELS.helmChanged],
+    ['podCommands', EVENT_CHANNELS.podCommands],
   ] as const;
 
   for (const [name, channel] of subscriptions) {
@@ -412,6 +413,7 @@ describe('push subscriptions', () => {
     api.on.permissionRequested(() => {});
     api.on.permissionResolved(() => {});
     api.on.helmChanged(() => {});
+    api.on.podCommands(() => {});
 
     expect([...ipc.listeners.keys()].sort()).toEqual(
       [...Object.values(EVENT_CHANNELS)].sort(),

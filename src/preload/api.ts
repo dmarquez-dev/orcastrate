@@ -20,6 +20,7 @@ import {
   type PermissionRespondRequest,
   type PermissionResolvedPush,
   type PickDirectoryResponse,
+  type PodCommandsPush,
   type PodDeletionResult,
   type PodEventPush,
   type PodStatusPush,
@@ -163,6 +164,8 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
         subscribe(EVENT_CHANNELS.permissionResolved, cb),
       helmChanged: (cb: (p: HelmChangedPush) => void) =>
         subscribe(EVENT_CHANNELS.helmChanged, cb),
+      podCommands: (cb: (p: PodCommandsPush) => void) =>
+        subscribe(EVENT_CHANNELS.podCommands, cb),
     },
   };
 }

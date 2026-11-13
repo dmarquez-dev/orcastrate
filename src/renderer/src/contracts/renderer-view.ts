@@ -21,6 +21,7 @@
 import type { ReactNode } from 'react';
 
 import type { Lane, LaneId, NormalizedEvent, PermissionMode, PodId } from '@shared/contracts/events';
+import type { SlashCommandInfo } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
 import type {
   ComposerState,
@@ -328,9 +329,37 @@ export interface ComposerProps {
   onSend(): void;
   /**
    * `Esc` while the composer has focus interrupts the ACTIVE Pod's turn
-   * (spec 5.4). It does not clear the draft.
+   * (spec 5.4). It does not clear the draft. Not called while the suggestion
+   * list is open: Esc then closes the list instead.
    */
   onInterrupt(): void;
+  /**
+   * The active Pod's slash commands, in the order the Pod reported them. The
+   * composer offers them as suggestions above the textarea, by these rules:
+   *
+   * - OPEN when all of these hold: the composer is not `disabled`; `text`
+   *   matches /^\/(\S*)$/, meaning a leading `/` with no whitespace after it
+   *   anywhere; at least one command matches; and the list has not been
+   *   dismissed since the text last changed.
+   * - MATCH: a command matches when `name.startsWith(p)` or some
+   *   `aliases[i].startsWith(p)`, where `p` is the captured text after `/`.
+   *   Case-sensitive. For `text === '/'`, `p` is `''` and every command matches.
+   * - SHOWN: the first 5 matches, in the order of `commands`. Never more than 5.
+   * - Each row shows `/` + `name` and, separately, `description`. No other
+   *   text, and nothing that says a command will run.
+   * - ArrowDown and ArrowUp move the selection and wrap at both ends. Row 0 is
+   *   selected whenever the list opens or the set of shown rows changes.
+   * - Tab or Enter ACCEPTS the selected row. It calls
+   *   `onChange('/' + name + ' ')` (the canonical `name`, even when an alias
+   *   matched), calls neither `onSend` nor `onInterrupt`, and the list then
+   *   closes because the text contains a space.
+   * - Pressing (mousedown on) a row accepts that row in the same way.
+   * - Escape CLOSES the list and calls neither `onInterrupt` nor `onChange`.
+   * - While the list is closed, every key does what it does at base: Enter
+   *   sends, Shift+Enter adds a line, Escape calls `onInterrupt`, and Tab is
+   *   not intercepted.
+   */
+  commands: readonly SlashCommandInfo[];
 }
 
 // ---------------------------------------------------------------------------

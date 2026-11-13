@@ -6,6 +6,7 @@
  */
 
 .composer {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--oc-space-2);
@@ -107,4 +108,70 @@
 .marker {
   font-family: var(--oc-font-mono);
   font-size: var(--oc-text-sm);
+}
+
+/*
+ * Slash-command suggestions. The list is taken out of flow and hung from the
+ * composer's top edge (`bottom: 100%` against the `position: relative` on
+ * `.composer`), so it sits directly above the textarea and opening it moves
+ * neither the textarea nor the send row. `z-index: 1` lifts it over the
+ * transcript it overlaps.
+ *
+ * Each row is a three-track grid with every child pinned to its track, so the
+ * selected row's marker occupies the first track without shifting the name or
+ * the description of any row. The marker is the non-colour signal of the
+ * selection; the background tint only reinforces it.
+ */
+.suggestions {
+  position: absolute;
+  inset-inline: var(--oc-space-3);
+  bottom: 100%;
+  z-index: 1;
+  margin: 0;
+  margin-block-end: var(--oc-space-1);
+  padding: var(--oc-space-1) 0;
+  list-style: none;
+  background: var(--oc-bg-raised);
+  border: var(--oc-border-hairline) solid var(--oc-border-strong);
+  border-radius: var(--oc-radius-md);
+}
+
+.suggestion {
+  display: grid;
+  grid-template-columns: var(--oc-space-4) auto minmax(0, 1fr);
+  align-items: baseline;
+  column-gap: var(--oc-space-2);
+  padding: var(--oc-space-1) var(--oc-space-2);
+  color: var(--oc-fg-primary);
+  cursor: pointer;
+}
+
+.suggestion:hover {
+  background: var(--oc-bg-hover);
+}
+
+.suggestionSelected,
+.suggestionSelected:hover {
+  background: var(--oc-bg-selected);
+}
+
+.suggestionMarker {
+  grid-column: 1;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+}
+
+.suggestionName {
+  grid-column: 2;
+  font-family: var(--oc-font-mono);
+  font-size: var(--oc-text-sm);
+}
+
+.suggestionDescription {
+  grid-column: 3;
+  overflow: hidden;
+  color: var(--oc-fg-muted);
+  font-size: var(--oc-text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

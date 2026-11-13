@@ -1,9 +1,11 @@
 /**
  * The main -> renderer push surface.
  *
- * Every one of the five `EVENT_CHANNELS` is emitted through exactly one method
- * here, and the channel names come from the frozen contract rather than from
- * string literals, so a rename cannot desync main from the preload bridge.
+ * Every Pod-pipeline channel in `EVENT_CHANNELS` is emitted through exactly one
+ * method here. `push:helmChanged` is the exception: HelmService's watcher sends
+ * it through the same sink, not through this object. The channel names come
+ * from the frozen contract rather than from string literals, so a rename cannot
+ * desync main from the preload bridge.
  *
  * `send` is injected because the transport differs by caller: production sends
  * to every live `BrowserWindow.webContents`; a test collects into an array.
@@ -16,6 +18,7 @@ import {
   type LaneChangedPush,
   type PermissionRequestedPush,
   type PermissionResolvedPush,
+  type PodCommandsPush,
   type PodEventPush,
   type PodStatusPush,
 } from '../../shared/contracts/ipc';
@@ -28,6 +31,8 @@ export interface Pushes {
   laneChanged(payload: LaneChangedPush): void;
   permissionRequested(payload: PermissionRequestedPush): void;
   permissionResolved(payload: PermissionResolvedPush): void;
+  /** A snapshot, so it is sent even when `commands` is empty. */
+  podCommands(payload: PodCommandsPush): void;
 }
 
 export function createPushes(send: SendToRenderer): Pushes {
@@ -48,6 +53,9 @@ export function createPushes(send: SendToRenderer): Pushes {
     },
     permissionResolved(payload) {
       send(EVENT_CHANNELS.permissionResolved, payload);
+    },
+    podCommands(payload) {
+      send(EVENT_CHANNELS.podCommands, payload);
     },
   };
 }
