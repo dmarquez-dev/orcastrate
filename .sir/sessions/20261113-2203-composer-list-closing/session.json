@@ -2,9 +2,9 @@
   "id": "20261113-2203-composer-list-closing",
   "name": "composer-list-closing",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-13T22:03:38Z",
-  "ended": "2026-11-13T22:38:16Z",
+  "ended": "2026-11-13T22:41:02Z",
   "pushed": true,
   "parent": null,
   "children": [],
@@ -15,6 +15,14 @@
       "sir": "1.0.39",
       "started": "2026-11-13T22:03:38Z",
       "ended": "2026-11-13T22:38:16Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "f71020f0-43b4-409b-bd51-cb0b2eec0434",
+      "phase": "wrap",
+      "sir": "1.0.39",
+      "started": "2026-11-13T22:40:36Z",
+      "ended": "2026-11-13T22:41:02Z",
       "outcome": "complete"
     }
   ],
