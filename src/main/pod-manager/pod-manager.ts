@@ -886,11 +886,17 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   }
 
   /**
-   * Pushes a visible list the session's state reported as changed. The
-   * disposed check lives with each caller: the read's settle handler above,
-   * and the handler guard for stream messages.
+   * Pushes a visible list the session's state reported as changed.
+   *
+   * THE DISPOSED CHECK IS HERE, AT THE CHOKE POINT. Every `push:podCommands`
+   * goes through this method, so nothing is pushed for a disposed session
+   * whichever caller arrives. The callers (the read's settle handler above,
+   * and the handler guard for stream messages) keep their own checks, but this
+   * one does not rely on them: a session can also become disposed between a
+   * caller's check and this call.
    */
   #publishCommands(session: PodSession, commands: SlashCommandInfo[] | null): void {
+    if (session.disposed) return;
     if (commands === null) return;
     this.#push.podCommands({ podId: session.podId, commands });
   }

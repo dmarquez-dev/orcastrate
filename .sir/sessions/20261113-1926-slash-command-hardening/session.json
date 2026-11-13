@@ -1,0 +1,59 @@
+{
+  "id": "20261113-1926-slash-command-hardening",
+  "name": "slash-command-hardening",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-13T19:26:02Z",
+  "ended": "2026-11-13T19:51:18Z",
+  "parent": null,
+  "children": [],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "Backlog row 48 asks main to drop slash-command names that are not one printable token. Which names count as one printable token?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "At Gate 1: a name passes when it is non-empty and contains no whitespace (Unicode \\s), no control character (\\p{Cc}) and no format character (\\p{Cf}). Unicode letters and plugin-qualified names such as sir:sir-up pass."
+    },
+    {
+      "id": "E2",
+      "question": "Gate 3 advisory (slash-commands.ts:64): stripping every \\p{Cc} from description and argumentHint deletes tab, newline and CR, so words run together. Fixing it means amending C4. Fix now, carry to backlog, or drop?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "answer": "At Gate 3: fix now. C4 amended (A1) so whitespace control runs become one space; one fix round and a re-review, then approval is asked again over the final diff."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "criterion": "C4",
+      "before": "C4: `description` and `argumentHint` have every control character (\\p{Cc}) and format character (\\p{Cf}) removed, and an alias that fails C3's name rule is dropped while valid aliases keep their order; the module's docblock states these rules.",
+      "after": "C4: In `description` and `argumentHint`, each run of one or more control characters that JavaScript's \\s matches (tab, newline, vertical tab, form feed, CR) becomes a single space, and every other control character (\\p{Cc}) and format character (\\p{Cf}) is removed, so `a\\tb` and `a\\r\\nb` both become `a b`; an alias that fails C3's name rule is dropped while valid aliases keep their order; the module's docblock states these rules."
+    }
+  ],
+  "criteria": [
+    "C1: `#publishCommands` in src/main/pod-manager/pod-manager.ts returns without calling `this.#push.podCommands` when `session.disposed` is true, so no `push:podCommands` is sent for a disposed session even when a caller forgets its own guard; its docblock says the check is at the choke point (the callers' own guards may stay).",
+    "C2: A unit test fails when the `session.disposed` check in `#publishCommands` is removed while a caller's guard is bypassed (shown by a red step or an injected defect), and every existing test in tests/unit/pod-manager/slash-commands-push.test.ts still passes, the disposed-session test included.",
+    "C3: `normalizeSlashCommands` in src/main/pod-manager/slash-commands.ts drops an entry whose `name` is empty or contains whitespace (Unicode \\s), a control character (\\p{Cc}) or a format character (\\p{Cf}); names such as `sir:sir-up`, `mcp__srv__tool` and a non-ASCII letter name are kept, in order.",
+    "C4: In `description` and `argumentHint`, each run of one or more control characters that JavaScript's \\s matches (tab, newline, vertical tab, form feed, CR) becomes a single space, and every other control character (\\p{Cc}) and format character (\\p{Cf}) is removed, so `a\\tb` and `a\\r\\nb` both become `a b`; an alias that fails C3's name rule is dropped while valid aliases keep their order; the module's docblock states these rules.",
+    "C5: Unit tests cover C3 and C4 with must-drop cases (a space, a tab, a newline, a NUL, a zero-width or bidi format character) and must-keep near-misses (`sir:sir-up`, `mcp__srv__tool`, a non-ASCII name, a description with an ordinary space).",
+    "C6: `npm test` and `npm run typecheck` pass from the repository root, and no file is changed outside the two source files and their unit tests (tests/unit/pod-manager/slash-commands.test.ts, tests/unit/pod-manager/slash-commands-push.test.ts)."
+  ],
+  "runs": [
+    {
+      "cc": "2f03b091-ea4d-4305-b834-03d3a423a6b5",
+      "phase": "small",
+      "sir": "1.0.37",
+      "started": "2026-11-13T19:26:02Z",
+      "ended": "2026-11-13T19:51:18Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 2,
+    "reviewRounds": 1
+  },
+  "pushed": true
+}

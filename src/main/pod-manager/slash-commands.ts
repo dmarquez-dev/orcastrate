@@ -21,6 +21,24 @@
  *      element by element on all four fields, from the last list reported. The
  *      session's first defined list is always reported, even when empty.
  *
+ * Every list, from either writer, passes through `normalizeSlashCommands`
+ * first, which applies these rules to each entry:
+ *
+ *   - THE NAME must be one printable token: a non-empty string with no
+ *     whitespace (`\s`), no control character (`\p{Cc}`) and no format
+ *     character (`\p{Cf}`). An entry whose name fails is dropped; the rest keep
+ *     their order. Unicode letters and qualified names such as
+ *     `plugin:command` or `mcp__server__tool` pass.
+ *   - AN ALIAS that fails the same rule is dropped; valid aliases keep their
+ *     order.
+ *   - THE DISPLAY TEXT (`description`, `argumentHint`): every `\p{Cf}`
+ *     character, and every `\p{Cc}` character other than the five that `\s`
+ *     matches (tab, newline, vertical tab, form feed, CR), is removed first.
+ *     Then each run of one or more of those five becomes a single space, so
+ *     `a\tb` and `a\r\nb` both read `a b`, and a run interrupted only by a
+ *     removed character is still one run. Ordinary spaces are left alone and
+ *     nothing is trimmed, so `a \nb` reads `a  b`.
+ *
  * The raw messages are only READ here. They still reach the LaneRouter and the
  * store exactly as before.
  */
@@ -38,12 +56,54 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/** A character that disqualifies a name: whitespace, a control or a format character. */
+const NOT_NAME_CHARACTER = /[\s\p{Cc}\p{Cf}]/u;
+
 /**
- * Normalizes an SDK command list. Anything that is not an array is `[]`. An
- * entry that is not an object, or whose `name` is not a non-empty string, is
- * dropped and the rest keep their order. `description` and `argumentHint`
- * become `''` when not a string; `aliases` keeps only its string members, and
- * is `[]` when absent or not an array.
+ * A run of the control characters JavaScript's `\s` matches. Those are exactly
+ * tab, newline, vertical tab, form feed and CR; U+0085 is `\p{Cc}` but not `\s`.
+ */
+const WHITESPACE_CONTROL_RUN = /[\t\n\v\f\r]+/g;
+
+/** Every control and format character except the five in `WHITESPACE_CONTROL_RUN`. */
+const REMOVED_CHARACTER = /(?![\t\n\v\f\r])[\p{Cc}\p{Cf}]/gu;
+
+/**
+ * Whether `value` is one printable token: a non-empty string with no
+ * whitespace (`\s`), no control character (`\p{Cc}`) and no format character
+ * (`\p{Cf}`, which covers zero-width and bidi overrides such as U+200B and
+ * U+202E). Anything else is allowed, so Unicode letters and qualified names
+ * such as `plugin:command` or `mcp__server__tool` pass.
+ */
+function isCommandName(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && !NOT_NAME_CHARACTER.test(value);
+}
+
+/**
+ * A display string: `''` when not a string. Otherwise the removed characters go
+ * first, so whitespace controls they separated join into one run, and each run
+ * then becomes one space. Nothing is trimmed.
+ */
+function displayText(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.replace(REMOVED_CHARACTER, '').replace(WHITESPACE_CONTROL_RUN, ' ');
+}
+
+/**
+ * Normalizes an SDK command list. Anything that is not an array is `[]`. The
+ * rules, per entry:
+ *
+ *   - An entry that is not an object, or whose `name` is not one printable
+ *     token, is dropped and the rest keep their order. A name is one printable
+ *     token when it is a non-empty string containing no whitespace (`\s`), no
+ *     control character (`\p{Cc}`) and no format character (`\p{Cf}`).
+ *   - `description` and `argumentHint` become `''` when not a string.
+ *     Otherwise every `\p{Cf}` character, and every `\p{Cc}` character that
+ *     `\s` does not match, is removed; then each run of the `\p{Cc}` characters
+ *     `\s` does match (tab, newline, vertical tab, form feed, CR) becomes one
+ *     space. Ordinary spaces are kept and nothing is trimmed.
+ *   - `aliases` is `[]` when absent or not an array; otherwise it keeps only
+ *     the members that pass the same rule as `name`, in their original order.
  */
 export function normalizeSlashCommands(value: unknown): SlashCommandInfo[] {
   if (!Array.isArray(value)) return [];
@@ -51,14 +111,12 @@ export function normalizeSlashCommands(value: unknown): SlashCommandInfo[] {
   for (const entry of value as unknown[]) {
     if (!isRecord(entry)) continue;
     const { name, description, argumentHint, aliases } = entry;
-    if (typeof name !== 'string' || name.length === 0) continue;
+    if (!isCommandName(name)) continue;
     out.push({
       name,
-      description: typeof description === 'string' ? description : '',
-      argumentHint: typeof argumentHint === 'string' ? argumentHint : '',
-      aliases: Array.isArray(aliases)
-        ? (aliases as unknown[]).filter((alias): alias is string => typeof alias === 'string')
-        : [],
+      description: displayText(description),
+      argumentHint: displayText(argumentHint),
+      aliases: Array.isArray(aliases) ? (aliases as unknown[]).filter(isCommandName) : [],
     });
   }
   return out;

@@ -11,8 +11,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PodId } from '../../../src/shared/contracts/events';
-import { EVENT_CHANNELS, type PodCommandsPush } from '../../../src/shared/contracts/ipc';
+import {
+  EVENT_CHANNELS,
+  type PodCommandsPush,
+  type SlashCommandInfo,
+} from '../../../src/shared/contracts/ipc';
 import { SLASH_COMMANDS_READ_TIMEOUT_MS } from '../../../src/main/pod-manager';
+import { SlashCommandState } from '../../../src/main/pod-manager/slash-commands';
 import { makeHarness, tick, type Harness } from '../ipc/helpers';
 import { waitFor } from '../pod/helpers';
 import { makeManagerHarness, seedPod, type ManagerHarness } from './helpers';
@@ -333,6 +338,47 @@ describe('runners without a command surface, disposal, and several Pods', () => 
 
     expect(commandPushes(h)).toEqual([]);
     expect(h.logged.filter((entry) => entry.level === 'error')).toEqual([]);
+  });
+
+  it('pushes nothing when the session is disposed after the stream guard passed but before the publish', async () => {
+    // The stream handler's own disposed check runs before `observe`; this
+    // closes the Pod from INSIDE `observe`, so that check has already passed
+    // and only the publish choke point can still stop the push. `closePod`
+    // marks the session disposed synchronously, before its first await.
+    const h = makeManagerHarness();
+    managers.push(h);
+    const podId = seedPod(h, { status: 'closed' });
+    await h.manager.openPod(podId);
+    const pushesOf = () =>
+      h.attempted.filter((entry) => entry.channel === EVENT_CHANNELS.podCommands);
+
+    // Positive control: the same path, undisturbed, does push.
+    h.runner(podId).handlers?.onMessage(commandsChanged([cmd('before')]));
+    expect(pushesOf()).toEqual([
+      { channel: EVENT_CHANNELS.podCommands, payload: { podId, commands: [cmd('before')] } },
+    ]);
+
+    const original = SlashCommandState.prototype.observe;
+    let closing: Promise<void> | undefined;
+    let observed: SlashCommandInfo[] | null | undefined;
+    const spy = vi
+      .spyOn(SlashCommandState.prototype, 'observe')
+      .mockImplementation(function (this: SlashCommandState, message: unknown) {
+        observed = original.call(this, message);
+        closing = h.manager.closePod(podId);
+        return observed;
+      });
+    try {
+      h.runner(podId).handlers?.onMessage(commandsChanged([cmd('after')]));
+    } finally {
+      spy.mockRestore();
+    }
+    await closing;
+
+    // The state DID report a change, so only the publish could have dropped it.
+    expect(observed).toEqual([cmd('after')]);
+    expect(closing).toBeDefined();
+    expect(pushesOf()).toHaveLength(1);
   });
 
   it("carries each Pod's own podId and list", async () => {
