@@ -1,0 +1,47 @@
+{
+  "id": "20261113-2203-composer-list-closing",
+  "name": "composer-list-closing",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-13T22:03:38Z",
+  "ended": "2026-11-13T22:38:16Z",
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "f71020f0-43b4-409b-bd51-cb0b2eec0434",
+      "phase": "small",
+      "sir": "1.0.39",
+      "started": "2026-11-13T22:03:38Z",
+      "ended": "2026-11-13T22:38:16Z",
+      "outcome": "complete"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "Should the Composer's slash-command list close when the textarea loses focus (backlog row from 20261112-2120, `const listOpen` in src/renderer/src/composer/Composer.tsx)?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Yes: close the list on blur (answered in prose at Gate 1 with the track confirmation)."
+    },
+    {
+      "id": "E2",
+      "question": "While the slash-command list is open, should Esc only close the list (as signed by 20261112-2120) or close it and also interrupt the running turn (`handleListKey` in src/renderer/src/composer/Composer.tsx)?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Keep close-only, as signed (answered in prose at Gate 1)."
+    }
+  ],
+  "criteria": [
+    "C1: With the list open, blurring the Composer textarea closes the list (no listbox rendered, `aria-expanded` not true); a test drives the blur and asserts it.",
+    "C2: After a blur-close, focusing the textarea again with a draft that still matches reopens the list; a test asserts it.",
+    "C3: Clicking a row (mousedown on the row, as `SlashCommandList.tsx` handles it) still accepts it and writes `/<name> ` to the draft; the existing row-click test still passes, and the blur rule does not break it.",
+    "C4: A dismissal made by Esc is cleared whenever the draft differs from the dismissed text, by whatever route it changed: a test dismisses with Esc, rerenders with a different `state.text` from the parent, then rerenders back to the dismissed text with no local edit, and asserts the list is open.",
+    "C5: Esc with the list open still only closes the list and does not call `onInterrupt` (behaviour unchanged, E2); an Esc with the list closed still interrupts. Existing tests for both stay green.",
+    "C6: The `dismissedFor` docblock and the `handleListKey` comment in `Composer.tsx` describe the new rules accurately, with no session ids or `.sir/` paths in source.",
+    "C7: `npm test` and `npm run typecheck` pass in the repository root; each new test fails when its rule is reverted (red step)."
+  ],
+  "metrics": { "userInteractions": 3, "escalationsRaised": 2, "reviewRounds": 0 }
+}

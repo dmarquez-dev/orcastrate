@@ -3,9 +3,10 @@
  * Composer slash-command suggestions: the list above the textarea.
  *
  * The rules under test: the list is open while the composer is enabled, the
- * draft is a leading `/` followed by no whitespace, some command's name or
- * alias starts with the text after `/`, and Esc has not dismissed it since the
- * draft last changed. It shows at most five rows. ArrowDown and ArrowUp move
+ * textarea has focus, the draft is a leading `/` followed by no whitespace,
+ * some command's name or alias starts with the text after `/`, and Esc has not
+ * dismissed it for this exact draft. A draft that differs from the dismissed
+ * one, by any route, clears the dismissal. It shows at most five rows. ArrowDown and ArrowUp move
  * the selection and wrap; Tab, Enter or a press on a row writes
  * `'/' + name + ' '` through `onChange`; Esc closes it. While it is closed,
  * Enter sends and Esc interrupts exactly as without it.
@@ -299,6 +300,67 @@ describe('Composer suggestions — Esc closes the list', () => {
     expect(input().value).toBe('/co');
     expect(screen.getByRole('listbox')).toBeTruthy();
     expect(selectedIndex()).toBe(0);
+  });
+});
+
+describe('Composer suggestions — focus opens and closes the list', () => {
+  it('closes the list when the textarea loses focus', async () => {
+    const user = userEvent.setup();
+    render(<Harness text="/" commands={THREE} />);
+    expect(document.activeElement).toBe(input());
+    expect(screen.getByRole('listbox')).toBeTruthy();
+
+    await user.click(document.body);
+
+    expect(document.activeElement).not.toBe(input());
+    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(input().getAttribute('aria-expanded')).not.toBe('true');
+    expect(input().hasAttribute('aria-controls')).toBe(false);
+    expect(input().hasAttribute('aria-activedescendant')).toBe(false);
+  });
+
+  it('reopens the list when the textarea is focused again and the draft still matches', async () => {
+    const user = userEvent.setup();
+    render(<Harness text="/" commands={THREE} />);
+    await user.click(document.body);
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    await user.click(input());
+
+    expect(document.activeElement).toBe(input());
+    expect(input().value).toBe('/');
+    expect(options()).toHaveLength(3);
+    expect(selectedIndex()).toBe(0);
+  });
+});
+
+describe('Composer suggestions — an Esc dismissal lasts only while the draft is unchanged', () => {
+  it('shows the list again when the parent rewrites the draft away and back, with no local edit', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    const view = (text: string): JSX.Element => (
+      <Composer
+        state={composerState({ text })}
+        onChange={onChange}
+        onSend={() => undefined}
+        onInterrupt={() => undefined}
+        commands={THREE}
+      />
+    );
+    const { rerender } = render(view('/'));
+    expect(screen.getByRole('listbox')).toBeTruthy();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    rerender(view('hello'));
+    expect(screen.queryByRole('listbox')).toBeNull();
+
+    rerender(view('/'));
+
+    expect(onChange).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(input());
+    expect(options()).toHaveLength(3);
   });
 });
 

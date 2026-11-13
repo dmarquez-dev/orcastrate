@@ -14,13 +14,16 @@
  * SLASH-COMMAND SUGGESTIONS. A draft that is a leading `/` with no whitespace
  * after it opens a list of at most five of `commands`, those whose name or an
  * alias starts with the text after `/` (`matchSlashCommands` holds that rule).
- * The list never opens while the composer is disabled. While it is open the
+ * The list never opens while the composer is disabled, and is shown only while
+ * the textarea has focus: a blur closes it, a focus reopens it if the draft
+ * still matches. While it is open the
  * keys change meaning: ArrowDown and ArrowUp move the selection and wrap;
  * Tab and Enter write `'/' + name + ' '` through `onChange` and neither send
  * nor interrupt; Esc closes the list and neither interrupts nor edits. While
  * it is closed every key does exactly what it does without it. The only state
  * the composer keeps for this is interaction state: which row is selected,
- * and which draft Esc dismissed the list for. The rows themselves are derived
+ * which draft Esc dismissed the list for, and whether the textarea has
+ * focus. The rows themselves are derived
  * on every render, never stored.
  */
 
@@ -78,14 +81,29 @@ export function Composer({ state, onChange, onSend, onInterrupt, commands }: Com
 
   /**
    * The draft Esc dismissed the list for, or `null`. The list stays closed
-   * only while the draft is still that exact text; any edit clears it, so the
-   * next keystroke that still matches shows the list again.
+   * only while the draft is still that exact text. The first render that sees
+   * any other draft clears it, whichever way the draft changed — a keystroke
+   * here or a parent rewriting `state.text` — so coming back to the dismissed
+   * text later, by any route, shows the list again.
    */
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
   const [selection, setSelection] = useState<SuggestionSelection | null>(null);
 
+  /**
+   * Whether the textarea has focus, tracked from its own focus and blur
+   * events. The list is shown only while it does: blurring closes it, and
+   * focusing again reopens it if the draft still matches. A press on a row
+   * does not blur, because the row accepts on mousedown and prevents the
+   * default focus change. The prefill effect below focuses the textarea, and
+   * that counts like any other focus.
+   */
+  const [focused, setFocused] = useState(false);
+
+  if (dismissedFor !== null && dismissedFor !== state.text) setDismissedFor(null);
+
+
   const matches = state.disabled ? [] : matchSlashCommands(state.text, commands);
-  const listOpen = matches.length > 0 && dismissedFor !== state.text;
+  const listOpen = focused && matches.length > 0 && dismissedFor !== state.text;
   const rows = listOpen ? matches : [];
   const selectedIndex = selection !== null && sameRows(selection.rows, rows) ? selection.index : 0;
 
@@ -134,7 +152,6 @@ export function Composer({ state, onChange, onSend, onInterrupt, commands }: Com
   function handleChange(next: string): void {
     lastLocalEdit.current = next;
     setSuppressedError(state.error);
-    setDismissedFor(null);
     onChange(next);
   }
 
@@ -158,7 +175,10 @@ export function Composer({ state, onChange, onSend, onInterrupt, commands }: Com
   function handleListKey(event: KeyboardEvent<HTMLTextAreaElement>): boolean {
     if (!listOpen) return false;
     if (event.key === 'Escape') {
-      // Closes the list only. It does not interrupt and does not edit.
+      // Closes the list only. It does not interrupt and does not edit. The
+      // list stays closed while the draft is this exact text; a draft that
+      // differs clears the dismissal, and so does nothing else. Esc with the
+      // list closed falls through to the interrupt below.
       event.preventDefault();
       setDismissedFor(state.text);
       setSelection(null);
@@ -235,6 +255,8 @@ export function Composer({ state, onChange, onSend, onInterrupt, commands }: Com
         value={state.text}
         onChange={(event) => handleChange(event.target.value)}
         onKeyDown={handleKeyDown}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         /*
          * `readOnly` rather than `disabled`: a disabled textarea leaves the
          * keyboard with nowhere to land, and Esc-to-interrupt needs the
