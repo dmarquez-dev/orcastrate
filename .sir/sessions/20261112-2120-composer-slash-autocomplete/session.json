@@ -1,0 +1,51 @@
+{
+  "id": "20261112-2120-composer-slash-autocomplete",
+  "name": "composer-slash-autocomplete",
+  "scope": "standard",
+  "status": "MERGED",
+  "started": "2026-11-12T21:19:47Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "6c529082-a639-48e8-b027-2ba1ebb65bd0",
+      "sir": "1.0.34",
+      "started": "2026-11-12T21:19:47Z",
+      "ended": "2026-11-12T21:26:19Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "b04ea23b-aba7-4552-b062-2471efc5224a",
+      "sir": "1.0.34",
+      "started": "2026-11-12T21:27:57Z",
+      "ended": "2026-11-12T22:14:39Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "400da675-2606-4859-bc64-506e4deaef7d",
+      "sir": "1.0.34",
+      "started": "2026-11-12T22:16:49Z",
+      "ended": "2026-11-12T23:16:06Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "1d4b2f04-8bd8-4322-98ca-fcc9a2cea199",
+      "sir": "1.0.36",
+      "started": "2026-11-13T17:26:46Z",
+      "ended": "2026-11-13T19:00:59Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  },
+  "brief": "Add slash-command autocomplete to Orcastrate's Composer and make submitted slash commands show their output. Main reads each Pod's command list from the Agent SDK (supportedCommands(), then commands_changed replacements), hides the commands the latest system/init marks terminal-only, and pushes the visible list per Pod on a new push:podCommands channel. The renderer keeps each Pod's list. Typing a leading '/' opens a dropdown of up to 5 prefix matches on name or alias, in SDK order, above the textarea, with arrow keys to move, Tab or Enter to accept and Escape to close. On the execution side, prompt dispatch already works. The LaneRouter now renders system/local_command_output, and the result text of turns that bypassed the model loop, as assistant text so that /context, /usage, /theme and an empty /compact visibly answer. Gaps not closed here (informational banners, /clear and /compact boundaries, a real capture, a pull channel, permission-mode reconciliation) become backlog rows at Gate 3.",
+  "pushed": true
+}

@@ -1,0 +1,223 @@
+{
+  "session": "20261112-2120-composer-slash-autocomplete",
+  "createdAt": "2026-11-12T21:35:27Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [
+    "contracts/slash-command-delivery.ts",
+    "contracts/renderer-slash-commands.ts"
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Main process: read each Pod's slash commands from the SDK, track commands_changed and the terminal set, and push the visible list on push:podCommands through the preload bridge",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/shared/contracts/ipc.ts",
+        "src/shared/contracts/pod-runner.ts",
+        "src/main/pod/sdk-bridge.ts",
+        "src/main/pod/pod-runner.ts",
+        "src/main/pod/index.ts",
+        "src/main/pod-manager/pod-manager.ts",
+        "src/main/pod-manager/pushes.ts",
+        "src/main/pod-manager/slash-commands.ts",
+        "src/main/pod-manager/index.ts",
+        "src/preload/api.ts",
+        "src/preload/api.test.ts",
+        "tests/unit/pod/**",
+        "tests/unit/pod-manager/**",
+        "tests/unit/ipc/**"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. `src/shared/contracts/ipc.ts` declares `SlashCommandInfo` and `PodCommandsPush` with exactly the fields `contracts/slash-command-delivery.ts` gives them. It adds `podCommands: 'push:podCommands'` to `EVENT_CHANNELS`, and adds `podCommands(cb: (p: PodCommandsPush) => void): Unsubscribe` to `OrcastrateApi['on']`. Each new declaration carries a docblock that restates that contract's rules for it in place: the normalization rules on `SlashCommandInfo`, and snapshot-not-delta plus SDK order on `PodCommandsPush`. In the worktree, `grep -rn 'interface SlashCommandInfo' src` and `grep -rn 'interface PodCommandsPush' src` each print exactly one line, and that line is in `src/shared/contracts/ipc.ts`. At c218dd4, `git grep -n 'interface SlashCommandInfo' c218dd4 -- src` prints nothing.",
+        "C2. In `tests/unit/ipc/channels.test.ts`, the push-channel count test ('declares exactly 6 push channels', `:48-52` at c218dd4) asserts 7 and is renamed to match. The invoke-channel count test (`:41-46`) still asserts 22. Both pass.",
+        "C3 (preserved, newly covering the seventh channel). 'main emits every channel in EVENT_CHANNELS' (`channels.test.ts:131` at c218dd4) still iterates `Object.values(EVENT_CHANNELS)`, and it passes with `push:podCommands` among the emitted channels. That push is produced by opening a Pod whose fake SDK answers `supportedCommands`, not by calling a push sink directly.",
+        "C4. `src/preload/api.ts` adds `on.podCommands`, which subscribes to `EVENT_CHANNELS.podCommands` the same way as the other `on.*` members. The per-channel table in `src/preload/api.test.ts` (`:249-254` at c218dd4) gains the row `['podCommands', EVENT_CHANNELS.podCommands]`, and every test driven by that table passes for the new row.",
+        "C5. `PodRunner` in `src/shared/contracts/pod-runner.ts` gains the OPTIONAL member `supportedCommands?(): Promise<unknown>`. Its docblock says three things: it resolves the SDK's answer unvalidated, and the manager normalizes it; it resolves `null` when the SDK bridge offers no command surface; and it rejects with a `PodRunnerError` of code `NOT_RUNNING` before `start()` and after `stop()`. No other member of that file changes. `SdkSession` in `src/main/pod/sdk-bridge.ts` gains the optional `supportedCommands?(): Promise<unknown>`, and `defaultSdkBridge` implements it by calling the query's `supportedCommands()` (`sdk.d.ts:2506` in `@anthropic-ai/claude-agent-sdk` 0.3.235).",
+        "C6. `EXPECTED_MEMBERS` in `tests/unit/pod/contract.test.ts` (`:17-26` at c218dd4) gains `'supportedCommands'`, and 'exposes exactly the contract`s members and nothing more' passes.",
+        "C7. A new test shows that a started runner, whose fake SDK session's `supportedCommands` resolves an array `X`, resolves `X` itself (`toBe`).",
+        "C8. A new test shows that a started runner whose fake SDK session has no `supportedCommands` member resolves `null`.",
+        "C9. A new test shows that `supportedCommands()` on a runner that was never started rejects with a `PodRunnerError` whose `code` is `NOT_RUNNING`.",
+        "C10. A new test shows that `supportedCommands()` called after `stop()` rejects with a `PodRunnerError` whose `code` is `NOT_RUNNING`.",
+        "C11. A new test mocks `@anthropic-ai/claude-agent-sdk` with `vi.mock`, the way `tests/unit/pod/fork-session.test.ts:16` does, so that `query()` returns an object whose `supportedCommands` resolves a sentinel array. The test shows that `defaultSdkBridge(...).supportedCommands?.()` resolves that same array (`toBe`), and that the mocked `supportedCommands` was called exactly once.",
+        "C12. `src/main/pod-manager/slash-commands.ts` exports `normalizeSlashCommands(value: unknown): SlashCommandInfo[]` and `SLASH_COMMANDS_READ_TIMEOUT_MS`, whose value is `10_000`. A new test shows that `null`, `undefined`, a plain object and a string each normalize to `[]`.",
+        "C13. A new test normalizes a five-entry input: valid `A`, `null`, `{ name: '' }`, `{ name: 7 }`, valid `B`. The output has exactly two entries, `A` then `B`, each with the four `SlashCommandInfo` fields.",
+        "C14. A new test shows that an entry with a valid `name` and a non-string `description` and `argumentHint` normalizes with both fields `''`.",
+        "C15. A new test shows two things about `aliases`. It becomes `[]` when it is absent or is not an array. When it is an array mixing strings and non-strings, it keeps only the string members, in their original order.",
+        "C16. A new test opens a Pod whose fake SDK answers `supportedCommands` with a two-entry list. Exactly one `push:podCommands` push follows, carrying `{ podId, commands }` with the normalized list. The fake's `supportedCommands` was called exactly once.",
+        "C17. A new test opens a Pod whose fake SDK's `supportedCommands` never settles. `openPod` resolves, the `podStatus` push with `status: 'idle'` is emitted, and no `push:podCommands` push is emitted.",
+        "C18 (backend discipline, Async: 'Every asynchronous operation crossing a process boundary carries a cancellation mechanism and a timeout'; the SDK's `supportedCommands()` takes no abort signal, so the timeout is the whole of what this task can give it). A new test runs C17's setup under `vi.useFakeTimers()` and advances the clock by `SLASH_COMMANDS_READ_TIMEOUT_MS`. The manager's injected logger then holds exactly one `warn` whose text contains the Pod id and the word `supportedCommands`, and no `push:podCommands` push has been emitted. The test reads no wall clock.",
+        "C19 (backend discipline, Logging: 'Log at boundaries and at decisions'; Error handling: 'Never swallow an error'). A new test makes the fake SDK's `supportedCommands` reject. The logger then holds exactly one `warn` containing the Pod id and `supportedCommands`, no `push:podCommands` push is emitted, and the Pod's stored status is still `'idle'`.",
+        "C20. A new test drives a `{ type: 'system', subtype: 'commands_changed', commands: [...] }` message through the fake SDK stream after C16's first push. A second `push:podCommands` push follows, carrying the normalized replacement list.",
+        "C21. A new test holds the initial read pending and drives a `commands_changed` message, after which one push follows. It then settles the initial read with a different list. No further `push:podCommands` push is emitted.",
+        "C22. A new test drives a `system`/`init` message with `terminal_slash_commands: ['doctor']`, then a catalog of `[a, doctor, b]`. The pushed list is `[a, b]`, in that order.",
+        "C23. A new test continues C22 with an `init` message that has no `terminal_slash_commands` field. A push follows carrying `[a, doctor, b]`.",
+        "C24. A new test pushes a catalog, then drives two `init` messages with identical `terminal_slash_commands`. The second `init` causes no `push:podCommands` push.",
+        "C25. A new test opens a Pod whose `supportedCommands` resolves `[]`. Exactly one `push:podCommands` push follows, and it carries `commands: []`.",
+        "C26. A new test opens a Pod whose fake SDK session has no `supportedCommands` member, then drives an `init` message carrying `terminal_slash_commands`. No `push:podCommands` push is emitted.",
+        "C27. A new test uses a runner object that has no `supportedCommands` member, like the inert runner at `src/renderer/src/__tests__/pod-stop.e2e.test.tsx:141-154` (c218dd4). `openPod` resolves, and no `push:podCommands` push is emitted.",
+        "C28. A new test closes the Pod while its initial read is pending, then settles the read with a non-empty list. No `push:podCommands` push is emitted, and the logger receives no `error`.",
+        "C29. A new test opens two Pods whose fake SDKs answer different lists. Each `push:podCommands` push carries its own Pod's `podId` and that Pod's list.",
+        "C30 (preserved, newly tested). A new test drives one `commands_changed` message and one `init` message through an open Pod. Each is still persisted as exactly one `system` event, with its own subtype, on the Matriarch lane, as at c218dd4: there, `lane-router.ts:426-428` emits one `system` event for every system message that is not `task_progress`.",
+        "C31. `src/main/pod-manager/pushes.ts` declares `podCommands(payload: PodCommandsPush): void` on `Pushes`, and `createPushes` implements it by sending on `EVENT_CHANNELS.podCommands`. The header at `pushes.ts:4` says 'five' at c218dd4, even though `EVENT_CHANNELS` held 6 then. After this task it either states 7 or states no number.",
+        "C32 (test discipline, Coverage: 'A test is shown able to fail'). For each of C16, C21, C22 and C28, the report names one defect injected at one named `file:line` in a non-test file this task owns. For each, it also names the narrowest `VT` command run under the injection and the failure it produced, and confirms the revert, checked before any broader command was run. Suggested defects: C16, no initial read; C21, no discard of a late read; C22, no terminal filter; C28, no disposed-session check.",
+        "C33. `VT` below is `npx --prefix <worktree> vitest run --root <worktree>`, and every `VT` run's `RUN` line must name the worktree, not the main checkout. `VT tests/unit/pod tests/unit/pod-manager tests/unit/ipc src/preload` exits 0.",
+        "C34. `npm run typecheck:node` exits 0. T1 is the only task running in its window, so this program reads no half-written peer file.",
+        "C35. `grep -rnE '\\.sir/|20261112-2120' <each file in this task's owns>`, run in the worktree, prints nothing. At c218dd4, `git grep -l -E '\\.sir/|20261112-2120' c218dd4 -- src tests` prints nothing. The control is `grep -cE '\\.sir/|20261112-2120' .sir/lessons.md` in the main checkout, which prints a non-zero count. Every new or edited docblock states the rule it relies on in place and cites no session artifact."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "LaneRouter: render local slash-command output, and the result text of a turn that bypassed the model loop, as assistant text",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/lane/lane-router.ts",
+        "tests/router/slash-command-output.test.ts"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C40 (gap G1). A new test file, `tests/router/slash-command-output.test.ts`, ingests `{ type: 'system', subtype: 'local_command_output', content: 'Context: 12k tokens', uuid, session_id }` into a lanes-mode router. Exactly one event comes back. Its `type` is `'assistant_text'`, its `laneId` is the Matriarch's, its `payload` deep-equals `{ type: 'assistant_text', text: 'Context: 12k tokens' }`, and its `raw` is the ingested message itself (`toBe`). The SDK's own description of the message is 'Displayed as assistant-style text in the transcript' (`sdk.d.ts:4257-4259` in the main checkout's `node_modules`), and `assistant_text` is in the renderer's conversation set (`transcript-filter.ts:40-45` at c218dd4).",
+        "C41. The C40 message, ingested into an inline-mode router, yields exactly one `assistant_text` event on the Matriarch lane.",
+        "C42 (preserved, newly tested). A `local_command_output` message whose `content` is absent, `''`, or not a string yields exactly one `system` event with subtype `'local_command_output'`. That is what c218dd4 yields for it (`lane-router.ts:426-428`).",
+        "C43 (gap G2). A new test ingests a `result` with `subtype: 'success'`, `is_error: false`, no `terminal_reason`, and `result: \"/theme isn't available in this environment.\"`, with no Matriarch `assistant_text` since the router was built. Exactly two events come back, in this order. First, an `assistant_text` on the Matriarch whose `text` is the `result` string and whose `raw` is the message. Second, the `system` event whose payload deep-equals `{ type: 'system', subtype: 'result:success', data: message }`, which is what c218dd4 produces for that message (`lane-router.ts:512-518`). This rests on the SDK: `TerminalReason` is documented 'Unset when the loop was bypassed (local slash command)' (`sdk.d.ts:7908-7911`).",
+        "C44. The C43 message with `terminal_reason: 'completed'` added yields only the `system` `result:success` event.",
+        "C45. The C43 message, ingested after an `assistant` message whose text block routes to the Matriarch, yields only the `system` `result:success` event. That Matriarch text is the half of the discriminator that keeps a CLI without `terminal_reason` from showing every reply twice.",
+        "C46. An `assistant` text block routed to a Calf lane, because its `parent_tool_use_id` names a dispatched Calf, does not suppress C43's `assistant_text`.",
+        "C47. A `local_command_output` with non-empty `content`, followed by C43's result, yields exactly one `assistant_text` across the two ingests, and it is the local output's.",
+        "C48. A test runs two turns. Turn 1 is a Matriarch text block and then a C43-shaped result. Turn 2 is a C43-shaped result with no text since turn 1's result. Turn 1 yields no extra `assistant_text`, and turn 2 yields one. So the suppression is reset at each `result`.",
+        "C49. A C43-shaped result whose `result` is `''` or is not a string yields only the `system` `result:success` event.",
+        "C50 (preserved, newly tested). A result with `is_error: true` and no `terminal_reason` yields exactly the one `error` event it yields at c218dd4 (`lane-router.ts:502-508`), and no `assistant_text`.",
+        "C51 (preserved, newly tested). A new test replays every file that `discoveredFixtureFiles()` (`tests/router/helpers.ts:103`) returns, and finds no `assistant_text` event whose `raw` has `type` `'result'` or `subtype` `'local_command_output'`. Every fixture result carries `terminal_reason`. `grep -h '\"type\":\"result\"' tests/fixtures/protocol/*.ndjson | grep -c '\"terminal_reason\":\"completed\"'` prints 6. `cat tests/fixtures/protocol/*.ndjson | grep -c '\"type\":\"result\"'` also prints 6.",
+        "C52. The docblocks on `routeSystem` and `routeResult` in `src/main/lane/lane-router.ts` state both mappings and both halves of the G2 discriminator in place. They name the SDK declarations they rest on, `SDKLocalCommandOutputMessage` and `TerminalReason`.",
+        "C53. No file is added under `src/main/lane/`. The purity suite's shipped-file list (`purity.test.ts:69`) and its import rule (`:83`, siblings and `../../shared/contracts/` only) pass unchanged.",
+        "C54 (test discipline, Coverage: 'A test is shown able to fail'). The report names two injections, each at one named `lane-router.ts` line: dropping the `terminal_reason` check, which must fail C44's test, and dropping the Matriarch-text check, which must fail C45's test. For each it gives the narrowest `VT` command run under the injection and the failure it produced, and confirms the revert, checked before any broader command was run.",
+        "C55. `VT` below is `npx --prefix <worktree> vitest run --root <worktree>`, and every `VT` run's `RUN` line must name the worktree, not the main checkout. `VT tests/router src/main/lane` exits 0.",
+        "C56. `npm run typecheck:node` exits 0. T3 and T4 run beside this task, but they edit only `src/renderer/**`, which `tsconfig.node.json`'s `include` (`:2-10`) does not reach.",
+        "C57. `grep -rnE '\\.sir/|20261112-2120' <each file in this task's owns>`, run in the worktree, prints nothing. At c218dd4, `git grep -l -E '\\.sir/|20261112-2120' c218dd4 -- src tests` prints nothing. The control is `grep -cE '\\.sir/|20261112-2120' .sir/lessons.md` in the main checkout, which prints a non-zero count. Every new or edited docblock states the rule it relies on in place and cites no session artifact."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Renderer state: hold each Pod's pushed command list and expose the active Pod's list through useSlashCommands; add the channel to the stub API",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-state.ts",
+        "src/renderer/src/state/store.ts",
+        "src/renderer/src/state/store.test.ts",
+        "src/renderer/src/state/workspace-provider.tsx",
+        "src/renderer/src/state/workspace-provider.test.tsx",
+        "src/renderer/src/state/index.ts",
+        "src/renderer/src/state/slash-commands.test.tsx",
+        "src/renderer/src/test-utils/stub-api.ts",
+        "src/renderer/src/test-utils/stub-api.test.ts",
+        "src/renderer/src/test-utils/render.test.tsx",
+        "src/renderer/src/__tests__/relaunch.e2e.test.tsx",
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C60. `src/renderer/src/contracts/renderer-state.ts` declares `export declare function useSlashCommands(): readonly SlashCommandInfo[];` among the focused hooks, importing `SlashCommandInfo` from `@shared/contracts/ipc`, with a docblock that restates part A of `contracts/renderer-slash-commands.ts` in place. `src/renderer/src/state/workspace-provider.tsx` implements it, and `src/renderer/src/state/index.ts` exports it. 'exports exactly the contract members, none added and none removed' (`workspace-provider.test.tsx:129` at c218dd4) passes.",
+        "C61. `WorkspaceStore.start()` subscribes to `on.podCommands` together with the existing channels (`store.ts:300-304` at c218dd4), and `stop()` calls its unsubscribe. 'subscribes once per channel on mount and unsubscribes each exactly once' (`workspace-provider.test.tsx:206`) still reads the channel names from `EVENT_CHANNELS` (`:186`), and it passes with `podCommands` among them.",
+        "C62. A new test makes Pod A active and calls `api.emit.podCommands({ podId: A, commands: [x, y] })`. `useSlashCommands()` then returns an array deep-equal to `[x, y]`, in that order.",
+        "C63. A new test continues C62 by emitting a push for Pod B while A stays active. The value `useSlashCommands()` returns is the same array object (`toBe`) it returned before that push.",
+        "C64. A new test continues C63 by making B active with `setActivePod(B)`. `useSlashCommands()` returns B's pushed list. As a control, the same test also runs `setActivePod(B)` on a second store that never received a `podCommands` push. `api.calls` after the activation deep-equals between the two runs, which shows that no IPC call reads commands.",
+        "C65. A new test shows that a push with `commands: []` for the active Pod makes `useSlashCommands()` return an empty array.",
+        "C66. A new test shows that, with a Pod active and no `podCommands` push received for it, `useSlashCommands()` returns an empty array.",
+        "C67. A new test shows that `useSlashCommands()` returns an empty array when no Pod is active.",
+        "C68. A new test re-renders after an unrelated state change, `setComposerText` on the active Pod, with no new push. `useSlashCommands()` returns the same array object (`toBe`).",
+        "C69. `src/renderer/src/test-utils/stub-api.ts` adds `podCommands: 'podCommands'` to `EVENT_CHANNEL_METHODS` (`:104-111` at c218dd4), along with `on.podCommands` and `emit.podCommands`, as part C of `contracts/renderer-slash-commands.ts` states. 'maps every EVENT_CHANNELS member to a stub subscriber' (`stub-api.test.ts:59`) passes. A new stub test shows that two subscribers each receive the same push object, and that a subscriber which has unsubscribed receives nothing further.",
+        "C70. (frontend fragment, 'Indexed access under noUncheckedIndexedAccess': no `!` and no `as` used as the guard) `grep -cP '[\\w\\])]!(?!=)' src/renderer/src/state/store.ts src/renderer/src/state/workspace-provider.tsx src/renderer/src/state/index.ts src/renderer/src/contracts/renderer-state.ts src/renderer/src/test-utils/stub-api.ts` prints 0 for each file. At c218dd4 it prints 0 for each file that exists there. The predicate was checked against a 4-line sample: it matches `xs[0]!` and `foo()!.bar` and does not match `a !== b` or `!x`. No non-test file this task owns contains `as SlashCommandInfo`.",
+        "C71 (test discipline, Coverage). The report names one injection at one named `store.ts` line: writing the push's list to the active Pod instead of to `push.podId`. C63's test must fail under it. The report gives the narrowest `VT` command run under the injection and the failure it produced, and confirms the revert.",
+        "C72. `VT` below is `npx --prefix <worktree> vitest run --root <worktree>`, and every `VT` run's `RUN` line must name the worktree, not the main checkout. `VT src/renderer/src/state src/renderer/src/test-utils` exits 0.",
+        "C73. `grep -rnE '\\.sir/|20261112-2120' <each file in this task's owns>`, run in the worktree, prints nothing. At c218dd4, `git grep -l -E '\\.sir/|20261112-2120' c218dd4 -- src tests` prints nothing. The control is `grep -cE '\\.sir/|20261112-2120' .sir/lessons.md` in the main checkout, which prints a non-zero count. Every new or edited docblock states the rule it relies on in place and cites no session artifact.",
+        "C74 (Gate 2 decision D3). The subscription docblocks that say 'five push channels' at c218dd4, at `src/renderer/src/state/store.ts:286`, `src/renderer/src/contracts/renderer-state.ts:125` and `src/renderer/src/state/workspace-provider.tsx:12`, each state 7 push channels or state no number. In the worktree, `grep -nE '(five|six) push channels' src/renderer/src/state/store.ts src/renderer/src/contracts/renderer-state.ts src/renderer/src/state/workspace-provider.tsx` prints nothing. At c218dd4, `git grep -n -E '(five|six) push channels' c218dd4 -- src/renderer/src/state/store.ts src/renderer/src/contracts/renderer-state.ts src/renderer/src/state/workspace-provider.tsx` prints 3 lines, one per file."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Composer: slash-command suggestion list above the textarea, with prefix match on name or alias, at most five rows, and keyboard and pointer acceptance",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/contracts/renderer-view.ts",
+        "src/renderer/src/composer/**"
+      ],
+      "dependsOn": [
+        "T1"
+      ],
+      "acceptance": [
+        "C80. `ComposerProps` in `src/renderer/src/contracts/renderer-view.ts` (`:325-334` at c218dd4) gains the required member `commands: readonly SlashCommandInfo[]`, imported from `@shared/contracts/ipc`, with a docblock that restates part B of `contracts/renderer-slash-commands.ts` in place. `onInterrupt`'s docblock gains the sentence 'Not called while the suggestion list is open: Esc then closes the list instead.' No other member changes.",
+        "C81. `src/renderer/src/composer/slash-suggestions.ts` exports a pure `matchSlashCommands(text: string, commands: readonly SlashCommandInfo[]): SlashCommandInfo[]`. A new test passes it `'/'` and seven commands and gets exactly the first five, in input order.",
+        "C82. A new test shows that `'/co'` returns exactly the commands whose `name` starts with `co`, in input order.",
+        "C83. A new test shows that `'/st'` returns a command named `usage` whose `aliases` include `stats`, and that it is the command object itself, not a copy renamed to the alias.",
+        "C84. A new test shows that each of `'compact'`, `' /compact'`, `'/compact now'` and `'/com\\npact'` returns `[]`, given a list containing `compact`.",
+        "C85. A new test shows that `'/C'` returns `[]`, given a list containing `compact`: the match is case-sensitive.",
+        "C86. A new test shows that `'/zz'` returns `[]` when no name or alias starts with `zz`.",
+        "C87. A Composer test with `text: '/'` and three commands renders exactly one element with role `listbox` and a non-empty accessible name, holding exactly three `option` elements in `commands` order. Each option holds one element whose `textContent` is exactly `'/' + name` and another whose `textContent` is exactly `description`. Leaving out its `aria-hidden` descendants, the option's `textContent` is those two strings with nothing else between or around them except whitespace.",
+        "C88. A Composer test with eight matching commands renders exactly five `option` elements.",
+        "C89 (frontend discipline, Accessibility floor: 'Every interactive element is reachable and operable by keyboard alone'; 'Semantic elements are used for their meaning'). While the list is open, the textarea has `aria-autocomplete='list'`, an `aria-controls` equal to the listbox's `id`, and an `aria-activedescendant` equal to the selected option's `id`. While the list is closed, the textarea has neither `aria-controls` nor `aria-activedescendant`.",
+        "C90 (frontend discipline, Accessibility floor: 'Color is never the only carrier of meaning'). The selected option has `aria-selected='true'`, and every other option has `aria-selected='false'`. The selected option also contains one `aria-hidden='true'` marker element that no other option contains.",
+        "C91. With the list open and row 0 selected, ArrowDown selects row 1.",
+        "C92. With the last row selected, ArrowDown selects row 0.",
+        "C93. With row 0 selected, ArrowUp selects the last row.",
+        "C94. When further typing changes the set of rows shown, for example from `'/'` to `'/c'`, row 0 is selected.",
+        "C95. With the list open and row 1 selected, Enter calls `onChange` once with `'/' + rows[1].name + ' '`. `onSend` is not called.",
+        "C96. With the list open, Tab calls `onChange` once with `'/' + rows[0].name + ' '`. `onSend` is not called, and `document.activeElement` is still the textarea.",
+        "C97. Accepting a row that matched only by an alias, as in C83, calls `onChange` with `'/usage '`, the canonical name.",
+        "C98. A `mousedown` on the second option calls `onChange` once with `'/' + rows[1].name + ' '`, and `document.activeElement` is still the textarea.",
+        "C99. With the list open, Escape removes the listbox from the DOM. Neither `onInterrupt` nor `onChange` is called.",
+        "C100. After C99's Escape, an edit whose new text still matches, such as `'/c'` to `'/co'`, shows the listbox again.",
+        "C101 (preserved, newly tested). With `text: '/compact now'`, so the list is closed, Enter calls `onSend` exactly once.",
+        "C102 (preserved, newly tested). With `text: '/zz'` and no matching command, so the list is closed, Enter calls `onSend` exactly once and Escape calls `onInterrupt` exactly once.",
+        "C103. With `text: '/'`, matching commands, and `disabled: true`, no `listbox` is rendered.",
+        "C104 (preserved). Every `it(` block that exists in `Composer.test.tsx` at c218dd4 still exists under the same name and passes. `grep -cE '^\\s+it\\(' src/renderer/src/composer/Composer.test.tsx` prints 15 at c218dd4. No assertion in those blocks changes; their renders gain only the `commands` prop.",
+        "C105 (preserved). `grep -c 'placeholder=\"Message this Pod. Enter sends, Shift+Enter adds a line.\"' src/renderer/src/composer/Composer.tsx` prints 1, as it does at c218dd4.",
+        "C106 (frontend discipline, Component boundaries: 'A component either arranges other components or renders content'; 'Presentation components take data and callbacks'). A new component, `src/renderer/src/composer/SlashCommandList.tsx`, renders the listbox from props alone: the rows, the selected index, the element ids, and a pick callback. It imports nothing from `../state` and does not mention `window.orcastrate`. `Composer.tsx` still imports nothing from `../state`, as its header at `Composer.tsx:11-12` says.",
+        "C107. `Composer.module.css` styles the list using tokens only. `Composer.styles.test.ts` passes, and its expected border-width list (the `toEqual` at `:137` at c218dd4) changes only by adding the declarations this task adds. `src/renderer/src/__tests__/hygiene.test.ts` passes.",
+        "C108. (frontend fragment, 'Indexed access under noUncheckedIndexedAccess': no `!` and no `as` used as the guard) `grep -cP '[\\w\\])]!(?!=)' src/renderer/src/composer/Composer.tsx src/renderer/src/composer/slash-suggestions.ts src/renderer/src/composer/SlashCommandList.tsx src/renderer/src/contracts/renderer-view.ts` prints 0 for each file. At c218dd4 it prints 0 for each file that exists there. The predicate was checked against a 4-line sample: it matches `xs[0]!` and `foo()!.bar` and does not match `a !== b` or `!x`. No non-test file this task owns contains `as SlashCommandInfo`.",
+        "C109 (test discipline, Coverage). The report names two injections, each at one named line: changing the cap from 5 to 6 in `slash-suggestions.ts`, which must fail C88's test, and removing the open-list branch of the Escape handling in `Composer.tsx`, which must fail C99's test. For each it gives the narrowest `VT` command run under the injection and the failure it produced, and confirms the revert.",
+        "C110. `VT` below is `npx --prefix <worktree> vitest run --root <worktree>`, and every `VT` run's `RUN` line must name the worktree, not the main checkout. `VT src/renderer/src/composer src/renderer/src/__tests__/hygiene.test.ts` exits 0.",
+        "C111. `grep -rnE '\\.sir/|20261112-2120' <each file in this task's owns>`, run in the worktree, prints nothing. At c218dd4, `git grep -l -E '\\.sir/|20261112-2120' c218dd4 -- src tests` prints nothing. The control is `grep -cE '\\.sir/|20261112-2120' .sir/lessons.md` in the main checkout, which prints a non-zero count. Every new or edited docblock states the rule it relies on in place and cites no session artifact."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Wire the active Pod's commands into the Composer, prove the path end to end, and run the repo-wide gates",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/App.tsx",
+        "src/renderer/src/__tests__/slash-commands.e2e.test.tsx",
+        "src/renderer/src/__tests__/failure-paths.e2e.test.tsx"
+      ],
+      "dependsOn": [
+        "T2",
+        "T3",
+        "T4"
+      ],
+      "acceptance": [
+        "C120. `src/renderer/src/App.tsx` passes `commands={...}` to `<Composer>` (`App.tsx:236` at c218dd4). The value comes from `useSlashCommands()`, imported from `./state`. `App.tsx` imports nothing new from `@shared/contracts/ipc`.",
+        "C121. A new test, `src/renderer/src/__tests__/slash-commands.e2e.test.tsx`, mounts the app over the stub API with one Pod in `status: 'idle'` and active. It emits `podCommands` for that Pod with two commands and types `/` into the composer textarea. A listbox appears holding exactly two options, in push order.",
+        "C122. The same test then emits `podCommands` for a different Pod id with one command. The active Pod's listbox still holds the same two options.",
+        "C123. The same test then presses Enter. The textarea's value is `'/' + first.name + ' '`, and `api.calls.podSend` is empty.",
+        "C124. The same test then presses Enter again. `api.calls.podSend` holds exactly one call, and its text equals the textarea's value at the time of that press.",
+        "C125. A new test emits `podCommands` with an empty list for the active Pod and types `/`. No listbox is rendered, and Enter sends `/` (one `podSend` call).",
+        "C126. In `src/renderer/src/__tests__/failure-paths.e2e.test.tsx`, the push-count assertion (`:585` at c218dd4, `toBe(6)`) becomes `toBe(7)`, and the comment above it is updated to say this session added one push channel. `INVOKE_KEYS.length` stays 22 (`:577`).",
+        "C127 (the Gate 1 decision that the renderer never hard-codes commands). In the worktree, `grep -rnP '[\\x27\\x22\\x60]/(compact|clear|context|usage|model|doctor|cost|effort|init|config|simplify|code-review)\\b' src/renderer/src --include=*.ts --include=*.tsx | grep -v -e '\\.test\\.' -e 'test-utils/' -e '__tests__/' | wc -l` prints 0, as it does at c218dd4. The predicate was checked against a 5-line sample. It matched the single-quoted, backtick and double-quoted forms `/compact`, `/usage` and `/clear` (3), and did not match `'compact'` or `'/compactor'`.",
+        "C128. In the worktree, `grep -rn 'interface SlashCommandInfo' src` and `grep -rn 'interface PodCommandsPush' src` each print exactly one line, in `src/shared/contracts/ipc.ts`. No renderer file re-declares either type.",
+        "C129. `npm run typecheck` exits 0.",
+        "C130. `VT` below is `npx --prefix <worktree> vitest run --root <worktree>`, and every `VT` run's `RUN` line must name the worktree, not the main checkout. `VT` with no paths, which is the whole suite, exits 0 and reports more tests than the 2649 that the session's setup probe recorded at c218dd4 (`state.json` verification, 161 files and 2649 tests).",
+        "C131. `npm run build` exits 0.",
+        "C132. `grep -rnE '\\.sir/|20261112-2120' <each file in this task's owns>`, run in the worktree, prints nothing. At c218dd4, `git grep -l -E '\\.sir/|20261112-2120' c218dd4 -- src tests` prints nothing. The control is `grep -cE '\\.sir/|20261112-2120' .sir/lessons.md` in the main checkout, which prints a non-zero count. Every new or edited docblock states the rule it relies on in place and cites no session artifact."
+      ]
+    }
+  ]
+}
