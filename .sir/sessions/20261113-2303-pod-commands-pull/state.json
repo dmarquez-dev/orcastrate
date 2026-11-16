@@ -1,0 +1,72 @@
+{
+  "session": "20261113-2303-pod-commands-pull",
+  "updatedAt": "2026-11-16T17:51:04Z",
+  "worktree": "/c/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261113-2303-pod-commands-pull",
+  "branch": "agent/20261113-2303-pod-commands-pull",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "> tsc --noEmit -p tsconfig.web.json --composite false; exit=0 (typecheck:node ran before it, also exit 0)"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "RUN v4.1.11 C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261113-2303-pod-commands-pull; Test Files 170 passed (170); Tests 2792 passed (2792); exit=0"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "startRef": "e7fed6b19159b6a7c4dc9b4180fc660860266d8d",
+      "model": "opus",
+      "commit": "ce9a0cb"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "startRef": "3f5cc8e3c6bb756ac6d4f0e6a00b6da6f5109e36",
+      "model": "opus",
+      "commit": "f8eee61"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "When a pod:commands pull answer and a push:podCommands push for the same Pod race, which one does the store keep?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Push wins (choice dialog at Gate 1): the store drops a pull answer if any push for that Pod arrived after the pull was sent. No change to PodCommandsPush and no revision field.",
+      "options": [
+        {
+          "summary": "Push wins: drop a pull answer if a push for that Pod arrived after the pull was sent",
+          "rationale": "Mirrors SlashCommandState's #replaced rule for its own late initial read; Electron delivers the invoke reply and the pushes to one renderer in order, so a push seen first is at least as new as the reply.",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod-manager/slash-commands.ts",
+              "src/shared/contracts/ipc.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Add a per-Pod revision counter to pushes and pull answers",
+          "rationale": "Explicit ordering, but changes the PodCommandsPush wire shape and every producer and consumer of it.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 1,
+    "reviewRounds": 1
+  }
+}

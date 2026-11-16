@@ -1,0 +1,51 @@
+{
+  "id": "20261113-2303-pod-commands-pull",
+  "name": "pod-commands-pull",
+  "scope": "standard",
+  "brief": "Add a pod:commands invoke channel so the renderer can pull an open Pod's current slash-command list from main, instead of seeing no suggestions after a renderer reload until the next push:podCommands or a reopen. Main answers each Pod's last reported visible list from its SlashCommandState, or [] for a Pod with no list. The store pulls once for every Pod refreshPods returns during start(); a failed pull is silent; and a push that lands after a pull was sent wins over that pull's answer (E1). The work spans the shared IPC contract, the preload bridge, the stub API, the main handler and PodManager read, the renderer store, and tests at each layer, including the push-during-pull race. Closes backlog row F4.",
+  "status": "MERGED",
+  "started": "2026-11-13T23:03:10Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "306e74e7-f24a-44b8-bc4d-e3f0df2d5b03",
+      "sir": "1.0.40",
+      "started": "2026-11-13T23:03:10Z",
+      "ended": "2026-11-15T22:59:25Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "6d1edb13-f502-4dee-b189-3061ac1ca406",
+      "sir": "1.0.40",
+      "started": "2026-11-15T23:22:31Z",
+      "ended": "2026-11-16T02:18:12Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "1e7313f0-fc4d-48e6-8c62-350d014f615f",
+      "sir": "1.0.40",
+      "started": "2026-11-16T02:19:47Z",
+      "ended": "2026-11-16T02:56:16Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "5fadc673-05dd-4ad2-b7fa-4dfdf63a4160",
+      "sir": "1.0.40",
+      "started": "2026-11-16T03:22:24Z",
+      "ended": "2026-11-16T17:51:04Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 1,
+    "reviewRounds": 0
+  },
+  "pushed": true
+}
