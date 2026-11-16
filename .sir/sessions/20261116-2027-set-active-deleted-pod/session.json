@@ -2,9 +2,9 @@
   "id": "20261116-2027-set-active-deleted-pod",
   "name": "set-active-deleted-pod",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-16T20:27:45Z",
-  "ended": "2026-11-16T20:53:58Z",
+  "ended": "2026-11-16T21:03:33Z",
   "pushed": true,
   "parent": null,
   "children": [],
@@ -15,6 +15,14 @@
       "sir": "1.0.42",
       "started": "2026-11-16T20:27:45Z",
       "ended": "2026-11-16T20:53:58Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "4d6874a8-bb65-4090-9699-9ab81666edd2",
+      "phase": "wrap",
+      "sir": "1.0.42",
+      "started": "2026-11-16T21:03:04Z",
+      "ended": "2026-11-16T21:03:33Z",
       "outcome": "complete"
     }
   ],
