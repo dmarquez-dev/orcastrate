@@ -2,9 +2,9 @@
   "id": "20261116-1932-deleted-pod-runtime-guard",
   "name": "deleted-pod-runtime-guard",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-16T19:33:35Z",
-  "ended": "2026-11-16T20:03:09Z",
+  "ended": "2026-11-16T20:05:57Z",
   "pushed": true,
   "parent": null,
   "children": [],
@@ -15,6 +15,14 @@
       "sir": "1.0.41",
       "started": "2026-11-16T19:33:35Z",
       "ended": "2026-11-16T20:03:09Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "63f75765-853e-43cc-aa38-96b651d8672f",
+      "phase": "wrap",
+      "sir": "1.0.41",
+      "started": "2026-11-16T20:05:39Z",
+      "ended": "2026-11-16T20:05:57Z",
       "outcome": "complete"
     }
   ],
