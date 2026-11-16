@@ -19,11 +19,13 @@
  *      which element carries the message and what the app does around it —
  *      the dialog stays open, the draft survives, the card stays.
  *
- * ARITHMETIC. There are TWENTY-TWO invoke channels. TWENTY reach a rendered
- * error surface; TWO do not, and those two are exactly `UNREACHABLE_CHANNELS`:
- * no affordance calls them, so there is no failure to surface. See
- * `SURFACELESS_CHANNELS` for the two and why each is there. This is a finding
- * about the app, not about the suite.
+ * ARITHMETIC. There are TWENTY-THREE invoke channels. TWENTY reach a rendered
+ * error surface; THREE do not. Two of the three are exactly
+ * `UNREACHABLE_CHANNELS`: no affordance calls them, so there is no failure to
+ * surface. The third is `podCommands`, the startup pull of each Pod's
+ * slash-command list: it is reached on every start, and its failure is silent
+ * by design. See `SURFACELESS_CHANNELS` for the three and why each is there.
+ * This is a finding about the app, not about the suite.
  *
  * THE NOTIFICATION REGION MOVED FIVE NAMES OFF THE ALLOWLIST (session
  * 20261111-0156-message-alerting). `podClose`, `podInterrupt`, `laneList`,
@@ -118,8 +120,9 @@ installUnhandledRejectionGuard();
 const INVOKE_KEYS = Object.keys(INVOKE_CHANNELS) as InvokeChannelKey[];
 
 /**
- * The classification sweep drives the whole app plus BOTH panels twenty-one
- * times over, so it is the one place in this suite where the harness's own
+ * The classification sweep drives the whole app plus BOTH panels once per
+ * invoke channel, `INVOKE_KEYS.length` times over (twenty-three), so it is the
+ * one place in this suite where the harness's own
  * cost matters. `delay: null` removes `user-event`'s inter-event yield; it
  * changes no assertion, because every step here is followed by `settle()`,
  * which drains the microtask queue and one macrotask turn explicitly.
@@ -132,7 +135,7 @@ function fastUser(): UserEvent {
 }
 
 /**
- * Driving twenty-one channels through two panels each does not fit in vitest's
+ * Driving `INVOKE_KEYS.length` channels (twenty-three) through two panels each does not fit in vitest's
  * 5s default, and the honest fix for a genuinely long test is to say how long
  * it may take rather than to make it do less. It is a bound, not a wait: a
  * passing run does not spend it.
@@ -168,8 +171,16 @@ function laneApi(): StubOrcastrateApi {
  *   podSetPermissionMode No affordance changes an existing Pod's mode; the
  *                        dialog's mode picker is create-time only.
  *
- * Both are also on `UNREACHABLE_CHANNELS`, and the two lists are now the same
- * set: every channel the sweep can reach surfaces its failure.
+ * Both are also on `UNREACHABLE_CHANNELS`.
+ *
+ *   podCommands          The startup pull of each listed Pod's slash-command
+ *                        list. It IS reached, on every start (`sweepApi` lists
+ *                        two Pods, so it is called twice), and it is silent BY
+ *                        DESIGN: a failed pull leaves the Pod's list as it was
+ *                        until a push arrives, with no notification and no
+ *                        error field. It is therefore the one name here that
+ *                        is not on `UNREACHABLE_CHANNELS`, and the call-count
+ *                        assertion below proves the sweep reached it.
  *
  * FIVE NAMES LEFT THIS LIST WITH THE NOTIFICATION REGION. `podClose`,
  * `podInterrupt`, `laneList`, `eventsRead` and `appRoutingMode` used to fail
@@ -190,7 +201,11 @@ function laneApi(): StubOrcastrateApi {
  * focused tests below say which element carries each message. If one of them
  * ever stops surfacing, the fix is the panel, not this list.
  */
-const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = ['podUpdate', 'podSetPermissionMode'];
+const SURFACELESS_CHANNELS: readonly InvokeChannelKey[] = [
+  'podUpdate',
+  'podSetPermissionMode',
+  'podCommands',
+];
 
 /**
  * The subset of `SURFACELESS_CHANNELS` that no affordance calls AT ALL, so
@@ -569,19 +584,20 @@ describe('which channels can say what went wrong', () => {
     expect(new Set(SURFACELESS_CHANNELS).size).toBe(SURFACELESS_CHANNELS.length);
     expect(new Set(UNREACHABLE_CHANNELS).size).toBe(UNREACHABLE_CHANNELS.length);
     expect(SURFACELESS_CHANNELS).toEqual(expect.arrayContaining([...UNREACHABLE_CHANNELS]));
-    // TWENTY of TWENTY-TWO surface, and TWO do not. Both halves are pinned,
+    // TWENTY of TWENTY-THREE surface, and THREE do not. Both halves are pinned,
     // not just their difference: a channel added to the frozen map without a
     // classification would move the total and be caught here, and a name added
     // to the allowlist would move the other. If either moves, this file's
     // header is stale and saying so is this assertion's whole job.
-    expect(INVOKE_KEYS.length).toBe(22);
-    expect(SURFACELESS_CHANNELS.length).toBe(2);
+    expect(INVOKE_KEYS.length).toBe(23);
+    expect(SURFACELESS_CHANNELS.length).toBe(3);
     expect(INVOKE_KEYS.length - SURFACELESS_CHANNELS.length).toBe(20);
     // THE PUSH HALF OF THE SAME CLAIM. The Pod-lifecycle session widened
     // `PodStatus` and added a `system` subtype; it added NO channel in either
     // direction. The slash-command session then added ONE push channel,
-    // `podCommands`, which carries a Pod's command list to the composer, and
-    // no invoke channel, which is why the invoke total above did not move. A
+    // `podCommands`, which carries a Pod's command list to the composer. The
+    // invoke channel of the same key, the startup pull of that list, came
+    // later and moved the invoke total above, not this one. A
     // push channel is not classified for an error surface — pushes carry no
     // envelope — so the only thing to pin here is the count.
     expect(Object.keys(EVENT_CHANNELS).length).toBe(7);
@@ -625,7 +641,7 @@ describe('which channels can say what went wrong', () => {
 describe('every invoke channel failing in turn', () => {
   it('has a channel list to walk at all', () => {
     // Vacuity guard: an empty `it.each` below would report as a pass.
-    expect(INVOKE_KEYS.length).toBeGreaterThanOrEqual(22);
+    expect(INVOKE_KEYS.length).toBeGreaterThanOrEqual(23);
   });
 
   it.each(INVOKE_KEYS)(

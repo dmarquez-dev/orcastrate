@@ -41,6 +41,7 @@ import type {
   PodDeletionResult,
   ReadEventsRequest,
   ReadEventsResponse,
+  SlashCommandInfo,
   UpdatePodRequest,
   Unsubscribe,
 } from '@shared/contracts/ipc';
@@ -88,6 +89,7 @@ export const INVOKE_CHANNEL_METHODS = {
   podSetPermissionMode: ['pods', 'setPermissionMode'],
   podReconnect: ['pods', 'reconnect'],
   podFork: ['pods', 'fork'],
+  podCommands: ['pods', 'commands'],
   laneList: ['lanes', 'list'],
   eventsRead: ['events', 'read'],
   permissionRespond: ['permissions', 'respond'],
@@ -656,6 +658,12 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
           forkedFromCcSessionId: 'cc-stub-parent',
         }),
       ),
+      /**
+       * The pull of one Pod's current slash-command list. Empty by default,
+       * which is what main answers for a Pod whose session has no catalog yet;
+       * a suite that needs a list overrides this.
+       */
+      commands: channel('podCommands', (_podId: PodId): SlashCommandInfo[] => []),
       send: channel('podSend', (_podId: PodId, _text: string): void => undefined),
       interrupt: channel('podInterrupt', (_podId: PodId): void => undefined),
       setPermissionMode: channel(

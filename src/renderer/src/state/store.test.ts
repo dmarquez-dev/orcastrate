@@ -13,7 +13,12 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Lane, NormalizedEvent, Pod } from '@shared/contracts/events';
-import type { IpcError, IpcResult, ReadEventsResponse } from '@shared/contracts/ipc';
+import type {
+  IpcError,
+  IpcResult,
+  ReadEventsResponse,
+  SlashCommandInfo,
+} from '@shared/contracts/ipc';
 import { INVOKE_CHANNELS } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
 
@@ -29,7 +34,12 @@ import {
 } from '../test-utils/stub-api';
 
 import { PanelStateStore } from './panel-store';
-import { newRuntime, WorkspaceStateStore, type PodRuntimeState } from './store';
+import {
+  newRuntime,
+  NO_SLASH_COMMANDS,
+  WorkspaceStateStore,
+  type PodRuntimeState,
+} from './store';
 import { steerPrefill } from './steer';
 
 const POD = 'pod-1';
@@ -327,6 +337,11 @@ describe('error discipline (criterion 3)', () => {
     // channel, preload method and main handler stay. Naming it here keeps the
     // equality below exact instead of letting the channel fall out silently.
     covered.add('podSetPermissionMode');
+    // No action reaches this one either: it is the startup lifecycle read,
+    // issued once per Pod by `start()`, and it fails silently by design, so it
+    // has no result to pass an `IpcError` through. Its own describe block
+    // below covers it.
+    covered.add('podCommands');
     expect([...covered].sort()).toEqual(
       (Object.keys(INVOKE_CHANNELS) as InvokeChannelKey[]).sort(),
     );
@@ -2045,6 +2060,295 @@ describe('forkPod', () => {
     expect(await second).toEqual({ ok: true, value: FORKED });
     expect(calls).toEqual([POD]);
     expect(store.getState().pods.filter((pod) => pod.id === 'pod-1-fork')).toHaveLength(1);
+    store.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The startup slash-command pull
+// ---------------------------------------------------------------------------
+
+function slashCommand(name: string): SlashCommandInfo {
+  return { name, description: `${name} command`, argumentHint: '', aliases: [] };
+}
+
+type CommandsAnswer = IpcResult<SlashCommandInfo[]>;
+
+/**
+ * A stub listing `makeStubPods()` whose `pods.commands` answers are held by
+ * the test, one `Deferred` per Pod, created when that Pod's pull is sent. The
+ * stub's own `pods.commands` is still called first, so `calls.podCommands`
+ * keeps recording every pull.
+ */
+function heldCommandsApi(): {
+  api: StubOrcastrateApi;
+  held: Map<string, Deferred<CommandsAnswer>>;
+} {
+  const api = stubOrcastrateApi({
+    pods: { list: async () => ({ ok: true, value: makeStubPods() }) },
+  });
+  const held = new Map<string, Deferred<CommandsAnswer>>();
+  const recorded = api.pods.commands;
+  api.pods.commands = (podId) => {
+    void recorded(podId);
+    const answer = deferred<CommandsAnswer>();
+    held.set(podId, answer);
+    return answer.promise;
+  };
+  return { api, held };
+}
+
+/** Holds `pods.list` too, so a push can be emitted before any pull is sent. */
+function heldListApi(): {
+  api: StubOrcastrateApi;
+  held: Map<string, Deferred<CommandsAnswer>>;
+  list: Deferred<IpcResult<Pod[]>>;
+} {
+  const { api, held } = heldCommandsApi();
+  const list = deferred<IpcResult<Pod[]>>();
+  api.pods.list = () => list.promise;
+  return { api, held, list };
+}
+
+function heldFor(
+  held: Map<string, Deferred<CommandsAnswer>>,
+  podId: string,
+): Deferred<CommandsAnswer> {
+  const answer = held.get(podId);
+  if (answer === undefined) throw new Error(`no pods.commands pull was sent for ${podId}`);
+  return answer;
+}
+
+function slashCommandsOf(store: WorkspaceStateStore, podId: string): readonly SlashCommandInfo[] {
+  const runtime = store.getState().runtimes[podId];
+  if (runtime === undefined) throw new Error(`expected a runtime for ${podId}`);
+  return runtime.slashCommands;
+}
+
+describe('the startup slash-command pull', () => {
+  it('pulls once for each Pod the first successful pods.list returns, with the bare id', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: makeStubPods() }) },
+    });
+    const store = makeStore(api);
+
+    store.start();
+    await flush();
+
+    expect(api.calls.podCommands).toEqual([['pod-1'], ['pod-2']]);
+    store.stop();
+  });
+
+  it('pulls nothing when pods.list fails during start', async () => {
+    const api = stubOrcastrateApi();
+    api.failInvoke('podList', ipcError('IO', 'pod list failed'));
+    const store = makeStore(api);
+
+    store.start();
+    await flush();
+
+    expect(store.getState().podsPhase).toBe('error');
+    expect(api.calls.podCommands).toEqual([]);
+    store.stop();
+  });
+
+  it('issues every Pod pull before any of them answers', async () => {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+
+    store.start();
+    await flush();
+
+    // Neither answer has been released, so a pull that waited on the one
+    // before it would leave only one call here.
+    expect(api.calls.podCommands).toEqual([['pod-1'], ['pod-2']]);
+
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-2').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('issues no pull on a Pod switch', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: makeStubPods() }) },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(api.calls.podCommands).toHaveLength(2);
+
+    store.actions.setActivePod('pod-2');
+    store.actions.setActivePod('pod-1');
+    await flush();
+
+    expect(api.calls.podCommands).toHaveLength(2);
+    store.stop();
+  });
+
+  it('issues no pull on a later refreshPods', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: makeStubPods() }) },
+    });
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(api.calls.podCommands).toHaveLength(2);
+
+    await store.actions.refreshPods();
+    await flush();
+
+    expect(api.calls.podCommands).toHaveLength(2);
+    store.stop();
+  });
+
+  it("makes a non-empty answer the Pod's list, as the very array delivered", async () => {
+    const pulled = [slashCommand('review'), slashCommand('compact')];
+    const api = stubOrcastrateApi({
+      pods: {
+        list: async () => ({ ok: true, value: makeStubPods() }),
+        commands: async (podId) => ({ ok: true, value: podId === 'pod-2' ? pulled : [] }),
+      },
+    });
+    const store = makeStore(api);
+
+    store.start();
+    await flush();
+
+    expect(store.getState().runtimes['pod-2']?.slashCommands).toBe(pulled);
+    store.stop();
+  });
+
+  it('commits no state for an empty answer to a Pod whose list is already empty', async () => {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(slashCommandsOf(store, 'pod-1')).toBe(NO_SLASH_COMMANDS);
+
+    const before = store.getState();
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+
+    expect(store.getState()).toBe(before);
+    heldFor(held, 'pod-2').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('replaces a list pushed before the pull was sent with NO_SLASH_COMMANDS on an empty answer', async () => {
+    const { api, held, list } = heldListApi();
+    const store = makeStore(api);
+    store.start();
+
+    const pushed = [slashCommand('review')];
+    api.emit.podCommands({ podId: 'pod-2', commands: pushed });
+    expect(slashCommandsOf(store, 'pod-2')).toBe(pushed);
+
+    list.resolve({ ok: true, value: makeStubPods() });
+    await flush();
+    heldFor(held, 'pod-2').resolve({ ok: true, value: [] });
+    await flush();
+
+    expect(slashCommandsOf(store, 'pod-2')).toBe(NO_SLASH_COMMANDS);
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('keeps a push that lands while the pull is in flight, and drops the answer', async () => {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    expect(api.calls.podCommands).toContainEqual(['pod-2']);
+
+    const pushed = [slashCommand('review')];
+    api.emit.podCommands({ podId: 'pod-2', commands: pushed });
+    heldFor(held, 'pod-2').resolve({ ok: true, value: [slashCommand('stale')] });
+    await flush();
+
+    expect(slashCommandsOf(store, 'pod-2')).toBe(pushed);
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('applies the answer when the only push for that Pod landed before the pull was sent', async () => {
+    const { api, held, list } = heldListApi();
+    const store = makeStore(api);
+    store.start();
+
+    api.emit.podCommands({ podId: 'pod-2', commands: [slashCommand('early')] });
+    list.resolve({ ok: true, value: makeStubPods() });
+    await flush();
+
+    const pulled = [slashCommand('review'), slashCommand('compact')];
+    heldFor(held, 'pod-2').resolve({ ok: true, value: pulled });
+    await flush();
+
+    expect(slashCommandsOf(store, 'pod-2')).toBe(pulled);
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it("does not drop one Pod's answer for a push to another Pod", async () => {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+
+    api.emit.podCommands({ podId: 'pod-1', commands: [slashCommand('other')] });
+    const pulled = [slashCommand('review')];
+    heldFor(held, 'pod-2').resolve({ ok: true, value: pulled });
+    await flush();
+
+    expect(slashCommandsOf(store, 'pod-2')).toBe(pulled);
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('commits no state when a pull fails through failInvoke', async () => {
+    const api = stubOrcastrateApi({
+      pods: { list: async () => ({ ok: true, value: makeStubPods() }) },
+    });
+    api.failInvoke('podCommands', ipcError('IO', 'commands pull failed'));
+    const store = makeStore(api);
+    // Released only once the state to compare against has been captured.
+    const gate = deferred<void>();
+    const failing = api.pods.commands;
+    api.pods.commands = async (podId) => {
+      const result = await failing(podId);
+      await gate.promise;
+      return result;
+    };
+    store.start();
+    await flush();
+    expect(api.calls.podCommands).toHaveLength(2);
+
+    const before = store.getState();
+    gate.resolve();
+    await flush();
+
+    expect(store.getState()).toBe(before);
+    store.stop();
+  });
+
+  it('commits no state when a held pull answers { ok: false }', async () => {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+
+    const before = store.getState();
+    const error = ipcError('NOT_FOUND', 'no such Pod');
+    heldFor(held, 'pod-1').resolve({ ok: false, error });
+    heldFor(held, 'pod-2').resolve({ ok: false, error });
+    await flush();
+
+    expect(store.getState()).toBe(before);
     store.stop();
   });
 });
