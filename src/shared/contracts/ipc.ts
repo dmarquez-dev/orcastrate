@@ -342,7 +342,8 @@ export interface SlashCommandInfo {
  * (`OrcastrateApi['pods'].commands`). PUSH WINS: the renderer drops a pull
  * answer for a Pod if a push for that Pod arrived after the pull was sent. A
  * push for that Pod that arrived before the pull was sent does not drop it, and
- * a push for any other Pod never does.
+ * a push for any other Pod never does. When a pull answer is not dropped, it
+ * replaces the renderer's list for that Pod wholesale, exactly as a push does.
  */
 export interface PodCommandsPush {
   podId: PodId;
