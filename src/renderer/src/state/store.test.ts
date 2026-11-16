@@ -2490,4 +2490,75 @@ describe('runtime writes for a deleted Pod', () => {
     await flush();
     store.stop();
   });
+
+  /** The `lanes.list` and `events.read` calls the stub recorded for one Pod. */
+  function readsFor(api: StubOrcastrateApi, podId: string): { lanes: number; events: number } {
+    return {
+      lanes: api.calls.laneList.filter((args) => args[0] === podId).length,
+      events: api.calls.eventsRead.filter((args) => {
+        const req = args[0] as { podId?: string } | undefined;
+        return req?.podId === podId;
+      }).length,
+    };
+  }
+
+  it('setActivePod for a deleted Pod leaves the active Pod where it was', async () => {
+    const { held, store } = await startedWithPods();
+    const active = store.getState().activePodId;
+    expect(active).not.toBeNull();
+    expect(active).not.toBe(GONE);
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+
+    store.actions.setActivePod(GONE);
+
+    expect(store.getState().activePodId).toBe(active);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('setActivePod for a deleted Pod issues no lanes.list and no events.read', async () => {
+    const { api, held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    const before = readsFor(api, GONE);
+
+    store.actions.setActivePod(GONE);
+    await flush();
+
+    expect(readsFor(api, GONE)).toEqual(before);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('still activates a Pod whose delete failed', async () => {
+    const { api, held, store } = await startedWithPods();
+    api.failInvoke('podDelete', ipcError('NOT_FOUND', 'no such Pod'));
+    const result = await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    expect(result.ok).toBe(false);
+
+    store.actions.setActivePod(GONE);
+
+    expect(store.getState().activePodId).toBe(GONE);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('setActivePod(null) still clears the active Pod after a delete', async () => {
+    const { held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    expect(store.getState().activePodId).not.toBeNull();
+
+    store.actions.setActivePod(null);
+
+    expect(store.getState().activePodId).toBeNull();
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
 });

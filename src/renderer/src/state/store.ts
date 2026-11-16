@@ -779,8 +779,16 @@ export class WorkspaceStateStore {
         }
       },
 
-      /** Idempotent. Clears the Pod's unread count and, once, starts its reads. */
+      /**
+       * Idempotent. Clears the Pod's unread count and, once, starts its reads.
+       *
+       * A Pod `deletePod` has removed is refused: the call changes nothing —
+       * `activePodId` stays what it was, it is not reset to `null` — and
+       * issues no reads. Only those tombstoned ids are refused; an id never
+       * seen still activates, and `null` still clears the active Pod.
+       */
       setActivePod(podId: PodId | null): void {
+        if (podId !== null && store.deletedPods.has(podId)) return;
         if (store.state.activePodId === podId) return;
         store.update((state) => ({ ...state, activePodId: podId }));
         if (podId === null) return;

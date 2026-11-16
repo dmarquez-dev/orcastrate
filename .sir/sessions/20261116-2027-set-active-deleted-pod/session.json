@@ -1,0 +1,34 @@
+{
+  "id": "20261116-2027-set-active-deleted-pod",
+  "name": "set-active-deleted-pod",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-16T20:27:45Z",
+  "ended": "2026-11-16T20:53:58Z",
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "4d6874a8-bb65-4090-9699-9ab81666edd2",
+      "phase": "small",
+      "sir": "1.0.42",
+      "started": "2026-11-16T20:27:45Z",
+      "ended": "2026-11-16T20:53:58Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 2,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  },
+  "criteria": [
+    "C1: After a successful `deletePod` of Pod X, while another Pod Y is active, `setActivePod(X)` leaves `getState().activePodId` equal to Y. A new test in `src/renderer/src/state/store.test.ts` asserts this and is shown red against the unguarded store (red step).",
+    "C2: `setActivePod(X)` for a Pod X that `deletePod` removed issues no `lanes.list` and no `events.read` call. A new test asserts the fake API's call counts for X stay unchanged across the call, and it is shown red against the unguarded store (red step).",
+    "C3: Only tombstoned ids are refused. An id the store has never seen still becomes `activePodId` (the existing `'ghost'` test at `src/renderer/src/state/workspace-provider.test.tsx:1004` passes unchanged), and a Pod whose `pods.delete` call failed can still be activated, which a new test asserts. `setActivePod(null)` behaves as before.",
+    "C4: The `setActivePod` docblock in `store.ts` states the deleted-Pod rule in place and cites no `.sir/sessions` path or session id.",
+    "C5: `npm test` (whole suite, run from the repository root) passes, and `npm run typecheck` exits 0.",
+    "C6: Row 43 of `.sir/backlog.md` (2026-11-16 20261116-1932-deleted-pod-runtime-guard, '`setActivePod` can still make a deleted Pod's id the `activePodId`') is removed at Gate 3, and every open backlog row citing a `file:line` in a file this session changes is re-measured at the tip."
+  ]
+}
