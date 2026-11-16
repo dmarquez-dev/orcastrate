@@ -43,6 +43,7 @@ import {
 import { steerPrefill } from './steer';
 
 const POD = 'pod-1';
+const SPARE_POD = 'pod-spare';
 
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
@@ -1407,7 +1408,12 @@ describe('the pane model (criterion 10)', () => {
     // runtime restores the same two lanes rather than an empty rail.
     const twoLanes = [MATRIARCH, CALF_A];
     const api = stubOrcastrateApi({
-      pods: { list: async () => ({ ok: true, value: [makeStubPod({ id: POD })] }) },
+      pods: {
+        list: async () => ({
+          ok: true,
+          value: [makeStubPod({ id: POD }), makeStubPod({ id: SPARE_POD })],
+        }),
+      },
       lanes: { list: async () => ({ ok: true, value: twoLanes }) },
     });
     const store = makeStore(api);
@@ -1417,12 +1423,15 @@ describe('the pane model (criterion 10)', () => {
     await flush();
     expect(runtimeOf(store).lanes).toHaveLength(2);
 
+    // `deletePod` is given a spare Pod, not POD: a deleted Pod's runtime
+    // cannot be re-created by a later push, so deleting POD would leave every
+    // method after it with no lanes to assert against.
     const args: Record<string, unknown[]> = {
       refreshPods: [],
       createPod: [{ title: 'T', cwd: '/stub/workspace', permissionMode: 'default' }],
       updatePod: [{ podId: POD, title: 'renamed' }],
       reorderPods: [[POD]],
-      deletePod: [{ podId: POD, deleteSession: false }],
+      deletePod: [{ podId: SPARE_POD, deleteSession: false }],
       openPod: [POD],
       closePod: [POD],
       reconnectPod: [POD],
@@ -1454,7 +1463,7 @@ describe('the pane model (criterion 10)', () => {
       const method = store.actions[name] as (...a: unknown[]) => unknown;
       await method.apply(store.actions, args[name] ?? []);
       called += 1;
-      // `deletePod` removes the runtime; replay the snapshot so every method
+      // Should a method remove the runtime, replay the snapshot so every method
       // after it in the enumeration is still exercised against two lanes.
       if (store.getState().runtimes[POD] === undefined) {
         withLanes(store, api, twoLanes);
@@ -2349,6 +2358,136 @@ describe('the startup slash-command pull', () => {
     await flush();
 
     expect(store.getState()).toBe(before);
+    store.stop();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Runtime writes for a deleted Pod
+// ---------------------------------------------------------------------------
+
+describe('runtime writes for a deleted Pod', () => {
+  async function startedWithPods(): Promise<{
+    api: StubOrcastrateApi;
+    held: Map<string, Deferred<CommandsAnswer>>;
+    store: WorkspaceStateStore;
+  }> {
+    const { api, held } = heldCommandsApi();
+    const store = makeStore(api);
+    store.start();
+    await flush();
+    return { api, held, store };
+  }
+
+  const GONE = 'pod-2';
+
+  it('drops a pull answer that resolves after the Pod was deleted', async () => {
+    const { held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+
+    heldFor(held, GONE).resolve({ ok: true, value: [slashCommand('late')] });
+    await flush();
+
+    expect(store.getState().runtimes[GONE]).toBeUndefined();
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('drops a podCommands push for a deleted Pod and notifies no listener', async () => {
+    const { api, held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    let notified = 0;
+    store.subscribe(() => {
+      notified += 1;
+    });
+    const before = store.getState();
+
+    api.emit.podCommands({ podId: GONE, commands: [slashCommand('late')] });
+
+    expect(store.getState().runtimes[GONE]).toBeUndefined();
+    expect(store.getState()).toBe(before);
+    expect(notified).toBe(0);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('drops a laneChanged push for a deleted Pod', async () => {
+    const { api, held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+
+    api.emit.laneChanged({ podId: GONE, lanes: [makeStubLane({ id: 'lane-x', podId: GONE })] });
+
+    expect(store.getState().runtimes[GONE]).toBeUndefined();
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('drops permissionRequested and permissionResolved pushes for a deleted Pod', async () => {
+    const { api, held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+
+    api.emit.permissionRequested({
+      podId: GONE,
+      laneId: 'lane-x',
+      requestId: 'req-late',
+      toolName: 'Bash',
+      input: { command: 'ls' },
+    });
+    expect(store.getState().runtimes[GONE]).toBeUndefined();
+
+    api.emit.permissionResolved({ podId: GONE, requestId: 'req-late', outcome: 'aborted' });
+    expect(store.getState().runtimes[GONE]).toBeUndefined();
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('still creates the record for a Pod that never had one and was never deleted', async () => {
+    const { api, held, store } = await startedWithPods();
+    const pushed = [slashCommand('fresh')];
+
+    api.emit.podCommands({ podId: 'pod-9', commands: pushed });
+
+    expect(store.getState().runtimes['pod-9']?.slashCommands).toBe(pushed);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('keeps taking pushes for other Pods after one Pod is deleted', async () => {
+    const { api, held, store } = await startedWithPods();
+    await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    const pushed = [slashCommand('other')];
+
+    api.emit.podCommands({ podId: 'pod-1', commands: pushed });
+
+    expect(slashCommandsOf(store, 'pod-1')).toBe(pushed);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
+    store.stop();
+  });
+
+  it('still takes pushes for a Pod whose delete failed', async () => {
+    const { api, held, store } = await startedWithPods();
+    api.failInvoke('podDelete', ipcError('NOT_FOUND', 'no such Pod'));
+
+    const result = await store.actions.deletePod({ podId: GONE, deleteSession: false });
+    expect(result.ok).toBe(false);
+    const pushed = [slashCommand('still-here')];
+    api.emit.podCommands({ podId: GONE, commands: pushed });
+
+    expect(slashCommandsOf(store, GONE)).toBe(pushed);
+    heldFor(held, GONE).resolve({ ok: true, value: [] });
+    heldFor(held, 'pod-1').resolve({ ok: true, value: [] });
+    await flush();
     store.stop();
   });
 });

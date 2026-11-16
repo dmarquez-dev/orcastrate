@@ -1,0 +1,45 @@
+{
+  "id": "20261116-1932-deleted-pod-runtime-guard",
+  "name": "deleted-pod-runtime-guard",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-16T19:33:35Z",
+  "ended": "2026-11-16T20:03:09Z",
+  "pushed": true,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "63f75765-853e-43cc-aa38-96b651d8672f",
+      "phase": "small",
+      "sir": "1.0.41",
+      "started": "2026-11-16T19:33:35Z",
+      "ended": "2026-11-16T20:03:09Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 1,
+    "reviewRounds": 0
+  },
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "Where does the deleted-Pod guard live: in patchRuntime, so every per-Pod write (podCommands push, pull answer, laneChanged, permission pushes) is refused for a Pod deleted in this window, or only on the two slash-command paths the backlog row names?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Gate 1, 2026-11-16T19:42Z: the guard goes in patchRuntime and covers every runtime write for a deleted Pod, not only the two slash-command paths (the recommended option)."
+    }
+  ],
+  "criteria": [
+    "C1: A `pod:commands` pull answer that resolves after `deletePod` has removed its Pod leaves `getState().runtimes[podId]` undefined. A new test in `src/renderer/src/state/store.test.ts` asserts this and is shown red against the unguarded store (red step).",
+    "C2: A `podCommands` push for a Pod that `deletePod` has removed leaves `getState().runtimes[podId]` undefined. New test, red step.",
+    "C3: The guard lives in `patchRuntime` (per E1), so `laneChanged` and `permissionRequested` pushes for a deleted Pod also leave no record. New tests cover both, and at least one is shown red against the unguarded store.",
+    "C4: A push for a Pod that has never had a record and was never deleted still creates its record, as before. An existing or new test asserts it and passes.",
+    "C5: The tombstone is added only where `deletePod` removes the record, and nowhere else. A failed `pods.delete` call adds nothing, and a test asserts that a Pod whose delete failed still takes pushes.",
+    "C6: The `patchRuntime` comment, the `onPodCommands` docblock (its 'A push for a Pod with no record creates the record' sentence) and the `loadPodCommands` docblock each state the deleted-Pod rule in place, and none of them cites a `.sir/sessions` path or a session id.",
+    "C7: `npm test` (whole suite, run from the repository root) passes, and `npm run typecheck` exits 0.",
+    "C8: Row 43 of `.sir/backlog.md` (2026-11-16 20261113-2303-pod-commands-pull, 'Stop the renderer store re-creating a deleted Pod's runtime record') is removed at Gate 3."
+  ]
+}

@@ -240,6 +240,13 @@ export class WorkspaceStateStore {
    * wins. Keyed per Pod so a push for one Pod never drops another's answer.
    */
   private readonly podCommandsPushes = new Map<PodId, number>();
+  /**
+   * Every Pod `deletePod` has removed. A late answer or push for one of them
+   * must not re-create the record the delete just cleared, so `patchRuntime`
+   * refuses writes for these ids. Pod ids are never reused, so an entry lives
+   * as long as the store.
+   */
+  private readonly deletedPods = new Set<PodId>();
 
   readonly actions: WorkspaceActions;
 
@@ -290,7 +297,14 @@ export class WorkspaceStateStore {
     this.commit(fn(this.state));
   }
 
+  /**
+   * Every write to a runtime record goes through here. A write for a Pod that
+   * has no record creates one, EXCEPT for a Pod `deletePod` has removed: that
+   * write is refused, so the state is unchanged and no listener fires. A late
+   * pull answer or push for a deleted Pod therefore cannot bring it back.
+   */
   private patchRuntime(podId: PodId, fn: (runtime: PodRuntimeState) => PodRuntimeState): void {
+    if (this.deletedPods.has(podId)) return;
     this.update((state) => {
       const existing = state.runtimes[podId];
       const base =
@@ -373,6 +387,8 @@ export class WorkspaceStateStore {
    *     `NO_SLASH_COMMANDS`, and a Pod already holding that commits nothing.
    *   - A FAILED PULL IS SILENT: no notification, no error field, no state
    *     change. The list stays as it was until a push arrives.
+   *   - An answer for a Pod `deletePod` has removed writes nothing: the write
+   *     is refused by `patchRuntime`, so the deleted Pod's record stays gone.
    */
   private async loadPodCommands(api: OrcastrateApi, podId: PodId): Promise<void> {
     const pushesAtSend = this.podCommandsPushes.get(podId) ?? 0;
@@ -568,7 +584,8 @@ export class WorkspaceStateStore {
    * Pod waits on that Pod's record until it is activated, and activating it
    * reads the list with no IPC call. The array replaces the previous one
    * wholesale, an empty one included. A push for a Pod with no record creates
-   * the record, as every other per-Pod push does.
+   * the record, as every other per-Pod push does, EXCEPT a Pod `deletePod`
+   * has removed: that push writes nothing, so the record stays gone.
    *
    * Counting the push is what lets it win over a startup pull for the same
    * Pod that is still in flight (`loadPodCommands`).
@@ -683,6 +700,10 @@ export class WorkspaceStateStore {
         const result = await safeInvoke(() => api.pods.delete(req));
         if (!result.ok) return result;
         const podId = req.podId;
+        // From here on `patchRuntime` refuses every write for this Pod. Added
+        // only on success: a failed delete returned above and adds nothing.
+        store.deletedPods.add(podId);
+        store.podCommandsPushes.delete(podId);
         store.update((state) => {
           const runtimes = { ...state.runtimes };
           delete runtimes[podId];
