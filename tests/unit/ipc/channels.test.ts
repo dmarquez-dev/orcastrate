@@ -19,6 +19,7 @@ import type {
   IpcResult,
   OrcastrateApi,
   PodDeletionResult,
+  SlashCommandInfo,
 } from '../../../src/shared/contracts/ipc';
 import type { Pod } from '../../../src/shared/contracts/events';
 import { ROUTING_MODE } from '../../../src/main/pod-manager';
@@ -38,10 +39,10 @@ afterEach(async () => {
 });
 
 describe('the frozen channel constants themselves', () => {
-  it('declares exactly 22 invoke channels, all with distinct wire names', () => {
+  it('declares exactly 23 invoke channels, all with distinct wire names', () => {
     const keys = Object.keys(INVOKE_CHANNELS);
     const values = Object.values(INVOKE_CHANNELS);
-    expect(keys.length).toBe(22);
+    expect(keys.length).toBe(23);
     expect(new Set(values).size).toBe(values.length);
   });
 
@@ -61,6 +62,13 @@ describe('the frozen channel constants themselves', () => {
     expect(EVENT_CHANNELS.helmChanged).toBe('push:helmChanged');
   });
 
+  // The pull shares its key with the push (`EVENT_CHANNELS.podCommands`), but
+  // the two objects are separate and the wire names stay distinct.
+  it("names the slash-command pull 'pod:commands', distinct from its push", () => {
+    expect(INVOKE_CHANNELS.podCommands).toBe('pod:commands');
+    expect(EVENT_CHANNELS.podCommands).toBe('push:podCommands');
+  });
+
   // A wire name colliding across the two constant objects would let a push
   // shadow an invoke in `ipcRenderer`, which is the kind of thing nobody finds
   // until a panel goes quiet in production.
@@ -77,7 +85,7 @@ describe('invoke channels (criterion 2)', () => {
 
     expect(new Set(installed).size, 'a channel was registered twice').toBe(installed.length);
     expect([...installed].sort()).toEqual([...declared].sort());
-    expect(installed.length).toBe(22);
+    expect(installed.length).toBe(23);
   });
 
   it("names the fork channel 'pod:fork' and registers exactly one handler for it", () => {
@@ -299,6 +307,7 @@ describe('openness is derived from status, never carried beside it', () => {
     close: true,
     reconnect: true,
     fork: true,
+    commands: true,
     send: true,
     interrupt: true,
     setPermissionMode: true,
@@ -319,6 +328,9 @@ describe('openness is derived from status, never carried beside it', () => {
     open: Exact<ValueOf<'open'>, Pod>;
     reconnect: Exact<ValueOf<'reconnect'>, Pod>;
     fork: Exact<ValueOf<'fork'>, Pod>;
+    // The slash-command pull answers the bare list, the same element type the
+    // push carries, with no openness or status field beside it.
+    commands: Exact<ValueOf<'commands'>, SlashCommandInfo[]>;
     // AMENDED: `delete` now reports what happened rather than resolving
     // `void`. The exactness check is what stops the report growing a field the
     // contract has not admitted.
@@ -334,6 +346,7 @@ describe('openness is derived from status, never carried beside it', () => {
     open: true,
     reconnect: true,
     fork: true,
+    commands: true,
     delete: true,
     close: true,
     send: true,
@@ -368,6 +381,7 @@ describe('openness is derived from status, never carried beside it', () => {
     close: true,
     reconnect: true,
     fork: true,
+    commands: true,
     send: true,
     interrupt: true,
     setPermissionMode: true,
@@ -409,6 +423,7 @@ describe('openness is derived from status, never carried beside it', () => {
       ],
       [INVOKE_CHANNELS.podUpdate]: [{ podId, title: 'Renamed' }],
       [INVOKE_CHANNELS.podOpen]: [podId],
+      [INVOKE_CHANNELS.podCommands]: [podId],
       [INVOKE_CHANNELS.podSend]: [podId, 'hello'],
       [INVOKE_CHANNELS.podInterrupt]: [podId],
       [INVOKE_CHANNELS.podSetPermissionMode]: [podId, 'plan'],
@@ -425,10 +440,12 @@ describe('openness is derived from status, never carried beside it', () => {
     ]);
 
     let sawAPod = false;
+    let commandsAnswered = false;
     for (const channel of Object.values(INVOKE_CHANNELS)) {
       if (deferred.has(channel)) continue;
 
       const result = await h.invoke(channel, ...(args[channel] ?? []));
+      if (channel === INVOKE_CHANNELS.podCommands) commandsAnswered = result.ok;
       if (!result.ok) continue;
       const keys = allKeys(result.value);
       if (keys.includes('status') && keys.includes('lastActiveAt')) sawAPod = true;
@@ -440,6 +457,9 @@ describe('openness is derived from status, never carried beside it', () => {
     // Vacuity guard: the sweep must have seen a Pod-shaped reply, or "no reply
     // carried `opened`" is a statement about nothing.
     expect(sawAPod, 'the sweep never observed a Pod-shaped reply').toBe(true);
+    // The same guard for the slash-command pull: its row must have been swept
+    // as a successful reply, not skipped as a failed envelope.
+    expect(commandsAnswered, 'pod:commands did not answer ok in the sweep').toBe(true);
   });
 
   it('close and reconnect answer without an openness field either', async () => {

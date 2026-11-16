@@ -56,6 +56,7 @@ const VALID_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'plan'],
   [INVOKE_CHANNELS.podReconnect]: ['p1'],
   [INVOKE_CHANNELS.podFork]: ['p1'],
+  [INVOKE_CHANNELS.podCommands]: ['p1'],
   [INVOKE_CHANNELS.laneList]: ['p1'],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1' } satisfies ReadEventsRequest],
   [INVOKE_CHANNELS.permissionRespond]: [
@@ -88,6 +89,7 @@ const BAD_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'dontAsk'],
   [INVOKE_CHANNELS.podReconnect]: [['p1']],
   [INVOKE_CHANNELS.podFork]: [''],
+  [INVOKE_CHANNELS.podCommands]: [''],
   [INVOKE_CHANNELS.laneList]: [false],
   [INVOKE_CHANNELS.eventsRead]: [{ podId: 'p1', limit: -3 }],
   [INVOKE_CHANNELS.permissionRespond]: [{ podId: 'p1', requestId: 'r1', decision: 'maybe' }],
@@ -156,6 +158,7 @@ function rigThatThrows(err: () => unknown, mode: 'throw' | 'reject' = 'throw'): 
     interrupt: boom,
     setPermissionMode: boom,
     listLanes: boom,
+    listSlashCommands: boom,
     readEvents: boom,
     respondPermission: boom,
     disposeAll: boom,

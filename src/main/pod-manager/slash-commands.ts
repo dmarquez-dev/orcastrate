@@ -188,6 +188,17 @@ export class SlashCommandState {
     return null;
   }
 
+  /**
+   * The visible list as last reported, or `undefined` while the catalog is
+   * unknown. Every change to the visible list is reported, so this always
+   * equals the latest list a mutator returned, including after a mutator
+   * returned `null` because nothing changed. A COPY, entries included, so a
+   * caller that edits it cannot change what the next push is compared against.
+   */
+  current(): SlashCommandInfo[] | undefined {
+    return this.#lastReported?.map((command) => ({ ...command, aliases: [...command.aliases] }));
+  }
+
   #report(): SlashCommandInfo[] | null {
     if (this.#catalog === undefined) return null;
     const visible = this.#catalog.filter((command) => !this.#terminal.has(command.name));

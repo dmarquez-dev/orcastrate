@@ -26,6 +26,7 @@ import {
   type PodStatusPush,
   type ReadEventsRequest,
   type ReadEventsResponse,
+  type SlashCommandInfo,
   type Unsubscribe,
   type UpdatePodRequest,
 } from '../shared/contracts/ipc';
@@ -102,6 +103,7 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
       close: (podId: PodId) => call<void>(INVOKE_CHANNELS.podClose, podId),
       reconnect: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podReconnect, podId),
       fork: (podId: PodId) => call<Pod>(INVOKE_CHANNELS.podFork, podId),
+      commands: (podId: PodId) => call<SlashCommandInfo[]>(INVOKE_CHANNELS.podCommands, podId),
       send: (podId: PodId, text: string) =>
         call<void>(INVOKE_CHANNELS.podSend, podId, text),
       interrupt: (podId: PodId) => call<void>(INVOKE_CHANNELS.podInterrupt, podId),

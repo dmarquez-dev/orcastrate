@@ -9,6 +9,7 @@ import {
   normalizeSlashCommands,
   SLASH_COMMANDS_READ_TIMEOUT_MS,
 } from '../../../src/main/pod-manager';
+import { SlashCommandState } from '../../../src/main/pod-manager/slash-commands';
 
 describe('SLASH_COMMANDS_READ_TIMEOUT_MS', () => {
   it('is ten seconds', () => {
@@ -228,6 +229,69 @@ describe('normalizeSlashCommands: display text', () => {
     expect(normalizeSlashCommands([{ name: 'x', description, argumentHint }])).toEqual([
       { name: 'x', description, argumentHint, aliases: [] },
     ]);
+  });
+});
+
+describe('SlashCommandState.current', () => {
+  function command(name: string): Record<string, unknown> {
+    return { name, description: `${name} description`, argumentHint: '', aliases: [] };
+  }
+
+  function init(terminal: unknown): Record<string, unknown> {
+    return { type: 'system', subtype: 'init', terminal_slash_commands: terminal };
+  }
+
+  function commandsChanged(commands: unknown[]): Record<string, unknown> {
+    return { type: 'system', subtype: 'commands_changed', commands };
+  }
+
+  it('answers undefined for a fresh state, before any catalog arrived', () => {
+    expect(new SlashCommandState().current()).toBeUndefined();
+  });
+
+  it('answers the list acceptInitialRead returned', () => {
+    const state = new SlashCommandState();
+    const reported = state.acceptInitialRead([command('alpha'), command('beta')]);
+
+    expect(reported).toHaveLength(2);
+    expect(state.current()).toEqual(reported);
+  });
+
+  it("omits what the latest init names in terminal_slash_commands, matching observe's answer", () => {
+    const state = new SlashCommandState();
+    state.acceptInitialRead([command('a'), command('doctor'), command('b')]);
+    const reported = state.observe(init(['doctor']));
+
+    expect(reported?.map((entry) => entry.name)).toEqual(['a', 'b']);
+    expect(state.current()).toEqual(reported);
+  });
+
+  it('still answers the previously reported list when a mutator reports no change', () => {
+    const state = new SlashCommandState();
+    const reported = state.acceptInitialRead([command('a'), command('b')]);
+
+    // An init that hides nothing leaves the visible list as it was.
+    expect(state.observe(init(['not-a-command']))).toBeNull();
+    expect(state.current()).toEqual(reported);
+  });
+
+  it('keeps the commands_changed list when a late initial read is discarded', () => {
+    const state = new SlashCommandState();
+    const replaced = state.observe(commandsChanged([command('fresh')]));
+
+    expect(state.acceptInitialRead([command('stale-one'), command('stale-two')])).toBeNull();
+    expect(state.current()).toEqual(replaced);
+    expect(state.current()?.map((entry) => entry.name)).toEqual(['fresh']);
+  });
+
+  it('answers a copy: mutating one answer does not change the next', () => {
+    const state = new SlashCommandState();
+    state.acceptInitialRead([command('a'), command('b')]);
+
+    const first = state.current();
+    first?.push({ name: 'intruder', description: '', argumentHint: '', aliases: [] });
+
+    expect(state.current()?.map((entry) => entry.name)).toEqual(['a', 'b']);
   });
 });
 

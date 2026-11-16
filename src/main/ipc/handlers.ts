@@ -180,6 +180,10 @@ export function registerIpcHandlers(deps: IpcHandlerDeps): string[] {
   // boundary only proves the PodId is a non-empty string.
   register(INVOKE_CHANNELS.podFork, (podId) => manager.forkPod(requirePodId(podId)));
 
+  // A read of the live session's list; the manager answers `[]` for a Pod with
+  // no live session and NOT_FOUND for no Pod row.
+  register(INVOKE_CHANNELS.podCommands, (podId) => manager.listSlashCommands(requirePodId(podId)));
+
   register(INVOKE_CHANNELS.podSend, async (podId, text) => {
     const id = requirePodId(podId);
     await manager.send(id, requireText(text, 'text'));
