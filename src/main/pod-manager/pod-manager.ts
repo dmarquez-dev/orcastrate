@@ -155,6 +155,12 @@ export interface PodManagerApi {
   interrupt(podId: PodId): Promise<void>;
   setPermissionMode(podId: PodId, mode: PermissionMode): Promise<void>;
   listLanes(podId: PodId): Lane[];
+  /**
+   * The live session's visible slash-command list, or `[]` when the Pod has no
+   * live session or its session has no catalog yet. Throws NOT_FOUND when no
+   * Pod row has that id. Reads only: no push, no row, no log line, no read.
+   */
+  listSlashCommands(podId: PodId): SlashCommandInfo[];
   readEvents(req: ReadEventsRequest): ReadEventsResponse;
   respondPermission(req: PermissionRespondRequest): void;
   disposeAll(): Promise<void>;
@@ -1108,6 +1114,16 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   listLanes(podId: PodId): Lane[] {
     this.#requirePod(podId);
     return this.#store.listLanes(podId);
+  }
+
+  /**
+   * Cut from the same per-session state the pushes are cut from, so it never
+   * differs from the last `push:podCommands` for the live session. A closed or
+   * beached Pod has no entry in `#sessions`, so its list ends with its session.
+   */
+  listSlashCommands(podId: PodId): SlashCommandInfo[] {
+    this.#requirePod(podId);
+    return this.#sessions.get(podId)?.commands.current() ?? [];
   }
 
   readEvents(req: ReadEventsRequest): ReadEventsResponse {

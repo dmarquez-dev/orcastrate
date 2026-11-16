@@ -82,6 +82,7 @@ describe('invoke channels', () => {
     ['pods.close', (a) => a.pods.close('p'), INVOKE_CHANNELS.podClose],
     ['pods.reconnect', (a) => a.pods.reconnect('p'), INVOKE_CHANNELS.podReconnect],
     ['pods.fork', (a) => a.pods.fork('p'), INVOKE_CHANNELS.podFork],
+    ['pods.commands', (a) => a.pods.commands('p'), INVOKE_CHANNELS.podCommands],
     ['pods.send', (a) => a.pods.send('p', 'hi'), INVOKE_CHANNELS.podSend],
     ['pods.interrupt', (a) => a.pods.interrupt('p'), INVOKE_CHANNELS.podInterrupt],
     [
@@ -176,6 +177,15 @@ describe('invoke channels', () => {
     await api.pods.fork('pod-7');
 
     expect(ipc.calls).toEqual([{ channel: 'pod:fork', args: ['pod-7'] }]);
+  });
+
+  it("pods.commands invokes 'pod:commands' with the bare PodId as its only argument", async () => {
+    const ipc = fakeIpc();
+    const api = createOrcastrateApi(ipc);
+
+    await api.pods.commands('pod-7');
+
+    expect(ipc.calls).toEqual([{ channel: 'pod:commands', args: ['pod-7'] }]);
   });
 
   it('forwards arguments positionally', async () => {

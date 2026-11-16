@@ -61,8 +61,9 @@ const WorkspaceContext = createContext<WorkspaceStore | null>(null);
 /**
  * The active Pod's slash-command list, on a context of its own because
  * `WorkspaceStore` does not carry it. Its value is the very array the store
- * holds for the active Pod, so it changes identity only when a push for the
- * active Pod lands or the active Pod changes.
+ * holds for the active Pod, so it changes identity only when a delivery for
+ * the active Pod lands (a push, or the store's one startup pull when no push
+ * beat it) or the active Pod changes.
  */
 const SlashCommandsContext = createContext<readonly SlashCommandInfo[]>(NO_SLASH_COMMANDS);
 
@@ -412,12 +413,14 @@ export function usePermissionCards(laneId: LaneId | null): PermissionCardVm[] {
 }
 
 /**
- * The active Pod's latest pushed slash-command list, as delivered: same order,
- * same entries. Empty when no Pod is active or no push has arrived for the
- * active Pod. The same array object across renders until a push for the
- * active Pod lands or the active Pod changes. Issues no IPC call — the list
- * arrives only by push — and, like every hook here, must be rendered inside
- * `<WorkspaceProvider>`.
+ * The active Pod's latest slash-command list, as delivered: same order, same
+ * entries. A Pod's list comes from its pushes and from the one pull the store
+ * issues for it at startup; a push that lands while that pull is in flight
+ * wins. Empty when no Pod is active or nothing has been delivered for the
+ * active Pod. The same array object across renders until a delivery for the
+ * active Pod lands or the active Pod changes. The hook itself issues no IPC
+ * call — the pull belongs to the store's `start()` — and, like every hook
+ * here, must be rendered inside `<WorkspaceProvider>`.
  */
 export function useSlashCommands(): readonly SlashCommandInfo[] {
   useWorkspace();

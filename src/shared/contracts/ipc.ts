@@ -102,6 +102,12 @@ export const INVOKE_CHANNELS = {
   podSetPermissionMode: 'pod:setPermissionMode',
   podReconnect: 'pod:reconnect',
   podFork: 'pod:fork',
+  /**
+   * The pull of one Pod's visible slash-command list. Its key is the same one
+   * `EVENT_CHANNELS` uses for the push; the objects are separate and the wire
+   * names stay distinct.
+   */
+  podCommands: 'pod:commands',
   laneList: 'lane:list',
   eventsRead: 'events:read',
   permissionRespond: 'permission:respond',
@@ -331,6 +337,13 @@ export interface SlashCommandInfo {
  * Each push replaces whatever the renderer held for that Pod, and pushes for
  * one Pod arrive in the order main emitted them, so the latest push is the
  * current list. No push carries a revision.
+ *
+ * A renderer may also read the same list over `pod:commands`
+ * (`OrcastrateApi['pods'].commands`). PUSH WINS: the renderer drops a pull
+ * answer for a Pod if a push for that Pod arrived after the pull was sent. A
+ * push for that Pod that arrived before the pull was sent does not drop it, and
+ * a push for any other Pod never does. When a pull answer is not dropped, it
+ * replaces the renderer's list for that Pod wholesale, exactly as a push does.
  */
 export interface PodCommandsPush {
   podId: PodId;
@@ -434,6 +447,33 @@ export interface OrcastrateApi {
      * On every error, no pod, lane or event row was created.
      */
     fork(podId: PodId): Promise<IpcResult<Pod>>;
+    /**
+     * Main's CURRENT visible slash-command list for the Pod `podId`.
+     *
+     * WHAT IT ANSWERS, as `{ ok: true, value }`:
+     *   - For an open Pod whose session has a visible list: that list. It is
+     *     the list main would push now, under the same rules as
+     *     `PodCommandsPush`: every entry normalized as `SlashCommandInfo` says,
+     *     in the SDK's order, minus every command the session's latest
+     *     `system`/`init` names in `terminal_slash_commands`. It is equal,
+     *     entry by entry on all four fields, to the `commands` of the last
+     *     `push:podCommands` main emitted for that session.
+     *   - For an open Pod whose session has no catalog yet (the initial read
+     *     has not answered, timed out, rejected, or the runner has no command
+     *     surface, and no `commands_changed` has arrived): `[]`.
+     *   - For a Pod with no live session (`'closed'` or `'beached'`, including
+     *     a Pod that had a list before it was closed): `[]`. A list never
+     *     outlives the session that reported it.
+     *
+     * It reads only. It emits no push, writes no row, logs nothing, and starts
+     * no `supportedCommands()` read.
+     *
+     * Resolves, never rejects. ERRORS, as `{ ok: false, error: { code, message } }`:
+     *   INVALID_ARGUMENT  `podId` is not a non-empty string
+     *   NOT_FOUND         no Pod row has that id
+     *   INTERNAL          anything else, through the handler envelope
+     */
+    commands(podId: PodId): Promise<IpcResult<SlashCommandInfo[]>>;
     /** Enqueues a user message. Resolves on enqueue, not on turn completion. */
     send(podId: PodId, text: string): Promise<IpcResult<void>>;
     interrupt(podId: PodId): Promise<IpcResult<void>>;

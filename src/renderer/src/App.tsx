@@ -92,7 +92,8 @@ function Workspace(): JSX.Element {
   const primaryCards = usePermissionCards(primaryLaneId);
   const splitCards = usePermissionCards(followerLaneId);
   const composer = useComposer();
-  // The active Pod's latest pushed command list, passed through untouched: the
+  // The active Pod's latest command list (from its pushes, or from the store's
+  // one startup pull when no push beat it), passed through untouched: the
   // renderer names no command of its own, so what the composer suggests is
   // only ever what the Pod reported, in the order it reported it.
   const slashCommands = useSlashCommands();

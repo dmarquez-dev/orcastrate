@@ -787,23 +787,36 @@ export declare function useComposer(): ComposerState | undefined;
 export declare function usePermissionCards(laneId: LaneId | null): PermissionCardVm[];
 
 /**
- * The ACTIVE Pod's latest pushed slash-command list, exactly as the last
- * `push:podCommands` for that Pod delivered it: same order, same entries, no
- * filtering or reordering in the renderer.
+ * The ACTIVE Pod's latest slash-command list, exactly as it was delivered:
+ * same order, same entries, no filtering or reordering in the renderer.
  *
- * - No active Pod, or no push received yet for the active Pod: an empty array.
+ * - A Pod's list comes from two sources: its `push:podCommands` pushes, and
+ *   the ONE `pods.commands` pull the store's `start()` issues for every Pod
+ *   its first successful `pods.list` returns. That pull is what fills the
+ *   list on a fresh renderer (reload, HMR, relaunch) whose Pod had already
+ *   reported one before this renderer subscribed.
+ * - PUSH WINS: a push for a Pod that lands while that Pod's pull is in flight
+ *   drops the pull's answer. A push that landed before the pull was sent, or
+ *   a push for another Pod, does not.
+ * - A failed pull is silent: no notification, no error, and the list stays
+ *   as it was until a push arrives.
+ * - No active Pod, or nothing delivered yet for the active Pod: an empty
+ *   array.
  * - Per Pod: a push for Pod B never changes what the hook returns while Pod A
  *   is active. Making B active returns B's latest list at once, with no IPC
  *   call.
- * - A push REPLACES that Pod's list wholesale. An empty push empties it.
- * - Referentially stable: between two renders with no new push for the
+ * - A push, or an undropped pull answer, REPLACES that Pod's list wholesale.
+ *   An empty one empties it.
+ * - Referentially stable: between two renders with no new delivery for the
  *   active Pod and no change of active Pod, it returns the same array object.
- * - Never throws and issues no IPC call. The list arrives only by push.
+ * - Never throws, and the hook itself issues no IPC call: the pull belongs to
+ *   the store's startup lifecycle, not to a render.
  *
  * The store subscribes to `on.podCommands` in `start()` together with the
- * other push channels, and calls the returned unsubscribe exactly once in
- * `stop()`. A push for a Pod the store holds no record for creates that Pod's
- * runtime record, as the other per-Pod pushes do.
+ * other push channels, before any read is sent, and calls the returned
+ * unsubscribe exactly once in `stop()`. A push for a Pod the store holds no
+ * record for creates that Pod's runtime record, as the other per-Pod pushes
+ * do.
  */
 export declare function useSlashCommands(): readonly SlashCommandInfo[];
 

@@ -121,11 +121,15 @@ export interface PodRuntimeState {
   unreadEventCount: number;
   laneUnread: Record<LaneId, number>;
   /**
-   * The Pod's latest pushed slash-command list, held as the very array the
-   * last `podCommands` push for this Pod delivered: no copy, no filter, no
-   * reordering. A push replaces it wholesale. Before any push it is the shared
-   * `NO_SLASH_COMMANDS` array, so a Pod that never received one reads as empty
-   * and keeps one identity across renders.
+   * The Pod's latest slash-command list, held as the very array that delivered
+   * it: no copy, no filter, no reordering. It comes from two places, the Pod's
+   * `podCommands` pushes and the one `pods.commands` pull `start()` issues for
+   * every Pod its first successful `pods.list` returns. Either replaces it
+   * wholesale. A push that arrives while that Pod's pull is in flight wins:
+   * the pull's answer is then dropped. An empty answer is stored as the shared
+   * `NO_SLASH_COMMANDS` array, which is also what a Pod holds before either
+   * source has delivered anything, so "empty" reads as one identity across
+   * renders.
    */
   slashCommands: readonly SlashCommandInfo[];
   /** Set the first time this Pod becomes active, so backfill starts once. */
@@ -229,6 +233,13 @@ export class WorkspaceStateStore {
   private readonly inflightLanes = new Map<PodId, Promise<ActionResult<void>>>();
   /** The one `app.routingMode()` that may be in flight: startup's or a retry's. */
   private inflightRoutingMode: Promise<ActionResult<void>> | null = null;
+  /**
+   * How many `podCommands` pushes have arrived, per Pod. The startup pull
+   * reads its Pod's count when it is sent and again when it answers; a
+   * different count means a push for THAT Pod landed in between, and the push
+   * wins. Keyed per Pod so a push for one Pod never drops another's answer.
+   */
+  private readonly podCommandsPushes = new Map<PodId, number>();
 
   readonly actions: WorkspaceActions;
 
@@ -305,7 +316,11 @@ export class WorkspaceStateStore {
    * Mount. Subscribes exactly once to every workspace push channel — each
    * `EVENT_CHANNELS` member except `helmChanged`, which the panel store owns —
    * and issues the two startup reads together — they are independent, so chaining them would
-   * be a waterfall for no reason.
+   * be a waterfall for no reason. Once the Pod list answers, it pulls each
+   * listed Pod's slash-command list (`loadPodCommands`).
+   *
+   * The subscriptions are made BEFORE any read is sent, so a `podCommands`
+   * push can never slip past the pull it has to win against.
    *
    * Idempotent while started, so React StrictMode's double-invoke cannot
    * double-subscribe.
@@ -326,7 +341,48 @@ export class WorkspaceStateStore {
     ];
 
     void this.loadRoutingMode();
-    void this.actions.refreshPods();
+    void this.loadPodsThenCommands(api);
+  }
+
+  /**
+   * Startup's Pod read, then one slash-command pull per Pod it returned.
+   *
+   * THE ONE DEPENDENT CHAIN IN `start()`, and it is one on purpose: a pull
+   * needs a Pod id, and the ids are what `pods.list` answers. The pulls
+   * themselves are independent of one another, so they are issued together.
+   *
+   * Only this lifecycle pulls. `refreshPods` is also an action other actions
+   * call, and a Pod switch is an event, so neither issues a pull; a Pod
+   * created after start gets its list from its pushes. A failed `pods.list`
+   * pulls nothing.
+   */
+  private async loadPodsThenCommands(api: OrcastrateApi): Promise<void> {
+    const listed = await this.actions.refreshPods();
+    if (!listed.ok) return;
+    await Promise.all(listed.value.map((pod) => this.loadPodCommands(api, pod.id)));
+  }
+
+  /**
+   * One Pod's slash-command pull, and the rules for its answer:
+   *
+   *   - PUSH WINS. The answer is dropped if any `podCommands` push for this
+   *     Pod arrived after the pull was sent. A push that arrived before it was
+   *     sent does not drop it, and a push for another Pod never does.
+   *   - An answer that is not dropped replaces the Pod's list wholesale, as
+   *     the very array it delivered. An empty one is stored as the shared
+   *     `NO_SLASH_COMMANDS`, and a Pod already holding that commits nothing.
+   *   - A FAILED PULL IS SILENT: no notification, no error field, no state
+   *     change. The list stays as it was until a push arrives.
+   */
+  private async loadPodCommands(api: OrcastrateApi, podId: PodId): Promise<void> {
+    const pushesAtSend = this.podCommandsPushes.get(podId) ?? 0;
+    const result = await safeInvoke(() => api.pods.commands(podId));
+    if (!result.ok) return;
+    if ((this.podCommandsPushes.get(podId) ?? 0) !== pushesAtSend) return;
+    const next = result.value.length === 0 ? NO_SLASH_COMMANDS : result.value;
+    const current = this.state.runtimes[podId]?.slashCommands ?? NO_SLASH_COMMANDS;
+    if (current === next) return;
+    this.patchRuntime(podId, (runtime) => ({ ...runtime, slashCommands: next }));
   }
 
   /** Unmount. Every `Unsubscribe` returned on mount is called exactly once. */
@@ -513,8 +569,12 @@ export class WorkspaceStateStore {
    * reads the list with no IPC call. The array replaces the previous one
    * wholesale, an empty one included. A push for a Pod with no record creates
    * the record, as every other per-Pod push does.
+   *
+   * Counting the push is what lets it win over a startup pull for the same
+   * Pod that is still in flight (`loadPodCommands`).
    */
   private onPodCommands(push: PodCommandsPush): void {
+    this.podCommandsPushes.set(push.podId, (this.podCommandsPushes.get(push.podId) ?? 0) + 1);
     this.patchRuntime(push.podId, (runtime) => ({ ...runtime, slashCommands: push.commands }));
   }
 

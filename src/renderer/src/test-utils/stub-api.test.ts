@@ -66,8 +66,8 @@ describe('stubOrcastrateApi — coverage of the frozen surface', () => {
     expect(eventKeys.length).toBe(7);
   });
 
-  it('covers all 22 invoke channels, so the stub cannot lag the surface', () => {
-    expect(invokeKeys.length).toBe(22);
+  it('covers all 23 invoke channels, so the stub cannot lag the surface', () => {
+    expect(invokeKeys.length).toBe(23);
   });
 
   it('resolves an { ok: true } envelope on every invoke channel by default', async () => {
