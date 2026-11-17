@@ -55,7 +55,7 @@ What each step that runs a command or changes data writes:
   It deletes the Pod's row, and its lanes and events go with it
   (`src/main/store/sqlite-event-store.ts:238-244`). No conversation file is touched
   (`src/main/ipc/handlers.ts:152-158`). The window is not told, so the Pod's tab stays.
-- **Clicking the stale tab, and Retry** (H1 steps 1 and 6, H2) issue `lanes.list` and
+- **Clicking the stale tab, and Retry** (H1 steps 1 and 6) issue `lanes.list` and
   `events.read`, reads that fail because main has no such Pod. Nothing is written
   (`src/main/pod-manager/pod-manager.ts:1114-1131`, `:1655-1658`).
 - **Cleanup step 2** deletes the Pod `HC load companion` through its × button, with the
@@ -108,7 +108,8 @@ every `last_active_at` as it was.
 8. Reload the window: type `location.reload()` in the console and press Enter. A Pod
    created from the console is not added to the window's Pod list, which the window reads
    at start-up (`src/renderer/src/state/store.ts:374`), so the two new tabs appear only after
-   a reload. They are the last two tabs on the right. Do not click either.
+   a reload. Find them by their titles, `HC load companion` and `HC load target`: they need
+   not be the last two tabs. Do not click either.
 9. In the console, type
    `(await window.orcastrate.pods.list()).value.filter((p) => p.title === 'HC load target').map((p) => p.id)`
    and press Enter. It prints the id of every Pod titled exactly `HC load target`. It must
