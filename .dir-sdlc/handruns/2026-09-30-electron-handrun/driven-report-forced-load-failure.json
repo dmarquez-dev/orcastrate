@@ -1,0 +1,492 @@
+{
+  "meta": {
+    "slug": "forced-load-failure",
+    "skipDelete": false,
+    "generatedAt": "2026-11-17T19:11:42.221Z",
+    "driverSha256": "3c077fd6bd0e2ef97276e1971c00cc7972447906870a62f1a57c083908ac9455",
+    "mainBundleSha256": "c50eb91eb5ae7ecf9f578be295c442151f7cfa404f9784edbf27a29da2f0e2dd",
+    "electron": "43.4.0",
+    "playwright": "1.63.0",
+    "devicePixelRatio": 1.0000000149011612,
+    "viewport": {
+      "width": 1280,
+      "height": 860
+    },
+    "display": {
+      "scaleFactor": 1.25,
+      "zoomFactor": 1
+    },
+    "sandboxRoot": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal",
+    "keepSandbox": false,
+    "mainEnv": {
+      "USERPROFILE": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\home",
+      "APPDATA": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\home\\AppData\\Roaming",
+      "userData": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\home\\AppData\\Roaming\\Electron",
+      "CLAUDE_CONFIG_DIR": null
+    },
+    "realSettingsPath": "C:\\Users\\dmarq\\.claude\\settings.json",
+    "realSettingsSha256": {
+      "before": "5f4739070e52ed7fedf9a8cb1ced9c1979d9cff28d676a4c56628494ebf0e9f0",
+      "after": "5f4739070e52ed7fedf9a8cb1ced9c1979d9cff28d676a4c56628494ebf0e9f0"
+    },
+    "exitCode": 1,
+    "sandboxRemoved": true,
+    "precondition": null
+  },
+  "plan": [
+    {
+      "id": "O2",
+      "row": "retry-button",
+      "predicted": "pods.delete resolves ok: true with podDeleted: true and session \"not-requested\"; afterwards the pod-tab:<target id> tab is still rendered",
+      "injection": "the same tab-presence probe for a never-created id (a fresh UUID)",
+      "controlPredicted": "absent"
+    },
+    {
+      "id": "O3",
+      "row": "retry-button",
+      "predicted": "after clicking HC load live, then the target's stale tab, waited for as a condition with a timeout: exactly 2 [data-testid=\"notification\"][data-kind=\"error\"] items whose message <p> text equals \"no Pod with id <target id>\"",
+      "injection": "O4: the must-not-fire count, at the same moment, of notification items whose text contains HC load live's id (whole-run control: the --skip-delete run)",
+      "controlPredicted": "0"
+    },
+    {
+      "id": "O4",
+      "row": "retry-button",
+      "predicted": "at the moment O3's two items are present: 0 notification items contain HC load live's id, and exactly 2 data-kind=\"error\" items exist",
+      "injection": "the same id-containment count keyed on the target's id, at the same moment",
+      "controlPredicted": "2"
+    },
+    {
+      "id": "O5",
+      "row": "retry-button",
+      "predicted": "each of O3's 2 items holds exactly 1 button[type=\"button\"] with text Retry, after the message <p> and before the notification-dismiss button in DOM order",
+      "injection": "the first item's Retry button detached from the DOM, the same probe run on that item, then reattached at its place and verified",
+      "controlPredicted": "0 buttons"
+    },
+    {
+      "id": "O6",
+      "row": "retry-button",
+      "predicted": "first item's Retry: border-top-style solid with width > 0, cursor pointer, computed background-color differs from the item's (and so does the effective, composited background)",
+      "injection": "inline border-style: none; background: transparent on that button",
+      "controlPredicted": "probe reports no border (style none or width 0) and an effective background equal to the item's"
+    },
+    {
+      "id": "O7",
+      "row": "retry-button",
+      "predicted": "Retry's border box left >= the message <p>'s right edge minus one device pixel, and their vertical extents overlap",
+      "injection": "inline flex-direction: column on the item",
+      "controlPredicted": "no horizontal adjacency"
+    },
+    {
+      "id": "O8",
+      "row": "retry-button",
+      "predicted": "from the stated starting point (a mouse click on the first item's message <p>), keyboard Tab presses only: document.activeElement becomes the first item's Retry and it matches :focus-visible",
+      "injection": "the same focus probe, run before any Tab press",
+      "controlPredicted": "not focused"
+    },
+    {
+      "id": "O9",
+      "row": "retry-button",
+      "predicted": "with Retry focused: outline-style solid, outline-width equals --oc-border-thick resolved in the same window, and the clip capture of the ring rectangle differs from the same clip captured before Retry was focused",
+      "injection": "added <style> giving that one button outline: none !important",
+      "controlPredicted": "outline-style none, and the control capture is byte-identical to the unfocused capture"
+    },
+    {
+      "id": "O10",
+      "row": "retry-button",
+      "predicted": "the ring's outer rectangle (Retry's border box inflated by outline-offset + outline-width) lies within the item's padding box",
+      "injection": "inline padding: 0 on the item",
+      "controlPredicted": "ring outside the padding box"
+    },
+    {
+      "id": "O11",
+      "row": "retry-button",
+      "predicted": "for every ancestor of Retry up to the document root whose overflow-x or overflow-y is not visible, the ring's outer rectangle lies within that ancestor's padding box",
+      "injection": "inline overflow: hidden; padding: 0 on the item",
+      "controlPredicted": "a clipping ancestor is reported (the item)"
+    },
+    {
+      "id": "O12",
+      "row": "retry-themes",
+      "predicted": "under emulateMedia({ colorScheme: \"dark\" }), contrast of Retry's computed color against its effective background >= 4.5",
+      "injection": "inline color on Retry set to the measured effective background (dark preference)",
+      "controlPredicted": "ratio 1.00"
+    },
+    {
+      "id": "O13",
+      "row": "retry-themes",
+      "predicted": "under emulateMedia({ colorScheme: \"light\" }), contrast of Retry's computed color against its effective background >= 4.5",
+      "injection": "inline color on Retry set to the measured effective background (light preference)",
+      "controlPredicted": "ratio 1.00"
+    },
+    {
+      "id": "O14",
+      "row": "retry-themes",
+      "predicted": "Retry's color, background-color, border-top-color and the item's background-color under the light preference each equal their values under the dark preference",
+      "injection": "added <style> with @media (prefers-color-scheme: light) setting that one button's color to rgb(1, 2, 3) !important",
+      "controlPredicted": "a difference under light (color) and none under dark"
+    }
+  ],
+  "setup": {
+    "pods": {
+      "companion": {
+        "id": "201ce5f4-dbdd-4db2-848a-1c093cc2b421",
+        "title": "HC load companion",
+        "cwd": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\repos\\plain-repo",
+        "tabOrder": 0
+      },
+      "live": {
+        "id": "8a6f0163-ad7c-4780-9db6-67702d638214",
+        "title": "HC load live",
+        "cwd": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\repos\\plain-repo",
+        "tabOrder": 1
+      },
+      "target": {
+        "id": "287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b",
+        "title": "HC load target",
+        "cwd": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\ec0304f5-ec2b-4a55-b493-0ed81b4ca128\\scratchpad\\sir\\20261117-1751-forced-load-failure\\T1\\sandbox-normal\\repos\\plain-repo",
+        "tabOrder": 2
+      }
+    },
+    "tabOrder": [
+      {
+        "id": "201ce5f4-dbdd-4db2-848a-1c093cc2b421",
+        "index": 0,
+        "title": "HC load companion"
+      },
+      {
+        "id": "8a6f0163-ad7c-4780-9db6-67702d638214",
+        "index": 1,
+        "title": "HC load live"
+      },
+      {
+        "id": "287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b",
+        "index": 2,
+        "title": "HC load target"
+      }
+    ],
+    "deleteResult": {
+      "ok": true,
+      "value": {
+        "podId": "287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b",
+        "podDeleted": true,
+        "session": "not-requested",
+        "sessionError": null
+      }
+    },
+    "liveActivation": {
+      "selectedAfterClick": "8a6f0163-ad7c-4780-9db6-67702d638214",
+      "errorItemsBeforeTargetClick": 0,
+      "directLanesListOk": true
+    },
+    "targetActivation": {
+      "selectedAfterClick": "287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b"
+    },
+    "expectedMessage": {
+      "text": "no Pod with id 287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b",
+      "source": "src/main/pod-manager/pod-manager.ts:1657"
+    }
+  },
+  "precondition": {
+    "id": "O1",
+    "predicted": "after the reload the selected Pod tab is \"HC load companion\" (first by tab order), so neither \"HC load live\" nor \"HC load target\" has been activated",
+    "measured": {
+      "selectedTabId": "201ce5f4-dbdd-4db2-848a-1c093cc2b421",
+      "selectedTitle": "companion",
+      "firstTabByOrder": "201ce5f4-dbdd-4db2-848a-1c093cc2b421",
+      "liveSelected": false,
+      "targetSelected": false
+    },
+    "verdict": "pass",
+    "note": "a precondition: it carries no control; if it does not hold, O2-O14 are instrument-invalid"
+  },
+  "observations": [
+    {
+      "id": "O2",
+      "backlogRow": "retry-button",
+      "predicted": "pods.delete resolves ok: true with podDeleted: true and session \"not-requested\"; afterwards the pod-tab:<target id> tab is still rendered",
+      "verdict": "pass",
+      "measured": {
+        "deleteOk": true,
+        "podDeleted": true,
+        "session": "not-requested",
+        "targetTabStillRendered": true
+      },
+      "control": {
+        "injection": "the same tab-presence probe for a never-created id (a fresh UUID)",
+        "predicted": "absent",
+        "observed": "fresh UUID 35826a44-53c7-492c-9675-3aafdb1353f1: tab absent"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "read-only control; nothing to undo"
+    },
+    {
+      "id": "O3",
+      "backlogRow": "retry-button",
+      "predicted": "after clicking HC load live, then the target's stale tab, waited for as a condition with a timeout: exactly 2 [data-testid=\"notification\"][data-kind=\"error\"] items whose message <p> text equals \"no Pod with id <target id>\"",
+      "verdict": "pass",
+      "measured": {
+        "matchingItems": 2,
+        "waitedConditionMet": true,
+        "timeoutMs": 15000,
+        "expectedMessage": "no Pod with id 287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b",
+        "messages": "error: no Pod with id 287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b / error: no Pod with id 287ad1b9-3ede-4140-bbf0-ba3ae7a0a84b"
+      },
+      "control": {
+        "injection": "O4: the must-not-fire count, at the same moment, of notification items whose text contains HC load live's id (whole-run control: the --skip-delete run)",
+        "predicted": "0",
+        "observed": "0 item(s) contain HC load live's id"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "read-only control; nothing to undo"
+    },
+    {
+      "id": "O4",
+      "backlogRow": "retry-button",
+      "predicted": "at the moment O3's two items are present: 0 notification items contain HC load live's id, and exactly 2 data-kind=\"error\" items exist",
+      "verdict": "pass",
+      "measured": {
+        "itemsContainingLiveId": 0,
+        "totalErrorItems": 2
+      },
+      "control": {
+        "injection": "the same id-containment count keyed on the target's id, at the same moment",
+        "predicted": "2",
+        "observed": "2 item(s) contain the target's id"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "read-only control; nothing to undo"
+    },
+    {
+      "id": "O5",
+      "backlogRow": "retry-button",
+      "predicted": "each of O3's 2 items holds exactly 1 button[type=\"button\"] with text Retry, after the message <p> and before the notification-dismiss button in DOM order",
+      "verdict": "pass",
+      "measured": {
+        "items": 2,
+        "perItem": "item 1: 1 Retry, after <p> true, before dismiss true; item 2: 1 Retry, after <p> true, before dismiss true"
+      },
+      "control": {
+        "injection": "the first item's Retry button detached from the DOM, the same probe run on that item, then reattached at its place and verified",
+        "predicted": "0 buttons",
+        "observed": "0 buttons with Retry detached; reattached: 1 Retry, same node true"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O6",
+      "backlogRow": "retry-button",
+      "predicted": "first item's Retry: border-top-style solid with width > 0, cursor pointer, computed background-color differs from the item's (and so does the effective, composited background)",
+      "verdict": "pass",
+      "measured": {
+        "borderTopStyle": "solid",
+        "borderTopWidth": 0.8,
+        "cursor": "pointer",
+        "background": "rgb(26, 29, 35)",
+        "itemBackground": "rgb(58, 31, 34)",
+        "effectiveBackground": "rgb(26.00, 29.00, 35.00)",
+        "itemEffectiveBackground": "rgb(58.00, 31.00, 34.00)",
+        "effectiveEqual": false,
+        "inline": null
+      },
+      "control": {
+        "injection": "inline border-style: none; background: transparent on that button",
+        "predicted": "probe reports no border (style none or width 0) and an effective background equal to the item's",
+        "observed": "border-top-style none, width 0; effective background rgb(58.00, 31.00, 34.00) vs item rgb(58.00, 31.00, 34.00) (equal: true)"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O7",
+      "backlogRow": "retry-button",
+      "predicted": "Retry's border box left >= the message <p>'s right edge minus one device pixel, and their vertical extents overlap",
+      "verdict": "pass",
+      "measured": {
+        "retryLeft": 1181.0125732421875,
+        "messageRight": 1173.0125122070312,
+        "tol": 0.999999985098839,
+        "retryTop": 771.6000366210938,
+        "retryBottom": 790.6000366210938,
+        "messageTop": 771.6000366210938,
+        "messageBottom": 789.000036239624
+      },
+      "control": {
+        "injection": "inline flex-direction: column on the item",
+        "predicted": "no horizontal adjacency",
+        "observed": "retry left 856.8500366210938 vs message right 1157.9750366210938, retry top 746.2000122070312 vs message bottom 738.199987411499: adjacent false"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O8",
+      "backlogRow": "retry-button",
+      "predicted": "from the stated starting point (a mouse click on the first item's message <p>), keyboard Tab presses only: document.activeElement becomes the first item's Retry and it matches :focus-visible",
+      "verdict": "pass",
+      "measured": {
+        "startingPoint": "first matching item's message <p> at (875.9, 780.3); active after the click: [data-testid=\"notification-viewport\"]",
+        "tabPresses": 1,
+        "tabBound": 22,
+        "active": "button._action_tao93_121",
+        "isRetry": true,
+        "focusVisible": true
+      },
+      "control": {
+        "injection": "the same focus probe, run before any Tab press",
+        "predicted": "not focused",
+        "observed": "before any press: active [data-testid=\"notification-viewport\"], Retry focused false, :focus-visible false"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "read-only control; nothing to undo"
+    },
+    {
+      "id": "O9",
+      "backlogRow": "retry-button",
+      "predicted": "with Retry focused: outline-style solid, outline-width equals --oc-border-thick resolved in the same window, and the clip capture of the ring rectangle differs from the same clip captured before Retry was focused",
+      "verdict": "fail",
+      "measured": {
+        "outlineStyle": "solid",
+        "outlineWidth": 1.6,
+        "outlineOffset": 1.6,
+        "borderThickToken": 2,
+        "focusedCaptureDiffersFromUnfocused": true,
+        "context": "--oc-border-hairline 1px, Retry computed border-top-width 0.8px",
+        "ringClip": "1175.01,765.60 57.98x31.00"
+      },
+      "control": {
+        "injection": "added <style> giving that one button outline: none !important",
+        "predicted": "outline-style none, and the control capture is byte-identical to the unfocused capture",
+        "observed": "outline-style none; control capture byte-identical to unfocused capture: true"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O10",
+      "backlogRow": "retry-button",
+      "predicted": "the ring's outer rectangle (Retry's border box inflated by outline-offset + outline-width) lies within the item's padding box",
+      "verdict": "pass",
+      "measured": {
+        "ringOuter": "l 1177.81 r 1230.19 t 768.40 b 793.80",
+        "itemPaddingBox": "l 844.85 r 1263.20 t 763.60 b 798.60",
+        "ringInside": true
+      },
+      "control": {
+        "injection": "inline padding: 0 on the item",
+        "predicted": "ring outside the padding box",
+        "observed": "ring l 1189.81 r 1242.19 t 776.40 b 801.80 vs padding box l 844.85 r 1263.20 t 779.60 b 798.60: inside false"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O11",
+      "backlogRow": "retry-button",
+      "predicted": "for every ancestor of Retry up to the document root whose overflow-x or overflow-y is not visible, the ring's outer rectangle lies within that ancestor's padding box",
+      "verdict": "pass",
+      "measured": {
+        "ancestorsChecked": "body (hidden/hidden) contains true",
+        "clippingAncestors": 0
+      },
+      "control": {
+        "injection": "inline overflow: hidden; padding: 0 on the item",
+        "predicted": "a clipping ancestor is reported (the item)",
+        "observed": "clipping ancestors: [data-testid=\"notification\"]"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O12",
+      "backlogRow": "retry-themes",
+      "predicted": "under emulateMedia({ colorScheme: \"dark\" }), contrast of Retry's computed color against its effective background >= 4.5",
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "dark",
+        "foreground": "rgb(232, 234, 238)",
+        "foregroundAlpha": 1,
+        "effectiveBackground": "rgb(26.00, 29.00, 35.00)",
+        "contrastRatio": 14.016,
+        "threshold": 4.5
+      },
+      "control": {
+        "injection": "inline color on Retry set to the measured effective background (dark preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O13",
+      "backlogRow": "retry-themes",
+      "predicted": "under emulateMedia({ colorScheme: \"light\" }), contrast of Retry's computed color against its effective background >= 4.5",
+      "verdict": "pass",
+      "measured": {
+        "colorScheme": "light",
+        "foreground": "rgb(232, 234, 238)",
+        "foregroundAlpha": 1,
+        "effectiveBackground": "rgb(26.00, 29.00, 35.00)",
+        "contrastRatio": 14.016,
+        "threshold": 4.5
+      },
+      "control": {
+        "injection": "inline color on Retry set to the measured effective background (light preference)",
+        "predicted": "ratio 1.00",
+        "observed": "ratio 1.00"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O14",
+      "backlogRow": "retry-themes",
+      "predicted": "Retry's color, background-color, border-top-color and the item's background-color under the light preference each equal their values under the dark preference",
+      "verdict": "pass",
+      "measured": {
+        "dark": "color rgb(232, 234, 238); background rgb(26, 29, 35); border-top rgb(69, 77, 91); item rgb(58, 31, 34)",
+        "light": "color rgb(232, 234, 238); background rgb(26, 29, 35); border-top rgb(69, 77, 91); item rgb(58, 31, 34)",
+        "differing": "none",
+        "emulationApplied": "dark prefersLight=false, light prefersLight=true",
+        "emulateMediaResetToNull": true,
+        "prefersLightAfterReset": false
+      },
+      "control": {
+        "injection": "added <style> with @media (prefers-color-scheme: light) setting that one button's color to rgb(1, 2, 3) !important",
+        "predicted": "a difference under light (color) and none under dark",
+        "observed": "under dark, differing from dark: none; under light, differing from dark: color (color rgb(1, 2, 3))"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    }
+  ],
+  "screenshots": [
+    "screenshots/forced-load-failure/01-after-reload.png",
+    "screenshots/forced-load-failure/02-after-target-click.png",
+    "screenshots/forced-load-failure/O9-ring-clip-unfocused.png",
+    "screenshots/forced-load-failure/viewport-dark-unfocused.png",
+    "screenshots/forced-load-failure/viewport-light-unfocused.png",
+    "screenshots/forced-load-failure/O9-ring-clip-focused.png",
+    "screenshots/forced-load-failure/O9-ring-clip-control-outline-none.png",
+    "screenshots/forced-load-failure/viewport-dark-retry-focused.png",
+    "screenshots/forced-load-failure/viewport-light-retry-focused.png"
+  ]
+}
