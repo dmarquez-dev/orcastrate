@@ -51,6 +51,16 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-FORCED-LOAD-FAILURE.md`** (2026-11-17) — the two Retry-control human checks
+  left open by `20261112-0151-workspace-load-retry`, made performable by forcing the E8 and
+  E9 load failures through the app's own IPC (a Pod deleted from the console, then its stale
+  tab clicked). Slug `forced-load-failure`: exit 1, 12 of 13 observations pass, 1 fails (O9,
+  the focus ring computes to 1.6px against the 2px `--oc-border-thick`, consistent with
+  device-pixel snapping at a 1.25 display scale), every control fired. Slug
+  `forced-load-failure-skip-delete` (the must-fail control, the delete skipped): exit 2,
+  0 of 13 observations pass, O3 fails as predicted and the other 12 are
+  instrument-invalid. The hand recipe for the two checks is
+  `HUMANCHECKS-FORCED-LOAD-FAILURE.md`.
 - **`FINDINGS-CHROME-ALERT-WIDTH.md`** (2026-11-10) — how much of the Pod-bar row the
   open-error, pods-error and reorder alerts get, before and after the width policy. Slug
   `chrome-alert-width-base` (before): exit 1, the open-error and pods-error alerts got less
