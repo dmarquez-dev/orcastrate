@@ -1,0 +1,51 @@
+{
+  "id": "20261117-1751-forced-load-failure",
+  "name": "forced-load-failure",
+  "scope": "standard",
+  "status": "MERGED",
+  "started": "2026-11-17T17:51:25Z",
+  "ended": null,
+  "brief": "Make the two open Retry-control human checks from session 20261112-0151-workspace-load-retry performable, so they can be made at Gate 3 and their backlog rows closed. The spec phase found that the app's own IPC already forces the needed failure: deleting a throwaway Pod through window.orcastrate.pods.delete from the DevTools console bypasses the renderer store's deletedPods tombstone, so the Pod's tab stays visible, and activating it makes main's lanes.list and events.read throw NOT_FOUND, which raises the E8 and E9 notifications with their Retry action. Per discussion.md, the ORCASTRATE_DEV_FAIL_LOAD switch is therefore not built and no production code changes. The session writes a human-checks recipe under .dir-sdlc/handruns/ (start npm run dev, create throwaway Pods, confirm the id, delete one from the console, activate its stale tab, inspect Retry and its focus ring in both themes, clean up), optionally verified first by a Playwright driver in a sandboxed profile. The user makes both checks at Gate 3.",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "e46da70d-14a5-4e1d-a31b-e6b36e389934",
+      "sir": "1.0.43",
+      "started": "2026-11-17T17:51:25Z",
+      "ended": "2026-11-17T18:14:00Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "053a2774-1656-41b4-be15-7fa8cb4dc0f9",
+      "sir": "1.0.43",
+      "started": "2026-11-17T18:20:33Z",
+      "ended": "2026-11-17T18:57:32Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "ec0304f5-ec2b-4a55-b493-0ed81b4ca128",
+      "sir": "1.0.43",
+      "started": "2026-11-17T18:58:56Z",
+      "ended": "2026-11-17T19:58:27Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "54451a23-b946-4550-8b83-39eb5f3d322b",
+      "sir": "1.0.43",
+      "started": "2026-11-17T20:05:12Z",
+      "ended": "2026-11-17T21:31:58Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 1,
+    "reviewRounds": 0
+  },
+  "pushed": true
+}

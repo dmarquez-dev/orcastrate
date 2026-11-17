@@ -1,0 +1,139 @@
+{
+  "session": "20261117-1751-forced-load-failure",
+  "updatedAt": "2026-11-17T21:31:58Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261117-1751-forced-load-failure",
+  "branch": "agent/20261117-1751-forced-load-failure",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "exit=0; printed the typecheck:node and typecheck:web script banners and 0 `error TS` lines (tsc resolved through the main checkout's node_modules, the worktree having none of its own)"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "RUN  v4.1.11 C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261117-1751-forced-load-failure; Test Files  173 passed (173); Tests  2843 passed (2843); exit=0"
+    },
+    {
+      "command": "npm --prefix <worktree> run build",
+      "runnable": true,
+      "probe": "exit=0; `✓ built in 1.51s`; `<worktree>/out/` holds main, preload, renderer; `git -C <worktree> status --short` printed nothing (out/ is gitignored)"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "model": "opus",
+      "startRef": "e539917571b47489a5477cc4d3ffca596446ec0e",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "commit": "8fe3c4137cf80b82fd4e674658ad8ccd5974183d"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "model": "opus",
+      "startRef": "8fe3c4137cf80b82fd4e674658ad8ccd5974183d",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "commit": "4335d366d11231bc0dc860d7452353bfcbb4dc7e"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "How should the app let a workspace load (E8 lanes.list, E9 events.read, E10 app.routingMode) be forced to fail on demand?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Answered at Gate 1 on the recommended option: an environment variable read in main (e.g. ORCASTRATE_DEV_FAIL_LOAD=lanes|events|routing) that makes that one IPC handler reject, read only when app.isPackaged is false; off by default and the only runtime switch. Conditional on the spec phase first checking whether the app's own IPC or DevTools can already force one of these failures; if so the switch is not built and the session shrinks to the recipe and the checks (discussion.md, Decisions)."
+    },
+    {
+      "id": "E2",
+      "taskId": "T1",
+      "question": "T1 C29's letter requires a sha256 handed over from the implementer's scratch copy, but the harness blocked writes in both the worktree and scratch, so FINDINGS-FORCED-LOAD-FAILURE.md came back inline and the orchestrator copied it under Gate 2 D2 (worktree sha256 ca5d7a98...). Does that inline handover satisfy C29?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Accepted under Gate 2 D2 (choice dialog, recommended option): the inline handover satisfies C29 for T1; reviews/T1.md records the worktree sha256 ca5d7a98148994304413f9b5247e06a804a1327889b3af59090e561469dde0b8, that no implementer-side hash could exist because scratch was blocked too, and that C27 checked the content against the JSON. No amendment to manifest.json.",
+      "options": [
+        {
+          "summary": "Accept the inline handover for this task under Gate 2 D2; record the worktree sha256, that no implementer-side hash could exist, and that C27 checked the content against the JSON",
+          "rationale": "C29 exists so the copied file is the one the implementer meant; C27's content check covers that and the copy changed only indentation",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              ".sir/sessions/20261117-1751-forced-load-failure/reviews/T1.md",
+              ".sir/sessions/20261117-1751-forced-load-failure/log.md"
+            ]
+          }
+        },
+        {
+          "summary": "Resume the implementer read-only to compare the worktree file with the text it produced and state its sha256",
+          "rationale": "Closes the letter at the cost of one dispatch",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Amend C29 so that when scratch is blocked too, the handover is inline text plus an orchestrator-recorded worktree hash, and record a lesson",
+          "rationale": "Stops the same gap recurring in later sessions",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ]
+    },
+    {
+      "id": "E3",
+      "taskId": "T2",
+      "question": "T2 C10 requires the recipe to state that no step rewrites another Pod's row or its last_active_at, but Setup step 1 (starting the app) runs reconcileStartup, which sets non-closed, non-beached Pods to closed and orphans running lanes while keeping last_active_at (pod-manager.ts:331-356). The recipe states a true, qualified sentence instead. How should C10 be settled?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Amend C10 (choice dialog, recommended option): C10's last sentence now requires that no step other than starting the app rewrites another Pod's row, and that no step rewrites any last_active_at; the recipe's qualified sentence (recipe:64-66) meets it with no revision. Recorded as amendment A1.",
+      "options": [
+        {
+          "summary": "Amend C10 to: no step other than starting the app rewrites another Pod's row, and no step rewrites any last_active_at; the file meets it as written",
+          "rationale": "Makes the frozen criterion match the code with no revision",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod-manager/pod-manager.ts"
+            ]
+          }
+        },
+        {
+          "summary": "Accept the qualified sentence without amending and record the deviation in reviews/T2.md",
+          "rationale": "Cheaper, but leaves a frozen criterion the artifact does not meet to the letter",
+          "evidence": {
+            "kind": "judgment"
+          }
+        },
+        {
+          "summary": "Remove the qualifier so the file matches C10's letter",
+          "rationale": "Not recommended: the recipe runs against real data and the sentence would be false",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod-manager/pod-manager.ts"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E3",
+      "artifact": "manifest.json",
+      "before": "T2 C10: It states that no step in this file rewrites another Pod's row or its `last_active_at`.",
+      "after": "T2 C10: It states that no step in this file other than starting the app rewrites another Pod's row, and that no step rewrites any `last_active_at`.",
+      "inFlight": []
+    }
+  ],
+  "metrics": {
+    "userInteractions": 5,
+    "escalationsRaised": 3,
+    "reviewRounds": 1
+  }
+}
