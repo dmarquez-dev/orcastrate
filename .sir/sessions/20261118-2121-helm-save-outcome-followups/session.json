@@ -1,0 +1,51 @@
+{
+  "id": "20261118-2121-helm-save-outcome-followups",
+  "name": "helm-save-outcome-followups",
+  "scope": "standard",
+  "status": "MERGED",
+  "started": "2026-11-18T21:21:20Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "cfb7e0c1-552d-4f41-82e0-7a11bb24b885",
+      "sir": "1.0.46",
+      "started": "2026-11-18T21:21:20Z",
+      "ended": "2026-11-18T22:14:42Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "50acbf9e-5528-4679-a7d7-a59dd1806d5d",
+      "sir": "1.0.46",
+      "started": "2026-11-18T22:16:33Z",
+      "ended": "2026-11-18T22:45:12Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "afcb096c-d371-4326-9274-4b2f21fa8b07",
+      "sir": "1.0.46",
+      "started": "2026-11-18T22:48:33Z",
+      "ended": "2026-11-18T23:25:12Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "e5ff5e78-597e-4475-813c-0bffc71a98b4",
+      "sir": "1.0.46",
+      "started": "2026-11-18T23:38:14Z",
+      "ended": "2026-11-18T23:57:16Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  },
+  "brief": "Close the three Helm save-outcome follow-ups left by 20261118-1810-helm-save-outcome-in-view, in one renderer task. A rejected save now states the conflict once: HelmNotices stops rendering main's duplicate sentence under COPY.conflictLead, and hides the stale banner while a conflict banner is up. Main's message and the store are unchanged. useSaveOutcomeScroll scrolls to the banner for the settle's own outcome (Saved, conflict or error), derived from the view, rather than to the first banner in DOM order, which today picks a leftover scope-listing error over Saved. The false 'only component that calls a hook' claim in HelmPanel.test.tsx's docblock is rewritten. At Gate 3 the orchestrator removes the three backlog rows and files a new row for dynamic permission modes (SDK union plus a type-level check, auto gated on supportsAutoMode), which this session does not build. One human check: a rejected save in the running app shows one conflict banner and no stale banner.",
+  "pushed": true
+}

@@ -1,0 +1,51 @@
+{
+  "session": "20261118-2121-helm-save-outcome-followups",
+  "updatedAt": "2026-11-18T23:56:49Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261118-2121-helm-save-outcome-followups",
+  "branch": "agent/20261118-2121-helm-save-outcome-followups",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "typecheck:node and typecheck:web both ran tsc --noEmit with no diagnostics, exit=0"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "RUN v4.1.11 C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261118-2121-helm-save-outcome-followups; Test Files 173 passed (173); Tests 2852 passed (2852); exit=0"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "startRef": "c40d1bb017d79d61b0064e512db6edac4e94dccb",
+      "model": "opus",
+      "commit": "840d2cd95335a545bdba40324467d2216d12c956",
+      "revisionRounds": 0,
+      "redispatches": 0
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "Which work does this session do: the three Helm save-outcome backlog rows, or the user's new ask to fetch permission modes dynamically?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Helm backlog rows 39, 40 and 41 now; the permissions ask is filed as a backlog row at Gate 3 (Gate 1, discuss phase)."
+    },
+    {
+      "id": "E2",
+      "question": "What does 'dynamic' permission modes mean, given the SDK exposes no runtime list of modes?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Offer every mode the SDK's PermissionMode union declares, with a type-level check that fails the build when the SDK adds or removes one; hide auto when the model's supportsAutoMode is false, once a session can report it. Recorded on the deferred backlog row; not built here (Gate 1, discuss phase)."
+    }
+  ],
+  "amendments": [],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  }
+}
