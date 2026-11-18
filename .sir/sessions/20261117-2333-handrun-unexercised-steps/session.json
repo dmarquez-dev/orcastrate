@@ -2,9 +2,9 @@
   "id": "20261117-2333-handrun-unexercised-steps",
   "name": "handrun-unexercised-steps",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-17T23:33:22Z",
-  "ended": "2026-11-18T00:11:27Z",
+  "ended": "2026-11-18T00:14:55Z",
   "parent": null,
   "children": [],
   "runs": [
@@ -14,6 +14,14 @@
       "sir": "1.0.44",
       "started": "2026-11-17T23:33:22Z",
       "ended": "2026-11-18T00:11:27Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "9bbd47e2-e073-4456-b78f-2369ed009c6d",
+      "phase": "wrap",
+      "sir": "1.0.44",
+      "started": "2026-11-18T00:14:32Z",
+      "ended": "2026-11-18T00:14:55Z",
       "outcome": "complete"
     }
   ],
