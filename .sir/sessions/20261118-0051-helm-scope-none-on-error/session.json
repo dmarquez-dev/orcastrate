@@ -2,9 +2,9 @@
   "id": "20261118-0051-helm-scope-none-on-error",
   "name": "helm-scope-none-on-error",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-18T00:51:50Z",
-  "ended": "2026-11-18T01:21:27Z",
+  "ended": "2026-11-18T01:29:49Z",
   "parent": null,
   "children": [],
   "runs": [
@@ -14,6 +14,14 @@
       "sir": "1.0.45",
       "started": "2026-11-18T00:51:50Z",
       "ended": "2026-11-18T01:21:27Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "c3ecb12b-defd-475e-9b87-eda6ef7a774c",
+      "phase": "wrap",
+      "sir": "1.0.45",
+      "started": "2026-11-18T01:28:38Z",
+      "ended": "2026-11-18T01:29:49Z",
       "outcome": "complete"
     }
   ],
