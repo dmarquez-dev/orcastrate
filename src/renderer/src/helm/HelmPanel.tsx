@@ -13,7 +13,7 @@
  * exists), and the ready form.
  */
 
-import { useState, type JSX } from 'react';
+import { useRef, useState, type JSX } from 'react';
 
 import type { HelmManagedFields } from '@shared/contracts/helm';
 import type { HelmPanelProps } from '../contracts/renderer-panels';
@@ -26,6 +26,7 @@ import { HelmNotices } from './HelmNotices';
 import { HelmScopePicker } from './HelmScopePicker';
 import { HelmSettingsForm } from './HelmSettingsForm';
 import { unplacedIssues } from './issues';
+import { useSaveOutcomeScroll } from './useSaveOutcomeScroll';
 import styles from './Helm.module.css';
 
 export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
@@ -90,11 +91,17 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
       ? view.actionError
       : null;
 
+  // A SETTLED SAVE BRINGS ITS OUTCOME INTO VIEW, by scrolling only. The rule,
+  // and why it lives in its own file, are in `useSaveOutcomeScroll.ts`.
+  const panelRef = useRef<HTMLElement>(null);
+  useSaveOutcomeScroll(view.saving, panelRef);
+
   return (
     <section
       aria-label={COPY.panelLabel}
       className={styles.panel}
       data-testid={PANEL_TEST_IDS.helmPanel}
+      ref={panelRef}
     >
       <HelmNotices
         actionError={compareError === null ? view.actionError : null}

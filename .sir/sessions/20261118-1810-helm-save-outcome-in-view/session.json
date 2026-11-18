@@ -1,0 +1,60 @@
+{
+  "id": "20261118-1810-helm-save-outcome-in-view",
+  "name": "helm-save-outcome-in-view",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-18T18:10:56Z",
+  "ended": "2026-11-18T20:38:06Z",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "d5951c3f-e1ed-4e61-9dea-41a998b2eef2",
+      "phase": "small",
+      "sir": "1.0.46",
+      "started": "2026-11-18T18:10:56Z",
+      "ended": "2026-11-18T20:38:06Z",
+      "outcome": "complete"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "The F-U1 row (.sir/backlog.md:39) offers two fixes for Helm's save-outcome banner landing out of view, which sits at the top of the scrolling panel (HelmPanel.tsx:99, Helm.module.css:29 overflow-y: auto) while Save sits at the bottom (HelmPanel.tsx:196). Should the panel scroll the outcome banner into view when a save settles, or should Helm also show the outcome beside the action bar?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Scroll the outcome banner into view when a save settles (the recommended option, chosen at Gate 1 through the choice dialog). Track confirmed Small in the same dialog."
+    },
+    {
+      "id": "E2",
+      "question": "The source rule 'names compare() in a file that also runs a React effect' (src/renderer/src/helm/rules.ts:172, enforced by no-paths.test.ts) fails HelmPanel.tsx once it gains the save-settle useEffect, because HelmPanel.tsx already calls actions.compare(). Move the effect into a new hook file src/renderer/src/helm/useSaveOutcomeScroll.ts (C6 grows to three files), replace the effect with a per-render callback ref inside the two files, or relax the rule in rules.ts?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Move the effect into a new hook file, src/renderer/src/helm/useSaveOutcomeScroll.ts, called from HelmPanel.tsx (the recommended option, chosen through the choice dialog). C6 amended to three files (A1)."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "criterion": "C6",
+      "before": "C6: `git diff --name-only` lists only src/renderer/src/helm/HelmPanel.tsx and src/renderer/src/helm/HelmPanel.test.tsx.",
+      "after": "C6: `git status --porcelain -- src` lists only src/renderer/src/helm/HelmPanel.tsx, src/renderer/src/helm/HelmPanel.test.tsx and the new src/renderer/src/helm/useSaveOutcomeScroll.ts, and the save-settle effect lives in useSaveOutcomeScroll.ts, so HelmPanel.tsx runs no React effect itself."
+    }
+  ],
+  "criteria": [
+    "C1: HelmPanel.tsx scrolls Helm's notices into view (an element that contains HelmNotices' output, via scrollIntoView) when a save settles, meaning view.saving goes from true to false between two renders. It scrolls only if that render shows an outcome: the Saved banner (savedHere non-null), the error banner, or the conflict banner. It calls no focus(). A first render with saving false does not scroll, nor does any re-render where saving did not go from true to false. The call is guarded, so an environment without scrollIntoView (jsdom) neither throws nor needs another test file edited.",
+    "C2: A new HelmPanel.test.tsx test renders saving true, then re-renders saving false with a lastSave for the selected scope. It asserts that scrollIntoView was called exactly once, on an element containing the helmBackupPath test id. It is shown failing against the unchanged HelmPanel.tsx before the fix (red step).",
+    "C3: A new HelmPanel.test.tsx test renders saving true, then re-renders saving false with an actionError and no lastSave. It asserts that scrollIntoView was called exactly once, on an element containing the helmError test id.",
+    "C4: New HelmPanel.test.tsx tests assert that scrollIntoView is not called in three cases: (a) a first render with saving false and a lastSave present; (b) a re-render that changes selectedScopeId or dirty with saving false throughout; (c) saving goes from true to false with no outcome banner on screen (no lastSave for the selected scope, no actionError, no conflict).",
+    "C5: `npm test` (whole suite, run from the repository root) and `npm run typecheck` both pass after the change. Both were also run before the change, and both runs' summary lines are reported.",
+    "C6: `git status --porcelain -- src` lists only src/renderer/src/helm/HelmPanel.tsx, src/renderer/src/helm/HelmPanel.test.tsx and the new src/renderer/src/helm/useSaveOutcomeScroll.ts, and the save-settle effect lives in useSaveOutcomeScroll.ts, so HelmPanel.tsx runs no React effect itself.",
+    "C7: Gate 3 removes the F-U1 row (20261117-2333-handrun-unexercised-steps, 'Helm's save-outcome banners render at the top of the panel') from .sir/backlog.md, and no open row cites a line this diff moved."
+  ],
+  "metrics": {
+    "userInteractions": 3,
+    "escalationsRaised": 2,
+    "reviewRounds": 0
+  },
+  "pushed": true
+}

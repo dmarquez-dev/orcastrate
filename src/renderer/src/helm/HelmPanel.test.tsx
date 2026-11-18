@@ -11,7 +11,7 @@
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { HelmValidationIssue } from '@shared/contracts/helm';
 import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
@@ -376,6 +376,114 @@ describe('after a successful save', () => {
     });
 
     expect(screen.queryByTestId(PANEL_TEST_IDS.helmBackupPath)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A settled save brings its outcome into view
+// ---------------------------------------------------------------------------
+
+describe('when a save settles', () => {
+  // jsdom implements no `scrollIntoView`, so each test installs a spy on the
+  // prototype and the previous descriptor (none, under jsdom) is put back
+  // afterwards. The spy records the element it was called on.
+  const original = Object.getOwnPropertyDescriptor(Element.prototype, 'scrollIntoView');
+  const scrollIntoView = vi.fn<(this: Element, arg?: boolean | ScrollIntoViewOptions) => void>();
+
+  beforeEach(() => {
+    scrollIntoView.mockReset();
+    Object.defineProperty(Element.prototype, 'scrollIntoView', {
+      configurable: true,
+      value: scrollIntoView,
+      writable: true,
+    });
+  });
+
+  afterEach(() => {
+    if (original === undefined) {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+    } else {
+      Object.defineProperty(Element.prototype, 'scrollIntoView', original);
+    }
+  });
+
+  const LAST_SAVE = {
+    document: makeStubHelmDocument('user'),
+    backupDisplayPath: 'settings.json.2026-08-19T101500.bak',
+  };
+
+  /** The one element `scrollIntoView` ran on; fails unless it ran exactly once. */
+  function scrolledOnce(): Element {
+    expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    const target = scrollIntoView.mock.contexts[0];
+    if (target === undefined) throw new Error('scrollIntoView ran with no element as this');
+    return target;
+  }
+
+  it('scrolls the Saved banner into view once the save lands', () => {
+    const { update } = renderPanel({ saving: true, dirty: true });
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    update({ saving: false, dirty: false, lastSave: LAST_SAVE });
+
+    const target = scrolledOnce();
+    expect(target.contains(screen.getByTestId(PANEL_TEST_IDS.helmBackupPath))).toBe(true);
+  });
+
+  it('scrolls the error banner into view when the save fails', () => {
+    const { update } = renderPanel({ saving: true, dirty: true });
+
+    update({ saving: false, actionError: 'ENOSPC: no space left on device, write' });
+
+    const target = scrolledOnce();
+    expect(target.contains(screen.getByTestId(PANEL_TEST_IDS.helmError))).toBe(true);
+  });
+
+  it('scrolls the conflict banner into view when the save is rejected', () => {
+    const conflict = 'settings.json changed on disk. Nothing was written.';
+    const { update } = renderPanel({ saving: true, dirty: true });
+
+    update({ saving: false, conflict, actionError: conflict, stale: true });
+
+    const target = scrolledOnce();
+    expect(target.contains(screen.getByTestId(PANEL_TEST_IDS.helmConflict))).toBe(true);
+  });
+
+  it('does not scroll on a first render that already shows a Saved banner', () => {
+    renderPanel({ saving: false, lastSave: LAST_SAVE });
+
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmBackupPath)).not.toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll on a re-render where no save was in flight', () => {
+    const { update } = renderPanel({ saving: false, lastSave: LAST_SAVE });
+
+    update({ dirty: true });
+    update({ selectedScopeId: 'project:pod-1' });
+    update({ selectedScopeId: 'user', dirty: false });
+
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll when a save settles with no outcome banner on screen', () => {
+    const { update } = renderPanel({ saving: true, dirty: true });
+
+    update({ saving: false });
+
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmBackupPath)).toBeNull();
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmConflict)).toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll when the save that settled belongs to a file not on screen', () => {
+    const { update } = renderPanel({ saving: true, dirty: true, selectedScopeId: 'project:pod-1' });
+
+    update({ saving: false, lastSave: LAST_SAVE });
+
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmBackupPath)).toBeNull();
+    expect(scrollIntoView).not.toHaveBeenCalled();
   });
 });
 
