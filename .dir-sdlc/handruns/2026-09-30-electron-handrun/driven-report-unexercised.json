@@ -1,0 +1,400 @@
+{
+  "meta": {
+    "slug": "unexercised",
+    "skipObstruction": false,
+    "skipFreeze": false,
+    "generatedAt": "2026-11-17T23:52:31.575Z",
+    "driverSha256": "0be3cbc1977f11e3d2a1a255e168881b5901442b6ed56f81c8279799f088d1a6",
+    "mainBundleSha256": "c50eb91eb5ae7ecf9f578be295c442151f7cfa404f9784edbf27a29da2f0e2dd",
+    "electron": "43.4.0",
+    "playwright": "1.63.0",
+    "devicePixelRatio": 1.25,
+    "display": {
+      "scaleFactor": 1.25
+    },
+    "sandboxRoot": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real",
+    "outDir": "C:\\Users\\dmarq\\Development\\Repos\\orcastrate\\.dir-sdlc\\handruns\\2026-09-30-electron-handrun",
+    "keepSandbox": false,
+    "mainEnv": {
+      "helm": {
+        "USERPROFILE": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home",
+        "APPDATA": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\AppData\\Roaming",
+        "userData": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\AppData\\Roaming\\Electron",
+        "CLAUDE_CONFIG_DIR": null
+      },
+      "scopesFail": {
+        "USERPROFILE": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home",
+        "APPDATA": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\AppData\\Roaming",
+        "userData": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\AppData\\Roaming\\Electron",
+        "CLAUDE_CONFIG_DIR": null
+      }
+    },
+    "realClaudeHome": "never read or written by this driver",
+    "exitCode": 0,
+    "sandboxRemoved": true,
+    "precondition": null
+  },
+  "counts": {
+    "pass": 8,
+    "fail": 0,
+    "instrumentInvalid": 0,
+    "total": 8
+  },
+  "plan": [
+    {
+      "id": "O2",
+      "row": "B5 clock-freeze positive control (C1)",
+      "predicted": "with main's Date frozen at 2031-02-03T04:05:06.789Z, one Helm save of the user scope creates exactly one new settings.json.* entry, named settings.json.2031-02-03T04-05-06-789Z.bak, the panel's backup banner names it, and it holds the pre-save bytes",
+      "injection": "main's new Date().toISOString() read before the freeze, and again after the real Date is restored",
+      "controlPredicted": "both differ from 2031-02-03T04:05:06.789Z; the restored Date is the original constructor"
+    },
+    {
+      "id": "O3",
+      "row": "B5 a blocked backup aborts the write (C2)",
+      "predicted": "with main's Date frozen at 2031-02-03T04:05:07.321Z and a directory pre-created at settings.json.2031-02-03T04-05-07-321Z.bak: the save fails, the helm-error banner contains the OS error text main's own copyFileSync onto that path produces, settings.json sha256 is identical before and after, no settings.json.2031-02-03T04-05-07-321Z.<n>.bak exists, the directory is still an empty directory, and no new settings.json.* entry appears",
+      "injection": "the .<n>.bak sibling scan run after a decoy file settings.json.2031-02-03T04-05-07-321Z.7.bak is written, then again after it is removed",
+      "controlPredicted": "1 sibling with the decoy, 0 after removal"
+    },
+    {
+      "id": "O4",
+      "row": "D3 instrument check: the scopes call fails (C3)",
+      "predicted": "in the second launch, whose home has a self-referencing junction at .claude/settings.json, window.orcastrate.helm.listScopes() resolves ok: false with a non-empty error message",
+      "injection": "the same bridge call in the first launch (a healthy sandbox home)",
+      "controlPredicted": "ok: true"
+    },
+    {
+      "id": "O5",
+      "row": "D3 the failure sentence once (C3)",
+      "predicted": "after opening Helm in the second launch, the helm-panel element's textContent contains O4's message exactly 1 time (non-overlapping occurrences)",
+      "injection": "a clone of the <p> holding the message appended to the helm-error banner, counted, then removed",
+      "controlPredicted": "2 with the clone; 1 after removal"
+    },
+    {
+      "id": "O6",
+      "row": "A3 the narrowest width the app allows (C4)",
+      "predicted": "the window's getMinimumSize() width equals minWidth in src/main/window.ts, and setSize to 140 below it yields the same getSize() width as setSize to the minimum, which is not below the minimum",
+      "injection": "setSize to 60 above the minimum",
+      "controlPredicted": "getSize() width equals the request"
+    },
+    {
+      "id": "O7",
+      "row": "A3 narrow window, width 1280 (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+      "controlPredicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal"
+    },
+    {
+      "id": "O8",
+      "row": "A3 narrow window, width 1100 (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+      "controlPredicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal"
+    },
+    {
+      "id": "O9",
+      "row": "A3 narrow window, width minimum (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+      "controlPredicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal"
+    }
+  ],
+  "setup": {
+    "instants": {
+      "T1": "2031-02-03T04:05:06.789Z",
+      "T2": "2031-02-03T04:05:07.321Z",
+      "stampT1": "2031-02-03T04-05-06-789Z",
+      "stampT2": "2031-02-03T04-05-07-321Z"
+    },
+    "healthyListScopes": {
+      "ok": true,
+      "scopes": 1,
+      "error": null
+    },
+    "pod": {
+      "id": "d0b4af5d-0386-487d-a4c0-a15f40c38e50",
+      "title": "UX narrow pod"
+    },
+    "stampSource": {
+      "value": "return now.toISOString().replace(/[:.]/g, '-');",
+      "line": 48,
+      "text": "return now.toISOString().replace(/[:.]/g, '-');"
+    },
+    "minWidthSource": {
+      "value": "940",
+      "line": 18,
+      "text": "minWidth: 940,"
+    },
+    "scopesStaging": {
+      "junction": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\.claude\\settings.json",
+      "nodeStat": {
+        "code": "ELOOP",
+        "message": "ELOOP: too many symbolic links encountered, stat 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\.claude\\settings.json'"
+      }
+    },
+    "afterB5MinWidth": {
+      "width": 940,
+      "innerWidth": 928,
+      "rootScrollWidth": 928,
+      "rootClientWidth": 928,
+      "bodyScrollWidth": 928,
+      "bodyClientWidth": 928,
+      "helmScrollWidth": 865,
+      "helmClientWidth": 865,
+      "elementsPastRightEdge": 0
+    }
+  },
+  "precondition": {
+    "id": "O1",
+    "predicted": "each launch's main process reports USERPROFILE, APPDATA and userData inside its sandbox and CLAUDE_CONFIG_DIR unset; in the first launch Helm's File row shows the sandbox settings path",
+    "measured": {
+      "helm": {
+        "ok": true,
+        "launch": "helm",
+        "scopePath": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json",
+        "env": {
+          "USERPROFILE": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home",
+          "APPDATA": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\AppData\\Roaming",
+          "userData": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\AppData\\Roaming\\Electron",
+          "CLAUDE_CONFIG_DIR": null
+        }
+      },
+      "scopesFail": {
+        "ok": true,
+        "launch": "scopes-fail",
+        "env": {
+          "USERPROFILE": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home",
+          "APPDATA": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\AppData\\Roaming",
+          "userData": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\AppData\\Roaming\\Electron",
+          "CLAUDE_CONFIG_DIR": null
+        }
+      }
+    },
+    "verdict": "pass",
+    "note": "a precondition: it carries no control; if it does not hold for a launch, that launch's observations are instrument-invalid"
+  },
+  "observations": [
+    {
+      "id": "O2",
+      "backlogRow": "B5 clock-freeze positive control (C1)",
+      "predicted": "with main's Date frozen at 2031-02-03T04:05:06.789Z, one Helm save of the user scope creates exactly one new settings.json.* entry, named settings.json.2031-02-03T04-05-06-789Z.bak, the panel's backup banner names it, and it holds the pre-save bytes",
+      "verdict": "pass",
+      "measured": {
+        "backupBannerInViewAfterSave": "{\"bannerTop\":-796,\"bannerBottom\":-691,\"visibleTop\":70,\"visibleBottom\":763,\"anyPartVisible\":false}",
+        "mainNowBeforeFreeze": "2026-11-17T23:52:29.964Z",
+        "mainNowWhileFrozen": "2031-02-03T04:05:06.789Z",
+        "saveSettled": "saved",
+        "newEntries": "settings.json.2031-02-03T04-05-06-789Z.bak",
+        "expectedName": "settings.json.2031-02-03T04-05-06-789Z.bak",
+        "bannerNamesExpected": true,
+        "backupHoldsPreSaveBytes": true,
+        "stampSource": "src/main/helm/atomic-write.ts:48"
+      },
+      "control": {
+        "injection": "main's new Date().toISOString() read before the freeze, and again after the real Date is restored",
+        "predicted": "both differ from 2031-02-03T04:05:06.789Z; the restored Date is the original constructor",
+        "observed": "before freeze 2026-11-17T23:52:29.964Z; after restore 2026-11-17T23:52:30.062Z (restored constructor: true)"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O3",
+      "backlogRow": "B5 a blocked backup aborts the write (C2)",
+      "predicted": "with main's Date frozen at 2031-02-03T04:05:07.321Z and a directory pre-created at settings.json.2031-02-03T04-05-07-321Z.bak: the save fails, the helm-error banner contains the OS error text main's own copyFileSync onto that path produces, settings.json sha256 is identical before and after, no settings.json.2031-02-03T04-05-07-321Z.<n>.bak exists, the directory is still an empty directory, and no new settings.json.* entry appears",
+      "verdict": "pass",
+      "measured": {
+        "obstruction": "C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json.2031-02-03T04-05-07-321Z.bak",
+        "mainNowWhileFrozen": "2031-02-03T04:05:07.321Z",
+        "saveSettled": "error",
+        "mainOsErrorText": "EPERM: operation not permitted, copyfile 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json' -> 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json.2031-02-03T04-05-07-321Z.bak'",
+        "helmErrorBanner": "!Something went wrongEPERM: operation not permitted, copyfile 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json' -> 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\helm\\home\\.claude\\settings.json.2031-02-03T04-05-07-321Z.bak'",
+        "bannerCarriesOsText": true,
+        "sha256Before": "c2f738cccbb1e016da1e786883a5bbbe422de3af44670afbb6aa83eb6fa8de00",
+        "sha256After": "c2f738cccbb1e016da1e786883a5bbbe422de3af44670afbb6aa83eb6fa8de00",
+        "ordinalSiblings": "none",
+        "newEntries": "none",
+        "obstructionAfter": "directory, 0 entries",
+        "errorBannerInViewAfterSave": "{\"bannerTop\":-935,\"bannerBottom\":-814,\"visibleTop\":70,\"visibleBottom\":763,\"anyPartVisible\":false}"
+      },
+      "control": {
+        "injection": "the .<n>.bak sibling scan run after a decoy file settings.json.2031-02-03T04-05-07-321Z.7.bak is written, then again after it is removed",
+        "predicted": "1 sibling with the decoy, 0 after removal",
+        "observed": "1 sibling(s) with the decoy, 0 after removal"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O4",
+      "backlogRow": "D3 instrument check: the scopes call fails (C3)",
+      "predicted": "in the second launch, whose home has a self-referencing junction at .claude/settings.json, window.orcastrate.helm.listScopes() resolves ok: false with a non-empty error message",
+      "verdict": "pass",
+      "measured": {
+        "ok": false,
+        "code": "INTERNAL",
+        "message": "ELOOP: too many symbolic links encountered, stat 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\.claude\\settings.json'",
+        "nodeStatCode": "ELOOP"
+      },
+      "control": {
+        "injection": "the same bridge call in the first launch (a healthy sandbox home)",
+        "predicted": "ok: true",
+        "observed": "first launch listScopes ok: true, 1 scope(s)"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "read-only control; nothing to undo"
+    },
+    {
+      "id": "O5",
+      "backlogRow": "D3 the failure sentence once (C3)",
+      "predicted": "after opening Helm in the second launch, the helm-panel element's textContent contains O4's message exactly 1 time (non-overlapping occurrences)",
+      "verdict": "pass",
+      "measured": {
+        "helmErrorAppeared": true,
+        "occurrencesInHelmPanel": 1,
+        "occurrencesInBody": 1,
+        "helmErrorParagraphs": 2,
+        "message": "ELOOP: too many symbolic links encountered, stat 'C:\\Users\\dmarq\\AppData\\Local\\Temp\\claude\\250d2aff6534ff91\\9bbd47e2-e073-4456-b78f-2369ed009c6d\\scratchpad\\sir\\20261117-2333-handrun-unexercised-steps\\T1\\sb-real\\scopes-fail\\home\\.claude\\settings.json'"
+      },
+      "control": {
+        "injection": "a clone of the <p> holding the message appended to the helm-error banner, counted, then removed",
+        "predicted": "2 with the clone; 1 after removal",
+        "observed": "2 with the clone, 1 after removal"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O6",
+      "backlogRow": "A3 the narrowest width the app allows (C4)",
+      "predicted": "the window's getMinimumSize() width equals minWidth in src/main/window.ts, and setSize to 140 below it yields the same getSize() width as setSize to the minimum, which is not below the minimum",
+      "verdict": "pass",
+      "measured": {
+        "minimumSize": "940x600",
+        "sourceMinWidth": 940,
+        "sourceLine": "src/main/window.ts:18",
+        "initialSize": "1280x800",
+        "sizeAtMinimumRequest": "942x800",
+        "requestedBelow": 800,
+        "sizeAfterBelow": "942x800"
+      },
+      "control": {
+        "injection": "setSize to 60 above the minimum",
+        "predicted": "getSize() width equals the request",
+        "observed": "requested 1000, getSize 1000x800"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null,
+      "undoNote": "the width is set again by each of O7-O9"
+    },
+    {
+      "id": "O7",
+      "backlogRow": "A3 narrow window, width 1280 (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "verdict": "pass",
+      "measured": {
+        "requestedWidth": 1280,
+        "windowSize": "1280x800",
+        "contentSize": "1266x763",
+        "innerWidth": 1266,
+        "rootScrollWidth": 1266,
+        "rootClientWidth": 1266,
+        "rootOverflowsX": false,
+        "bodyScrollWidth": 1266,
+        "bodyClientWidth": 1266,
+        "helmPanelScrollWidth": 865,
+        "helmPanelClientWidth": 865,
+        "elementsPastRightEdge": 0,
+        "podTabSelected": true,
+        "helmOpen": true,
+        "screenshot": "screenshots/unexercised/narrow-1280.png"
+      },
+      "control": {
+        "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+        "predicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal",
+        "observed": "with the div: root scrollWidth 1466 vs clientWidth 1266; after removal 1266"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O8",
+      "backlogRow": "A3 narrow window, width 1100 (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "verdict": "pass",
+      "measured": {
+        "requestedWidth": 1100,
+        "windowSize": "1100x800",
+        "contentSize": "1086x763",
+        "innerWidth": 1086,
+        "rootScrollWidth": 1086,
+        "rootClientWidth": 1086,
+        "rootOverflowsX": false,
+        "bodyScrollWidth": 1086,
+        "bodyClientWidth": 1086,
+        "helmPanelScrollWidth": 865,
+        "helmPanelClientWidth": 865,
+        "elementsPastRightEdge": 0,
+        "podTabSelected": true,
+        "helmOpen": true,
+        "screenshot": "screenshots/unexercised/narrow-1100.png"
+      },
+      "control": {
+        "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+        "predicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal",
+        "observed": "with the div: root scrollWidth 1286 vs clientWidth 1086; after removal 1086"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    },
+    {
+      "id": "O9",
+      "backlogRow": "A3 narrow window, width minimum (C4)",
+      "predicted": "with a Pod tab selected and Helm open on the user scope: document.documentElement.scrollWidth <= clientWidth (no horizontal overflow of the root); a screenshot is saved. Appearance is human check H1, not judged here",
+      "verdict": "pass",
+      "measured": {
+        "requestedWidth": 940,
+        "windowSize": "942x800",
+        "contentSize": "928x763",
+        "innerWidth": 928,
+        "rootScrollWidth": 928,
+        "rootClientWidth": 928,
+        "rootOverflowsX": false,
+        "bodyScrollWidth": 928,
+        "bodyClientWidth": 928,
+        "helmPanelScrollWidth": 865,
+        "helmPanelClientWidth": 865,
+        "elementsPastRightEdge": 0,
+        "podTabSelected": true,
+        "helmOpen": true,
+        "screenshot": "screenshots/unexercised/narrow-940.png"
+      },
+      "control": {
+        "injection": "a div of width clientWidth + 200 px appended to <body>, measured, then removed",
+        "predicted": "root scrollWidth > clientWidth with the div; back to the measured value after removal",
+        "observed": "with the div: root scrollWidth 1128 vs clientWidth 928; after removal 928"
+      },
+      "fired": true,
+      "undoVerified": true,
+      "reason": null
+    }
+  ],
+  "screenshots": [
+    "screenshots/unexercised/narrow-1280.png",
+    "screenshots/unexercised/narrow-1100.png",
+    "screenshots/unexercised/narrow-940.png",
+    "screenshots/unexercised/c1-clock-frozen-save.png",
+    "screenshots/unexercised/c1-backup-banner.png",
+    "screenshots/unexercised/b5-blocked-backup.png",
+    "screenshots/unexercised/b5-error-banner.png",
+    "screenshots/unexercised/narrow-940-after-b5.png",
+    "screenshots/unexercised/d3-scopes-failed.png"
+  ]
+}

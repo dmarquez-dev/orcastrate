@@ -1,0 +1,45 @@
+{
+  "id": "20261117-2333-handrun-unexercised-steps",
+  "name": "handrun-unexercised-steps",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-17T23:33:22Z",
+  "ended": "2026-11-18T00:11:27Z",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "small",
+      "cc": "9bbd47e2-e073-4456-b78f-2369ed009c6d",
+      "sir": "1.0.44",
+      "started": "2026-11-17T23:33:22Z",
+      "ended": "2026-11-18T00:11:27Z",
+      "outcome": "complete"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "The harness refused T1's write of FINDINGS-UNEXERCISED.md, both at its repository path and in scratch. Its 186-line content is in T1's scratch file `out/FINDINGS-UNEXERCISED.md.txt` (sha256 da1c95f0…ccea). Should the orchestrator copy it byte for byte to `.dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-UNEXERCISED.md` and match the hash?",
+      "reason": "external-contract",
+      "resolved": true,
+      "answer": "Copy it in. Answered at Gate 3 in the choice dialog; copied byte for byte, and sha256 da1c95f0b56300d8de8f720ef54c5edbadfe97d01d96330b292b709aa770ccea matched after the copy."
+    }
+  ],
+  "metrics": {
+    "userInteractions": 2,
+    "escalationsRaised": 1,
+    "reviewRounds": 0
+  },
+  "criteria": [
+    "C1: Clock-freeze positive control. The driver freezes the main-process `Date` through Playwright's `electronApp.evaluate` at a fixed instant, then saves the user scope once from Helm in the real app. The backup that save writes is named exactly `settings.json.<backupStamp(instant)>.bak` (stamp shape per `src/main/helm/atomic-write.ts:47-49`). This proves the freeze reaches Helm's `now` (`src/main/index.ts:168`). If it does not, B5 is recorded in FINDINGS as not exercised, with the backup name that was actually observed, and C2 is not attempted.",
+    "C2: B5. With the clock frozen at a second instant, and a directory created beforehand at exactly the backup path that instant yields, a Helm save of the user scope fails. The panel shows an error that carries the main process's OS error text, `settings.json` is byte-identical before and after (sha256), and no `.N.bak` sibling is created at that stamp.",
+    "C3: D3. On its own throwaway sandbox home, staged before launch so that `helm:scopes` fails, the driver first confirms through the app's own preload bridge that the scopes call really fails (instrument check). Then the Helm panel's text contains the failure sentence exactly once (occurrence count = 1, not merely present).",
+    "C4: Narrow window. The driver resizes the real BrowserWindow to at least three widths, including the narrowest the app allows (read from the window's own minimum size or `src/main`), with a Pod open and Helm open. At each width it records whether the document overflows horizontally (`scrollWidth > clientWidth` on the root) and saves a screenshot under `screenshots/unexercised/`. Whether the layout looks right is human check H1 at Gate 3; the driver records measurements and passes no judgement on appearance.",
+    "C5: A must-fail control run (the C2 obstruction directory skipped, or the clock freeze skipped) exits non-zero, with the B5 observation failing as predicted, and its report is kept as `driven-report-unexercised-control.md` / `.json`. The real run's exit code and pass/fail counts are stated in FINDINGS as the driver printed them.",
+    "C6: The deliverables exist under `.dir-sdlc/handruns/2026-09-30-electron-handrun/`: `driver/run-unexercised.mjs`, `FINDINGS-UNEXERCISED.md`, `driven-report-unexercised.md` / `.json`, the control report, `screenshots/unexercised/`, and a README index entry. FINDINGS records the same-millisecond collision as dropped by the user at Gate 1, because two saves by hand cannot land in one millisecond (`TESTPLAN.md:120`), and it stays covered by `tests/unit/helm/write-safety.test.ts`.",
+    "C7: No file outside `.dir-sdlc/handruns/2026-09-30-electron-handrun/` and this session's `.sir/` paths changes. No existing driver, report, findings file or screenshot changes, so `git status --porcelain` shows only additions plus `README.md`. The real `~/.claude` is never read or written.",
+    "C8: At Gate 3, `.sir/backlog.md:27` is removed if B5, D3 and the narrow-window measurement all ran, or rewritten to name only what is still unexercised and why. Any defect found becomes its own backlog row."
+  ],
+  "pushed": true
+}

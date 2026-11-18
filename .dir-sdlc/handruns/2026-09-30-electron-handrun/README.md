@@ -51,6 +51,15 @@ can go stale. That command returned four at the time of writing: the 2026-10-07 
 (unslugged: `run.mjs`, `FINDINGS.md`, `driven-report.*`), plus `c3`, `token-sweep` and
 `keyword-sweep`.
 
+- **`FINDINGS-UNEXERCISED.md`** (2026-11-17) — the steps the 2026-10-07 run left not
+  exercised: B5 (a blocked backup aborts the write, forced by freezing main's `Date` through
+  `electronApp.evaluate` and pre-creating a directory at that instant's backup path), D3 (a
+  failed `helm:scopes` says its sentence once, forced by a self-referencing junction at the
+  sandbox `settings.json`) and A3 (narrow-window layout, measured at 1280, 1100 and the
+  940 minimum). Slug `unexercised`: exit 0, 8 of 8 observations pass, every control fired.
+  Slug `unexercised-control` (the must-fail control, the obstruction skipped): exit 1, O3 fails
+  as predicted and the other 7 pass. The same-millisecond collision was dropped at Gate 1 and
+  stays unit-covered.
 - **`FINDINGS-FORCED-LOAD-FAILURE.md`** (2026-11-17) — the two Retry-control human checks
   left open by `20261112-0151-workspace-load-retry`, made performable by forcing the E8 and
   E9 load failures through the app's own IPC (a Pod deleted from the console, then its stale

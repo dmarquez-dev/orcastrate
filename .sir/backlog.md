@@ -24,8 +24,6 @@
 
 ## Tooling
 
-2026-10-26 dir-handoff-2026-10-26 Build a live-`claude` hand-run harness, checking first whether the app's own IPC can reach a state; still unexercised are `B5`, the same-millisecond backup collision, `D3`, and narrow-window layout.
-
 ## Ungrouped (Gate 3 appends land here)
 2026-11-05 20261105-0107-design-decisions-sweep Kept deferred: direct Calf steering (`src/main/pod/pod-runner.ts:486` still returns `{ supported: false }`); the steering tools exist, and the open question is how a user-authored message sent by the host reaches an agent without becoming that agent's permission consent (`docs/superpowers/specs/2026-08-18-orcastrate-design.md:444-452`).
 2026-11-05 20261105-0107-design-decisions-sweep Kept deferred: the full config manager (MCP servers, hooks builder, agent/skill browsing), MVP-deferred at `docs/superpowers/specs/2026-08-18-orcastrate-design.md:438`.
@@ -38,3 +36,5 @@
 2026-11-13 20261112-2120-composer-slash-autocomplete F6: terminal-only commands are offered before a Pod's first turn, because the SDK carries `terminal_slash_commands` only on `system`/`init` (`SDKControlInitializeResponse` has no terminal field). Blocker: the SDK surface; the list is shown unfiltered until the first `init`, as Gate 2 decided.
 2026-11-13 20261112-2120-composer-slash-autocomplete Deferred, not execution gaps, from the slash-command autocomplete spec: inline ghost text, showing `argumentHint`, fuzzy or case-insensitive matching, commands for Calf lanes, stamping `origin` on prompts, persisting command lists, and changing the Composer placeholder.
 2026-11-13 20261112-2120-composer-slash-autocomplete `routeResult` in `src/main/lane/lane-router.ts` treats `terminal_reason: null` as unset, beyond the SDK's declared `terminal_reason?: TerminalReason`. Revisit if the SDK starts sending null for a real reason. Check: `git grep -n "loopBypassed =" -- src/main/lane/lane-router.ts`.
+2026-11-17 20261117-2333-handrun-unexercised-steps F-U1: Helm's save-outcome banners render at the top of the panel (`HelmNotices` in `src/renderer/src/helm/HelmPanel.tsx`), while Save sits at the bottom (`HelmActionBar.tsx`). The driven run measured the Saved and error banners at top −796 and −935, against a visible band of 70–763, so a save's result lands out of view. Options: focus or scroll to the banner when a save settles; or also show the outcome by the action bar. Evidence: `.dir-sdlc/handruns/2026-09-30-electron-handrun/FINDINGS-UNEXERCISED.md`.
+2026-11-17 20261117-2333-handrun-unexercised-steps F-U2: when the `helm:scopes` listing fails, Helm shows "Orcastrate found no settings files to edit." (`COPY.scopeNone`, `src/renderer/src/helm/copy.ts`, rendered by `HelmScopePicker.tsx` whenever `scopes.length === 0`) beside the failure sentence, so an error reads as an empty listing. Hide it while the listing is in its error phase. Evidence: `screenshots/unexercised/d3-scopes-failed.png` in the hand-run directory.
