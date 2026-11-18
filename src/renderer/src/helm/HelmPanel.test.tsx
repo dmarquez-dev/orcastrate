@@ -444,6 +444,24 @@ describe('the non-success states', () => {
     renderPanel({ value: [], selectedScopeId: null, document: null, draft: null });
     expect(screen.getByText(COPY.scopeNone)).not.toBeNull();
   });
+
+  // "No settings files" is a finding about a listing that came back. A listing
+  // that failed, or has not come back yet, has found nothing out, so the
+  // sentence would contradict the failure or the loading status beside it.
+  it('does not claim there is nothing to edit when the scope listing failed', () => {
+    const error = ipcError('IO', 'the settings directory could not be listed');
+    renderPanel({ phase: 'error', value: [], error, actionError: error.message });
+
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmError).textContent).toContain(error.message);
+    expect(screen.queryByText(COPY.scopeNone)).toBeNull();
+  });
+
+  it('does not claim there is nothing to edit while the scope listing is loading', () => {
+    renderPanel({ phase: 'loading', value: [], document: null, draft: null });
+
+    expect(screen.getByText(COPY.loadingScopes)).not.toBeNull();
+    expect(screen.queryByText(COPY.scopeNone)).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

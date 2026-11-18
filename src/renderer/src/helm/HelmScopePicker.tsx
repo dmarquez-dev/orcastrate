@@ -10,12 +10,20 @@
  *
  * `no-paths.test.ts` asserts all of that over this directory's source, so the
  * property survives an edit that forgets this comment.
+ *
+ * AN EMPTY LIST IS A FINDING ONLY ONCE THE LISTING HAS COME BACK. `scopes` can
+ * be empty before any listing has succeeded, whether one is still loading or
+ * has failed; once one has succeeded, a later refresh or failure keeps the
+ * list it returned. So "No settings files" is said only when `listingPhase` is
+ * `'ready'` and `scopes` is empty; in every other phase the panel's loading
+ * status or failure banner is what explains an empty list.
  */
 
 import type { JSX } from 'react';
 
 import type { HelmScope, HelmScopeId } from '@shared/contracts/helm';
 import { PANEL_TEST_IDS } from '../contracts/renderer-panels';
+import type { LoadPhase } from '../contracts/renderer-state';
 import { testId } from '../shell/contract-runtime';
 
 import { COPY, scopeOptionText } from './copy';
@@ -23,6 +31,8 @@ import styles from './Helm.module.css';
 
 export interface HelmScopePickerProps {
   scopes: readonly HelmScope[];
+  /** The phase of the most recent scope listing, not necessarily the one `scopes` came from. */
+  listingPhase: LoadPhase;
   selectedScopeId: HelmScopeId | null;
   disabled: boolean;
   onSelect(scopeId: HelmScopeId): void;
@@ -35,6 +45,7 @@ const UNCHOSEN = '';
 
 export function HelmScopePicker({
   scopes,
+  listingPhase,
   selectedScopeId,
   disabled,
   onSelect,
@@ -98,7 +109,7 @@ export function HelmScopePicker({
         ) : null}
       </div>
 
-      {scopes.length === 0 ? <p className={styles.empty}>{COPY.scopeNone}</p> : null}
+      {listingPhase === 'ready' && scopes.length === 0 ? <p className={styles.empty}>{COPY.scopeNone}</p> : null}
       {onlyUserScope ? <p className={styles.empty}>{COPY.scopeOnlyUser}</p> : null}
     </fieldset>
   );

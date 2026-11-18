@@ -1,0 +1,44 @@
+{
+  "id": "20261118-0051-helm-scope-none-on-error",
+  "name": "helm-scope-none-on-error",
+  "scope": "small",
+  "status": "MERGED",
+  "started": "2026-11-18T00:51:50Z",
+  "ended": "2026-11-18T01:21:27Z",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "c3ecb12b-defd-475e-9b87-eda6ef7a774c",
+      "phase": "small",
+      "sir": "1.0.45",
+      "started": "2026-11-18T00:51:50Z",
+      "ended": "2026-11-18T01:21:27Z",
+      "outcome": "complete"
+    }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "The backlog row (F-U2, .sir/backlog.md:40) asks to hide COPY.scopeNone in the listing's error phase. HelmScopePicker.tsx:101 shows it whenever scopes.length === 0, which is also true while the listing is loading (HelmPanel.test.tsx:420 renders phase 'loading' with value []). Show it only when the listing phase is 'ready', or hide it only in 'error'?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Show COPY.scopeNone only when the listing phase is 'ready' (the recommended option, chosen at Gate 1 through the choice dialog)."
+    }
+  ],
+  "criteria": [
+    "C1: HelmScopePicker renders COPY.scopeNone only when the scope listing's phase is 'ready' and the scope list is empty; HelmPanel.tsx passes the listing's phase (view.phase) to the picker. In 'idle', 'loading' and 'error' the sentence is not rendered.",
+    "C2: A new HelmPanel.test.tsx test renders phase 'error' with value [] and asserts the listing-failure text is on screen and COPY.scopeNone is not (queryByText returns null). It is shown failing against the unchanged HelmScopePicker.tsx before the fix (red step).",
+    "C3: A new HelmPanel.test.tsx test renders phase 'loading' with value [] and asserts COPY.scopeNone is not on screen.",
+    "C4: The existing test 'says so when there is nothing to edit at all' (HelmPanel.test.tsx:443-446 at ac6f0f6) still passes unedited, and COPY.scopeNone's text in src/renderer/src/helm/copy.ts is unchanged.",
+    "C5: `npm test` (whole suite, run from the repository root) and `npm run typecheck` both pass after the change, each also run before the change, and both runs' summary lines are reported.",
+    "C6: `git diff --name-only` lists only src/renderer/src/helm/HelmScopePicker.tsx, src/renderer/src/helm/HelmPanel.tsx and src/renderer/src/helm/HelmPanel.test.tsx.",
+    "C7: Gate 3 removes the F-U2 row (20261117-2333-handrun-unexercised-steps, 'when the `helm:scopes` listing fails') from .sir/backlog.md, and no open row cites a line this diff moved."
+  ],
+  "metrics": {
+    "userInteractions": 2,
+    "escalationsRaised": 1,
+    "reviewRounds": 1
+  },
+  "pushed": true
+}

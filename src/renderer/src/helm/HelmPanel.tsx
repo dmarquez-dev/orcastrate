@@ -117,6 +117,7 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
 
       <HelmScopePicker
         disabled={view.loadingDocument || view.saving}
+        listingPhase={view.phase}
         onSelect={(scopeId) => {
           setLastActionWasCompare(false);
           void actions.selectScope(scopeId);
