@@ -5,9 +5,13 @@
  * Nothing here reaches into a component's internals, so the markup can be
  * rewritten without touching this file.
  *
- * `HelmPanel` takes props, so these tests need no provider and no stub bridge.
- * That is the point of the presentation boundary: the only component in this
- * directory that calls a hook is `ConnectedHelmPanel`.
+ * `HelmPanel` takes everything it shows and everything it can do through its
+ * props, `view` and `actions`, so these tests need no provider and no stub
+ * bridge. That is the point of the presentation boundary: the store is read
+ * through `useHelm()` and `useHelmActions()` in `ConnectedHelmPanel`, which
+ * passes what they return down as those two props. The hooks `HelmPanel` calls
+ * itself — `useState`, `useRef` and `useSaveOutcomeScroll` — reach no store
+ * and no bridge.
  */
 
 import { fireEvent, render, screen, within } from '@testing-library/react';
@@ -276,7 +280,7 @@ describe('the error surfaces', () => {
 
     const banner = screen.getByTestId(PANEL_TEST_IDS.helmConflict);
     expect(banner.textContent).toContain(COPY.conflictHeading);
-    expect(banner.textContent).toContain(conflict);
+    expect(banner.textContent).toContain(COPY.conflictLead);
     expect(banner.textContent).toContain(makeStubHelmDocument('user').scope.displayPath);
 
     // The draft is still on screen and still takes an edit.
@@ -342,6 +346,81 @@ describe('the stale banner', () => {
     expect(screen.getByTestId(PANEL_TEST_IDS.helmStale).textContent).toContain(COPY.staleHeading);
     expect(screen.getByTestId(PANEL_TEST_IDS.helmReload)).not.toBeNull();
     expect(save().disabled).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A rejected save says so once, on the conflict banner
+// ---------------------------------------------------------------------------
+
+describe('a rejected save', () => {
+  // The state the store leaves after a save rejected with CONFLICT: main's
+  // sentence in both `conflict` and `actionError`, and `stale` raised.
+  const CONFLICT = 'settings.json changed on disk. Nothing was written.';
+  const REJECTED: Partial<HelmView> = {
+    conflict: CONFLICT,
+    actionError: CONFLICT,
+    stale: true,
+    dirty: true,
+  };
+
+  /** Every banner `HelmNotices` can render, by the test id it renders it with. */
+  const BANNER_IDS = [
+    PANEL_TEST_IDS.helmReadOnly,
+    PANEL_TEST_IDS.helmError,
+    PANEL_TEST_IDS.helmConflict,
+    PANEL_TEST_IDS.helmStale,
+    PANEL_TEST_IDS.helmBackupPath,
+    'helm-unplaced-issues',
+  ];
+
+  function timesIn(text: string, word: string): number {
+    return text.split(word).length - 1;
+  }
+
+  it('says "changed" in exactly one banner, and that banner is the conflict banner', () => {
+    renderPanel(REJECTED);
+
+    const saying = BANNER_IDS.filter((id) =>
+      (screen.queryByTestId(id)?.textContent ?? '').includes('changed'),
+    );
+    expect(saying).toEqual([PANEL_TEST_IDS.helmConflict]);
+  });
+
+  it("renders main's sentence nowhere, and says \"changed\" once on the conflict banner", () => {
+    renderPanel(REJECTED);
+
+    expect(occurrences(CONFLICT)).toBe(0);
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmConflict);
+    expect(banner.textContent).not.toContain(CONFLICT);
+    expect(timesIn(banner.textContent ?? '', 'changed')).toBe(1);
+  });
+
+  it('states the lead with the file, the advice, and one Compare button', () => {
+    renderPanel(REJECTED);
+
+    const banner = screen.getByTestId(PANEL_TEST_IDS.helmConflict);
+    expect(banner.textContent).toContain(COPY.conflictLead);
+    expect(banner.textContent).toContain(makeStubHelmDocument('user').scope.displayPath);
+    expect(banner.textContent).toContain(COPY.conflictAdvice);
+    expect(within(banner).getAllByTestId(HELM_SAFETY_TEST_IDS.compare)).toHaveLength(1);
+  });
+
+  it('shows no stale banner beside the conflict banner', () => {
+    renderPanel(REJECTED);
+
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmConflict)).not.toBeNull();
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmStale)).toBeNull();
+  });
+
+  it('brings the stale banner back once the conflict is cleared and stale is kept', () => {
+    const { update } = renderPanel(REJECTED);
+
+    // What Discard leaves: `conflict` cleared, `stale` untouched.
+    update({ conflict: null, actionError: null, stale: true });
+
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmStale)).not.toBeNull();
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmConflict)).toBeNull();
   });
 });
 
@@ -484,6 +563,67 @@ describe('when a save settles', () => {
 
     expect(screen.queryByTestId(PANEL_TEST_IDS.helmBackupPath)).toBeNull();
     expect(scrollIntoView).not.toHaveBeenCalled();
+  });
+
+  // EACH SETTLE SCROLLS TO ITS OWN OUTCOME, whatever else is still on screen.
+  // A failed scope listing leaves its error banner up through a save, and a
+  // failed save leaves an earlier Saved or conflict banner up beside its own.
+  const SAVE_FAILURE = 'ENOSPC: no space left on device, write';
+  const CONFLICT = 'settings.json changed on disk. Nothing was written.';
+  const LISTING_FAILED: Partial<HelmView> = {
+    phase: 'error',
+    error: ipcError('IO', 'the settings directory could not be listed'),
+  };
+
+  /** Fails unless the one scroll landed on `wanted`'s banner and not `unwanted`'s. */
+  function scrolledTo(wanted: string, unwanted: string): void {
+    const target = scrolledOnce();
+    expect(target.contains(screen.getByTestId(wanted))).toBe(true);
+    expect(target.contains(screen.getByTestId(unwanted))).toBe(false);
+  }
+
+  it('scrolls to Saved, not to a scope-listing error still on screen, when the save lands', () => {
+    const { update } = renderPanel({ ...LISTING_FAILED, saving: true, dirty: true });
+
+    update({ saving: false, dirty: false, lastSave: LAST_SAVE });
+
+    scrolledTo(PANEL_TEST_IDS.helmBackupPath, PANEL_TEST_IDS.helmError);
+  });
+
+  it('scrolls to the conflict, not to a scope-listing error still on screen, when the save is rejected', () => {
+    const { update } = renderPanel({ ...LISTING_FAILED, saving: true, dirty: true });
+
+    update({ saving: false, conflict: CONFLICT, actionError: CONFLICT, stale: true });
+
+    scrolledTo(PANEL_TEST_IDS.helmConflict, PANEL_TEST_IDS.helmError);
+  });
+
+  it('scrolls to the error, not to an earlier Saved banner, when the save fails', () => {
+    const { update } = renderPanel({ saving: true, dirty: true, lastSave: LAST_SAVE });
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmBackupPath)).not.toBeNull();
+
+    update({ saving: false, actionError: SAVE_FAILURE });
+
+    scrolledTo(PANEL_TEST_IDS.helmError, PANEL_TEST_IDS.helmBackupPath);
+  });
+
+  it('scrolls to the conflict, not to an earlier Saved banner, when the save is rejected', () => {
+    const { update } = renderPanel({ saving: true, dirty: true, lastSave: LAST_SAVE });
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmBackupPath)).not.toBeNull();
+
+    update({ saving: false, conflict: CONFLICT, actionError: CONFLICT });
+
+    scrolledTo(PANEL_TEST_IDS.helmConflict, PANEL_TEST_IDS.helmBackupPath);
+  });
+
+  it('scrolls to the error, not to an earlier conflict still on screen, when the save fails', () => {
+    const { update } = renderPanel({ saving: true, dirty: true, conflict: CONFLICT });
+    expect(screen.getByTestId(PANEL_TEST_IDS.helmConflict)).not.toBeNull();
+
+    // A failure that is not a CONFLICT leaves the earlier `conflict` in place.
+    update({ saving: false, actionError: SAVE_FAILURE });
+
+    scrolledTo(PANEL_TEST_IDS.helmError, PANEL_TEST_IDS.helmConflict);
   });
 });
 

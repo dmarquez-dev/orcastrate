@@ -2,17 +2,23 @@
  * Every banner Helm can show, arranged. Presentation only — it takes strings
  * and renders them, and reaches for no hook.
  *
- * THE MESSAGE MAIN WROTE IS THE MESSAGE ON SCREEN. `loadError` and
- * `actionError` are printed verbatim, `white-space: pre-wrap`, no rewriting:
- * an `EACCES` a user can paste into a search is worth more than a sentence
- * Helm invented about it.
+ * THE MESSAGE MAIN WROTE IS THE MESSAGE ON SCREEN, with one exception. A
+ * `loadError`, and any `actionError` other than a rejected save's, is printed
+ * verbatim, `white-space: pre-wrap`, no rewriting: an `EACCES` a user can
+ * paste into a search is worth more than a sentence Helm invented about it.
+ * THE EXCEPTION is a rejected save. Its message from main is not rendered
+ * anywhere: it says the file changed and nothing was written, which is what
+ * the conflict banner's lead already says, with the file named.
  *
- * ONE MESSAGE, ONE PLACE. A rejected save sets BOTH `conflict` and
- * `actionError` to the same string, so when they are equal the conflict banner
- * is its surface and the generic error banner stays out of the way. Any other
- * `actionError` — a refused save, an `EPERM`, a failed reload — still renders
- * at `helmError`, which is what keeps all three `helm:*` channels off the
- * surfaceless allowlist.
+ * ONE CONFLICT, ONE STATEMENT. A rejected save sets BOTH `conflict` and
+ * `actionError` to main's sentence. The conflict banner's statement is
+ * `COPY.conflictLead` (with the file's display path) plus
+ * `COPY.conflictAdvice`, and the Compare button; `conflict` decides only that
+ * the banner is up. The generic error banner stays out of the way, and the
+ * stale banner is not rendered while the conflict banner is, because it would
+ * say a third time that the file changed. Any other `actionError` — a refused
+ * save, an `EPERM`, a failed reload — still renders at `helmError`, which is
+ * what keeps all three `helm:*` channels off the surfaceless allowlist.
  */
 
 import type { JSX } from 'react';
@@ -30,6 +36,10 @@ export interface HelmNoticesProps {
   /** `Loadable.error`, non-null iff the scope list itself failed. */
   loadError: string | null;
   actionError: string | null;
+  /**
+   * Main's sentence for a rejected save. Non-null puts the conflict banner up;
+   * the sentence itself is not rendered.
+   */
   conflict: string | null;
   /** The file the conflict was about. Display only. */
   conflictDisplayPath: string | null;
@@ -72,11 +82,12 @@ export function HelmNotices({
   // `beachcomber/BeachcomberError.tsx`: build the list, drop a repeat, render
   // one paragraph per surviving message, and render no banner at all when
   // nothing survives. Two pairs collapse here, and they are different pairs.
-  // A REJECTED SAVE sets `conflict` and `actionError` to the same sentence,
-  // and the conflict banner is that one's surface, so it is dropped from here
-  // entirely. A FAILED `helm:scopes` sets `Loadable.error` AND `actionError`
-  // to the same sentence, and printing it twice reads as two separate
-  // failures.
+  // A REJECTED SAVE sets `conflict` and `actionError` to the same sentence.
+  // The conflict banner reports it in Helm's own words — `COPY.conflictLead`
+  // and `COPY.conflictAdvice` — and does not render main's sentence, so it is
+  // dropped from here entirely and printed nowhere. A FAILED `helm:scopes`
+  // sets `Loadable.error` AND `actionError` to the same sentence, and printing
+  // it twice reads as two separate failures.
   const messages: string[] = [];
   if (loadError !== null) messages.push(loadError);
   if (actionError !== null && actionError !== conflict && actionError !== loadError) {
@@ -130,7 +141,6 @@ export function HelmNotices({
           <p className={styles.noticeText}>
             {COPY.conflictLead} {conflictDisplayPath ?? COPY.conflictUnnamedFile}
           </p>
-          <p className={styles.noticeText}>{conflict}</p>
           <p className={styles.noticeText}>{COPY.conflictAdvice}</p>
           <button
             className={styles.button}
@@ -143,7 +153,11 @@ export function HelmNotices({
         </Notice>
       )}
 
-      {stale ? (
+      {/*
+        The stale banner stands down while a conflict banner is up: the conflict
+        banner already says the file changed, and says what to do about it.
+      */}
+      {stale && conflict === null ? (
         <Notice
           heading={COPY.staleHeading}
           live="status"

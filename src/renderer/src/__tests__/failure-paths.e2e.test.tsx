@@ -83,6 +83,7 @@ import { PANEL_TEST_IDS, type PanelKey } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { BEACHCOMBER_LOCAL_TEST_IDS } from '../beachcomber';
+import { COPY } from '../helm/copy';
 import { HELM_SAFETY_TEST_IDS } from '../helm/test-ids';
 import { NOTIFICATION_TEST_IDS } from '../notifications';
 import { DELETE_POD_TEST_IDS } from '../pods/DeletePodDialog';
@@ -1592,9 +1593,14 @@ describe('the Helm panel says what went wrong and keeps what the user typed', ()
     await flushPendingWork();
 
     // The conflict banner is the surface — not the generic error banner, which
-    // stays out of the way rather than saying the same sentence twice.
+    // stays out of the way rather than saying the same sentence twice. It says
+    // it in Helm's own words: main's sentence repeats the lead, so it is not
+    // rendered, and the stale banner the store also raises is held back while
+    // the conflict banner is up.
     const banner = screen.getByTestId(PANEL_TEST_IDS.helmConflict);
-    expect(within(banner).getByText(CONFLICT)).toBeDefined();
+    expect(banner.textContent).not.toContain(CONFLICT);
+    expect(banner.textContent).toContain(COPY.conflictLead);
+    expect(screen.queryByTestId(PANEL_TEST_IDS.helmStale)).toBeNull();
     expect(screen.queryByTestId(PANEL_TEST_IDS.helmError)).toBeNull();
     // Nothing was written, so nothing typed is lost, and Reload is offered.
     expect((screen.getByTestId(PANEL_TEST_IDS.helmModel) as HTMLInputElement).value).toBe(

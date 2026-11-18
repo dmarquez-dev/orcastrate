@@ -49,6 +49,7 @@ import type { HelmDocument, HelmScopeId } from '@shared/contracts/helm';
 import { PANEL_TEST_IDS, type PanelKey } from '../contracts/renderer-panels';
 import { TEST_IDS } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
+import { COPY } from '../helm/copy';
 import { HELM_SAFETY_TEST_IDS, comparisonCellId } from '../helm/test-ids';
 import {
   ipcError,
@@ -200,8 +201,11 @@ describe('a save rejected with CONFLICT keeps the draft and can be compared agai
     await user.click(screen.getByTestId(PANEL_TEST_IDS.helmSave));
     await flushPendingWork();
 
+    // The banner states the conflict in Helm's own words; main's sentence
+    // repeats them, so it is not rendered.
     const banner = await screen.findByTestId(PANEL_TEST_IDS.helmConflict);
-    expect(within(banner).getByText(CONFLICT_MESSAGE)).toBeDefined();
+    expect(banner.textContent).not.toContain(CONFLICT_MESSAGE);
+    expect(banner.textContent).toContain(COPY.conflictLead);
     // Nothing was written, so nothing typed is gone.
     expect(modelField().value).toBe(TYPED_MODEL);
   });
