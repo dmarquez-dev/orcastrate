@@ -2,9 +2,9 @@
   "id": "20261118-1810-helm-save-outcome-in-view",
   "name": "helm-save-outcome-in-view",
   "scope": "small",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-18T18:10:56Z",
-  "ended": "2026-11-18T20:38:06Z",
+  "ended": "2026-11-18T20:53:12Z",
   "parent": null,
   "children": [],
   "runs": [
@@ -14,6 +14,14 @@
       "sir": "1.0.46",
       "started": "2026-11-18T18:10:56Z",
       "ended": "2026-11-18T20:38:06Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "d5951c3f-e1ed-4e61-9dea-41a998b2eef2",
+      "phase": "wrap",
+      "sir": "1.0.46",
+      "started": "2026-11-18T20:52:18Z",
+      "ended": "2026-11-18T20:53:12Z",
       "outcome": "complete"
     }
   ],
