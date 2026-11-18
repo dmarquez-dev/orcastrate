@@ -233,7 +233,10 @@ export const PANEL_PROPERTIES: readonly PanelProperty[] = [
       const banner = byTestId(root, PANEL_TEST_IDS.helmConflict);
       if (banner === null) return ['no conflict banner'];
       const text = banner.textContent ?? '';
-      if (!text.includes(conflict)) out.push('the conflict message was not shown verbatim');
+      // The banner states the conflict in Helm's own words. Main's sentence
+      // says the same thing, so it is not rendered; printing it beside the
+      // lead would say the file changed twice.
+      if (text.includes(conflict)) out.push("main's sentence was printed beside the lead");
       if (!/nothing was written/i.test(text)) out.push('the banner never says nothing was written');
 
       const path = byTestId(root, PANEL_TEST_IDS.helmScopePath)?.textContent ?? '';

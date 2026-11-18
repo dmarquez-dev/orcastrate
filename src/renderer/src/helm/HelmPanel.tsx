@@ -91,10 +91,14 @@ export function HelmPanel({ view, actions }: HelmPanelProps): JSX.Element {
       ? view.actionError
       : null;
 
-  // A SETTLED SAVE BRINGS ITS OUTCOME INTO VIEW, by scrolling only. The rule,
-  // and why it lives in its own file, are in `useSaveOutcomeScroll.ts`.
+  // A SETTLED SAVE BRINGS ITS OWN OUTCOME INTO VIEW, by scrolling only. The
+  // hook reads the outcome from the view as it is on the settling render. The
+  // rule, and why it lives in its own file, are in `useSaveOutcomeScroll.ts`.
   const panelRef = useRef<HTMLElement>(null);
-  useSaveOutcomeScroll(view.saving, panelRef);
+  useSaveOutcomeScroll(
+    { saving: view.saving, actionError: view.actionError, conflict: view.conflict },
+    panelRef,
+  );
 
   return (
     <section
