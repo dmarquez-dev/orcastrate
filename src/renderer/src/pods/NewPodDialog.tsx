@@ -15,6 +15,7 @@ import {
   PERMISSION_MODE_OPTIONS,
   TEST_IDS,
   type NewPodDialogProps,
+  type PermissionModeOption,
 } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { useDialogFocus } from '../shell/use-dialog-focus';
@@ -28,7 +29,7 @@ interface EnvRow {
 }
 
 /**
- * `NewPodDialogProps` plus two internal props.
+ * `NewPodDialogProps` plus three internal props.
  *
  * `browse` is `WorkspaceActions.pickDirectory`, injected rather than pulled
  * from the hook, which is the only reason this component can be tested without
@@ -38,16 +39,33 @@ interface EnvRow {
  * `fallbackFocusRef` is where focus goes on close if the control that opened
  * the dialog is gone — creating a Pod from the empty workspace unmounts the
  * empty workspace, and its New Pod control with it.
+ *
+ * `autoModeSupported` is main's cached auto-mode flag, as `useAutoModeSupport()`
+ * returns it to the caller: `false` hides the `auto` option, while `true` and
+ * `null` (nothing received yet) both offer it. The caller reads the hook; this
+ * component only takes the value.
  */
 export interface NewPodDialogInternalProps extends NewPodDialogProps {
   browse(): Promise<ActionResult<{ path: string | null }>>;
   fallbackFocusRef: RefObject<HTMLElement | null>;
+  autoModeSupported: boolean | null;
 }
 
 const DEFAULT_MODE: PermissionMode = PERMISSION_MODE_OPTIONS[0]?.mode ?? 'default';
 
 function nextEnvRow(id: number): EnvRow {
   return { id, key: '', value: '' };
+}
+
+/**
+ * The options the dialog offers, in `PERMISSION_MODE_OPTIONS` order: every
+ * entry, less `auto` when the flag says the model does not support it.
+ * Computed on every render from its inputs, never kept in state, so a flag
+ * that changes while the dialog is open changes the list at once.
+ */
+function visibleModeOptions(autoModeSupported: boolean | null): readonly PermissionModeOption[] {
+  if (autoModeSupported !== false) return PERMISSION_MODE_OPTIONS;
+  return PERMISSION_MODE_OPTIONS.filter((option) => option.mode !== 'auto');
 }
 
 /**
@@ -65,6 +83,7 @@ export function NewPodDialog({
   submitting,
   browse,
   fallbackFocusRef,
+  autoModeSupported,
 }: NewPodDialogInternalProps): JSX.Element | null {
   const [title, setTitle] = useState('');
   const [cwd, setCwd] = useState<string | null>(null);
@@ -104,8 +123,13 @@ export function NewPodDialog({
 
   if (!open) return null;
 
-  const dangerSelected = PERMISSION_MODE_OPTIONS.some(
-    (option) => option.mode === mode && option.danger,
+  // A selection whose option is no longer offered reads as the default, and
+  // the default is what Create submits. `mode` keeps the user's choice, so an
+  // option that comes back brings the choice back with it.
+  const modeOptions = visibleModeOptions(autoModeSupported);
+  const selectedMode = modeOptions.some((option) => option.mode === mode) ? mode : DEFAULT_MODE;
+  const dangerSelected = modeOptions.some(
+    (option) => option.mode === selectedMode && option.danger,
   );
   const canSubmit =
     title.trim() !== '' && cwd !== null && (!dangerSelected || bypassConfirmed) && !submitting;
@@ -136,7 +160,7 @@ export function NewPodDialog({
       if (key !== '') envOverrides[key] = row.value;
     }
 
-    onCreate({ title: title.trim(), cwd, permissionMode: mode, envOverrides });
+    onCreate({ title: title.trim(), cwd, permissionMode: selectedMode, envOverrides });
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
@@ -212,13 +236,13 @@ export function NewPodDialog({
 
           <fieldset className={styles.modes}>
             <legend className={styles.legend}>Permission mode</legend>
-            {PERMISSION_MODE_OPTIONS.map((option) => (
+            {modeOptions.map((option) => (
               <label
                 className={option.danger ? `${styles.mode} ${styles.modeDanger}` : styles.mode}
                 key={option.mode}
               >
                 <input
-                  checked={mode === option.mode}
+                  checked={selectedMode === option.mode}
                   data-testid={testId(TEST_IDS.newPodModeOption, option.mode)}
                   name="new-pod-permission-mode"
                   onChange={() => {
