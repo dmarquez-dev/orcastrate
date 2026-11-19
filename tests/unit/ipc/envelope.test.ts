@@ -26,7 +26,7 @@ import {
 } from '../../../src/shared/contracts/ipc';
 import type { IpcMainLike } from '../../../src/main/ipc';
 import { IPC_ERROR_CODES, registerIpcHandlers } from '../../../src/main/ipc';
-import { PodRunnerError } from '../../../src/main/pod';
+import { ALLOWED_PERMISSION_MODES, PodRunnerError } from '../../../src/main/pod';
 import type { PodManagerApi } from '../../../src/main/pod-manager';
 import { EventStoreError } from '../../../src/main/store';
 
@@ -83,10 +83,9 @@ const BAD_ARGS: Record<string, unknown[]> = {
   [INVOKE_CHANNELS.podClose]: [123],
   [INVOKE_CHANNELS.podSend]: ['p1', ''],
   [INVOKE_CHANNELS.podInterrupt]: [undefined],
-  // `acceptEdits` used to sit here as the known-invalid mode. It is now part of
-  // the exposed four-mode surface, so this case is re-pointed at `dontAsk` —
-  // a mode the CLI accepts but Orcastrate deliberately does not expose.
-  [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'dontAsk'],
+  // The known-invalid mode is `manual`: the CLI accepts it, but the SDK's
+  // `PermissionMode` union does not declare it, so every layer rejects it.
+  [INVOKE_CHANNELS.podSetPermissionMode]: ['p1', 'manual'],
   [INVOKE_CHANNELS.podReconnect]: [['p1']],
   [INVOKE_CHANNELS.podFork]: [''],
   [INVOKE_CHANNELS.podCommands]: [''],
@@ -252,6 +251,23 @@ describe('no handler ever rejects (criterion 3)', () => {
     }
   });
 
+  /**
+   * Every SDK mode — the two the allow-list gained (`auto` and the deny-unless-
+   * pre-approved mode) included — clears validation and reaches the manager.
+   * The manager's own code (`NOT_RUNNING`) is one validation cannot produce, so
+   * seeing it proves the mode was not answered INVALID_ARGUMENT.
+   */
+  it('pod:setPermissionMode passes every SDK mode, auto included, through to the manager', async () => {
+    const modes: readonly PermissionMode[] = ALLOWED_PERMISSION_MODES;
+    expect(modes).toHaveLength(6);
+    expect(modes).toContain('auto');
+    const rig = rigThatThrows(() => new PodRunnerError('NOT_RUNNING', 'stopped'));
+    for (const mode of modes) {
+      const result = await rig.invoke(INVOKE_CHANNELS.podSetPermissionMode, 'p1', mode);
+      expect(await expectFailure(result, `setPermissionMode ${mode}`)).toBe('NOT_RUNNING');
+    }
+  });
+
   it('maps each failure class onto the code that describes it', async () => {
     const cases: [() => unknown, IpcErrorCode][] = [
       [() => new EventStoreError('NOT_FOUND', 'gone'), 'NOT_FOUND'],
@@ -327,7 +343,7 @@ describe('renderer input is never trusted (criterion 4)', () => {
   it('refuses a permission mode outside the contract union', async () => {
     const h = makeHarness();
     try {
-      for (const mode of ['dontAsk', 'root', 42, null]) {
+      for (const mode of ['manual', 'root', 42, null]) {
         const result = await h.invoke(
           INVOKE_CHANNELS.podSetPermissionMode,
           'p1',

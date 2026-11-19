@@ -119,19 +119,19 @@ describe('the v4 fixture', () => {
 });
 
 describe('migration 5 is appended, not edited in', () => {
-  it('is the single entry after version 4 and the schema head is 5', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+  it('is the single entry after version 4, and migration 6 follows it', () => {
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
   });
 
-  it('appends only version 5 to schema_version on a v4 database', () => {
+  it('appends versions 5 and 6 to schema_version on a v4 database, keeping 4 stamped as it was', () => {
     const fixture = migrated();
     const versions = rawDb(fixture.path)
       .prepare<unknown[], { version: number; applied_at: string }>(
         'SELECT version, applied_at FROM schema_version ORDER BY version',
       )
       .all();
-    expect(versions.map((r) => r.version)).toEqual([1, 2, 3, 4, 5]);
+    expect(versions.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(versions[3]?.applied_at).toBe('2026-08-21T09:00:00.000Z');
   });
 
@@ -262,7 +262,7 @@ describe('the ancestry columns as SQLite reports them', () => {
   });
 });
 
-describe('fresh and upgraded databases converge at version 5', () => {
+describe('fresh and upgraded-from-v4 databases converge at the schema head', () => {
   it('produces the same DDL for every object whether built fresh or upgraded from v4', () => {
     const freshPath = tempDbPath('fresh.db');
     const fresh = fileStore(freshPath);

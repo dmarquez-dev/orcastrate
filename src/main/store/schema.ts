@@ -32,8 +32,8 @@ import type { EventType, LaneKind, LaneStatus, PermissionMode, PodStatus } from 
  *
  * This constant tracks the contract union and therefore CHANGES over time. It
  * is NOT interpolated into any migration any more — see
- * `MIGRATION_1_POD_STATUSES` and `MIGRATION_3_POD_STATUSES`, which are pinned
- * per migration precisely so that widening this array cannot rewrite DDL that
+ * `MIGRATION_1_POD_STATUSES`, `MIGRATION_3_POD_STATUSES` and
+ * `MIGRATION_6_POD_STATUSES`, which are pinned per migration precisely so that widening this array cannot rewrite DDL that
  * has already been applied to a user's database. Migration 1 used to
  * interpolate it, which was the latent bug that widening the union exposed.
  */
@@ -63,20 +63,22 @@ export const LANE_STATUSES = [
 ] as const satisfies readonly LaneStatus[];
 export const LANE_KINDS = ['matriarch', 'calf'] as const satisfies readonly LaneKind[];
 /**
- * The permission modes the CURRENT schema head admits. Widened to four by
- * migration 2.
+ * The permission modes the CURRENT schema head admits: the six members of the
+ * SDK-derived `PermissionMode` union. Widened to six by migration 6.
  *
  * This constant tracks the contract union and therefore CHANGES over time. It
  * must never be interpolated into a shipped migration — see
- * `MIGRATION_1_PERMISSION_MODES` and `MIGRATION_2_PERMISSION_MODES`, which are
- * pinned per migration precisely so that widening this array cannot rewrite
- * DDL that has already been applied to a user's database.
+ * `MIGRATION_1_PERMISSION_MODES` through `MIGRATION_6_PERMISSION_MODES`, which
+ * are pinned per migration precisely so that widening this array cannot
+ * rewrite DDL that has already been applied to a user's database.
  */
 export const PERMISSION_MODES = [
   'default',
   'acceptEdits',
   'plan',
   'bypassPermissions',
+  'dontAsk',
+  'auto',
 ] as const satisfies readonly PermissionMode[];
 export const EVENT_TYPES = [
   'user_message',
@@ -101,10 +103,14 @@ export const EVENT_TYPES = [
 // member one of these arrays lacks does NOT break the build here. What this
 // block still catches is the other direction: a BOGUS member in one of the
 // arrays, rejected by the `satisfies` clauses above. The real tripwires for a
-// missing member are the schema-head guards below (`_UncoveredAtSchemaHead`,
-// `_PodStatusCoveredAtSchemaHead`, `_LaneStatusCoveredAtSchemaHead`), which
-// assert `never` through a generic CONSTRAINT rather than through an empty
-// array literal, plus the tests in `tests/unit/store/`.
+// missing member are the guards that assert `never` through `_AssertNever`'s
+// generic CONSTRAINT rather than through an empty array literal: the live-list
+// guard `_LivePermissionModesCovered` directly below this block, and the
+// schema-head guards further down (`_UncoveredAtSchemaHead`,
+// `_PodStatusCoveredAtSchemaHead`, `_LaneStatusCoveredAtSchemaHead`), plus the
+// tests in `tests/unit/store/`. Of the live lists in this block, only
+// `PERMISSION_MODES` has such a guard; `POD_STATUSES`, `LANE_STATUSES`,
+// `LANE_KINDS` and `EVENT_TYPES` have no build-time missing-member check here.
 type _UncoveredPodStatus = Exclude<PodStatus, (typeof POD_STATUSES)[number]>;
 type _UncoveredLaneStatus = Exclude<LaneStatus, (typeof LANE_STATUSES)[number]>;
 type _UncoveredLaneKind = Exclude<LaneKind, (typeof LANE_KINDS)[number]>;
@@ -119,6 +125,19 @@ const _exhaustive: [
   _UncoveredEventType[],
 ] = [[], [], [], [], []];
 void _exhaustive;
+
+/**
+ * Resolves to `never` while the live `PERMISSION_MODES` covers every member of
+ * the SDK-derived `PermissionMode` union. Routed through `_AssertNever`
+ * (declared with the schema-head guards below; type aliases hoist), so a mode
+ * the list lacks is a TS2344 here rather than the vacuously satisfied empty
+ * array of `_exhaustive` above. Together with the `satisfies` clause on
+ * `PERMISSION_MODES`, which rejects a bogus member, this makes the live list
+ * exact over the union in both directions at build time.
+ */
+type _LivePermissionModesCovered = _AssertNever<_UncoveredPermissionMode>;
+const _livePermissionModesExhaustive: _LivePermissionModesCovered[] = [];
+void _livePermissionModesExhaustive;
 
 /** Renders `('a','b')` for use inside a CHECK ... IN (...) clause. */
 export function sqlIn(values: readonly string[]): string {
@@ -256,9 +275,9 @@ const MIGRATION_1_EVENT_TYPES = [
  * constraint to. Same rule as above: a new mode is a new migration, not an
  * edit here.
  *
- * This is NOT the permission-mode schema head any more: migration 3 rebuilt
- * `pods` with `MIGRATION_3_PERMISSION_MODES`, and `_UncoveredAtSchemaHead`
- * below is keyed to that list, not to this one.
+ * This is NOT the permission-mode schema head any more: migrations 3 and 6
+ * rebuilt `pods` with their own pinned lists, and `_UncoveredAtSchemaHead`
+ * below is keyed to `MIGRATION_6_PERMISSION_MODES`, not to this one.
  */
 const MIGRATION_2_PERMISSION_MODES = [
   'default',
@@ -273,9 +292,10 @@ const MIGRATION_2_PERMISSION_MODES = [
  *
  * It repeats migration 2's four modes VERBATIM and deliberately does NOT reuse
  * `MIGRATION_2_PERMISSION_MODES`. Sharing that constant would recreate exactly
- * the coupling the per-migration pinning exists to break: a fifth mode belongs
- * in migration 4, and migration 2's list must keep rendering what migration 2
- * shipped whatever migration 3 does.
+ * the coupling the per-migration pinning exists to break: a new mode belongs
+ * in a new migration (migration 6 is the one that added `dontAsk` and `auto`),
+ * and migration 2's list must keep rendering what migration 2 shipped whatever
+ * migration 3 does.
  */
 const MIGRATION_3_PERMISSION_MODES = [
   'default',
@@ -288,13 +308,54 @@ const MIGRATION_3_PERMISSION_MODES = [
  * FROZEN once shipped. The pod-status list migration 3 rebuilds the `pods`
  * table with — the four migrations 1 and 2 shipped, plus `'closed'`.
  *
- * Unlike `MIGRATION_1_POD_STATUSES` this one DOES carry
- * `satisfies readonly PodStatus[]`, because it is the SCHEMA HEAD and must
- * stay exhaustive over the contract union. `_PodStatusCoveredAtSchemaHead`
- * below is what enforces that. A sixth status is migration 4, not an edit
- * here.
+ * Unlike `MIGRATION_1_POD_STATUSES` this one carries
+ * `satisfies readonly PodStatus[]`, from when it was the pod-status SCHEMA
+ * HEAD. It no longer is: migration 6 rebuilt `pods` with
+ * `MIGRATION_6_POD_STATUSES`, and `_PodStatusCoveredAtSchemaHead` below is
+ * keyed to that list. A sixth status is a migration after 6, not an edit here.
  */
 const MIGRATION_3_POD_STATUSES = [
+  'closed',
+  'idle',
+  'running',
+  'waiting',
+  'beached',
+] as const satisfies readonly PodStatus[];
+
+/**
+ * FROZEN once shipped. The permission-mode list migration 6 rebuilds the
+ * `pods` table with: the six members of the SDK's `PermissionMode` union, in
+ * the order `ALLOWED_PERMISSION_MODES` lists them.
+ *
+ * It is the permission-mode SCHEMA HEAD, so it carries
+ * `satisfies readonly PermissionMode[]` (a mode the union does not declare
+ * fails the build) and `_UncoveredAtSchemaHead` below asserts the other
+ * direction (a union member missing from it fails the build). It is written
+ * out rather than shared with the live `PERMISSION_MODES` or with
+ * `MIGRATION_3_PERMISSION_MODES`, so that whatever a later migration does,
+ * this SQL keeps rendering what migration 6 shipped. A new mode is a NEW
+ * migration, not an edit here.
+ */
+const MIGRATION_6_PERMISSION_MODES = [
+  'default',
+  'acceptEdits',
+  'plan',
+  'bypassPermissions',
+  'dontAsk',
+  'auto',
+] as const satisfies readonly PermissionMode[];
+
+/**
+ * FROZEN once shipped. The pod-status list migration 6 rebuilds the `pods`
+ * table with: the same five statuses migration 3 shipped, written out again
+ * rather than reusing `MIGRATION_3_POD_STATUSES`, for the per-migration
+ * pinning reason `MIGRATION_3_PERMISSION_MODES` gives.
+ *
+ * It is the pod-status SCHEMA HEAD, so it carries
+ * `satisfies readonly PodStatus[]` and `_PodStatusCoveredAtSchemaHead` below
+ * is keyed to it. A sixth status is a migration after 6, not an edit here.
+ */
+const MIGRATION_6_POD_STATUSES = [
   'closed',
   'idle',
   'running',
@@ -314,36 +375,37 @@ const MIGRATION_3_POD_STATUSES = [
 type _AssertNever<T extends never> = T;
 
 /**
- * Resolves to `never` while the permission-mode schema head — migration 3,
- * which rebuilt `pods` with `MIGRATION_3_PERMISSION_MODES` — still covers every
- * member of the contract union. A fifth `PermissionMode` breaks the build HERE
- * and demands a new migration that rebuilds `pods`; do not edit
- * `MIGRATION_3_PERMISSION_MODES`.
+ * Resolves to `never` while the permission-mode schema head — migration 6,
+ * which rebuilt `pods` with `MIGRATION_6_PERMISSION_MODES` — still covers every
+ * member of the SDK-derived `PermissionMode` union, routed through
+ * `_AssertNever` so a non-empty `Exclude` is a TS2344 rather than a vacuously
+ * satisfied empty array. A seventh mode (an SDK upgrade that adds one) breaks
+ * the build HERE and demands a new migration that rebuilds `pods`; do not
+ * edit `MIGRATION_6_PERMISSION_MODES`.
  *
- * HISTORY. This guard was once `Exclude<...>` keyed to migration 2's list and
- * enforced by `const x: _UncoveredAtSchemaHead[] = []` alone, which is the
- * vacuous empty-array form described on `_AssertNever`: a fifth mode did NOT
- * fail it. It was re-keyed to migration 3 and routed through `_AssertNever`.
- * Verified by experiment — a temporary `| 'dontAsk'` on the contract's
- * `PermissionMode` fails `typecheck:node` with TS2344 AT THIS DECLARATION, and
- * at the old spelling raised no error in this file at all.
+ * HISTORY. It was keyed first to migration 2's list (in the vacuous
+ * empty-array form, which a new mode did not fail), then to migration 3's
+ * through `_AssertNever`, and is now keyed to migration 6's, the newest
+ * migration that rebuilds `pods`.
  */
 type _UncoveredAtSchemaHead = _AssertNever<
-  Exclude<PermissionMode, (typeof MIGRATION_3_PERMISSION_MODES)[number]>
+  Exclude<PermissionMode, (typeof MIGRATION_6_PERMISSION_MODES)[number]>
 >;
 const _schemaHeadExhaustive: _UncoveredAtSchemaHead[] = [];
 void _schemaHeadExhaustive;
 
 /**
- * The same guard for pod status, against migration 3's pinned list, so that a
- * SIXTH `PodStatus` breaks the BUILD here and demands migration 4 rather than
- * failing as a `CHECK constraint failed` on a user's machine. SQLite's CHECK
- * is the only runtime enforcement of the status set in the entire product
- * (`rows.ts` casts `row.status as PodStatus` unchecked), so this is the last
- * line of defence before shipping.
+ * The same guard for pod status, against migration 6's pinned list
+ * (`MIGRATION_6_POD_STATUSES`, the newest migration that rebuilds `pods`),
+ * routed through `_AssertNever`, so that a SIXTH `PodStatus` breaks the BUILD
+ * here and demands a migration after 6 — not an edit to migration 3 or 6 —
+ * rather than failing as a `CHECK constraint failed` on a user's machine.
+ * SQLite's CHECK is the only runtime enforcement of the status set in the
+ * entire product (`rows.ts` casts `row.status as PodStatus` unchecked), so
+ * this is the last line of defence before shipping.
  */
 type _PodStatusCoveredAtSchemaHead = _AssertNever<
-  Exclude<PodStatus, (typeof MIGRATION_3_POD_STATUSES)[number]>
+  Exclude<PodStatus, (typeof MIGRATION_6_POD_STATUSES)[number]>
 >;
 const _podStatusSchemaHead: _PodStatusCoveredAtSchemaHead[] = [];
 void _podStatusSchemaHead;
@@ -762,6 +824,93 @@ CREATE INDEX idx_pods_forked_from ON pods (forked_from_pod_id) WHERE forked_from
 `;
 
 /**
+ * Migration 6 — widen `pods.permission_mode` from four modes to six by adding
+ * `dontAsk` and `auto`, so the CHECK admits every member of the SDK's
+ * `PermissionMode` union. `manual`, which the CLI accepts but the SDK's union
+ * does not declare, stays refused.
+ *
+ * WHY A TABLE REBUILD. SQLite has no `ALTER TABLE ... ALTER CONSTRAINT`; a
+ * CHECK can only be changed by the 12-step rebuild the SQLite docs prescribe
+ * (create new, copy, drop old, rename). Migration 3's `MIGRATION_3` and its
+ * pinned lists are NOT edited: a released migration never is.
+ *
+ * WHY FOREIGN KEYS MUST BE OFF AROUND IT. `lanes.pod_id` and `events.pod_id`
+ * are `REFERENCES pods(id) ON DELETE CASCADE`. With `PRAGMA foreign_keys = ON`
+ * — which `SqliteEventStore`'s constructor sets — `DROP TABLE pods` would
+ * cascade every lane and every event out of the database and this migration
+ * would report SUCCESS on an emptied store. `SqliteEventStore.migrate()`
+ * suspends FK enforcement around the migration transaction and runs
+ * `PRAGMA foreign_key_check` before committing, which is what this migration
+ * relies on. With enforcement off, the rename also leaves the `REFERENCES
+ * pods` clauses in `lanes` and `events` untouched, which re-points them at the
+ * rebuilt table. `tests/unit/store/migration-6.test.ts` proves it with row
+ * counts and a cascade rather than inheriting the assumption.
+ *
+ * WHAT IT CARRIES ACROSS. Since migration 5, `pods` is no longer a table with
+ * nothing hanging off it, so this rebuild carries:
+ *   - both ancestry columns, `forked_from_pod_id` and
+ *     `forked_from_cc_session_id`, in the column order migration 5 left them,
+ *     copied by the INSERT below;
+ *   - the named self-referencing foreign key
+ *     `CONSTRAINT fk_pods_forked_from_pod_id REFERENCES pods(id) ON DELETE SET
+ *     NULL`, written against `pods` — the name the table has AFTER the rename,
+ *     not `pods_new` — for the same reason migration 4's `lanes`
+ *     self-reference is;
+ *   - the index `idx_pods_forked_from`, which `DROP TABLE pods` takes with the
+ *     old table, recreated below with migration 5's exact definition (steps 7
+ *     and 8 of the rebuild do NOT reduce to nothing for `pods` any more).
+ *
+ * IT BACKFILLS NOTHING. The INSERT copies every row with every value it had;
+ * no row's mode, status or ancestry changes. Shape changes and data changes
+ * stay in separate migrations so a failure is possible to isolate.
+ *
+ * NOT REVERSIBLE. Consistent with the file docblock, there is no `down` path;
+ * a downgrade discards the database file. A row already carrying `dontAsk` or
+ * `auto` could not satisfy migration 3's constraint, so narrowing the CHECK
+ * again would have to rewrite or drop those Pods' rows.
+ *
+ * Both constraint lists are PINNED to this migration
+ * (`MIGRATION_6_PERMISSION_MODES`, `MIGRATION_6_POD_STATUSES`), never derived
+ * from the live `PERMISSION_MODES` / `POD_STATUSES`: whatever a later
+ * migration does, this SQL must keep rendering what it shipped with.
+ */
+const MIGRATION_6 = `
+CREATE TABLE pods_new (
+  id              TEXT    PRIMARY KEY,
+  title           TEXT    NOT NULL,
+  cwd             TEXT    NOT NULL,
+  cc_session_id   TEXT,
+  permission_mode TEXT    NOT NULL CHECK (permission_mode IN ${sqlIn(MIGRATION_6_PERMISSION_MODES)}),
+  env_overrides   TEXT    NOT NULL DEFAULT '{}',
+  tab_order       INTEGER NOT NULL,
+  status          TEXT    NOT NULL CHECK (status IN ${sqlIn(MIGRATION_6_POD_STATUSES)}),
+  created_at      TEXT    NOT NULL,
+  last_active_at  TEXT    NOT NULL,
+  forked_from_pod_id TEXT
+    CONSTRAINT fk_pods_forked_from_pod_id REFERENCES pods(id) ON DELETE SET NULL,
+  forked_from_cc_session_id TEXT
+) STRICT;
+
+INSERT INTO pods_new (id, title, cwd, cc_session_id, permission_mode, env_overrides,
+                      tab_order, status, created_at, last_active_at,
+                      forked_from_pod_id, forked_from_cc_session_id)
+  SELECT id, title, cwd, cc_session_id, permission_mode, env_overrides,
+         tab_order, status, created_at, last_active_at,
+         forked_from_pod_id, forked_from_cc_session_id
+  FROM pods;
+
+DROP TABLE pods;
+
+ALTER TABLE pods_new RENAME TO pods;
+
+-- Steps 7-8 of the rebuild: the index went with DROP TABLE pods and is
+-- restored here with migration 5's definition.
+
+-- ON DELETE SET NULL's child lookup when a parent Pod is deleted.
+CREATE INDEX idx_pods_forked_from ON pods (forked_from_pod_id) WHERE forked_from_pod_id IS NOT NULL;
+`;
+
+/**
  * Ordered, forward-only. Append new entries; never edit a shipped one.
  * `CURRENT_SCHEMA_VERSION` is the highest version this build understands.
  */
@@ -771,6 +920,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 3, sql: MIGRATION_3 },
   { version: 4, sql: MIGRATION_4 },
   { version: 5, sql: MIGRATION_5 },
+  { version: 6, sql: MIGRATION_6 },
 ];
 
 export const CURRENT_SCHEMA_VERSION: number = MIGRATIONS.reduce(

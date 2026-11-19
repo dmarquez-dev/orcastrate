@@ -159,18 +159,34 @@ export interface PermissionModeOption {
   danger: boolean;
 }
 
+/** The dialog option for `dontAsk`. Not a danger option. */
+export const DONT_ASK_OPTION = {
+  mode: 'dontAsk',
+  label: 'Deny unless pre-approved',
+  summary: 'Tools your settings do not already allow are denied without asking.',
+  danger: false,
+} as const satisfies PermissionModeOption;
+
+/** The dialog option for `auto`. Not a danger option. */
+export const AUTO_OPTION = {
+  mode: 'auto',
+  label: 'Auto mode',
+  summary: 'A model classifier approves or denies each permission prompt instead of asking.',
+  danger: false,
+} as const satisfies PermissionModeOption;
+
 /**
- * The permission modes the dialog offers, in display order.
+ * The permission modes the dialog offers, in display order: default,
+ * acceptEdits, plan, dontAsk, auto, bypassPermissions. The danger option stays
+ * last, and `bypassPermissions` is the ONLY entry with `danger: true`.
  *
- * THIS FILE DOES NOT COMPILE UNTIL THE `PermissionMode` WIDENING (T1) LANDS:
- * `acceptEdits` is not a member of the frozen three-value union in
- * `events.ts`, and the annotation below is deliberately left to fail rather
- * than be cast away. T1 widens that union along with the runtime guard
- * (`src/main/pod/options.ts`), the IPC validator, and the SQLite CHECK
- * constraint, which is why every renderer task declares T1 in `dependsOn`.
- *
- * This array must hold exactly the widened union's members — no more, no
- * fewer. T8 asserts that by exhaustiveness over the union, not by counting.
+ * This array must hold exactly the members of `PermissionMode` — which is
+ * derived from the SDK's own union — no more and no fewer. An entry whose
+ * `mode` the union does not declare fails to compile here. A union member
+ * with no entry fails to compile at the `EVERY_PERMISSION_MODE` record in
+ * `src/renderer/src/__tests__/wording.e2e.test.tsx`, a
+ * `Record<PermissionMode, …>` whose test asserts this array covers it; that is
+ * exhaustiveness over the union, not a count.
  */
 export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
   {
@@ -191,6 +207,8 @@ export const PERMISSION_MODE_OPTIONS: readonly PermissionModeOption[] = [
     summary: 'Claude plans without executing tools.',
     danger: false,
   },
+  DONT_ASK_OPTION,
+  AUTO_OPTION,
   {
     mode: 'bypassPermissions',
     label: 'Bypass permissions',

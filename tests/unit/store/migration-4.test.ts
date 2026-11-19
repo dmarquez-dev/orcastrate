@@ -389,8 +389,8 @@ describe('migration 4 does not cascade the store away', () => {
           "SELECT group_concat(version, ',') AS versions FROM (SELECT version FROM schema_version ORDER BY version)",
         )
         .get()?.versions,
-    ).toBe('1,2,3,4,5');
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+    ).toBe('1,2,3,4,5,6');
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
   });
 });
 

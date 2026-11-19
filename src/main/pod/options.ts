@@ -16,22 +16,42 @@ import type { PermissionMode } from '../../shared/contracts/events';
 import type { PodRunnerOptions } from '../../shared/contracts/pod-runner';
 
 /**
- * The four permission modes Orcastrate exposes — the runtime half of the
- * contract's `PermissionMode` union, which is the source of truth.
+ * The runtime half of `PermissionMode`, which is derived from the SDK's own
+ * union. This list is EXACT over that union in both directions, and
+ * `npm run typecheck` fails otherwise:
+ *   - a member the union does not declare fails the `satisfies` clause below;
+ *   - a union member this list lacks fails `_PermissionModesCovered` below,
+ *     which routes the `Exclude` through a `T extends never` constraint rather
+ *     than an empty-array assignment (an empty array literal is assignable to
+ *     any array type, so that spelling never fails).
+ * So an SDK upgrade that adds or removes a mode breaks the build here until
+ * this list follows it. The order is the order the guard's message lists them
+ * in.
  *
- * This is still a PRODUCT restriction, not a platform limit. T2 measured the
- * real CLI 2.1.235: it accepts
- * `default, plan, acceptEdits, bypassPermissions, dontAsk, auto, manual`
- * (verbatim commander rejection quoted in findings.json `optionsVerified`).
- * `dontAsk`, `auto` and `manual` remain deliberately unexposed and must keep
- * failing this guard.
+ * `manual` is accepted by CLI 2.1.235 but is NOT in the SDK's union, so it is
+ * not in this list and keeps failing this guard.
  */
-export const ALLOWED_PERMISSION_MODES: readonly PermissionMode[] = [
+export const ALLOWED_PERMISSION_MODES = [
   'default',
   'acceptEdits',
   'plan',
   'bypassPermissions',
-];
+  'dontAsk',
+  'auto',
+] as const satisfies readonly PermissionMode[];
+
+/** Fails the build unless `T` is `never`; see `ALLOWED_PERMISSION_MODES`. */
+type _AssertNever<T extends never> = T;
+
+/**
+ * Resolves to `never` while `ALLOWED_PERMISSION_MODES` names every member of
+ * `PermissionMode`. A union member the list lacks is a TS2344 here.
+ */
+type _PermissionModesCovered = _AssertNever<
+  Exclude<PermissionMode, (typeof ALLOWED_PERMISSION_MODES)[number]>
+>;
+const _permissionModesCovered: _PermissionModesCovered[] = [];
+void _permissionModesCovered;
 
 export function isAllowedPermissionMode(value: unknown): value is PermissionMode {
   return (
