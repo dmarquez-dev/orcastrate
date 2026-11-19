@@ -2,9 +2,9 @@
   "id": "20261118-2121-helm-save-outcome-followups",
   "name": "helm-save-outcome-followups",
   "scope": "standard",
-  "status": "MERGED",
+  "status": "WRAPPED",
   "started": "2026-11-18T21:21:20Z",
-  "ended": null,
+  "ended": "2026-11-19T00:04:52Z",
   "parent": null,
   "children": [],
   "runs": [
@@ -39,10 +39,18 @@
       "started": "2026-11-18T23:38:14Z",
       "ended": "2026-11-18T23:57:16Z",
       "outcome": "complete"
+    },
+    {
+      "phase": "wrap",
+      "cc": "e5ff5e78-597e-4475-813c-0bffc71a98b4",
+      "sir": "1.0.46",
+      "started": "2026-11-19T00:04:37Z",
+      "ended": "2026-11-19T00:04:52Z",
+      "outcome": "complete"
     }
   ],
   "metrics": {
-    "userInteractions": 1,
+    "userInteractions": 3,
     "escalationsRaised": 2,
     "reviewRounds": 0
   },
