@@ -29,6 +29,7 @@ import type { OrcastrateApi, SlashCommandInfo } from '@shared/contracts/ipc';
 import type { RoutingMode } from '@shared/contracts/lane-router';
 
 import type {
+  AutoModeSupport,
   ComposerState,
   Loadable,
   LaneRowVm,
@@ -66,6 +67,13 @@ const WorkspaceContext = createContext<WorkspaceStore | null>(null);
  * beat it) or the active Pod changes.
  */
 const SlashCommandsContext = createContext<readonly SlashCommandInfo[]>(NO_SLASH_COMMANDS);
+
+/**
+ * Main's cached auto-mode flag, on a context of its own because
+ * `WorkspaceStore` does not carry it. Its value is the store's raw
+ * `autoModeSupport`, so it changes only when a push changes it.
+ */
+const AutoModeSupportContext = createContext<AutoModeSupport>(null);
 
 /** How often a RUNNING lane's `elapsedMs` is recomputed. */
 const ELAPSED_TICK_MS = 1000;
@@ -139,7 +147,9 @@ export function WorkspaceProvider({ children, api }: WorkspaceProviderProps): Re
   return (
     <WorkspaceContext.Provider value={value}>
       <SlashCommandsContext.Provider value={slashCommands}>
-        <PanelProvider api={resolved}>{children}</PanelProvider>
+        <AutoModeSupportContext.Provider value={state.autoModeSupport}>
+          <PanelProvider api={resolved}>{children}</PanelProvider>
+        </AutoModeSupportContext.Provider>
       </SlashCommandsContext.Provider>
     </WorkspaceContext.Provider>
   );
@@ -425,6 +435,16 @@ export function usePermissionCards(laneId: LaneId | null): PermissionCardVm[] {
 export function useSlashCommands(): readonly SlashCommandInfo[] {
   useWorkspace();
   return useContext(SlashCommandsContext);
+}
+
+/**
+ * The latest `push:autoModeSupport` value, `null` before the first push. The
+ * hook issues no IPC call, and like every hook here must be rendered inside
+ * `<WorkspaceProvider>`, throwing the same error outside it.
+ */
+export function useAutoModeSupport(): AutoModeSupport {
+  useWorkspace();
+  return useContext(AutoModeSupportContext);
 }
 
 /** Referentially stable for the provider's lifetime. */

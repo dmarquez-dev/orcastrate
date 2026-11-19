@@ -63,7 +63,7 @@ describe('stubOrcastrateApi — coverage of the frozen surface', () => {
 
   it('maps every EVENT_CHANNELS member to a stub subscriber', () => {
     expect(Object.keys(EVENT_CHANNEL_METHODS).sort()).toEqual([...eventKeys].sort());
-    expect(eventKeys.length).toBe(7);
+    expect(eventKeys.length).toBe(8);
   });
 
   it('covers all 23 invoke channels, so the stub cannot lag the surface', () => {
@@ -172,6 +172,21 @@ describe('stubOrcastrateApi — driving pushes', () => {
     expect(first).toHaveLength(1);
     expect(second).toHaveLength(2);
     expect(second[1]).toBe(later);
+  });
+
+  it('delivers an autoModeSupport push only when emitted, the same object to each subscriber', () => {
+    const api = stubOrcastrateApi();
+    const seen: unknown[] = [];
+    api.on.autoModeSupport((p) => seen.push(p));
+    // Nothing is delivered until a test emits.
+    expect(seen).toEqual([]);
+
+    const push = { supported: false };
+    api.emit.autoModeSupport(push);
+    api.emit.autoModeSupport({ supported: true });
+
+    expect(seen).toEqual([{ supported: false }, { supported: true }]);
+    expect(seen[0]).toBe(push);
   });
 });
 

@@ -25,6 +25,7 @@
  */
 
 import type {
+  AutoModeSupportPush,
   IpcError,
   IpcResult,
   OrcastrateApi,
@@ -112,6 +113,7 @@ export const EVENT_CHANNEL_METHODS = {
   permissionResolved: 'permissionResolved',
   helmChanged: 'helmChanged',
   podCommands: 'podCommands',
+  autoModeSupport: 'autoModeSupport',
 } as const satisfies Record<EventChannelKey, keyof OrcastrateApi['on']>;
 
 // ---------------------------------------------------------------------------
@@ -488,11 +490,21 @@ export function makeStubHelmDocument(
 // The stub
 // ---------------------------------------------------------------------------
 
+/**
+ * Delivers main's cached auto-mode flag to the workspace store exactly as the
+ * preload bridge would, under the key `autoModeSupport`. A stub that receives
+ * no emit delivers no push, so a test that emits nothing observes
+ * `useAutoModeSupport() === null`.
+ */
+export interface StubAutoModeSupportEmit {
+  autoModeSupport(payload: AutoModeSupportPush): void;
+}
+
 /** Drives every push channel `EVENT_CHANNELS` declares. Each call is
  *  synchronous and fans out the SAME payload object to every live subscriber;
  *  a subscriber added during the fan-out is not called for the in-flight
  *  emit. */
-export interface StubEmitters {
+export interface StubEmitters extends StubAutoModeSupportEmit {
   podEvent(push: PodEventPush): void;
   podStatus(push: PodStatusPush): void;
   laneChanged(push: LaneChangedPush): void;
@@ -759,6 +771,7 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       permissionResolved: subscribe<PermissionResolvedPush>('permissionResolved'),
       helmChanged: subscribe<HelmChangedPush>('helmChanged'),
       podCommands: subscribe<PodCommandsPush>('podCommands'),
+      autoModeSupport: subscribe<AutoModeSupportPush>('autoModeSupport'),
       ...overrides.on,
     },
 
@@ -770,6 +783,7 @@ export function stubOrcastrateApi(overrides: StubApiOverrides = {}): StubOrcastr
       permissionResolved: (push) => emitTo('permissionResolved', push),
       helmChanged: (push) => emitTo('helmChanged', push),
       podCommands: (push) => emitTo('podCommands', push),
+      autoModeSupport: (push) => emitTo('autoModeSupport', push),
     },
 
     failInvoke(channelKey, error) {

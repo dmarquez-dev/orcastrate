@@ -31,6 +31,7 @@ import type {
   Timestamp,
 } from '@shared/contracts/events';
 import type {
+  AutoModeSupportPush,
   CreatePodRequest,
   DeletePodRequest,
   IpcError,
@@ -52,6 +53,7 @@ import type { RoutingMode } from '@shared/contracts/lane-router';
 
 import type {
   ActionResult,
+  AutoModeSupport,
   BackfillState,
   LoadPhase,
   PermissionCardVm,
@@ -150,6 +152,12 @@ export interface WorkspaceState {
   /** The failed `app.routingMode()` answer, unmodified; `null` otherwise. */
   routingModeError: IpcError | null;
   runtimes: Record<PodId, PodRuntimeState | undefined>;
+  /**
+   * The latest `push:autoModeSupport` value; `null` before the first push.
+   * App-level, so it lives here rather than on a runtime record, and no
+   * deleted-Pod guard applies to it.
+   */
+  autoModeSupport: AutoModeSupport;
 }
 
 /**
@@ -267,6 +275,7 @@ export class WorkspaceStateStore {
       // Stays null with no bridge: that case surfaces through `podsError`.
       routingModeError: null,
       runtimes: {},
+      autoModeSupport: null,
     };
     this.actions = this.buildActions();
   }
@@ -352,6 +361,7 @@ export class WorkspaceStateStore {
       api.on.permissionRequested((push) => this.onPermissionRequested(push)),
       api.on.permissionResolved((push) => this.onPermissionResolved(push)),
       api.on.podCommands((push) => this.onPodCommands(push)),
+      api.on.autoModeSupport((push) => this.onAutoModeSupport(push)),
     ];
 
     void this.loadRoutingMode();
@@ -593,6 +603,18 @@ export class WorkspaceStateStore {
   private onPodCommands(push: PodCommandsPush): void {
     this.podCommandsPushes.set(push.podId, (this.podCommandsPushes.get(push.podId) ?? 0) + 1);
     this.patchRuntime(push.podId, (runtime) => ({ ...runtime, slashCommands: push.commands }));
+  }
+
+  /**
+   * Main's cached auto-mode flag. App-level, so it is written straight onto
+   * the workspace state and never through `patchRuntime`: no Pod owns it, and
+   * deleting a Pod does not clear it. The latest push wins; a push equal to
+   * the held value commits nothing.
+   */
+  private onAutoModeSupport(push: AutoModeSupportPush): void {
+    this.update((state) =>
+      state.autoModeSupport === push.supported ? state : { ...state, autoModeSupport: push.supported },
+    );
   }
 
   // --- actions -------------------------------------------------------------

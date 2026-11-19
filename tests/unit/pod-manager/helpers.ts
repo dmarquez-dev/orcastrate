@@ -84,6 +84,12 @@ export interface FakeRunnerScript {
    * is meant to succeed.
    */
   onStart?: (options: PodRunnerOptions) => void;
+  /**
+   * The runner's `supportedModels` answer. Omitted, the runner has NO
+   * `supportedModels` member at all, exactly as a runner double with no model
+   * list would; present, every call is counted in `supportedModelsCalls`.
+   */
+  supportedModels?: () => Promise<unknown>;
 }
 
 export interface FakeRunner extends PodRunner {
@@ -98,6 +104,8 @@ export interface FakeRunner extends PodRunner {
   sent: string[];
   /** The handlers `start()` was given, so a test can drive a late callback. */
   handlers: PodRunnerHandlers | null;
+  /** How many times the manager called `supportedModels` (0 when the member is absent). */
+  supportedModelsCalls: number;
 }
 
 /**
@@ -115,6 +123,7 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
     stopCalls: 0,
     sent: [],
     handlers: null,
+    supportedModelsCalls: 0,
     async start(handlers: PodRunnerHandlers, _onPermission: PermissionHandler): Promise<void> {
       runner.startCalls += 1;
       runner.handlers = handlers;
@@ -143,6 +152,13 @@ function makeFakeRunner(options: PodRunnerOptions, script: FakeRunnerScript): Fa
       return { supported: false };
     },
   };
+  const answerModels = script.supportedModels;
+  if (answerModels !== undefined) {
+    runner.supportedModels = (): Promise<unknown> => {
+      runner.supportedModelsCalls += 1;
+      return answerModels();
+    };
+  }
   return runner;
 }
 

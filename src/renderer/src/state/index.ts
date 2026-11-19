@@ -30,6 +30,7 @@ export {
   useComposer,
   usePermissionCards,
   useSlashCommands,
+  useAutoModeSupport,
   useWorkspaceActions,
 } from './workspace-provider';
 

@@ -46,9 +46,9 @@ describe('the frozen channel constants themselves', () => {
     expect(new Set(values).size).toBe(values.length);
   });
 
-  it('declares exactly 7 push channels, all with distinct wire names', () => {
+  it('declares exactly 8 push channels, all with distinct wire names', () => {
     const values = Object.values(EVENT_CHANNELS);
-    expect(Object.keys(EVENT_CHANNELS).length).toBe(7);
+    expect(Object.keys(EVENT_CHANNELS).length).toBe(8);
     expect(new Set(values).size).toBe(values.length);
   });
 
@@ -139,11 +139,14 @@ describe('push channels (criterion 2)', () => {
   it('main emits every channel in EVENT_CHANNELS', async () => {
     // `push:podCommands` comes from opening a Pod whose fake SDK session
     // answers `supportedCommands`, exactly as the real query would, rather
-    // than from calling a push sink by hand.
+    // than from calling a push sink by hand. `push:autoModeSupport` comes the
+    // same way: the session answers `supportedModels` with an entry for the
+    // model the fixture's `system`/`init` names.
     const h = harness({
       supportedCommands: () => async () => [
         { name: 'review', description: 'Review a diff', argumentHint: '', aliases: [] },
       ],
+      supportedModels: () => async () => [{ value: 'claude-sonnet-5', supportsAutoMode: true }],
     });
     const podId = await openPod(h);
 

@@ -136,6 +136,13 @@ export interface HarnessOptions {
    * the runner resolves `null` — no read is logged and nothing is pushed.
    */
   supportedCommands?: (podId: PodId) => (() => Promise<unknown>) | undefined;
+  /**
+   * The `supportedModels` answer for the fake SDK session behind each runner,
+   * chosen per Pod. Default: none, so the session has no model list and the
+   * runner resolves `null` — no auto-mode answer is derived and nothing is
+   * pushed.
+   */
+  supportedModels?: (podId: PodId) => (() => Promise<unknown>) | undefined;
 }
 
 /** The harness default: refuses, and says why. */
@@ -153,9 +160,11 @@ export function makeHarness(options: HarnessOptions = {}): Harness {
 
   const createRunner: CreatePodRunner = (runnerOptions) => {
     const answer = options.supportedCommands?.(runnerOptions.podId);
+    const models = options.supportedModels?.(runnerOptions.podId);
     const fake = makeFakeSdk({
       autoInitialize: true,
       ...(answer !== undefined ? { supportedCommands: answer } : {}),
+      ...(models !== undefined ? { supportedModels: models } : {}),
     });
     sdks.set(runnerOptions.podId, fake);
     runnerCounts.set(runnerOptions.podId, (runnerCounts.get(runnerOptions.podId) ?? 0) + 1);

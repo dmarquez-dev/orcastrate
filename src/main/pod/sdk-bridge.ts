@@ -44,6 +44,12 @@ export interface SdkSession {
    * command surface, and the runner then resolves `null`.
    */
   supportedCommands?(): Promise<unknown>;
+  /**
+   * Backs `PodRunner.supportedModels()`: the SDK's `Query.supportedModels()`
+   * answer, passed through unvalidated. Optional: a bridge without it has no
+   * model list, and the runner then resolves `null`.
+   */
+  supportedModels?(): Promise<unknown>;
 }
 
 export type SdkBridge = (params: {
@@ -86,6 +92,9 @@ export const defaultSdkBridge: SdkBridge = ({ prompt, options }) => {
     },
     async supportedCommands() {
       return q.supportedCommands();
+    },
+    async supportedModels() {
+      return q.supportedModels();
     },
   };
 };

@@ -88,6 +88,7 @@ import {
   suppressEchoedUserPrompts,
   type PendingEcho,
 } from './pending-echo';
+import { AUTO_MODE_SUPPORT_READ_TIMEOUT_MS, autoModeSupportOf } from './auto-mode-support';
 import type { Pushes } from './pushes';
 import { SLASH_COMMANDS_READ_TIMEOUT_MS, SlashCommandState } from './slash-commands';
 import {
@@ -200,11 +201,21 @@ interface PodSession {
    * pushed, replacing whatever the previous session left in the renderer.
    */
   commands: SlashCommandState;
+  /**
+   * This session's two inputs to the auto-mode rule (`./auto-mode-support.ts`):
+   * the raw `supportedModels()` answer, and the `model` of the latest
+   * `system`/`init`. Each is `undefined` until it arrives. Per SESSION, so a
+   * reopened Pod derives from its own session's values only.
+   */
+  autoMode: { models: unknown; model: unknown };
   disposed: boolean;
 }
 
 /** The value the read's timeout race resolves with when the clock wins. */
 const READ_TIMED_OUT: unique symbol = Symbol('supportedCommands timed out');
+
+/** The value the `supportedModels()` timeout race resolves with when the clock wins. */
+const MODELS_READ_TIMED_OUT: unique symbol = Symbol('supportedModels timed out');
 
 interface PendingPermission {
   podId: PodId;
@@ -239,6 +250,13 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   readonly #sessions = new Map<PodId, PodSession>();
   /** In-flight `openPod` calls, so two concurrent opens cannot race a second runner. */
   readonly #opening = new Map<PodId, Promise<Pod>>();
+  /**
+   * THE APP-LEVEL AUTO-MODE CACHE: the most recent defined answer any session
+   * produced, or `null` before the first. Not per Pod, so it survives
+   * `closePod` of the Pod that produced it and lasts for the process lifetime.
+   * Changed, and pushed, only by `#publishAutoMode`.
+   */
+  #autoModeSupported: boolean | null = null;
 
   constructor(deps: PodManagerDeps) {
     this.#store = deps.store;
@@ -760,6 +778,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
       pending: new Map(),
       pendingEchoes: [],
       commands: new SlashCommandState(),
+      autoMode: { models: undefined, model: undefined },
       disposed: false,
       runner: this.#createRunner({
         podId: pod.id,
@@ -833,7 +852,95 @@ export class PodManager implements PodManagerApi, StartupReconciler {
     // NOT AWAITED. Open, reconnect and the resume-fallback retry all come
     // through here, and none of them waits on the command list.
     this.#readSlashCommands(session);
+    // NOT AWAITED either, for the same reason.
+    this.#readSupportedModels(session);
     return opened;
+  }
+
+  /**
+   * The read of the session's model list, once, after `start()`.
+   *
+   * - A runner with no `supportedModels` member reads nothing.
+   * - BOUNDED by `AUTO_MODE_SUPPORT_READ_TIMEOUT_MS`. The SDK's call takes no
+   *   abort signal, so the timeout is the whole of its cancellation, and an
+   *   answer that lands after the timeout is ignored.
+   * - A rejection or a timeout logs ONE warn naming the Pod and changes no
+   *   cached value. Nothing crosses to the renderer.
+   * - A session disposed before the read settles drops the answer silently:
+   *   a close is not a failure.
+   * - Any other answer, `null` included, becomes the session's models input
+   *   and the session's answer is re-derived.
+   */
+  #readSupportedModels(session: PodSession): void {
+    const runner = session.runner;
+    if (runner.supportedModels === undefined) return;
+
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timedOut = new Promise<typeof MODELS_READ_TIMED_OUT>((resolve) => {
+      timer = setTimeout(() => resolve(MODELS_READ_TIMED_OUT), AUTO_MODE_SUPPORT_READ_TIMEOUT_MS);
+      // Never hold an Electron main process (or a test runner) open on this.
+      timer.unref?.();
+    });
+    // A synchronous throw from the runner becomes a rejection here too.
+    const read = new Promise<unknown>((resolve) => {
+      resolve(runner.supportedModels?.());
+    });
+
+    void Promise.race([read, timedOut]).then(
+      (value) => {
+        clearTimeout(timer);
+        if (session.disposed) return;
+        if (value === MODELS_READ_TIMED_OUT) {
+          this.#log.warn(
+            `[orcastrate] supportedModels for pod ${session.podId} did not answer within ` +
+              `${AUTO_MODE_SUPPORT_READ_TIMEOUT_MS} ms; the auto-mode flag stays as it was`,
+          );
+          return;
+        }
+        session.autoMode.models = value;
+        this.#publishAutoMode(session);
+      },
+      (err: unknown) => {
+        clearTimeout(timer);
+        if (session.disposed) return;
+        this.#log.warn(
+          `[orcastrate] supportedModels for pod ${session.podId} failed; the auto-mode flag ` +
+            `stays as it was: ${describe(err)}`,
+        );
+      },
+    );
+  }
+
+  /**
+   * Reads one raw SDK message for the auto-mode rule. Only a `system`/`init`
+   * is read: its `model` replaces the session's model input, whatever its
+   * type, and the session's answer is re-derived. The message is only READ.
+   */
+  #observeAutoMode(session: PodSession, message: unknown): void {
+    if (typeof message !== 'object' || message === null) return;
+    const record = message as Record<string, unknown>;
+    if (record['type'] !== 'system' || record['subtype'] !== 'init') return;
+    session.autoMode.model = record['model'];
+    this.#publishAutoMode(session);
+  }
+
+  /**
+   * Derives the session's answer and updates the app-level cache.
+   *
+   * - Nothing for a disposed session.
+   * - An undefined answer changes nothing.
+   * - A defined answer equal to the cached value sends nothing.
+   * - A defined answer that differs replaces the cached value and sends
+   *   exactly one `push:autoModeSupport`. `null` is never pushed, because only
+   *   a defined answer reaches the push.
+   */
+  #publishAutoMode(session: PodSession): void {
+    if (session.disposed) return;
+    const answer = autoModeSupportOf(session.autoMode.models, session.autoMode.model);
+    if (answer === undefined) return;
+    if (answer === this.#autoModeSupported) return;
+    this.#autoModeSupported = answer;
+    this.#push.autoModeSupport({ supported: answer });
   }
 
   /**
@@ -1398,6 +1505,11 @@ export class PodManager implements PodManagerApi, StartupReconciler {
         // not also cost the Pod its list update (nor the reverse).
         guard('slash commands', () => {
           this.#publishCommands(session, session.commands.observe(message));
+        });
+        // A THIRD guard, for the same reason: the auto-mode read neither costs
+        // nor is cost by the ingest or the command list.
+        guard('auto-mode support', () => {
+          this.#observeAutoMode(session, message);
         });
       },
       onTurnEnd: () => {

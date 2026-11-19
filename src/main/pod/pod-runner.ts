@@ -499,6 +499,19 @@ class PodRunnerImpl implements PodRunner {
     return session.supportedCommands();
   }
 
+  /**
+   * The SDK's model list, unvalidated: interpreting it is the manager's job.
+   * `null` when the bridge has no model list. NOT_RUNNING before `start()` and
+   * after `stop()`, like `send`; the method is `async`, so that throw arrives
+   * as a rejection.
+   */
+  async supportedModels(): Promise<unknown> {
+    this.#assertRunning('supportedModels');
+    const session = this.#session;
+    if (session === null || session.supportedModels === undefined) return null;
+    return session.supportedModels();
+  }
+
   // -------------------------------------------------------------------------
   // internals
   // -------------------------------------------------------------------------

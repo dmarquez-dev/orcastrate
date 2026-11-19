@@ -340,6 +340,7 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
       [EVENT_CHANNELS.permissionRequested]: 0,
       [EVENT_CHANNELS.permissionResolved]: 0,
       [EVENT_CHANNELS.podCommands]: 0,
+      [EVENT_CHANNELS.autoModeSupport]: 0,
     });
 
     // The second close writes nothing: no `updatePod` re-writing the
@@ -378,6 +379,7 @@ describe('criterion 5: a second closePod against an already-closed Pod', () => {
       [EVENT_CHANNELS.permissionRequested]: 0,
       [EVENT_CHANNELS.permissionResolved]: 0,
       [EVENT_CHANNELS.podCommands]: 0,
+      [EVENT_CHANNELS.autoModeSupport]: 0,
     });
     const writes = h.spy.writes.slice(writesBefore).map((write) => write.method);
     expect(writes.filter((method) => method === 'updatePod')).toEqual([]);

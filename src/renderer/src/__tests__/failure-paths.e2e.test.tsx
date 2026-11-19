@@ -598,10 +598,12 @@ describe('which channels can say what went wrong', () => {
     // direction. The slash-command session then added ONE push channel,
     // `podCommands`, which carries a Pod's command list to the composer. The
     // invoke channel of the same key, the startup pull of that list, came
-    // later and moved the invoke total above, not this one. A
+    // later and moved the invoke total above, not this one. One more push
+    // channel, `autoModeSupport`, carries main's cached auto-mode flag to the
+    // New Pod dialog and added no invoke channel. A
     // push channel is not classified for an error surface — pushes carry no
     // envelope — so the only thing to pin here is the count.
-    expect(Object.keys(EVENT_CHANNELS).length).toBe(7);
+    expect(Object.keys(EVENT_CHANNELS).length).toBe(8);
   });
 
   it.each(INVOKE_KEYS)(

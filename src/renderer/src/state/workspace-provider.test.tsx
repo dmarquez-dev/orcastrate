@@ -33,6 +33,7 @@ import {
 import * as state from './index';
 import {
   WorkspaceProvider,
+  useAutoModeSupport,
   useComposer,
   useLaneRail,
   usePermissionCards,
@@ -75,6 +76,7 @@ const surface: {
   useComposer: typeof Contract.useComposer;
   usePermissionCards: typeof Contract.usePermissionCards;
   useSlashCommands: typeof Contract.useSlashCommands;
+  useAutoModeSupport: typeof Contract.useAutoModeSupport;
   useWorkspaceActions: typeof Contract.useWorkspaceActions;
   steerPrefill: typeof Contract.steerPrefill;
   // The panel seams, declared by the second frozen contract file. Same rule:
@@ -93,6 +95,7 @@ const surface: {
   useComposer,
   usePermissionCards,
   useSlashCommands,
+  useAutoModeSupport,
   useWorkspaceActions,
   steerPrefill,
   useBeachcomber,
