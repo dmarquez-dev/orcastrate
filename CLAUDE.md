@@ -12,9 +12,9 @@ wherever the two disagree.
 
 ### SIR sessions (every track, Small included)
 
-1. **Branch.** Fetch `origin` first, then branch from `origin/main`, named
-   `agent/<session-id>` per `.sir/config.json`. A Small session gets its branch too and
-   never commits in place on `main`.
+1. **Branch.** Fetch `origin` first, then branch from `origin/main`. The SIR plugin
+   names the branch. A Small session gets its branch too and never commits in place on
+   `main`.
 2. **Gate 3 approval does not merge.** Skip `merge-session`. On approval:
    - Commit the session's records onto the feature branch, in the session worktree:
      `.sir/sessions/<id>/`, plus the Gate 3 edits to `.sir/backlog.md`. These files are
@@ -25,11 +25,11 @@ wherever the two disagree.
      recorded `WRAPPED` in the commit the PR carries, so the PR holds the code, the
      records and the lessons together.
    - Gate 3's push question means pushing the feature branch:
-     `git push -u origin agent/<session-id>`.
+     `git push -u origin <branch>`.
 3. **Hand over the PR.** Give the user the branch name and the compare link
-   `https://github.com/dmarquez-dev/orcastrate/compare/main...agent/<session-id>?expand=1`.
+   `https://github.com/dmarquez-dev/orcastrate/compare/main...<branch>?expand=1`.
 4. **Wait for the merge in the same session.** Do not finish until the PR has merged.
-   - Check with `gh pr view agent/<session-id> --json state,mergedAt` if `gh` is
+   - Check with `gh pr view <branch> --json state,mergedAt` if `gh` is
      installed.
    - Otherwise, after `git fetch origin`, check that
      `git merge-base --is-ancestor <branch tip> origin/main` succeeds.
@@ -46,7 +46,7 @@ wherever the two disagree.
 
 ### `/sir:sir-tend` and other bookkeeping
 
-A tend, or any other `.sir/` edit outside a session, works the same way. Branch
-`agent/tend-<YYYYMMDD>` off `origin/main` in the main checkout, commit there, and push
-the branch. Then wait for the PR to merge, switch back to `main` and run
+A tend, or any other `.sir/` edit outside a session, works the same way. Branch off
+`origin/main` in the main checkout, using the SIR plugin's branch naming, commit there,
+and push the branch. Then wait for the PR to merge, switch back to `main` and run
 `git pull --ff-only`.
