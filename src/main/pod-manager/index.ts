@@ -12,6 +12,7 @@ export {
   PENDING_ECHO_TTL_MS,
 } from './pending-echo';
 export type { PendingEcho } from './pending-echo';
+export { AUTO_MODE_SUPPORT_READ_TIMEOUT_MS, autoModeSupportOf } from './auto-mode-support';
 export { createPushes } from './pushes';
 export type { Pushes, SendToRenderer } from './pushes';
 export { ROUTING_MODE } from './routing-mode';

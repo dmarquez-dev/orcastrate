@@ -24,6 +24,7 @@ const EXPECTED_MEMBERS = [
   'stop',
   'sendToAgent',
   'supportedCommands',
+  'supportedModels',
 ] as const;
 
 function membersOf(instance: object): string[] {

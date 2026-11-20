@@ -99,8 +99,8 @@ describe('schema shape (criteria 2, 3)', () => {
       .prepare<unknown[], { version: number }>('SELECT version FROM schema_version ORDER BY version')
       .all()
       .map((r) => r.version);
-    expect(applied).toEqual([1, 2, 3, 4, 5]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
   });
 
   it('constrains pods.status to closed|idle|running|waiting|beached at the database level', () => {
@@ -144,29 +144,26 @@ describe('schema shape (criteria 2, 3)', () => {
     );
   });
 
-  it('constrains pods.permission_mode to the four modes Orcastrate exposes', () => {
+  it('constrains pods.permission_mode to the six SDK permission modes', () => {
     const path = tempDbPath();
     const store = fileStore(path);
     store.migrate();
     const pod = store.createPod(podInput());
     const db = rawDb(path);
 
-    // Every exposed mode is accepted after migration 2. `acceptEdits` used to
-    // be the rejected example here; migration 2 widened the constraint to
-    // include it.
-    for (const valid of ['default', 'acceptEdits', 'plan', 'bypassPermissions']) {
+    // Every SDK mode is accepted at the schema head; migration 6 widened the
+    // constraint to the six the SDK declares.
+    for (const valid of ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'dontAsk', 'auto']) {
       expect(() =>
         db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(valid, pod.id),
       ).not.toThrow();
     }
 
-    // The negative case keeps a named mode behind it: CLI 2.1.235 accepts all
-    // three of these, and Orcastrate deliberately does not expose them.
-    for (const hidden of ['dontAsk', 'auto', 'manual']) {
-      expect(() =>
-        db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(hidden, pod.id),
-      ).toThrowError(/CHECK constraint failed/i);
-    }
+    // The negative case keeps a named mode behind it: CLI 2.1.235 accepts
+    // `manual`, and the SDK's union does not declare it.
+    expect(() =>
+      db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run('manual', pod.id),
+    ).toThrowError(/CHECK constraint failed/i);
   });
 
   it('accepts an acceptEdits Pod through the store API after migration', () => {

@@ -231,13 +231,13 @@ describe('migration 3 does not rewrite an already-migrated database', () => {
     store.close();
 
     const after = appliedStamps(fixture.path);
-    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4, 5]);
+    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4, 5, 6]);
     // The proof that migrations 1 and 2 were NOT re-run: re-running them would
     // insert (or replace) their schema_version rows with a fresh stamp.
     expect(after[1]).toBe(fixture.applied[1]);
     expect(after[2]).toBe(fixture.applied[2]);
     expect(after[3]).not.toBe(fixture.applied[2]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
   });
 
   it('carries every pod, lane and event across the rebuild byte-identically', () => {
@@ -416,18 +416,16 @@ describe('the widened status CHECK', () => {
     );
   });
 
-  it('still refuses the permission modes the product does not expose', () => {
+  it('still refuses manual, which is no SDK permission mode', () => {
     const fixture = makeV2Database();
     const store = fileStore(fixture.path);
     store.migrate();
     store.close();
 
     const db = rawDb(fixture.path);
-    for (const hidden of ['dontAsk', 'auto', 'manual']) {
-      expect(() =>
-        db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(hidden, 'pod-a'),
-      ).toThrowError(/CHECK constraint failed/i);
-    }
+    expect(() =>
+      db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run('manual', 'pod-a'),
+    ).toThrowError(/CHECK constraint failed/i);
   });
 
   it('a store-created Pod is born closed and survives the round trip', () => {

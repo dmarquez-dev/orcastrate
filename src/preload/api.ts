@@ -11,6 +11,7 @@
 import {
   EVENT_CHANNELS,
   INVOKE_CHANNELS,
+  type AutoModeSupportPush,
   type CreatePodRequest,
   type DeletePodRequest,
   type IpcResult,
@@ -168,6 +169,8 @@ export function createOrcastrateApi(ipc: PreloadIpc): OrcastrateApi {
         subscribe(EVENT_CHANNELS.helmChanged, cb),
       podCommands: (cb: (p: PodCommandsPush) => void) =>
         subscribe(EVENT_CHANNELS.podCommands, cb),
+      autoModeSupport: (cb: (p: AutoModeSupportPush) => void) =>
+        subscribe(EVENT_CHANNELS.autoModeSupport, cb),
     },
   };
 }

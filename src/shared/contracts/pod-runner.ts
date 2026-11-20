@@ -338,6 +338,21 @@ export interface PodRunner {
    *   and after `stop()`, the same as `send`.
    */
   supportedCommands?(): Promise<unknown>;
+
+  /**
+   * The session's model list, read from the SDK's `Query.supportedModels()`.
+   *
+   * OPTIONAL, so a runner double that has no model list stays a valid
+   * `PodRunner`; a caller that finds the member absent reads nothing.
+   *
+   * - It resolves the SDK's answer UNVALIDATED, exactly as the SDK returned it.
+   *   The caller (the manager) interprets it; the runner does not.
+   * - It resolves `null` when the SDK bridge under this runner offers no
+   *   model list at all, which is distinct from an empty list.
+   * - It rejects with a `PodRunnerError` of code `NOT_RUNNING` before `start()`
+   *   and after `stop()`, the same as `send`.
+   */
+  supportedModels?(): Promise<unknown>;
 }
 
 export type CreatePodRunner = (options: PodRunnerOptions) => PodRunner;

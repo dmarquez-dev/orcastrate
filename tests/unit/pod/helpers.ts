@@ -82,6 +82,8 @@ export interface FakeSdk {
   readonly promptClosed: boolean;
   /** How many times the runner called the session's `supportedCommands`. */
   readonly supportedCommandsCalls: number;
+  /** How many times the runner called the session's `supportedModels`. */
+  readonly supportedModelsCalls: number;
   bridge:(params: { prompt: AsyncIterable<unknown>; options: SdkOptions }) => SdkSession;
 }
 
@@ -105,6 +107,11 @@ export interface FakeSdkOptions {
    * `supportedCommands` member at all — a bridge with no command surface.
    */
   supportedCommands?: () => Promise<unknown>;
+  /**
+   * The session's `supportedModels` answer. Omitted, the session has NO
+   * `supportedModels` member at all — a bridge with no model list.
+   */
+  supportedModels?: () => Promise<unknown>;
 }
 
 export function makeFakeSdk(opts: FakeSdkOptions = {}): FakeSdk {
@@ -121,8 +128,9 @@ export function makeFakeSdk(opts: FakeSdkOptions = {}): FakeSdk {
   });
   initPromise.catch(() => undefined);
 
-  const state = { interrupts: 0, supportedCommandsCalls: 0 };
+  const state = { interrupts: 0, supportedCommandsCalls: 0, supportedModelsCalls: 0 };
   const answerCommands = opts.supportedCommands;
+  const answerModels = opts.supportedModels;
   const permissionModes: string[] = [];
 
   const fake: FakeSdk = {
@@ -140,6 +148,9 @@ export function makeFakeSdk(opts: FakeSdkOptions = {}): FakeSdk {
     },
     get supportedCommandsCalls() {
       return state.supportedCommandsCalls;
+    },
+    get supportedModelsCalls() {
+      return state.supportedModelsCalls;
     },
     permissionModes,
     emit(item) {
@@ -219,6 +230,14 @@ export function makeFakeSdk(opts: FakeSdkOptions = {}): FakeSdk {
               supportedCommands(): Promise<unknown> {
                 state.supportedCommandsCalls += 1;
                 return answerCommands();
+              },
+            }
+          : {}),
+        ...(answerModels !== undefined
+          ? {
+              supportedModels(): Promise<unknown> {
+                state.supportedModelsCalls += 1;
+                return answerModels();
               },
             }
           : {}),

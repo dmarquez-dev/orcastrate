@@ -54,16 +54,18 @@ installUnhandledRejectionGuard();
 
 /**
  * THE TYPE-LEVEL CHECK. An object literal annotated `Record<PermissionMode, T>`
- * must name every member of the union and may name nothing else, so this line
- * stops compiling the moment a fifth mode is added to `events.ts` or one of the
- * four is removed. That is what makes the runtime assertions below exhaustive
- * rather than a count of four written down twice.
+ * must name every member of the union and may name nothing else. The union is
+ * derived from the SDK's `PermissionMode`, so this literal stops compiling the
+ * moment an SDK upgrade adds a mode or removes one. That is what makes the
+ * runtime assertions below exhaustive rather than a count written down twice.
  */
 const EVERY_PERMISSION_MODE: Record<PermissionMode, true> = {
   default: true,
   acceptEdits: true,
   plan: true,
   bypassPermissions: true,
+  dontAsk: true,
+  auto: true,
 };
 
 const ALL_MODES = Object.keys(EVERY_PERMISSION_MODE) as PermissionMode[];
@@ -85,6 +87,23 @@ describe('PERMISSION_MODE_OPTIONS', () => {
     const modes = PERMISSION_MODE_OPTIONS.map((option) => option.mode);
     expect([...modes].sort()).toEqual([...ALL_MODES].sort());
     expect(new Set(modes).size).toBe(modes.length);
+  });
+
+  it('lists the modes in display order, with the danger option last', () => {
+    expect(PERMISSION_MODE_OPTIONS.map((option) => option.mode)).toEqual([
+      'default',
+      'acceptEdits',
+      'plan',
+      'dontAsk',
+      'auto',
+      'bypassPermissions',
+    ]);
+  });
+
+  it('marks bypassPermissions, and only bypassPermissions, as a danger option', () => {
+    expect(PERMISSION_MODE_OPTIONS.filter((option) => option.danger).map((option) => option.mode)).toEqual([
+      'bypassPermissions',
+    ]);
   });
 
   it('renders one option in the New Pod dialog per union member', async () => {

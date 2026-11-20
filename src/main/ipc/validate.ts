@@ -31,7 +31,7 @@ import type {
   ReadEventsRequest,
   UpdatePodRequest,
 } from '../../shared/contracts/ipc';
-import { isAllowedPermissionMode } from '../pod';
+import { ALLOWED_PERMISSION_MODES, isAllowedPermissionMode } from '../pod';
 
 // From the leaf, not `./errors`: this module only RAISES failures, it never
 // classifies one, and `./errors.ts` would pull `../pod` and `../store` in.
@@ -70,10 +70,15 @@ export function requirePodId(value: unknown): string {
   return requireString(value, 'podId');
 }
 
+/**
+ * Accepts exactly the modes `isAllowedPermissionMode` accepts. The message is
+ * built from `ALLOWED_PERMISSION_MODES`, never from a hand-written list, so it
+ * cannot drift from the guard it reports on.
+ */
 export function requirePermissionMode(value: unknown): PermissionMode {
   if (!isAllowedPermissionMode(value)) {
     throw invalidArgument(
-      `permissionMode must be one of default, acceptEdits, plan, bypassPermissions (received ${JSON.stringify(value)})`,
+      `permissionMode must be one of ${ALLOWED_PERMISSION_MODES.join(', ')} (received ${JSON.stringify(value)})`,
     );
   }
   return value;

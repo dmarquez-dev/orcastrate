@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type JSX } from 'react';
 import type { Pod, PodId } from '@shared/contracts/events';
 import type { ActionResult } from '../contracts/renderer-state';
 import { useNotify } from '../notifications';
-import { usePods, useWorkspaceActions } from '../state';
+import { useAutoModeSupport, usePods, useWorkspaceActions } from '../state';
 import { TEST_IDS, type NewPodDraft } from '../contracts/renderer-view';
 import { testId } from '../shell/contract-runtime';
 import { DeletePodDialog } from './DeletePodDialog';
@@ -48,6 +48,7 @@ export function PodsChrome({
 }: PodsChromeProps): JSX.Element {
   const pods = usePods();
   const actions = useWorkspaceActions();
+  const autoModeSupported = useAutoModeSupport();
   const notifier = useNotify();
   const [createError, setCreateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -367,6 +368,7 @@ export function PodsChrome({
       ) : null}
 
       <NewPodDialog
+        autoModeSupported={autoModeSupported}
         browse={actions.pickDirectory}
         error={createError}
         fallbackFocusRef={chromeRef}

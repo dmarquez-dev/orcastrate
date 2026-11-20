@@ -26,6 +26,7 @@ const PUSH_METHODS = [
   'permissionRequested',
   'permissionResolved',
   'podCommands',
+  'autoModeSupport',
 ] as const satisfies readonly (keyof Pushes)[];
 
 describe('recordAttempts forwards every argument to the underlying method', () => {

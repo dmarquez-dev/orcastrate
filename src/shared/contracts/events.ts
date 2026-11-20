@@ -124,37 +124,34 @@ export type LaneStatus = 'running' | 'done' | 'orphaned' | 'stopped';
 export type LaneKind = 'matriarch' | 'calf';
 
 /**
- * The FOUR permission modes Orcastrate exposes:
- * `default`, `acceptEdits`, `plan`, `bypassPermissions`.
+ * The permission modes a Pod can run in. DERIVED from the SDK, not written by
+ * hand: this is a type-only alias of the `PermissionMode` that
+ * `@anthropic-ai/claude-agent-sdk` exports, so the product's permission
+ * surface is exactly the SDK's. Nothing is imported at runtime.
  *
- * This is the product's full permission surface. Every one of the four is
- * selectable in the UI, accepted by the IPC validator, accepted by the
- * PodRunner guard, and permitted by the `pods.permission_mode` CHECK
- * constraint. Treat this union as the single source of truth for that surface.
+ * Every runtime list of modes in the product must be EXACT over this union in
+ * BOTH directions, and `npm run typecheck` fails otherwise:
+ *   - a list member that is not a union member fails the build through the
+ *     list's `satisfies readonly PermissionMode[]` clause;
+ *   - a union member missing from the list fails the build through a `never`
+ *     assertion routed through a generic constraint (`T extends never`), not
+ *     through an empty-array assignment, which is assignable to any array type
+ *     and so never fails.
+ * The lists this applies to are `ALLOWED_PERMISSION_MODES` in
+ * `src/main/pod/options.ts`, the live `PERMISSION_MODES` and the schema-head
+ * list of the newest migration that rebuilds `pods` in
+ * `src/main/store/schema.ts`, and the `EVERY_PERMISSION_MODE` record in
+ * `src/renderer/src/__tests__/wording.e2e.test.tsx`, which is what keeps the
+ * New Pod dialog's options exhaustive. So an SDK upgrade that adds or removes
+ * a mode breaks the build at each of those lists until it is followed, and
+ * widening the SQLite CHECK means a NEW migration, never an edit to a shipped
+ * one.
  *
- * It is deliberately NARROWER than the platform. CLI 2.1.235 accepts seven
- * modes — `default, plan, acceptEdits, bypassPermissions, dontAsk, auto,
- * manual` (verbatim commander rejection quoted in `findings.json`
- * `optionsVerified`). `dontAsk`, `auto` and `manual` are a deliberate product
- * omission and must stay rejected at every layer; the negative tests in
- * `tests/unit/pod/options.test.ts`, `tests/unit/ipc/envelope.test.ts` and
- * `tests/unit/store/schema.test.ts` are named after them.
- *
- * History, so no future reader re-derives it wrongly: this union was three
- * values (`acceptEdits` excluded) up to and including the previous session.
- * The stated reason was "the SDK enum has no `acceptEdits`", which was read
- * from documentation and is FALSE — Gate 3 amendment E2 corrected the
- * justification, and this amendment widens the union itself. Widening was a
- * product decision, not a bug fix, and it required a new schema migration
- * (migration 2 in `src/main/store/schema.ts`) because migration 1's CHECK
- * constraint had already shipped with the three-value list.
- *
- * Adding a fifth mode means: this union, `ALLOWED_PERMISSION_MODES` in
- * `src/main/pod/options.ts`, `PERMISSION_MODES` in
- * `src/main/store/schema.ts`, the `requirePermissionMode` message in
- * `src/main/ipc/validate.ts`, and a NEW migration. Never edit a shipped one.
+ * `manual` is accepted by CLI 2.1.235 but is NOT a member of the SDK's union,
+ * so it stays rejected at every layer: the runtime guard, the IPC validator
+ * and the `pods.permission_mode` CHECK.
  */
-export type PermissionMode = 'default' | 'acceptEdits' | 'plan' | 'bypassPermissions';
+export type PermissionMode = import('@anthropic-ai/claude-agent-sdk').PermissionMode;
 
 // ---------------------------------------------------------------------------
 // Lane

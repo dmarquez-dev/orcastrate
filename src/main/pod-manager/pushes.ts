@@ -15,6 +15,7 @@
 
 import {
   EVENT_CHANNELS,
+  type AutoModeSupportPush,
   type LaneChangedPush,
   type PermissionRequestedPush,
   type PermissionResolvedPush,
@@ -33,6 +34,8 @@ export interface Pushes {
   permissionResolved(payload: PermissionResolvedPush): void;
   /** A snapshot, so it is sent even when `commands` is empty. */
   podCommands(payload: PodCommandsPush): void;
+  /** The app-level cached auto-mode flag; the caller sends it only on change. */
+  autoModeSupport(payload: AutoModeSupportPush): void;
 }
 
 export function createPushes(send: SendToRenderer): Pushes {
@@ -56,6 +59,9 @@ export function createPushes(send: SendToRenderer): Pushes {
     },
     podCommands(payload) {
       send(EVENT_CHANNELS.podCommands, payload);
+    },
+    autoModeSupport(payload) {
+      send(EVENT_CHANNELS.autoModeSupport, payload);
     },
   };
 }

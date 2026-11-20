@@ -820,5 +820,38 @@ export declare function usePermissionCards(laneId: LaneId | null): PermissionCar
  */
 export declare function useSlashCommands(): readonly SlashCommandInfo[];
 
+/**
+ * Main's cached answer to "does the model support auto mode", as the renderer
+ * last received it.
+ *
+ * - `true`: the most recent Pod that produced a defined answer said its model
+ *   supports auto mode.
+ * - `false`: that Pod said its model does not.
+ * - `null`: the renderer has received no push since its workspace store
+ *   started. Main pushes only when its cached value changes, so after a
+ *   renderer reload this holds until main's cached value next changes.
+ *
+ * Main derives a Pod's answer from that Pod's `Query.supportedModels()` list
+ * and the `model` of its latest `system`/`init`: the matching entries are the
+ * object entries whose `value` or `resolvedModel` strictly equals that model;
+ * the answer is `true` if any matching entry has `supportsAutoMode === true`,
+ * else `false` if any has `supportsAutoMode === false`, else undefined. A Pod
+ * with no defined answer leaves the cached value as it was, and a cached
+ * value outlives the Pod that produced it.
+ */
+export type AutoModeSupport = boolean | null;
+
+/**
+ * The latest `push:autoModeSupport` value; `null` before the first push. Must
+ * be called under `WorkspaceProvider`, like every other hook here, and throws
+ * the same error they throw outside it. Never fetches: reading the hook issues
+ * no IPC call.
+ *
+ * App-level, not per Pod, and adds no field to `WorkspaceStore`. The store
+ * subscribes to `on.autoModeSupport` in `start()` together with the other
+ * push channels and calls the returned unsubscribe exactly once in `stop()`.
+ */
+export declare function useAutoModeSupport(): AutoModeSupport;
+
 /** Actions are referentially stable for the provider's lifetime. */
 export declare function useWorkspaceActions(): WorkspaceActions;

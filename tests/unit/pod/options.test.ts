@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 
 import findings from '../../fixtures/protocol/findings.json';
+import type { PermissionMode } from '../../../src/shared/contracts/events';
 import { createPodRunnerWith } from '../../../src/main/pod';
 import {
   ALLOWED_PERMISSION_MODES,
@@ -54,35 +55,75 @@ describe('SDK options (criterion 3)', () => {
   });
 });
 
-describe('permissionMode is restricted to four values (criterion 3)', () => {
-  it('allows exactly default | acceptEdits | plan | bypassPermissions', () => {
+/**
+ * One key per member of the SDK-derived `PermissionMode` union. A
+ * `Record<PermissionMode, true>` literal fails to compile if it misses a member
+ * or names a non-member, so its keys are the union's members as the compiler
+ * sees them — which is what ties the allow-list's count to the SDK rather than
+ * to a number written twice.
+ */
+const EVERY_SDK_PERMISSION_MODE: Record<PermissionMode, true> = {
+  default: true,
+  acceptEdits: true,
+  plan: true,
+  bypassPermissions: true,
+  dontAsk: true,
+  auto: true,
+};
+
+describe('permissionMode is exactly the SDK union (criterion 3)', () => {
+  it('allows exactly the six SDK modes, in the allow-list order', () => {
     expect([...ALLOWED_PERMISSION_MODES]).toEqual([
       'default',
       'acceptEdits',
       'plan',
       'bypassPermissions',
+      'dontAsk',
+      'auto',
     ]);
   });
 
-  // Inverted from "does not accept acceptEdits at runtime". `acceptEdits` is
-  // now part of the exposed product surface; `dontAsk` inherits the
-  // known-unexposed role so the negative path keeps a named mode behind it.
+  it('holds exactly the members of the PermissionMode union, no more and no fewer', () => {
+    expect([...ALLOWED_PERMISSION_MODES].sort()).toEqual(Object.keys(EVERY_SDK_PERMISSION_MODE).sort());
+  });
+
+  it('isAllowedPermissionMode accepts each of the six modes', () => {
+    for (const mode of ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'dontAsk', 'auto']) {
+      expect(isAllowedPermissionMode(mode)).toBe(true);
+    }
+  });
+
+  it('isAllowedPermissionMode rejects manual, an unknown mode, a number and null', () => {
+    for (const value of ['manual', 'root', 42, null]) {
+      expect(isAllowedPermissionMode(value)).toBe(false);
+    }
+  });
+
   it('accepts acceptEdits at construction', () => {
     const sdk = makeFakeSdk({ autoInitialize: true });
     expect(() =>
       createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'acceptEdits' })),
     ).not.toThrow();
-    expect(isAllowedPermissionMode('acceptEdits')).toBe(true);
   });
 
-  it('still rejects a mode the product does not expose at construction', () => {
+  it('accepts auto at construction', () => {
+    const sdk = makeFakeSdk({ autoInitialize: true });
+    expect(() => createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'auto' }))).not.toThrow();
+  });
+
+  it('accepts dontAsk at construction', () => {
+    const sdk = makeFakeSdk({ autoInitialize: true });
+    const construct = (): unknown => createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'dontAsk' }));
+    expect(construct).not.toThrow();
+  });
+
+  it('still rejects manual, which the SDK union does not declare, at construction', () => {
     const sdk = makeFakeSdk({ autoInitialize: true });
     expect(() =>
       // @ts-expect-error criterion 3: the TYPE rejects it too. This directive
       // failing to be "unused" is itself the type-level half of the assertion.
-      createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'dontAsk' })),
+      createPodRunnerWith(sdk.bridge)(podOptions({ permissionMode: 'manual' })),
     ).toThrow(/unsupported permissionMode/);
-    expect(isAllowedPermissionMode('dontAsk')).toBe(false);
   });
 
   it('accepts acceptEdits through setPermissionMode too', async () => {
@@ -91,26 +132,25 @@ describe('permissionMode is restricted to four values (criterion 3)', () => {
     expect(sdk.permissionModes).toEqual(['acceptEdits']);
   });
 
-  it('still rejects an unexposed mode through setPermissionMode', async () => {
+  it('forwards auto to the SDK through setPermissionMode', async () => {
+    const { runner, sdk } = await startWith();
+    await runner.setPermissionMode('auto');
+    expect(sdk.permissionModes).toEqual(['auto']);
+  });
+
+  it('still rejects manual through setPermissionMode', async () => {
     const { runner } = await startWith();
     await expect(
       // @ts-expect-error same, on the mid-session path.
-      runner.setPermissionMode('dontAsk'),
+      runner.setPermissionMode('manual'),
     ).rejects.toThrow(/unsupported permissionMode/);
   });
 
-  it('rejects the other real CLI modes the product deliberately hides', () => {
-    for (const mode of ['dontAsk', 'auto', 'manual']) {
-      expect(isAllowedPermissionMode(mode)).toBe(false);
-    }
-  });
-
-  it('records that the restriction is a PRODUCT choice, not a platform limit', () => {
-    // T2 measured the real CLI: it accepts seven modes. Orcastrate exposes four
-    // and hides three. This test is the standing evidence that the remaining
-    // restriction is a product decision, not a platform limit.
-    expect(findings.optionsVerified.permissionModeValues).toContain('acceptEdits');
-    expect(findings.optionsVerified.permissionModeValues).toContain('dontAsk');
+  it('records that the CLI accepts manual, which is why the guard must reject it', () => {
+    // The real CLI 2.1.235 accepts seven modes: the SDK's six plus `manual`.
+    // `manual` reaching the CLI would be a mode the SDK's types never declared.
+    expect(findings.optionsVerified.permissionModeValues).toContain('manual');
+    expect(Object.keys(EVERY_SDK_PERMISSION_MODE)).not.toContain('manual');
   });
 
   it('accepts a valid mode change and forwards it to the SDK', async () => {

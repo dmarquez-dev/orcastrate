@@ -51,8 +51,8 @@ describe('migration 1 is frozen (criterion 4)', () => {
   });
 
   it('widening happens in migration 2, which is the head of the list', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(5);
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(6);
     expect(migration(2)).toContain(
       `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions'])})`,
     );
@@ -223,7 +223,7 @@ describe('migration 2 preserves data (criterion 5)', () => {
       rawDb(before.path)
         .prepare<unknown[], { v: number }>('SELECT MAX(version) AS v FROM schema_version')
         .get()?.v,
-    ).toBe(5);
+    ).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('leaves no orphaned rows: PRAGMA foreign_key_check is clean afterwards', () => {
@@ -254,7 +254,7 @@ describe('migration 2 preserves data (criterion 5)', () => {
     expect(db.prepare<unknown[], { n: number }>('SELECT COUNT(*) AS n FROM pods').get()?.n).toBe(1);
   });
 
-  it('the migrated table takes acceptEdits and still refuses the unexposed modes', () => {
+  it('the migrated table takes acceptEdits and still refuses manual, which is no SDK mode', () => {
     const fixture = makeV1Database();
     const store = fileStore(fixture.path);
     store.migrate();
@@ -264,11 +264,9 @@ describe('migration 2 preserves data (criterion 5)', () => {
     expect(() =>
       db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run('acceptEdits', 'pod-a'),
     ).not.toThrow();
-    for (const hidden of ['dontAsk', 'auto', 'manual']) {
-      expect(() =>
-        db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run(hidden, 'pod-a'),
-      ).toThrowError(/CHECK constraint failed/i);
-    }
+    expect(() =>
+      db.prepare('UPDATE pods SET permission_mode = ? WHERE id = ?').run('manual', 'pod-a'),
+    ).toThrowError(/CHECK constraint failed/i);
   });
 
   it('does not disturb the rest of the schema: only pods is rebuilt', () => {
@@ -293,7 +291,7 @@ describe('migration 2 preserves data (criterion 5)', () => {
     // Migration 5 adds the one new object: the index on pods.forked_from_pod_id.
     expect(Object.keys(after)).toEqual([...Object.keys(before), 'idx_pods_forked_from'].sort());
     for (const name of Object.keys(before)) {
-      // `pods` is rebuilt by migrations 2 and 3, `lanes` by migration 4. The
+      // `pods` is rebuilt by migrations 2, 3 and 6, `lanes` by migration 4. The
       // four lane indexes are dropped with the old table and recreated
       // verbatim, so their DDL text must still compare equal — which is what
       // makes leaving them out of this skip list load-bearing.
@@ -340,7 +338,7 @@ describe('migrate() at version 2 (criterion 6)', () => {
           "SELECT group_concat(version, ',') AS versions FROM (SELECT version FROM schema_version ORDER BY version)",
         )
         .get()?.versions,
-    ).toBe('1,2,3,4,5');
+    ).toBe('1,2,3,4,5,6');
   });
 
   it('is idempotent on a fresh file migrated straight to 2', () => {
@@ -356,7 +354,7 @@ describe('migrate() at version 2 (criterion 6)', () => {
       rawDb(path)
         .prepare<unknown[], { n: number }>('SELECT COUNT(*) AS n FROM schema_version')
         .get()?.n,
-    ).toBe(5);
+    ).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('still throws SCHEMA_MISMATCH above CURRENT_SCHEMA_VERSION', () => {

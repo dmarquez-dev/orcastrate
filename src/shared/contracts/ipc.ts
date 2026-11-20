@@ -132,6 +132,8 @@ export const EVENT_CHANNELS = {
   helmChanged: 'push:helmChanged',
   /** One Pod's visible slash-command list. See `PodCommandsPush`. */
   podCommands: 'push:podCommands',
+  /** The app-level cached auto-mode flag, on change only. See `AutoModeSupportPush`. */
+  autoModeSupport: 'push:autoModeSupport',
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -354,6 +356,29 @@ export interface PodCommandsPush {
   commands: SlashCommandInfo[];
 }
 
+/**
+ * Main's cached answer to "does the model support auto mode", one value for
+ * the whole app, not per Pod.
+ *
+ * Main derives a Pod's answer from two values of that Pod's SDK session: the
+ * model list `Query.supportedModels()` returns, and the `model` string of the
+ * latest `system`/`init` message. The matching entries are the object entries
+ * whose `value` or `resolvedModel` strictly equals that model string; the
+ * answer is `true` if any matching entry has `supportsAutoMode === true`, else
+ * `false` if any has `supportsAutoMode === false`, else undefined.
+ *
+ * - A Pod with no defined answer leaves the cached value as it was.
+ * - A cached value outlives the Pod that produced it and lasts for the main
+ *   process's lifetime.
+ * - Main pushes only when the cached value changes, and never pushes `null`;
+ *   so a renderer that has received no push since its store started holds
+ *   `null`, including after a reload, until the cached value next changes.
+ */
+export interface AutoModeSupportPush {
+  /** The new cached value: whether the most recent defined answer said yes. */
+  supported: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // The object exposed on `window.orcastrate`
 // ---------------------------------------------------------------------------
@@ -515,6 +540,11 @@ export interface OrcastrateApi {
     helmChanged(cb: (p: HelmChangedPush) => void): Unsubscribe;
     /** A Pod's visible slash-command list, whole. The latest push wins. */
     podCommands(cb: (p: PodCommandsPush) => void): Unsubscribe;
+    /**
+     * Main's cached auto-mode flag, sent only when it changes and never as
+     * `null`. The latest push wins. See `AutoModeSupportPush`.
+     */
+    autoModeSupport(cb: (p: AutoModeSupportPush) => void): Unsubscribe;
   };
 
   /**

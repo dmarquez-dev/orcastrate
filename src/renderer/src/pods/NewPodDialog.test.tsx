@@ -11,6 +11,7 @@ import {
   PERMISSION_MODE_OPTIONS,
   TEST_IDS,
 } from '../contracts/renderer-view';
+import { testId } from '../shell/contract-runtime';
 import { ipcError } from '../test-utils';
 import { NewPodDialog } from './NewPodDialog';
 
@@ -28,6 +29,7 @@ function renderDialog(overrides: Partial<Parameters<typeof NewPodDialog>[0]> = {
   const browse = overrides.browse ?? pickResolving(PICKED);
   const result = render(
     <NewPodDialog
+      autoModeSupported={null}
       browse={browse}
       error={null}
       fallbackFocusRef={createRef<HTMLElement>()}
@@ -68,6 +70,7 @@ function Harness({
         </button>
       ) : null}
       <NewPodDialog
+        autoModeSupported={null}
         browse={pickResolving(PICKED)}
         error={null}
         fallbackFocusRef={fallbackRef}
@@ -95,6 +98,7 @@ function renderWithOutside(side: 'before' | 'after') {
     <>
       {side === 'before' ? outside : null}
       <NewPodDialog
+        autoModeSupported={null}
         browse={pickResolving(PICKED)}
         error={null}
         fallbackFocusRef={createRef<HTMLElement>()}
@@ -297,6 +301,7 @@ describe('NewPodDialog', () => {
     const message = ipcError('CWD_MISSING', 'ENOENT: no such directory').message;
     rerender(
       <NewPodDialog
+        autoModeSupported={null}
         browse={browse}
         error={message}
         fallbackFocusRef={createRef<HTMLElement>()}
@@ -346,4 +351,115 @@ describe('NewPodDialog', () => {
     renderDialog();
     expect(document.activeElement).toBe(screen.getByTestId(TEST_IDS.newPodTitleInput));
   });
+});
+
+/**
+ * Every member of the `PermissionMode` union, by a literal that stops
+ * compiling when the union gains or loses one. The radio assertions below are
+ * keyed by it rather than by `PERMISSION_MODE_OPTIONS`, so an option the array
+ * dropped would be missed here even if the array and the dialog agreed.
+ */
+const EVERY_MODE: Record<PermissionMode, true> = {
+  default: true,
+  acceptEdits: true,
+  plan: true,
+  dontAsk: true,
+  auto: true,
+  bypassPermissions: true,
+};
+
+const ALL_MODES = Object.keys(EVERY_MODE) as PermissionMode[];
+
+function modeRadio(mode: PermissionMode): HTMLInputElement | null {
+  return screen.queryByTestId<HTMLInputElement>(testId(TEST_IDS.newPodModeOption, mode));
+}
+
+function radioCount(container: HTMLElement): number {
+  return container.querySelectorAll('input[type="radio"]').length;
+}
+
+describe('NewPodDialog permission modes and the auto-mode flag', () => {
+  it('offers one radio per PermissionMode when nothing is cached (flag null)', () => {
+    const { container } = renderDialog({ autoModeSupported: null });
+
+    for (const mode of ALL_MODES) {
+      expect(modeRadio(mode), `radio for ${mode}`).not.toBeNull();
+    }
+    expect(radioCount(container)).toBe(ALL_MODES.length);
+  });
+
+  it('offers the same radios when the model supports auto mode (flag true)', () => {
+    const { container } = renderDialog({ autoModeSupported: true });
+
+    for (const mode of ALL_MODES) {
+      expect(modeRadio(mode), `radio for ${mode}`).not.toBeNull();
+    }
+    expect(radioCount(container)).toBe(ALL_MODES.length);
+  });
+
+  it('hides auto, and only auto, when the model does not support it (flag false)', () => {
+    const { container } = renderDialog({ autoModeSupported: false });
+
+    expect(screen.queryByTestId('new-pod-mode:auto')).toBeNull();
+    const others = ALL_MODES.filter((mode) => mode !== 'auto');
+    for (const mode of others) {
+      expect(modeRadio(mode), `radio for ${mode}`).not.toBeNull();
+    }
+    expect(others.length).toBe(5);
+    expect(radioCount(container)).toBe(5);
+  });
+
+  it('reads a selected auto that becomes hidden as default, and submits default', async () => {
+    const browse = pickResolving(PICKED);
+    const onCreate = vi.fn();
+    const dialog = (autoModeSupported: boolean | null) => (
+      <NewPodDialog
+        autoModeSupported={autoModeSupported}
+        browse={browse}
+        error={null}
+        fallbackFocusRef={createRef<HTMLElement>()}
+        onCancel={vi.fn()}
+        onCreate={onCreate}
+        open
+        submitting={false}
+      />
+    );
+    const { rerender } = render(dialog(null));
+    await fillValidDraft(browse);
+
+    fireEvent.click(screen.getByTestId(testId(TEST_IDS.newPodModeOption, 'auto')));
+    expect(modeRadio('auto')?.checked).toBe(true);
+    expect(modeRadio('default')?.checked).toBe(false);
+
+    rerender(dialog(false));
+
+    expect(modeRadio('auto')).toBeNull();
+    expect(modeRadio('default')?.checked).toBe(true);
+    fireEvent.click(screen.getByTestId(TEST_IDS.newPodSubmit));
+    expect(onCreate).toHaveBeenCalledTimes(1);
+    expect(onCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ permissionMode: 'default' satisfies PermissionMode }),
+    );
+  });
+
+  for (const mode of ['auto', 'dontAsk'] as const satisfies readonly PermissionMode[]) {
+    it(`submits ${mode} with no bypass warning and Create enabled`, async () => {
+      const browse = pickResolving(PICKED);
+      const { onCreate } = renderDialog({ browse, autoModeSupported: null });
+      await fillValidDraft(browse);
+
+      fireEvent.click(screen.getByTestId(testId(TEST_IDS.newPodModeOption, mode)));
+
+      expect(screen.queryByTestId(TEST_IDS.newPodBypassWarning)).toBeNull();
+      const submit = screen.getByTestId<HTMLButtonElement>(TEST_IDS.newPodSubmit);
+      expect(submit.disabled).toBe(false);
+      fireEvent.click(submit);
+      expect(onCreate).toHaveBeenCalledWith({
+        title: 'Refactor the router',
+        cwd: PICKED,
+        permissionMode: mode,
+        envOverrides: {},
+      });
+    });
+  }
 });
