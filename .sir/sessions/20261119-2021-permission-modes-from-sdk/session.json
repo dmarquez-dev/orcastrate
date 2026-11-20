@@ -1,0 +1,51 @@
+{
+  "id": "20261119-2021-permission-modes-from-sdk",
+  "name": "permission-modes-from-sdk",
+  "scope": "standard",
+  "status": "MERGED",
+  "pushed": true,
+  "brief": "Offer all six permission modes the Claude Agent SDK 0.3.235 declares (default, acceptEdits, plan, dontAsk, auto, bypassPermissions) for new Pods. Orcastrate's PermissionMode becomes a type-only alias of the SDK union, and every runtime list (the PodRunner allow-list, the IPC validator message, the schema-head list) is held exact over it by build-time guards, so an SDK that adds or removes a mode fails npm run typecheck. Migration 6 rebuilds pods to widen the permission_mode CHECK, carrying migration 5's ancestry columns, named FK and index; migration 3 is untouched. Main reads each Pod's supportedModels() answer and latest init model, caches the latest defined auto-mode answer app-wide and pushes it to the renderer on a new push channel; the New Pod dialog hides auto when that cached flag is false and shows it when true or nothing is cached. Danger treatment stays on bypassPermissions only. Three serial tasks: T1 database, T2 backend, T3 frontend.",
+  "started": "2026-11-19T20:21:24Z",
+  "ended": null,
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "5faf19c0-d784-4088-9bf5-66d1ab9e0d34",
+      "sir": "1.0.49",
+      "started": "2026-11-19T20:21:24Z",
+      "ended": "2026-11-19T20:25:03Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "24f109e8-ca6d-427a-a3e7-4ad218a86241",
+      "sir": "1.0.49",
+      "started": "2026-11-19T20:28:08Z",
+      "ended": "2026-11-19T21:28:08Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "02157749-72ad-4033-af63-b91633c8b8e1",
+      "sir": "1.0.49",
+      "started": "2026-11-19T21:30:39Z",
+      "ended": "2026-11-19T23:25:22Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "55962bf6-2f29-4744-8924-4ee871fd0647",
+      "sir": "1.0.49",
+      "started": "2026-11-19T23:56:25Z",
+      "ended": "2026-11-20T00:24:50Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 1,
+    "escalationsRaised": 0,
+    "reviewRounds": 0
+  }
+}

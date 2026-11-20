@@ -1,0 +1,92 @@
+{
+  "session": "20261119-2021-permission-modes-from-sdk",
+  "updatedAt": "2026-11-20T00:24:50Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261119-2021-permission-modes-from-sdk",
+  "branch": "agent/20261119-2021-permission-modes-from-sdk",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "typecheck:node and typecheck:web both ran tsc --noEmit with no diagnostics, exit=0"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "RUN v4.1.11 C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261119-2021-permission-modes-from-sdk; Test Files 173 passed (173); Tests 2862 passed (2862); exit=0"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "T1",
+      "status": "done",
+      "startRef": "3bb3007b31a2a568a02f2653bca184143ff821e7",
+      "model": "opus",
+      "revisionRounds": 1,
+      "redispatches": 0,
+      "commit": "0fc6ec4baf49d82ee6ec427d5993bb46f8226afe"
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "startRef": "0fc6ec4baf49d82ee6ec427d5993bb46f8226afe",
+      "model": "opus",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "commit": "958dbbb2c7066c3bd26f1d735865dfdfedba1079"
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "startRef": "958dbbb2c7066c3bd26f1d735865dfdfedba1079",
+      "model": "opus",
+      "revisionRounds": 0,
+      "redispatches": 0,
+      "commit": "3e22e1f0d043ad510c806ef532548dc43c4e46bd"
+    }
+  ],
+  "metrics": {
+    "userInteractions": 4,
+    "escalationsRaised": 1,
+    "reviewRounds": 1
+  },
+  "escalations": [
+    {
+      "id": "E1",
+      "taskId": "T1",
+      "reason": "ambiguous",
+      "resolved": true,
+      "question": "T1 C4 says the allow-list completeness guard is \"Shown in C9\", but C9 (removing auto from the union) cannot fire it: the satisfies clauses fail instead (TS2322 at options.ts(40,3)) and the guard's Exclude becomes never. The guard fires only in C10 (TS2344 at options.ts(51,3), reviewer-reproduced). How should C4 read?",
+      "options": [
+        {
+          "summary": "Amend C4 to read \"Shown in C10\" and accept the reproduced C10 window",
+          "rationale": "No code change; matches what C4 is for (a union member missing from the list fails typecheck), and C10 already demonstrates exactly that at options.ts(51,3).",
+          "evidence": {
+            "kind": "repo",
+            "sources": [
+              "src/main/pod/options.ts",
+              "reviews/T1.md"
+            ]
+          }
+        },
+        {
+          "summary": "Keep C4 as worded and add its own injection: drop one element from ALLOWED_PERMISSION_MODES only, expect TS2344 at options.ts:51",
+          "rationale": "Gives C4 a dedicated demonstration at the cost of one more injection in the revision round; still requires amending the C9 pointer, which cannot be true as written.",
+          "evidence": {
+            "kind": "judgment"
+          }
+        }
+      ],
+      "answer": "Point C4 at C10: amend C4 to read \"Shown in C10\" and accept the C10 window the reviewer reproduced (TS2344 at options.ts(51,3)); no code change for C4."
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E1",
+      "artifact": "manifest.json",
+      "before": "T1 C4 ends \"Shown in C9.\"",
+      "after": "T1 C4 ends \"Shown in C10.\"",
+      "inFlight": []
+    }
+  ]
+}
