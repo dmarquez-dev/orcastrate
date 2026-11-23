@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
-import type { Lane, Seq } from '@shared/contracts/events';
+import type { Lane, Seq, ToolUseId } from '@shared/contracts/events';
 
 import { PANE_TEST_IDS, TEST_IDS, type TranscriptPaneProps } from '../contracts/renderer-view';
 import { dispatchedLaneIdOf } from './DispatchCard';
@@ -126,6 +126,24 @@ export function TranscriptPane({
     }
     return bySeq;
   }, [events, lanes, routingMode]);
+
+  /**
+   * Tool names, keyed by `toolUseId` — a `tool_result` carries no name of its
+   * own, and `bashExitCode` needs one to tell a Bash exit from another tool's
+   * error.
+   *
+   * DERIVED FROM `view.events`, THE UNFILTERED STREAM, NOT FROM `events`. The
+   * call and its result are both conversation types today, but the result's
+   * label must not depend on which rows the reader has chosen to see. Computed,
+   * never stored: nothing here enters React state or the renderer store.
+   */
+  const toolNamesById = useMemo(() => {
+    const byId = new Map<ToolUseId, string>();
+    for (const event of view.events) {
+      if (event.payload.type === 'tool_use') byId.set(event.payload.toolUseId, event.payload.name);
+    }
+    return byId;
+  }, [view.events]);
 
   const handleScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -253,6 +271,11 @@ export function TranscriptPane({
                 key={event.seq}
                 event={event}
                 dispatchLanes={dispatchLanesBySeq.get(event.seq)}
+                resultToolName={
+                  event.payload.type === 'tool_result'
+                    ? toolNamesById.get(event.payload.toolUseId)
+                    : undefined
+                }
                 onJumpToLane={onJumpToLane}
               />
             ))}

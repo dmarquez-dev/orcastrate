@@ -9,13 +9,14 @@
  * be present, because `queryBy(...)` returning null is exactly what an empty
  * DOM returns too.
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EventPayload, EventType } from '@shared/contracts/events';
 
 import type { TranscriptPaneProps } from '../contracts/renderer-view';
+import styles from './Transcript.module.css';
 import { TranscriptPane } from './TranscriptPane';
 import { makeCalf, makeEvent, makeLane, makeView } from './test-fixtures';
 
@@ -241,6 +242,170 @@ describe('a FAILED tool result defaults to expanded and says so in words', () =>
     expect(screen.getByRole('button', { name: 'Show tool result (1 char)' }).getAttribute(
       'aria-expanded',
     )).toBe('false');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A Bash non-zero exit is an ordinary, labelled result — every other error is not
+// ---------------------------------------------------------------------------
+
+describe('a Bash non-zero exit renders as an ordinary, labelled result', () => {
+  const EXIT_1 = 'Exit code 1\nC:/tmp/out/';
+
+  /**
+   * A class from the imported `Transcript.module.css`, asserted real. Without
+   * the check, every `classList.contains(...)` negative here could be reading
+   * `undefined` and hold vacuously.
+   */
+  function className(key: string): string {
+    const name = styles[key];
+    if (name === undefined || name === '') {
+      throw new Error(`Transcript.module.css yields no class for "${key}"`);
+    }
+    return name;
+  }
+
+  /**
+   * A `tool_use` named `toolName` (omitted when `null`) followed by a
+   * `tool_result` for the same id. Returns the RESULT's row, asserted present.
+   */
+  function renderPair(
+    toolName: string | null,
+    content: unknown,
+    isError = true,
+  ): { row: HTMLElement } {
+    const events = [
+      ...(toolName === null
+        ? []
+        : [
+            makeEvent(1, {
+              type: 'tool_use',
+              toolUseId: 'toolu_x',
+              name: toolName,
+              input: { command: 'ls' },
+            }),
+          ]),
+      makeEvent(2, { type: 'tool_result', toolUseId: 'toolu_x', isError, content }),
+    ];
+    render(<TranscriptPane {...props({ view: makeView(events) })} />);
+    const row = screen.getByTestId('transcript-event:2');
+    expect(row.getAttribute('data-event-type')).toBe('tool_result');
+    return { row };
+  }
+
+  /** The error treatment: labelled in words, open on first render, styled as failed. */
+  function expectErrorTreatment(row: HTMLElement, content: string) {
+    expect(within(row).getByText('Tool result (error)')).toBeTruthy();
+    const button = within(row).getByRole('button', {
+      name: `Hide tool result (${content.length} chars)`,
+    });
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    const region = document.getElementById(button.getAttribute('aria-controls')!);
+    expect(region).not.toBeNull();
+    expect(region!.classList.contains(className('failed'))).toBe(true);
+    expect(region!.textContent).toBe(content);
+  }
+
+  it('labels a Bash exit "Tool result (exit 1)" and renders it collapsed', () => {
+    const { row } = renderPair('Bash', EXIT_1);
+
+    expect(within(row).getByText('Tool result (exit 1)')).toBeTruthy();
+    expect(within(row).queryByText('Tool result (error)')).toBeNull();
+
+    const button = within(row).getByRole('button', {
+      name: `Show tool result (${EXIT_1.length} chars)`,
+    });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(document.getElementById(button.getAttribute('aria-controls')!)).toBeNull();
+    expect(screen.queryByText(EXIT_1)).toBeNull();
+  });
+
+  it('once expanded, shows the content verbatim without the failed styling', async () => {
+    const user = userEvent.setup();
+    const { row } = renderPair('Bash', EXIT_1);
+
+    const button = within(row).getByRole('button', {
+      name: `Show tool result (${EXIT_1.length} chars)`,
+    });
+    await user.click(button);
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+
+    const region = document.getElementById(button.getAttribute('aria-controls')!);
+    expect(region).not.toBeNull();
+    expect(region!.textContent).toBe(EXIT_1);
+    expect(region!.textContent).toContain('Exit code 1');
+    // The positive first: the region carries its base class, so the negative
+    // below is read off a real class list.
+    expect(region!.classList.contains(className('eventCode'))).toBe(true);
+    expect(region!.classList.contains(className('failed'))).toBe(false);
+  });
+
+  it('labels a text-block array result "Tool result (exit 2)"', () => {
+    const { row } = renderPair('Bash', [
+      { type: 'text', text: 'Exit code 2\n/usr/bin/bash: -c: line 38: unexpected EOF' },
+    ]);
+    expect(within(row).getByText('Tool result (exit 2)')).toBeTruthy();
+    expect(within(row).getByRole('button', { name: /^Show tool result \(/ }).getAttribute(
+      'aria-expanded',
+    )).toBe('false');
+  });
+
+  it('keeps the error treatment for a non-Bash tool whose text starts "Exit code 1"', () => {
+    const { row } = renderPair('Read', EXIT_1);
+    expectErrorTreatment(row, EXIT_1);
+  });
+
+  it('keeps the error treatment when the matching tool_use is not loaded', () => {
+    const { row } = renderPair(null, EXIT_1);
+    expectErrorTreatment(row, EXIT_1);
+  });
+
+  it('keeps the error treatment for a Bash error with no Exit code line', () => {
+    const content = 'Error: permission denied';
+    const { row } = renderPair('Bash', content);
+    expectErrorTreatment(row, content);
+  });
+
+  it('labels a Bash result that is not an error exactly "Tool result", collapsed', () => {
+    const { row } = renderPair('Bash', EXIT_1, false);
+
+    const label = row.querySelector(`.${className('eventLabel')}`);
+    expect(label).not.toBeNull();
+    expect(label!.textContent).toBe('Tool result');
+
+    const button = within(row).getByRole('button', {
+      name: `Show tool result (${EXIT_1.length} chars)`,
+    });
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('recognises the exit in both filter modes, from the unfiltered stream', () => {
+    render(
+      <TranscriptPane
+        {...props({
+          view: makeView([
+            makeEvent(1, {
+              type: 'tool_use',
+              toolUseId: 'toolu_x',
+              name: 'Bash',
+              input: { command: 'ls' },
+            }),
+            // Plumbing: hidden in 'conversation', shown in 'everything', so the
+            // mode switch below is observable rather than assumed.
+            makeEvent(2, { type: 'thinking', text: 'pondering' }),
+            makeEvent(3, { type: 'tool_result', toolUseId: 'toolu_x', isError: true, content: EXIT_1 }),
+          ]),
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('transcript-event:2')).toBeNull();
+    expect(within(screen.getByTestId('transcript-event:3')).getByText('Tool result (exit 1)')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('transcript-filter:primary'));
+
+    expect(screen.getByTestId('transcript-event:2')).toBeTruthy();
+    expect(within(screen.getByTestId('transcript-event:3')).getByText('Tool result (exit 1)')).toBeTruthy();
   });
 });
 

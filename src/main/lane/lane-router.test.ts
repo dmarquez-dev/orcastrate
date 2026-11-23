@@ -195,11 +195,15 @@ describe('malformed input — 05-malformed (criterion 6)', () => {
       }).not.toThrow();
       return produced;
     });
-    // The corruptions are on lines 11, 13 and 15 (1-based).
+    // The deliberately bad lines are 11 (truncated JSON), 13 (not JSON) and 15
+    // (1-based). Line 15's `quantum_flux` is a type the fixture invented; an
+    // unknown type is malformed because the router has no route for it, not
+    // because only the routed types are real (`tool_progress` is real and
+    // routed, see "tool_progress heartbeats" below).
     for (const index of [10, 12, 14]) {
       expect(perLine[index]?.map((e) => e.payload.type)).toEqual(['malformed']);
     }
-    // The valid lines around them still produce events.
+    // The well-formed lines around them still produce events.
     for (const index of [9, 11, 13, 15]) {
       expect(perLine[index]?.length).toBeGreaterThan(0);
       expect(perLine[index]?.every((e) => e.payload.type !== 'malformed')).toBe(true);
@@ -390,5 +394,245 @@ describe('maxLaneDepth', () => {
     const alias = capped.getLaneByToolUseId('toolu_015KWKbkSggrkWHhrmaMsubr');
     expect(alias?.toolUseId).toBe('toolu_01HRtvRjfnEzDHHi12VzRDbq');
     expect(deep.depth).toBe(2);
+  });
+});
+
+describe('only an agent task_started opens a lane', () => {
+  const TOOL_USE = 'toolu_bash_1';
+  const TASK = 'task_bash_1';
+
+  function started(taskType?: string): Record<string, unknown> {
+    const message: Record<string, unknown> = {
+      type: 'system',
+      subtype: 'task_started',
+      task_id: TASK,
+      tool_use_id: TOOL_USE,
+      description: 'a background task',
+    };
+    if (taskType !== undefined) message['task_type'] = taskType;
+    return message;
+  }
+
+  const updatedCompleted = {
+    type: 'system',
+    subtype: 'task_updated',
+    task_id: TASK,
+    patch: { status: 'completed' },
+  };
+  const notificationCompleted = {
+    type: 'system',
+    subtype: 'task_notification',
+    task_id: TASK,
+    status: 'completed',
+  };
+  const progress = {
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: TASK,
+    tool_use_id: TOOL_USE,
+  };
+
+  function laneLifecycle(events: NewEvent[]): NewEvent[] {
+    return events.filter(
+      (event) => event.payload.type === 'lane_opened' || event.payload.type === 'lane_closed',
+    );
+  }
+
+  function systemSubtypes(events: NewEvent[]): { laneId: LaneId; subtype: string }[] {
+    return events
+      .filter((event) => event.payload.type === 'system')
+      .map((event) => ({
+        laneId: event.laneId,
+        subtype: (event.payload as { type: 'system'; subtype: string }).subtype,
+      }));
+  }
+
+  it('local_bash: task_started then a terminal task_updated opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_bash'));
+    const second = router.ingest(updatedCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_bash: its task_progress is one Matriarch system event and opens no lane', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    const produced = router.ingest(progress);
+    expect(produced).toHaveLength(1);
+    expect(produced[0]?.laneId).toBe(MATRIARCH);
+    expect(produced[0]?.payload.type).toBe('system');
+    expect(laneLifecycle(produced)).toEqual([]);
+  });
+
+  it('local_bash: a terminal task_notification opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_bash'));
+    const second = router.ingest(notificationCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_bash: the turn boundary has nothing to orphan', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    expect(router.onTurnBoundary()).toEqual([]);
+  });
+
+  it('local_bash: lanes(), getLaneByToolUseId and agentIds gain nothing', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    const lanes = router.lanes();
+    expect(lanes).toHaveLength(1);
+    expect(lanes[0]?.id).toBe(MATRIARCH);
+    expect(router.getLaneByToolUseId(TOOL_USE)).toBeNull();
+    expect([...router.agentIds().values()]).not.toContain(TASK);
+  });
+
+  it('local_bash: task_started, task_updated and task_notification each stay one Matriarch system event', () => {
+    const router = makeRouter();
+    const events = [
+      ...router.ingest(started('local_bash')),
+      ...router.ingest(updatedCompleted),
+      ...router.ingest(notificationCompleted),
+    ];
+    expect(systemSubtypes(events)).toEqual([
+      { laneId: MATRIARCH, subtype: 'task_started' },
+      { laneId: MATRIARCH, subtype: 'task_updated' },
+      { laneId: MATRIARCH, subtype: 'task_notification' },
+    ]);
+  });
+
+  it('local_workflow: another non-agent task_type opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_workflow'));
+    const second = router.ingest(updatedCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_agent: task_started then a terminal task_updated opens then closes one lane as done', () => {
+    const router = makeRouter();
+    const events = [...router.ingest(started('local_agent')), ...router.ingest(updatedCompleted)];
+    const opened = openedLanes(events);
+    expect(opened).toHaveLength(1);
+    expect(closes(events)).toEqual([{ type: 'lane_closed', laneId: opened[0]?.id, status: 'done' }]);
+    const lifecycle = laneLifecycle(events).map((event) => event.payload.type);
+    expect(lifecycle).toEqual(['lane_opened', 'lane_closed']);
+  });
+
+  it('no task_type field (omitted on purpose, as older CLIs send it): opens then closes one lane as done', () => {
+    const router = makeRouter();
+    const events = [...router.ingest(started()), ...router.ingest(updatedCompleted)];
+    const opened = openedLanes(events);
+    expect(opened).toHaveLength(1);
+    expect(closes(events)).toEqual([{ type: 'lane_closed', laneId: opened[0]?.id, status: 'done' }]);
+    const lifecycle = laneLifecycle(events).map((event) => event.payload.type);
+    expect(lifecycle).toEqual(['lane_opened', 'lane_closed']);
+  });
+});
+
+describe('tool_progress heartbeats', () => {
+  // Verbatim from a live CLI stream (the SDK's `SDKToolProgressMessage`).
+  const HEARTBEAT =
+    '{"type":"tool_progress","tool_use_id":"toolu_01CrUATENdEdH51LgQLmHxXj-heartbeat-0","tool_name":"Bash","parent_tool_use_id":"toolu_01CrUATENdEdH51LgQLmHxXj","elapsed_time_seconds":30,"heartbeat":true,"session_id":"85f2ae11-b177-4115-827f-6ef6a73c9058","uuid":"078b8513-5a39-4aef-a963-9aff6c452c13"}';
+
+  const LIFECYCLE = new Set(['malformed', 'lane_opened', 'lane_closed']);
+
+  function progressFor(parent: string, taskId?: string): Record<string, unknown> {
+    const message: Record<string, unknown> = {
+      type: 'tool_progress',
+      tool_use_id: `${parent}-heartbeat-0`,
+      tool_name: 'Bash',
+      parent_tool_use_id: parent,
+      elapsed_time_seconds: 30,
+      heartbeat: true,
+      session_id: 'probe',
+      uuid: 'probe',
+    };
+    if (taskId !== undefined) message['task_id'] = taskId;
+    return message;
+  }
+
+  it('the live heartbeat line is one Matriarch system event, not malformed', () => {
+    const router = makeRouter();
+    const events = router.ingest(HEARTBEAT);
+    expect(events).toHaveLength(1);
+    const [event] = events;
+    expect(event?.type).toBe('system');
+    expect(event?.laneId).toBe(MATRIARCH);
+    expect(event?.payload.type).toBe('system');
+    expect((event?.payload as { subtype: string }).subtype).toBe('tool_progress');
+    expect(events.filter((e) => LIFECYCLE.has(e.payload.type))).toEqual([]);
+
+    // R2: the received fields reach `payload.data` unchanged.
+    expect((event?.payload as { data: unknown }).data).toMatchObject({
+      tool_use_id: 'toolu_01CrUATENdEdH51LgQLmHxXj-heartbeat-0',
+      tool_name: 'Bash',
+      parent_tool_use_id: 'toolu_01CrUATENdEdH51LgQLmHxXj',
+      elapsed_time_seconds: 30,
+      heartbeat: true,
+    });
+  });
+
+  it('a heartbeat whose parent is an Agent-opened lane stays on the Matriarch and leaves lanes() alone', () => {
+    const router = makeRouter();
+    const DISPATCH = 'toolu_agent_dispatch_1';
+    const opened = router.ingest({
+      type: 'assistant',
+      parent_tool_use_id: null,
+      message: {
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool_use',
+            id: DISPATCH,
+            name: 'Agent',
+            input: { subagent_type: 'general-purpose', description: 'a calf' },
+          },
+        ],
+      },
+    });
+    expect(openedLanes(opened)).toHaveLength(1);
+    const before = JSON.stringify(router.lanes());
+
+    const events = router.ingest(progressFor(DISPATCH, 'task_agent_1'));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.laneId).toBe(MATRIARCH);
+    expect((events[0]?.payload as { subtype: string }).subtype).toBe('tool_progress');
+    expect(events.filter((e) => LIFECYCLE.has(e.payload.type))).toEqual([]);
+    expect(JSON.stringify(router.lanes())).toBe(before);
+  });
+
+  it('a heartbeat whose parent is a registered local_agent task never materializes it', () => {
+    const router = makeRouter();
+    const DISPATCH = 'toolu_agent_dispatch_2';
+    const TASK = 'task_agent_2';
+    router.ingest({
+      type: 'system',
+      subtype: 'task_started',
+      task_id: TASK,
+      tool_use_id: DISPATCH,
+      task_type: 'local_agent',
+      description: 'a registered calf',
+    });
+    const before = JSON.stringify(router.lanes());
+
+    const events = router.ingest(progressFor(DISPATCH, TASK));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.laneId).toBe(MATRIARCH);
+    expect((events[0]?.payload as { subtype: string }).subtype).toBe('tool_progress');
+    expect(events.filter((e) => LIFECYCLE.has(e.payload.type))).toEqual([]);
+    expect(JSON.stringify(router.lanes())).toBe(before);
+  });
+
+  it('any other unknown top-level type is still malformed with the exact reason', () => {
+    const router = makeRouter();
+    const events = router.ingest('{"type":"quantum_flux"}');
+    expect(events).toHaveLength(1);
+    expect(events[0]?.payload).toMatchObject({
+      type: 'malformed',
+      parseError: 'unrecognized message type "quantum_flux"',
+    });
   });
 });

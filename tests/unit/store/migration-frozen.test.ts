@@ -9,8 +9,8 @@
  * side, which is exactly what makes a widened live enum visible as a diff
  * instead of invisible.
  *
- * This file generalises that to EVERY migration that has shipped — 1, 2, 3 and
- * 4 today — because migration 1 was not the only one interpolating a live
+ * This file generalises that to EVERY migration that has shipped — 1 through 6
+ * today — because migration 1 was not the only one interpolating a live
  * constant and "we checked migration 1" is not a property of the migration
  * list. Migration 1's lane-status list was the second instance of the same
  * latent bug and is the reason this file exists: `MIGRATION_1` interpolated
@@ -43,7 +43,9 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * this file has since subsumed. `schema.ts` was untouched between the commit
  * that added migration 1 and that one, so the two blobs are identical.
  *
- * WRITING MIGRATION 5? IT GETS AN ENTRY HERE, at the commit that shipped it,
+ * Migrations 1 through 6 are the checked set today.
+ *
+ * WRITING MIGRATION 7? IT GETS AN ENTRY HERE, at the commit that shipped it,
  * and its version joins the `it.for` list below. This map is the whole
  * tripwire: a migration missing from it is not "passing", it is simply not
  * being checked, and that silence is what let migration 1's live
@@ -54,7 +56,9 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * interpolated a migration-local `MIGRATION_4_LANE_STATUSES` rather than the
  * live union — but nothing in this file recorded that an entry was owed here,
  * so nothing was watching that it stayed pinned. A correct migration is not a
- * checked one. This paragraph is what makes migration 5 a checked one.
+ * checked one. Migrations 5 and 6 shipped without entries here and were
+ * given theirs afterwards; this paragraph is what makes migration 7 a
+ * checked one.
  *
  * And when a row here goes red, the fix is NEVER to update the expectation.
  * Red means a shipped migration's rendered text changed, which is the bug, not
@@ -66,6 +70,8 @@ const SHIPPED_BLOB: Readonly<Record<number, string>> = {
   2: '87aa69b:src/main/store/schema.ts',
   3: '16927ac:src/main/store/schema.ts',
   4: 'e15b1c4:src/main/store/schema.ts',
+  5: '0cfb633:src/main/store/schema.ts',
+  6: '0fc6ec4:src/main/store/schema.ts',
 };
 
 /**
@@ -145,7 +151,7 @@ function shippedMigration(version: number): string {
 }
 
 describe('every shipped migration renders byte-identically to the blob that shipped it', () => {
-  it.for([1, 2, 3, 4])('migration %i', (version, ctx) => {
+  it.for([1, 2, 3, 4, 5, 6])('migration %i', (version, ctx) => {
     ctx.skip(SHALLOW_CLONE, SHALLOW_SKIP_NOTE);
     expect(migration(version)).toBe(shippedMigration(version));
   });
@@ -168,6 +174,11 @@ describe('every shipped migration renders byte-identically to the blob that ship
     // arrival is what made this file necessary.
     expect(shippedMigration(4)).toContain(
       `CHECK (status IN ${sqlIn(['running', 'done', 'orphaned', 'stopped'])})`,
+    );
+    // Migration 6 interpolates its own pinned permission-mode and pod-status
+    // lists, so the six-mode CHECK it widened to must render from the blob.
+    expect(shippedMigration(6)).toContain(
+      `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions', 'dontAsk', 'auto'])})`,
     );
   });
 

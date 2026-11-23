@@ -19,6 +19,7 @@ import { registerIpcHandlers } from './ipc';
 import { createPodRunner } from './pod';
 import { createPodSessionRemover, fileExists } from './pod-session';
 import { createPushes, PodManager, ROUTING_MODE } from './pod-manager';
+import { createRendererPush, createRenderProcessGoneLogger } from './renderer-push';
 import { openEventStore } from './store';
 import { createMainWindow } from './window';
 
@@ -80,17 +81,18 @@ function logSqliteVersion(): void {
 }
 
 /**
- * Broadcasts a push to every live window. Windows that are gone or mid-teardown
- * are skipped rather than thrown on — a push must never be able to crash main.
+ * Broadcasts a push to every open window. The guards live in
+ * `./renderer-push`: a window that is destroyed, crashed, or whose main frame
+ * is destroyed, detached or unreadable is skipped, any throw from one window
+ * is caught and logged once per failure episode, and the other windows still
+ * receive the push — a push must never be able to crash main.
  */
-function sendToRenderers(channel: string, payload: unknown): void {
-  for (const window of BrowserWindow.getAllWindows()) {
-    if (window.isDestroyed()) continue;
-    const contents = window.webContents;
-    if (contents.isDestroyed()) continue;
-    contents.send(channel, payload);
-  }
-}
+const sendToRenderers = createRendererPush({
+  getWindows: () => BrowserWindow.getAllWindows(),
+  log: (line) => {
+    console.error(line);
+  },
+});
 
 /**
  * Opens the OS directory chooser. This is the ONLY source of a new filesystem
@@ -166,8 +168,8 @@ app.whenReady().then(
       claudeHome: CLAUDE_HOME,
       pods,
       now: () => new Date(),
-      // Reuses the existing broadcast, so the destroyed-window guard above
-      // still applies and a Helm push cannot crash main.
+      // Reuses `sendToRenderers`, so the guards in `./renderer-push` apply
+      // here too and a Helm push cannot crash main.
       emitChanged: (push: HelmChangedPush) => {
         sendToRenderers(EVENT_CHANNELS.helmChanged, push);
       },
@@ -252,6 +254,14 @@ app.whenReady().then(
     console.error('[orcastrate] failed to start', error);
     app.quit();
   });
+
+// App-level, so it covers every webContents, including windows `activate`
+// opens later. It records why a renderer went away, which is what a disposed
+// frame seen by `sendToRenderers` is traced back to.
+const logRenderProcessGone = createRenderProcessGoneLogger((line) => {
+  console.error(line);
+});
+app.on('render-process-gone', logRenderProcessGone);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {

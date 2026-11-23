@@ -8,6 +8,7 @@ import { testId } from '../shell/contract-runtime';
 import { DispatchCard, dispatchedLaneIdOf } from './DispatchCard';
 import { ToolDisclosure } from './ToolDisclosure';
 import styles from './Transcript.module.css';
+import { bashExitCode } from './bash-exit';
 import { summarizeToolCall, toolResultCharCount, toolResultSizeLabel } from './tool-summary';
 import { turnRoleOf } from './turn-role';
 
@@ -37,7 +38,13 @@ function Labelled({ label, children }: { label: string; children?: ReactNode }) 
  * so adding a thirteenth payload to the contract breaks `typecheck:web` here
  * instead of silently dropping events on the floor.
  */
-function EventBody({ payload }: { payload: EventPayload }) {
+function EventBody({
+  payload,
+  resultToolName,
+}: {
+  payload: EventPayload;
+  resultToolName: string | undefined;
+}) {
   switch (payload.type) {
     case 'user_message':
       return (
@@ -82,18 +89,34 @@ function EventBody({ payload }: { payload: EventPayload }) {
     // the call is not on screen the result still renders, still legible.
     case 'tool_result': {
       const size = toolResultSizeLabel(toolResultCharCount(payload.content));
-      // The NAME is the same in both cases on purpose: it states the action and
-      // the size, and the failure is carried by the row's LABEL ("Tool result
-      // (error)") in words, where a reader who cannot see colour still meets it.
+      // THREE LABELS, each in words, where a reader who cannot see colour still
+      // meets them:
+      //  - "Tool result" — not an error. Collapsed.
+      //  - "Tool result (exit N)" — a Bash command that exited non-zero (see
+      //    `bashExitCode`). The SDK flags it `isError`, but the command ran and
+      //    its exit status is its ordinary outcome, so it renders like a
+      //    success: collapsed, no failure styling, N stated in the label.
+      //  - "Tool result (error)" — every other `isError` result, including one
+      //    whose call is not loaded. Expanded, with failure styling.
+      // The disclosure's NAME is the same in all three on purpose: it states
+      // the action and the size, and the label carries the outcome.
+      const exitCode = bashExitCode(payload, resultToolName);
+      const failed = payload.isError && exitCode === null;
+      const label =
+        exitCode !== null
+          ? `Tool result (exit ${exitCode})`
+          : failed
+            ? 'Tool result (error)'
+            : 'Tool result';
       return (
-        <Labelled label={payload.isError ? 'Tool result (error)' : 'Tool result'}>
+        <Labelled label={label}>
           <ToolDisclosure
             attached
-            expandedInitially={payload.isError}
+            expandedInitially={failed}
             showLabel={`Show tool result (${size})`}
             hideLabel={`Hide tool result (${size})`}
             summary={size}
-            bodyClassName={payload.isError ? styles.failed : undefined}
+            bodyClassName={failed ? styles.failed : undefined}
             renderBody={() => preview(payload.content)}
           />
         </Labelled>
@@ -192,10 +215,22 @@ export interface TranscriptEventItemProps {
    * props are referentially identical across re-renders.
    */
   dispatchLanes?: Lane[];
+  /**
+   * For a `tool_result`, the name on the `tool_use` with the same `toolUseId`
+   * among the pane's loaded events; `undefined` when that call is not loaded,
+   * and for every other event. A string, never an object, so `memo` stays
+   * effective.
+   */
+  resultToolName?: string;
   onJumpToLane(laneId: LaneId): void;
 }
 
-function TranscriptEventItemImpl({ event, dispatchLanes, onJumpToLane }: TranscriptEventItemProps) {
+function TranscriptEventItemImpl({
+  event,
+  dispatchLanes,
+  resultToolName,
+  onJumpToLane,
+}: TranscriptEventItemProps) {
   const isDispatch = dispatchedLaneIdOf(event) !== undefined;
 
   return (
@@ -215,7 +250,7 @@ function TranscriptEventItemImpl({ event, dispatchLanes, onJumpToLane }: Transcr
       {isDispatch ? (
         <DispatchCard event={event} lanes={dispatchLanes ?? []} onJumpToLane={onJumpToLane} />
       ) : (
-        <EventBody payload={event.payload} />
+        <EventBody payload={event.payload} resultToolName={resultToolName} />
       )}
     </li>
   );
