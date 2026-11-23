@@ -47,11 +47,20 @@ export interface ToolDisclosureProps {
    * exempts `error` and `malformed` from the noise filter: a failure the user
    * must know to go looking for is a silent drop in every way that matters to
    * them.
+   *
+   * THE ONE EXCEPTION is a Bash result recognised by `bashExitCode`: an
+   * `isError` result whose call is `Bash` and whose text starts `Exit code N`,
+   * N not 0. It stays collapsed, because a non-zero exit is the command's
+   * ordinary outcome, not a tool failure — the tool ran the command and
+   * reported its status. The row's label names the code instead.
    */
   expandedInitially?: boolean;
   /** The `└` marker that makes a result READ as attached to the call above it. */
   attached?: boolean;
-  /** Extra class on the revealed region — `styles.failed` for an error result. */
+  /**
+   * Extra class on the revealed region — `styles.failed` for an error result,
+   * and not for a recognised Bash exit (see `expandedInitially`).
+   */
   bodyClassName?: string;
   renderBody: () => ReactNode;
 }
