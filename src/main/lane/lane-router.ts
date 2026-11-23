@@ -29,7 +29,12 @@
  *   1. REGISTERED — internal only, no event. Created by whichever of
  *      {`Agent` tool_use block, `system/task_started`} arrives first. A
  *      `task_started` registers the lane and banks its `agentId`, title and
- *      description; it never emits.
+ *      description; it never emits. Only an agent `task_started` does this:
+ *      one whose `task_type` is `'local_agent'` or absent. A `task_started`
+ *      with any other string `task_type` (a background Bash command's
+ *      `'local_bash'`, for one) registers no lane, so that task's later
+ *      `task_progress`, `task_updated` and `task_notification` stay Matriarch
+ *      `system` events and never open or close a lane.
  *   2. MATERIALIZED — `lane_opened` emitted. Happens at the first moment the
  *      lane's identity is complete (the dispatching tool_use is seen, which is
  *      what supplies `parentLaneId` and `depth`) or, failing that, at the first
@@ -476,10 +481,19 @@ class LaneRouterImpl implements LaneRouter {
    * tool_use (02-nested-dispatch line 7 precedes line 8) or after it
    * (01-parallel-dispatch line 4 follows line 3); both are handled.
    *
+   * Only an AGENT task registers a lane: `task_type` `'local_agent'`, or no
+   * string `task_type` at all (older CLIs send none). Any other string — a
+   * background Bash command's `'local_bash'`, a `'local_workflow'` — registers
+   * nothing and banks no `agentId`, because such a task is not a Calf. Its
+   * later `task_progress`, `task_updated` and `task_notification` therefore
+   * resolve to no lane and stay Matriarch `system` events: no `lane_opened`,
+   * no `lane_closed`, and nothing for `onTurnBoundary()` to orphan.
+   *
    * `findings.agentId.fieldPath`: "system/task_started.task_id (correlated to
    * the opening Agent tool_use by system/task_started.tool_use_id)".
    */
   private onTaskStarted(message: Record<string, unknown>): void {
+    if (!isAgentTask(message)) return;
     const toolUseId = str(message, 'tool_use_id');
     if (toolUseId === null) return;
 
@@ -783,6 +797,16 @@ class LaneRouterImpl implements LaneRouter {
       parseError,
     });
   }
+}
+
+/**
+ * True when a `system/task_started` describes an agent task, the only kind
+ * that registers a lane: `task_type` is `'local_agent'`, or is not a string
+ * (absent, as older CLIs send it). Any other string is a non-agent task.
+ */
+function isAgentTask(message: Record<string, unknown>): boolean {
+  const taskType = str(message, 'task_type');
+  return taskType === null || taskType === 'local_agent';
 }
 
 function cloneLane(lane: Lane): Lane {

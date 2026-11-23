@@ -392,3 +392,138 @@ describe('maxLaneDepth', () => {
     expect(deep.depth).toBe(2);
   });
 });
+
+describe('only an agent task_started opens a lane', () => {
+  const TOOL_USE = 'toolu_bash_1';
+  const TASK = 'task_bash_1';
+
+  function started(taskType?: string): Record<string, unknown> {
+    const message: Record<string, unknown> = {
+      type: 'system',
+      subtype: 'task_started',
+      task_id: TASK,
+      tool_use_id: TOOL_USE,
+      description: 'a background task',
+    };
+    if (taskType !== undefined) message['task_type'] = taskType;
+    return message;
+  }
+
+  const updatedCompleted = {
+    type: 'system',
+    subtype: 'task_updated',
+    task_id: TASK,
+    patch: { status: 'completed' },
+  };
+  const notificationCompleted = {
+    type: 'system',
+    subtype: 'task_notification',
+    task_id: TASK,
+    status: 'completed',
+  };
+  const progress = {
+    type: 'system',
+    subtype: 'task_progress',
+    task_id: TASK,
+    tool_use_id: TOOL_USE,
+  };
+
+  function laneLifecycle(events: NewEvent[]): NewEvent[] {
+    return events.filter(
+      (event) => event.payload.type === 'lane_opened' || event.payload.type === 'lane_closed',
+    );
+  }
+
+  function systemSubtypes(events: NewEvent[]): { laneId: LaneId; subtype: string }[] {
+    return events
+      .filter((event) => event.payload.type === 'system')
+      .map((event) => ({
+        laneId: event.laneId,
+        subtype: (event.payload as { type: 'system'; subtype: string }).subtype,
+      }));
+  }
+
+  it('local_bash: task_started then a terminal task_updated opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_bash'));
+    const second = router.ingest(updatedCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_bash: its task_progress is one Matriarch system event and opens no lane', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    const produced = router.ingest(progress);
+    expect(produced).toHaveLength(1);
+    expect(produced[0]?.laneId).toBe(MATRIARCH);
+    expect(produced[0]?.payload.type).toBe('system');
+    expect(laneLifecycle(produced)).toEqual([]);
+  });
+
+  it('local_bash: a terminal task_notification opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_bash'));
+    const second = router.ingest(notificationCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_bash: the turn boundary has nothing to orphan', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    expect(router.onTurnBoundary()).toEqual([]);
+  });
+
+  it('local_bash: lanes(), getLaneByToolUseId and agentIds gain nothing', () => {
+    const router = makeRouter();
+    router.ingest(started('local_bash'));
+    const lanes = router.lanes();
+    expect(lanes).toHaveLength(1);
+    expect(lanes[0]?.id).toBe(MATRIARCH);
+    expect(router.getLaneByToolUseId(TOOL_USE)).toBeNull();
+    expect([...router.agentIds().values()]).not.toContain(TASK);
+  });
+
+  it('local_bash: task_started, task_updated and task_notification each stay one Matriarch system event', () => {
+    const router = makeRouter();
+    const events = [
+      ...router.ingest(started('local_bash')),
+      ...router.ingest(updatedCompleted),
+      ...router.ingest(notificationCompleted),
+    ];
+    expect(systemSubtypes(events)).toEqual([
+      { laneId: MATRIARCH, subtype: 'task_started' },
+      { laneId: MATRIARCH, subtype: 'task_updated' },
+      { laneId: MATRIARCH, subtype: 'task_notification' },
+    ]);
+  });
+
+  it('local_workflow: another non-agent task_type opens and closes no lane', () => {
+    const router = makeRouter();
+    const first = router.ingest(started('local_workflow'));
+    const second = router.ingest(updatedCompleted);
+    expect(laneLifecycle(first)).toEqual([]);
+    expect(laneLifecycle(second)).toEqual([]);
+  });
+
+  it('local_agent: task_started then a terminal task_updated opens then closes one lane as done', () => {
+    const router = makeRouter();
+    const events = [...router.ingest(started('local_agent')), ...router.ingest(updatedCompleted)];
+    const opened = openedLanes(events);
+    expect(opened).toHaveLength(1);
+    expect(closes(events)).toEqual([{ type: 'lane_closed', laneId: opened[0]?.id, status: 'done' }]);
+    const lifecycle = laneLifecycle(events).map((event) => event.payload.type);
+    expect(lifecycle).toEqual(['lane_opened', 'lane_closed']);
+  });
+
+  it('no task_type field (omitted on purpose, as older CLIs send it): opens then closes one lane as done', () => {
+    const router = makeRouter();
+    const events = [...router.ingest(started()), ...router.ingest(updatedCompleted)];
+    const opened = openedLanes(events);
+    expect(opened).toHaveLength(1);
+    expect(closes(events)).toEqual([{ type: 'lane_closed', laneId: opened[0]?.id, status: 'done' }]);
+    const lifecycle = laneLifecycle(events).map((event) => event.payload.type);
+    expect(lifecycle).toEqual(['lane_opened', 'lane_closed']);
+  });
+});
