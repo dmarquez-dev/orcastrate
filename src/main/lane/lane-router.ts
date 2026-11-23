@@ -232,6 +232,11 @@ class LaneRouterImpl implements LaneRouter {
       return;
     }
 
+    // These cases are the types the router has a route for, not the CLI's whole
+    // vocabulary: the SDK's `SDKMessage` union declares top-level types (e.g.
+    // `auth_status`, `conversation_reset`) that are not routed here.
+    // A type that reaches `default` is reported as malformed because nothing
+    // routes it, which does not make it corrupt.
     switch (type) {
       case 'assistant':
       case 'user':
@@ -249,6 +254,19 @@ class LaneRouterImpl implements LaneRouter {
             type: 'system',
             subtype: 'rate_limit_event',
             data: parsed['rate_limit_info'] ?? null,
+          }, parsed),
+        );
+        return;
+      case 'tool_progress':
+        // The SDK's `SDKToolProgressMessage`: a heartbeat for a running tool.
+        // Plumbing on the Matriarch lane, like `rate_limit_event`. It never
+        // opens, registers or materializes a lane, whatever its
+        // `parent_tool_use_id` or `task_id`.
+        out.push(
+          this.event(this.matriarchLaneId, 'system', {
+            type: 'system',
+            subtype: 'tool_progress',
+            data: parsed,
           }, parsed),
         );
         return;
