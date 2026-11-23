@@ -13,10 +13,16 @@ wherever the two disagree.
 ### SIR sessions (every track, Small included)
 
 1. **Branch.** Fetch `origin` first, then branch from `origin/main`. The SIR plugin
-   names the branch. A Small session gets its branch too and never commits in place on
-   `main`.
+   names the session branch (`<type>/<slug>`) and records it as `branch` in
+   `.sir/sessions/<id>/state.json`. Every `<branch>` below means that recorded name.
+   A Small session gets its branch too and never commits in place on `main`. Small has
+   no `state.json` and the plugin names no branch for it, so name it `<type>/<slug>`:
+   the type from the request, the slug the session id's topic (the part after
+   `YYYYMMDD-HHMM-`). Check it with
+   `node <plugin root>/scripts/branch-name.mjs check <name> <repo root>` before creating
+   it, and read it later with `git branch --show-current`.
 2. **Gate 3 approval does not merge.** Skip `merge-session`. On approval:
-   - Commit the session's records onto the feature branch, in the session worktree:
+   - Commit the session's records onto the session branch, in the session worktree:
      `.sir/sessions/<id>/`, plus the Gate 3 edits to `.sir/backlog.md`. These files are
      written in the main checkout during the session, so copy them into the worktree
      first.
@@ -24,7 +30,7 @@ wherever the two disagree.
      appends, plus `session.json`'s metrics, `ended` and `status`. The session is
      recorded `WRAPPED` in the commit the PR carries, so the PR holds the code, the
      records and the lessons together.
-   - Gate 3's push question means pushing the feature branch:
+   - Gate 3's push question means pushing the session branch:
      `git push -u origin <branch>`.
 3. **Hand over the PR.** Give the user the branch name and the compare link
    `https://github.com/dmarquez-dev/orcastrate/compare/main...<branch>?expand=1`.
@@ -47,6 +53,7 @@ wherever the two disagree.
 ### `/sir:sir-tend` and other bookkeeping
 
 A tend, or any other `.sir/` edit outside a session, works the same way. Branch off
-`origin/main` in the main checkout, using the SIR plugin's branch naming, commit there,
+`origin/main` in the main checkout, on `chore/tend-<YYYYMMDD>` for a tend (otherwise a
+`<type>/<slug>` name the SIR plugin's `branch-name.mjs check` accepts), commit there,
 and push the branch. Then wait for the PR to merge, switch back to `main` and run
 `git pull --ff-only`.
