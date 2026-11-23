@@ -1,0 +1,49 @@
+{
+  "id": "20261123-0710-bash-lanes-and-frame-sends",
+  "name": "bash-lanes-and-frame-sends",
+  "scope": "standard",
+  "branchType": "fix",
+  "integration": "pr",
+  "status": "WRAPPED",
+  "brief": "Fix three defects seen running Orcastrate, plus one backlog row. (1) The CLI now sends a system/task_started with task_type 'local_bash' for every Bash call, and LaneRouter registers a Calf lane for each, so one Pod holds 327 Bash lanes. Only a task_type of 'local_agent', or none, will open a lane; a Bash task's later task messages stay Matriarch system events. Stored lanes are left as they are. (2) A Bash call that exits non-zero comes back as an isError tool_result 'Exit code N', which the transcript renders red and expanded. When the matching tool_use is Bash, the row will render collapsed and labelled 'Tool result (exit N)'; every other error keeps its treatment. (3) sendToRenderers threw 'Render frame was disposed' up through event persistence. The broadcast moves to a tested module that skips crashed or unusable frames, catches and logs a failing send once per episode, and logs render-process-gone. (4) migration-frozen.test.ts gains migrations 5 and 6.",
+  "started": "2026-11-23T07:10:21Z",
+  "ended": "2026-11-23T19:10:19Z",
+  "parent": null,
+  "children": [],
+  "runs": [
+    {
+      "cc": "436913a1-f016-451c-92fb-380d2832024c",
+      "phase": "discuss",
+      "sir": "1.0.54",
+      "started": "2026-11-23T07:10:21Z",
+      "ended": "2026-11-23T07:16:04Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "d1e450a0-a3e2-48e8-93a5-742cabe4c1be",
+      "phase": "spec",
+      "sir": "1.0.54",
+      "started": "2026-11-23T07:18:26Z",
+      "ended": "2026-11-23T07:44:49Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "0a9390f3-216c-4548-b8fc-765ff7abd552",
+      "phase": "implement",
+      "sir": "1.0.54",
+      "started": "2026-11-23T07:46:46Z",
+      "ended": "2026-11-23T08:33:20Z",
+      "outcome": "complete"
+    },
+    {
+      "cc": "7b73919d-f29d-424f-a2c1-412e60cd18f4",
+      "phase": "review",
+      "sir": "1.0.54",
+      "started": "2026-11-23T18:28:48Z",
+      "ended": "2026-11-23T19:10:19Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 3, "escalationsRaised": 2, "reviewRounds": 1 },
+  "pushed": true
+}

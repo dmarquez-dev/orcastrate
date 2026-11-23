@@ -1,0 +1,43 @@
+{
+  "session": "20261123-0710-bash-lanes-and-frame-sends",
+  "updatedAt": "2026-11-23T19:10:19Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261123-0710-bash-lanes-and-frame-sends",
+  "branch": "fix/bash-lanes-and-frame-sends",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "Test Files  181 passed (181) / Tests  2926 passed (2926), exit=0; RUN line names the worktree"
+    },
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "typecheck:node and typecheck:web (tsc --noEmit) both ran, exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "startRef": "293864a", "model": "opus", "revisionRounds": 1, "redispatches": 0, "commit": "d24d4aa", "note": "Revision round 1 at Gate 3 (fix-now): route tool_progress heartbeats as Matriarch system events; its review passed with 0 blocking. Round 0 commit 25e70a5." },
+    { "id": "T2", "status": "done", "startRef": "293864a", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "e6485fc" },
+    { "id": "T3", "status": "done", "startRef": "293864a", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "be02b11" },
+    { "id": "T4", "status": "done", "startRef": "293864a", "model": "opus", "revisionRounds": 0, "redispatches": 0, "commit": "406982b" },
+    { "id": "T5", "status": "done", "startRef": "e6485fc", "model": "opus", "revisionRounds": 0, "redispatches": 0 }
+  ],
+  "metrics": { "userInteractions": 3, "escalationsRaised": 2, "reviewRounds": 1 },
+  "escalations": [
+    {
+      "id": "E1",
+      "reason": "ambiguous",
+      "resolved": true,
+      "question": "Gate 1: how should a Bash tool_result that reports a non-zero exit (isError true, content 'Exit code N\\n<output>') render in the transcript?",
+      "answer": "Recommended option: render it as a normal result, collapsed, labelled with its exit code (e.g. 'Tool result (exit 1)'), with no failure border. Every other isError tool result keeps its current treatment."
+    },
+    {
+      "id": "E2",
+      "reason": "ambiguous",
+      "resolved": true,
+      "question": "Gate 1: what happens to the Bash lanes already stored (the question said 328; discussion.md corrects it to 327 in the one Pod measured)?",
+      "answer": "Recommended option: fix new runs only. No schema change, no data change, no read-time hiding; stored lanes stay as they are."
+    }
+  ],
+  "amendments": []
+}

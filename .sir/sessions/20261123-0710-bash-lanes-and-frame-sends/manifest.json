@@ -1,0 +1,134 @@
+{
+  "session": "20261123-0710-bash-lanes-and-frame-sends",
+  "createdAt": "2026-11-23T07:34:05Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": [],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "A task_started opens a lane only for an agent task",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/lane/lane-router.ts",
+        "src/main/lane/lane-router.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. A `system/task_started` whose `task_type` is the string `'local_bash'` (with a `tool_use_id` and a `task_id`) followed by a `system/task_updated` for that `task_id` with `patch.status: 'completed'` makes the router emit no `lane_opened` and no `lane_closed`, from either `ingest` call. Evidence: a new test in `src/main/lane/lane-router.test.ts`, run by `npm --prefix <worktree> test -- src/main/lane tests/router`. Base fails it: `onTaskStarted` registers the lane and banks its agentId (lane-router.ts:486-495), and `closeByAgentId` -> `closeLane` materializes then closes it (lane-router.ts:511-516, :679-692).",
+        "C2. The same `local_bash` `task_started` followed by a `system/task_progress` carrying that `tool_use_id` yields exactly one event, a `system` event on the Matriarch lane, and no `lane_opened`. Evidence: a new test in `src/main/lane/lane-router.test.ts`, same command as C1. Base fails it: `resolveLaneId` finds the registered lane (lane-router.ts:733-737) and `emit` materializes it (lane-router.ts:758-759).",
+        "C3. The same `local_bash` `task_started` followed by a `system/task_notification` for that `task_id` with `status: 'completed'` makes the router emit no `lane_opened` and no `lane_closed`. Evidence: a new test in `src/main/lane/lane-router.test.ts`, same command as C1. Base fails it via `onTaskNotification` -> `closeByAgentId` (lane-router.ts:504-509).",
+        "C4. After a `local_bash` `task_started` with no later task message, `onTurnBoundary()` returns an empty array. Evidence: a new test in `src/main/lane/lane-router.test.ts`, same command as C1. Base fails it: `onTurnBoundary` closes every running calf as orphaned, materializing it first (lane-router.ts:594-602).",
+        "C5. After a `local_bash` `task_started`, `lanes()` returns only the Matriarch lane, `getLaneByToolUseId(<that tool_use_id>)` returns `null`, and `agentIds()` has no entry whose value is that `task_id`. Evidence: a new test in `src/main/lane/lane-router.test.ts`, same command as C1. Base fails it (lane registered at lane-router.ts:662-663, agentId banked at :493-494).",
+        "C6. The `local_bash` `task_started`, its terminal `task_updated` and its terminal `task_notification` each still produce one `system` event on the Matriarch lane with its own `subtype`. Preserved behaviour, newly tested: base already pushes these onto the Matriarch (lane-router.ts:455-457). A new assertion in `src/main/lane/lane-router.test.ts` pins it, same command as C1. The `task_progress` case is C2, which changes behaviour: at base that event lands on the Calf lane.",
+        "C7. A `task_started` whose `task_type` is a string other than `'local_agent'` and `'local_bash'` (the test uses `'local_workflow'`, a value the installed SDK documents at `node_modules/@anthropic-ai/claude-agent-sdk/sdk.d.ts:4856`) followed by a terminal `task_updated` emits no `lane_opened` and no `lane_closed`. Evidence: a new test in `src/main/lane/lane-router.test.ts`, same command as C1. Base fails it for the reason C1 gives.",
+        "C8. A `task_started` with `task_type: 'local_agent'` followed by a terminal `task_updated` for its `task_id` emits one `lane_opened` and then one `lane_closed` with status `'done'` for the same lane. Preserved behaviour, newly tested: base already does this; the new test in `src/main/lane/lane-router.test.ts` is what shows the new `task_type` check admits `'local_agent'`. Same command as C1.",
+        "C9. A `task_started` with no `task_type` field followed by a terminal `task_updated` emits one `lane_opened` and then one `lane_closed` with status `'done'` (older CLIs and the hand-written messages in this test file send no `task_type`). Preserved behaviour, newly tested by a test that omits the field on purpose and says so in its name. Same command as C1.",
+        "C10. `npm --prefix <worktree> test -- src/main/lane tests/router` exits 0, and its RUN line names the worktree. This covers the fixture replay suite under `tests/router` (whose fixtures carry only `local_agent`), the existing `lane-router.test.ts` cases, and `src/main/lane/purity.test.ts` (the router still imports nothing but contract types). Preserved behaviour for every pre-existing test; T1 edits no file under `tests/router`.",
+        "C11. Demonstrated discrimination: restore unconditional registration in `onTaskStarted` (remove the `task_type` check, one site, named by file:line in the report), run `npm --prefix <worktree> test -- src/main/lane/lane-router.test.ts`, and observe the C1, C2, C3, C4, C5 and C7 tests fail while C8 and C9 pass. Revert, read the site back, and report the failing test names and the read-back.",
+        "C12. The docblocks that describe lane registration say that only an agent `task_started` registers a lane: the two-phase lifecycle paragraph (lane-router.ts:29-32, \"Created by whichever of {`Agent` tool_use block, `system/task_started`} arrives first\") and the `onTaskStarted` docblock (lane-router.ts:474-481) each state the rule, `task_type` `'local_agent'` or absent registers and any other string does not, and say that such a task's later `task_progress`, `task_updated` and `task_notification` stay Matriarch `system` events. The reviewer reads both blocks."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "A Bash non-zero exit renders as an ordinary, labelled result",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/transcript/bash-exit.ts",
+        "src/renderer/src/transcript/bash-exit.test.ts",
+        "src/renderer/src/transcript/TranscriptEventItem.tsx",
+        "src/renderer/src/transcript/TranscriptEventItem.test.tsx",
+        "src/renderer/src/transcript/TranscriptPane.tsx",
+        "src/renderer/src/transcript/ToolDisclosure.tsx"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. Recognition is defined once, in a pure function exported from the new `src/renderer/src/transcript/bash-exit.ts`. It returns the exit code N exactly when all of these hold, and returns `null` otherwise: (a) the result's `isError` is `true`; (b) the tool name it is given for the result's `toolUseId` is exactly `'Bash'`; (c) the result's text matches `^Exit code ([0-9]+)(\\r?\\n|$)` with N not 0, where the text is `content` when `content` is a string, or `content[0].text` when `content` is an array whose first element is an object with `type: 'text'` and a string `text`. Evidence: unit tests in the new `src/renderer/src/transcript/bash-exit.test.ts`, one per clause, each with a case that meets every clause but that one and returns `null`. One of them is an `Exit code 0\\n` case. Run by `npm --prefix <worktree> test -- src/renderer/src/transcript src/renderer/src/__tests__`. Base fails it: the file does not exist.",
+        "C2. In `TranscriptPane`, a `tool_use` event named `Bash` with toolUseId X followed by a `tool_result` for X with `isError: true` and string content `Exit code 1\\nC:/tmp/out/` renders its row labelled `Tool result (exit 1)`. Evidence: a new test in `src/renderer/src/transcript/TranscriptEventItem.test.tsx` that renders through `TranscriptPane`, same command as C1. Base fails it: every `isError` result is labelled `Tool result (error)` (TranscriptEventItem.tsx:89).",
+        "C3. The row in C2 renders collapsed: its disclosure button is named `Show tool result (<size>)` with `aria-expanded=\"false\"` and the result body is not in the DOM. Evidence: the C2 test, or a sibling in the same file. Base fails it: `expandedInitially={payload.isError}` opens it (TranscriptEventItem.tsx:92).",
+        "C4. Once expanded by a click, the C2 row's body region does not carry the `styles.failed` class and shows the content verbatim, `Exit code 1` included. Evidence: a new test in `TranscriptEventItem.test.tsx` that clicks the disclosure and reads the region's class list against the imported `styles.failed`. Base fails it: `bodyClassName={payload.isError ? styles.failed : undefined}` (TranscriptEventItem.tsx:96).",
+        "C5. The same as C2 with array content `[{ type: 'text', text: 'Exit code 2\\n/usr/bin/bash: -c: line 38: unexpected EOF' }]` is labelled `Tool result (exit 2)`. Evidence: a new test in `TranscriptEventItem.test.tsx`, same command as C1. Base fails it (TranscriptEventItem.tsx:89).",
+        "C6. A `tool_result` with `isError: true` and content `Exit code 1\\n...` whose matching `tool_use` is named something other than `Bash` (the test uses `Read`) keeps the error treatment: labelled `Tool result (error)`, expanded on first render, body carrying `styles.failed`. Preserved behaviour, newly tested; this is the case that shows recognition needs the tool name. Same command as C1.",
+        "C7. A `tool_result` with `isError: true` and content `Exit code 1\\n...` with no matching `tool_use` among the pane's loaded events keeps the error treatment (`Tool result (error)`, expanded, `styles.failed`). Preserved behaviour, newly tested. Same command as C1.",
+        "C8. A `Bash` `tool_result` with `isError: true` whose content does not start with an `Exit code N` line (the test uses `Error: permission denied`) keeps the error treatment (`Tool result (error)`, expanded, `styles.failed`). Preserved behaviour, newly tested. Same command as C1.",
+        "C9. A `Bash` `tool_result` with `isError: false` and content `Exit code 1\\n...` renders labelled exactly `Tool result`, collapsed. Preserved behaviour, newly tested. Same command as C1.",
+        "C10. Every test in the existing `describe('a FAILED tool result defaults to expanded and says so in words', ...)` block (TranscriptEventItem.test.tsx:201) still passes, and the block is unedited. Preserved behaviour.",
+        "C11. The tool name for a result is derived from `view.events`, the pane's unfiltered stream, so a `Bash` exit is recognised in both filter modes, and nothing new is stored in React state or the renderer store. This encodes the frontend discipline, State ownership: \"Derived values are computed, never stored.\" Evidence: a new test in `TranscriptEventItem.test.tsx` renders C2's events in each filter mode and finds `Tool result (exit 1)` in both. The reviewer confirms that the derivation is a `useMemo` (or a plain computation) over `view.events`, and that the value passed to `TranscriptEventItem` is a string or `undefined`, so `memo` stays effective (TranscriptEventItem.tsx:189-193).",
+        "C12. The exit code is shown in words in the row label, never by colour alone. This encodes the frontend discipline, Accessibility floor: \"Color is never the only carrier of meaning.\" Covered by C2's label assertion; the reviewer confirms that no recognition outcome is conveyed only through a class.",
+        "C13. `bash-exit.ts` narrows `content[0]` and the regex capture with explicit checks. Absence there is a legitimate state, so it returns `null` rather than throwing, and it uses no non-null assertion (`!`) and no `as` cast to narrow an indexed or destructured value. This encodes the Orcastrate frontend fragment, Indexed access under `noUncheckedIndexedAccess`. The reviewer reads the file.",
+        "C14. The docblocks stay accurate. `ToolDisclosure.tsx`'s `expandedInitially` doc (ToolDisclosure.tsx:45-50, \"`true` for a `tool_result` whose `isError` is set\") names the Bash non-zero-exit exception and why: a non-zero exit is a command's ordinary outcome, not a tool failure. The comment above the `tool_result` case (TranscriptEventItem.tsx:84-87) describes the three labels. The reviewer reads both.",
+        "C15. Demonstrated discrimination, one injection live at a time, each reverted and read back before the next, each run under `npm --prefix <worktree> test -- src/renderer/src/transcript`: (a) make the recogniser ignore the tool name, and the C6 test fails; (b) make it accept an exit code of 0, and the bash-exit.test.ts `Exit code 0` case fails; (c) make it ignore `isError`, and the C9 test fails; (d) make it always return `null`, and the C2 test fails. Report each injection site (file:line), the failing test names, and the read-back.",
+        "C16. `npm --prefix <worktree> test -- src/renderer/src/transcript src/renderer/src/__tests__` exits 0, and its RUN line names the worktree. This includes the renderer hygiene suite `src/renderer/src/__tests__/hygiene.test.ts`, so the change imports no node builtin or electron and hardcodes no colour."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "Renderer pushes survive a disposed or crashed frame",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/renderer-push.ts",
+        "tests/unit/main/renderer-push.test.ts",
+        "src/main/index.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. The new `src/main/renderer-push.ts` exports a factory that builds the broadcast `(channel: string, payload: unknown) => void` from dependencies passed in once at construction: a function returning the current windows, and a log sink. Its window and webContents parameters are structural interfaces that Electron's `BrowserWindow` satisfies, so tests pass plain objects without casts. It has no value import of `electron`. This encodes the backend discipline, Dependency injection: dependencies are declared at construction and are immutable thereafter. Evidence: `grep -nE \"^import [^t].*from 'electron'|require\\('electron'\\)\" src/main/renderer-push.ts` prints nothing. Control: the same pattern over `src/main/window.ts` prints 1 line (window.ts:2). Base fails it: the file does not exist.",
+        "C2. When a window's `webContents.send` throws, the broadcast returns without throwing. Evidence: a test in the new `tests/unit/main/renderer-push.test.ts`, run by `npm --prefix <worktree> test -- tests/unit/main/renderer-push.test.ts tests/unit/pod-manager/call-site.test.ts`. Base fails it: the module does not exist, and the base `sendToRenderers` calls `contents.send` unguarded (index.ts:91).",
+        "C3. When the first of two windows throws on `send`, the second window still receives the same `(channel, payload)`. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C4. A window whose `webContents.isCrashed()` returns `true` is skipped: its `send` is never called. Evidence: a test in `renderer-push.test.ts`, same command as C2. Base has no such check (index.ts:86-93).",
+        "C5. A window whose `webContents.mainFrame.isDestroyed()` returns `true` is skipped: `send` is never called. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C6. A window whose `webContents.mainFrame.detached` is `true` is skipped: `send` is never called. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C7. A window whose `webContents.mainFrame` getter throws (the fake defines it with a throwing `get`) is skipped: `send` is never called and the broadcast does not throw. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C8. A destroyed window (`isDestroyed()` true) and a live window with destroyed `webContents` are each skipped without `send` being called. Preserved behaviour from index.ts:88-90, newly tested in `renderer-push.test.ts`. Same command as C2.",
+        "C9. A healthy window receives exactly one `send(channel, payload)` per broadcast, with the arguments unchanged. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C10. Logged once. A failure is a throw from anything the broadcast calls for one window (the pre-checks or `send`). Failures are tracked per webContents `id`: the first failure for an id logs one line and marks that id failing, later failures for a failing id log nothing, and a `send` to that id that completes without throwing clears the mark. A skip that throws nothing (destroyed, crashed, frame destroyed, frame detached) logs nothing and leaves the mark unchanged. Evidence: a test in `renderer-push.test.ts` in which one webContents fails on three consecutive broadcasts, and the log sink is called exactly once. Same command as C2.",
+        "C11. A webContents that fails, then receives a successful send, then fails again logs twice in total. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C12. Two webContents with different ids, each failing, log one line each (2 in total) on a single broadcast. Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C13. The failure log line contains the channel, the webContents id and the thrown error's message, and it does not contain the payload: the test sends a payload carrying a sentinel string and asserts that no log argument contains it. This encodes the backend discipline, Logging: \"states what happened and the identifiers needed to find it again\" and \"Never log ... an entire request body\". Evidence: a test in `renderer-push.test.ts`, same command as C2.",
+        "C14. The catch site carries a comment saying why the error is not rethrown: a push is best-effort, the renderer re-reads state on load, and a throw would unwind the event-persist path that called it. This encodes the backend discipline, Error handling: \"If it is genuinely ignorable, say why in a comment at the catch site.\" The reviewer reads it.",
+        "C15. `renderer-push.ts` exports a `render-process-gone` listener factory taking the log sink. The listener it returns, called with app-level arguments `(event, webContents, details)` (the App event, electron.d.ts:700), logs one line containing `details.reason`, `details.exitCode` and the webContents id. Evidence: a test in `renderer-push.test.ts` that passes fake arguments, same command as C2.",
+        "C16. `src/main/index.ts` builds `sendToRenderers` from the factory with `() => BrowserWindow.getAllWindows()` and a console log sink, keeps the name `sendToRenderers`, and still passes it to `createPushes` and to Helm's `emitChanged`. It registers the C15 listener with `app.on('render-process-gone', ...)`. The name is kept because unowned prose refers to it: pod-manager.ts:330, shared/contracts/helm.ts:331, tests/unit/ipc/helpers.ts:220, tests/unit/pod-manager/call-site.test.ts:73. Evidence, in `src/main/index.ts`: `grep -c \"function sendToRenderers\"` goes from 1 at base (index.ts:86) to 0; `grep -c \"app.on('render-process-gone'\"` goes from 0 to 1; and as controls, `grep -c \"createPushes(sendToRenderers)\"` stays 1 (index.ts:125) and `grep -c \"sendToRenderers(EVENT_CHANNELS.helmChanged\"` stays 1 (index.ts:172).",
+        "C17. The comments in `index.ts` stay accurate. The broadcast docblock (index.ts:82-85) is replaced or moved with the function, and the Helm comment \"the destroyed-window guard above still applies\" (index.ts:169-170) no longer points at a guard that has moved. The reviewer reads both sites.",
+        "C18. `tests/unit/pod-manager/call-site.test.ts`, which reads `index.ts` as text and requires `app.whenReady()`, `store.migrate();`, `new PodManager({` and `manager.reconcileStartup();` each exactly once, passes unedited under the C2 command. Preserved behaviour.",
+        "C19. Demonstrated discrimination, one injection live at a time, each reverted and read back before the next, each run under `npm --prefix <worktree> test -- tests/unit/main/renderer-push.test.ts`: (a) remove the try/catch around the per-window attempt, and the C2 and C7 tests fail; (b) log on every failure instead of once, and the C10 test fails; (c) remove the `isCrashed()` check, and the C4 test fails; (d) remove the `mainFrame` checks, and the C5 and C6 tests fail. Report each site (file:line), the failing test names, and the read-back."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Give migrations 5 and 6 the frozen-blob tripwire",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [
+        "tests/unit/store/migration-frozen.test.ts",
+        "src/main/store/schema.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. `SHIPPED_BLOB` in `tests/unit/store/migration-frozen.test.ts` gains `5: '0cfb633:src/main/store/schema.ts'` and `6: '0fc6ec4:src/main/store/schema.ts'`, and the `it.for` list (migration-frozen.test.ts:148) becomes `[1, 2, 3, 4, 5, 6]`. Evidence: `npm --prefix <worktree> test -- tests/unit/store/migration-frozen.test.ts --reporter=verbose` exits 0 and lists a passing `migration 5` and a passing `migration 6` test. Base fails it: `SHIPPED_BLOB` holds 1-4 only (migration-frozen.test.ts:64-69).",
+        "C2. That same run's summary reads `Tests  8 passed (8)`, so no case was skipped as a shallow clone (migration-frozen.test.ts:80-92). The base count is 6, counted from source: the 4 `it.for` entries at :148 plus the `it` blocks at :153 and :174.",
+        "C3. The non-vacuity test (migration-frozen.test.ts:153) also asserts that `shippedMigration(6)` contains `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions', 'dontAsk', 'auto'])})`, so the interpolation path is exercised for migration 6, which interpolates `MIGRATION_6_PERMISSION_MODES` and `MIGRATION_6_POD_STATUSES` (schema.ts:883, :886). Base fails it: no assertion names migration 6.",
+        "C4. Demonstrated discrimination for migration 5, the check the backlog row names. Change one character of `MIGRATION_5`'s SQL at schema.ts:822 only (for example `lookup` to `lookuP` in `-- ON DELETE SET NULL's child lookup when a parent Pod is deleted.`; that line's text also occurs at :909, inside `MIGRATION_6`, which stays untouched). Run `npm --prefix <worktree> test -- tests/unit/store/migration-frozen.test.ts --reporter=verbose` and observe exactly one failing test, `migration 5`. Revert, compare schema.ts with a copy taken before the edit, and report the failing output and the comparison.",
+        "C5. Demonstrated discrimination for migration 6, after C4's revert is verified. Change one character at schema.ts:906 only (`Steps 7-8` to `Steps 7-9` in `-- Steps 7-8 of the rebuild: the index went with DROP TABLE pods and is`; the different line at :752 stays untouched). The same command shows exactly one failing test, `migration 6`. Revert, compare with the copy, and report both.",
+        "C6. `src/main/store/schema.ts` is byte-identical to the task's `startRef` when the task ends, because a released migration is never edited. This encodes the database discipline, Migrations: \"A released migration is never edited.\" Evidence: `git -C <worktree> diff --exit-code <startRef> -- src/main/store/schema.ts` exits 0, run by the reviewer or the orchestrator. Preserved, mechanically checked: T4 owns this file only for the injections in C4 and C5.",
+        "C7. The file's docblocks describe what it now checks. The header (migration-frozen.test.ts:12-13, \"1, 2, 3 and 4 today\") and the `SHIPPED_BLOB` docblock (:46-57, \"WRITING MIGRATION 5? IT GETS AN ENTRY HERE\", \"This paragraph is what makes migration 5 a checked one\") name migrations 1-6 as the checked set, and address the next migration (7) as the one that owes an entry. The reviewer reads both blocks. Aid: `grep -c \"WRITING MIGRATION 5\" tests/unit/store/migration-frozen.test.ts` goes from 1 to 0."
+      ]
+    },
+    {
+      "id": "T5",
+      "title": "Whole-tree verification at the DAG tail",
+      "agent": "sir-test-engineer",
+      "domain": "test",
+      "owns": [],
+      "dependsOn": ["T1", "T2", "T3", "T4"],
+      "acceptance": [
+        "C1. `npm --prefix <worktree> test` exits 0, its RUN line names the worktree, and its summary reads `Test Files  183 passed (183)`: the base's 181 (state.json verification probe) plus the two new test files this manifest creates (`src/renderer/src/transcript/bash-exit.test.ts` and `tests/unit/main/renderer-push.test.ts`). Its `Tests` line reports 0 failed and a passed count greater than 2926.",
+        "C2. `npm --prefix <worktree> run typecheck` exits 0, with both `typecheck:node` and `typecheck:web` run. vitest does not typecheck, so this is the only check of T1-T4's types, `noUncheckedIndexedAccess` included. Base passes it (state.json probe); it is the DAG tail's preserved gate.",
+        "C3. No product source cites a session path: `grep -rnE \"\\.sir/sessions|20261123-0710\" <worktree>/src` prints nothing. Control: `grep -c \"\\.sir/sessions\" <worktree>/.sir/lessons.md` prints 1, the 2026-11-11 lesson that quotes such a citation. Base: 0 matches under `src`.",
+        "C4. T5 writes no file. Its report quotes the RUN line, the `Test Files` and `Tests` summary lines, and the typecheck exit code."
+      ]
+    }
+  ]
+}
