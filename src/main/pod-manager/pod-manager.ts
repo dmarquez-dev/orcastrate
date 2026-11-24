@@ -1103,8 +1103,15 @@ export class PodManager implements PodManagerApi, StartupReconciler {
    * sweep has orphaned it, every subsequent Open would leave the rail showing
    * the Matriarch as Orphaned forever while the Pod ran normally underneath it.
    *
-   * `setLaneStatus(id, 'running')` with NO `endedAt` clears `ended_at`, which
-   * is what the `(status = 'running') = (ended_at IS NULL)` CHECK requires.
+   * `setLaneStatus(id, 'running', at)` from a terminal status clears
+   * `ended_at`, which is what the `(status = 'running') = (ended_at IS NULL)`
+   * CHECK requires, and stamps the lane's `resumedAt` with `at`.
+   *
+   * THE RESUME STAMP COMES FROM THIS MANAGER'S CLOCK (`#now()`), the same
+   * clock that stamped the `endedAt` this run is resuming from, and never from
+   * the store's own wall clock. The rail's elapsed readout counts the current
+   * run from `resumedAt`, so a stamp from a different clock would put the run's
+   * start out of order with the stop it follows.
    *
    * CALF LANES ARE NOT REVIVED. A Calf's worker process is genuinely gone and
    * cannot be resumed, so `orphaned` is the truth for it. Only the Matriarch —
@@ -1115,7 +1122,7 @@ export class PodManager implements PodManagerApi, StartupReconciler {
   #reviveMatriarchLane(podId: PodId, matriarchLaneId: LaneId): void {
     const matriarch = this.#store.getLane(matriarchLaneId);
     if (matriarch === null || matriarch.status === 'running') return;
-    this.#store.setLaneStatus(matriarchLaneId, 'running');
+    this.#store.setLaneStatus(matriarchLaneId, 'running', this.#now());
     this.#push.laneChanged({ podId, lanes: this.#store.listLanes(podId) });
   }
 
