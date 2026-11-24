@@ -99,8 +99,8 @@ describe('schema shape (criteria 2, 3)', () => {
       .prepare<unknown[], { version: number }>('SELECT version FROM schema_version ORDER BY version')
       .all()
       .map((r) => r.version);
-    expect(applied).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    expect(applied).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
   });
 
   it('constrains pods.status to closed|idle|running|waiting|beached at the database level', () => {

@@ -192,6 +192,7 @@ export function makeLane(overrides: Partial<Lane> = {}): Lane {
     status: 'running',
     startedAt: '2026-01-01T00:00:00.000Z',
     endedAt: null,
+    resumedAt: null,
     ...overrides,
   };
 }

@@ -51,8 +51,8 @@ describe('migration 1 is frozen (criterion 4)', () => {
   });
 
   it('widening happens in migration 2, which is the head of the list', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
     expect(migration(2)).toContain(
       `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions'])})`,
     );
@@ -338,7 +338,7 @@ describe('migrate() at version 2 (criterion 6)', () => {
           "SELECT group_concat(version, ',') AS versions FROM (SELECT version FROM schema_version ORDER BY version)",
         )
         .get()?.versions,
-    ).toBe('1,2,3,4,5,6');
+    ).toBe('1,2,3,4,5,6,7');
   });
 
   it('is idempotent on a fresh file migrated straight to 2', () => {

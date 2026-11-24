@@ -44,7 +44,7 @@ const POD_COLUMNS = `
 `;
 const LANE_COLUMNS = `
   id, pod_id, kind, tool_use_id, agent_id, parent_lane_id, depth,
-  subagent_type, description, status, started_at, ended_at
+  subagent_type, description, status, started_at, ended_at, resumed_at
 `;
 const EVENT_COLUMNS = `id, pod_id, lane_id, seq, type, payload, raw, created_at`;
 
@@ -305,7 +305,7 @@ class SqliteEventStore implements EventStore {
         };
 
         const insertLane = this.stmt(
-          `INSERT INTO lanes (${LANE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO lanes (${LANE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         );
         for (const lane of parentsFirst(lanes)) {
           // The fork is born 'closed' and holds no runner, so a lane running in
@@ -326,6 +326,9 @@ class SqliteEventStore implements EventStore {
             wasRunning ? 'stopped' : lane.status,
             lane.started_at,
             wasRunning ? fork.now : lane.ended_at,
+            // Copied verbatim, like started_at: the fork's lane ran when the
+            // parent's did.
+            lane.resumed_at,
           );
         }
 
@@ -368,8 +371,8 @@ class SqliteEventStore implements EventStore {
 
       const row = this.stmt<LaneRow>(
         `INSERT INTO lanes (id, pod_id, kind, tool_use_id, agent_id, parent_lane_id, depth,
-                            subagent_type, description, status, started_at, ended_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?, NULL)
+                            subagent_type, description, status, started_at, ended_at, resumed_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'running', ?, NULL, NULL)
          RETURNING ${LANE_COLUMNS}`,
       ).get(
         input.id,
@@ -424,14 +427,25 @@ class SqliteEventStore implements EventStore {
     );
   }
 
-  setLaneStatus(id: LaneId, status: LaneStatus, endedAt?: string): Lane {
+  setLaneStatus(id: LaneId, status: LaneStatus, at?: string): Lane {
     return guard('setLaneStatus', () => {
-      // The lanes CHECK constraint ties these two together: terminal implies a
-      // stamp, 'running' implies none.
-      const stamp = status === 'running' ? null : (endedAt ?? now());
+      const stamp = at ?? now();
+      // The lanes CHECK constraint ties these two together: terminal implies an
+      // `ended_at`, 'running' implies none.
+      const endedAt = status === 'running' ? null : stamp;
+      // A resume is 'running' written over a STORED terminal status, and only a
+      // resume stamps `resumed_at`. The condition reads the row's stored status
+      // inside the one UPDATE (SQLite evaluates every SET expression against the
+      // pre-update row), so the read and the write cannot be split. A terminal
+      // write and 'running' over 'running' both leave `resumed_at` as it was.
       const row = this.stmt<LaneRow>(
-        `UPDATE lanes SET status = ?, ended_at = ? WHERE id = ? RETURNING ${LANE_COLUMNS}`,
-      ).get(status, stamp, id);
+        `UPDATE lanes
+            SET resumed_at = CASE WHEN ? = 'running' AND status <> 'running' THEN ? ELSE resumed_at END,
+                status = ?,
+                ended_at = ?
+          WHERE id = ?
+         RETURNING ${LANE_COLUMNS}`,
+      ).get(status, stamp, status, endedAt, id);
       if (row === undefined) throw new EventStoreError('NOT_FOUND', `setLaneStatus: no lane with id ${id}`);
       return toLane(row);
     });

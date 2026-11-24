@@ -154,6 +154,7 @@ class LaneRouterImpl implements LaneRouter {
         status: 'running',
         startedAt: this.now(),
         endedAt: null,
+        resumedAt: null,
       },
     });
   }
@@ -689,6 +690,7 @@ class LaneRouterImpl implements LaneRouter {
         status: 'running',
         startedAt: this.now(),
         endedAt: null,
+        resumedAt: null,
       },
     };
     this.states.set(id, state);
@@ -841,6 +843,7 @@ function cloneLane(lane: Lane): Lane {
     status: lane.status,
     startedAt: lane.startedAt,
     endedAt: lane.endedAt ?? null,
+    resumedAt: lane.resumedAt ?? null,
   };
 }
 

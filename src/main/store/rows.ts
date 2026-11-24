@@ -49,6 +49,7 @@ export interface LaneRow {
   status: string;
   started_at: string;
   ended_at: string | null;
+  resumed_at: string | null;
 }
 
 export interface EventRow {
@@ -109,6 +110,7 @@ export function toLane(row: LaneRow): Lane {
     status: row.status as LaneStatus,
     startedAt: row.started_at,
     endedAt: row.ended_at,
+    resumedAt: row.resumed_at,
   };
 }
 

@@ -302,6 +302,25 @@ describe('forkPod: lanes', () => {
       expect(p.store.getLane(original.id)).toMatchObject({ status: 'running', endedAt: null });
     }
   });
+
+  it("copies a resumed parent lane's resumedAt verbatim to the fork's lane", () => {
+    const p = makeParent();
+    const resumedAt = '2026-11-05T11:30:00.000Z';
+    p.store.setLaneStatus(p.matriarch.id, 'stopped', '2026-11-05T11:15:00.000Z');
+    p.store.setLaneStatus(p.matriarch.id, 'running', resumedAt);
+    expect(p.store.getLane(p.matriarch.id)?.resumedAt).toBe(resumedAt);
+
+    p.store.forkPod(forkInput(p.parent.id));
+    expect(copyOf(p.store, 'fork', p.matriarch).resumedAt).toBe(resumedAt);
+  });
+
+  it('forks a never-resumed parent lane to a lane whose resumedAt is null', () => {
+    const p = makeParent();
+    expect(p.matriarch.resumedAt).toBeNull();
+
+    p.store.forkPod(forkInput(p.parent.id));
+    expect(copyOf(p.store, 'fork', p.matriarch).resumedAt).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

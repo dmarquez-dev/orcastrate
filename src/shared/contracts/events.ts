@@ -181,6 +181,22 @@ export interface Lane {
   status: LaneStatus;
   startedAt: Timestamp;
   endedAt: Timestamp | null;
+  /**
+   * When this lane last went from a terminal status ('done' | 'orphaned' |
+   * 'stopped') back to 'running'. null for a lane that has never done so; a
+   * new lane reads null.
+   *
+   * - `startedAt` is never restamped: Calf ordering and `listLanes` sort on it.
+   * - It is not cleared when the lane ends again: a lane stopped after a
+   *   resume keeps the `resumedAt` of the run that just ended.
+   * - The lane's current run began at `resumedAt ?? startedAt`. That is the
+   *   one rule every reader uses.
+   * - The `lane` inside a stored `lane_opened` payload is a snapshot taken
+   *   when the lane opened: it may read null, or lack this key entirely when
+   *   written before the field existed. No reader derives a lane's run from
+   *   that payload; the store's lane row is the source.
+   */
+  resumedAt: Timestamp | null;
 }
 
 // ---------------------------------------------------------------------------

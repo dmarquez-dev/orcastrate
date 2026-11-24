@@ -231,13 +231,13 @@ describe('migration 3 does not rewrite an already-migrated database', () => {
     store.close();
 
     const after = appliedStamps(fixture.path);
-    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(Object.keys(after).map(Number)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     // The proof that migrations 1 and 2 were NOT re-run: re-running them would
     // insert (or replace) their schema_version rows with a fresh stamp.
     expect(after[1]).toBe(fixture.applied[1]);
     expect(after[2]).toBe(fixture.applied[2]);
     expect(after[3]).not.toBe(fixture.applied[2]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
   });
 
   it('carries every pod, lane and event across the rebuild byte-identically', () => {
