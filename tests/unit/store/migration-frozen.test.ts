@@ -9,7 +9,7 @@
  * side, which is exactly what makes a widened live enum visible as a diff
  * instead of invisible.
  *
- * This file generalises that to EVERY migration that has shipped — 1 through 6
+ * This file generalises that to EVERY migration that has shipped — 1 through 7
  * today — because migration 1 was not the only one interpolating a live
  * constant and "we checked migration 1" is not a property of the migration
  * list. Migration 1's lane-status list was the second instance of the same
@@ -43,9 +43,9 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * this file has since subsumed. `schema.ts` was untouched between the commit
  * that added migration 1 and that one, so the two blobs are identical.
  *
- * Migrations 1 through 6 are the checked set today.
+ * Migrations 1 through 7 are the checked set today.
  *
- * WRITING MIGRATION 7? IT GETS AN ENTRY HERE, at the commit that shipped it,
+ * WRITING MIGRATION 8? IT GETS AN ENTRY HERE, at the commit that shipped it,
  * and its version joins the `it.for` list below. This map is the whole
  * tripwire: a migration missing from it is not "passing", it is simply not
  * being checked, and that silence is what let migration 1's live
@@ -57,7 +57,7 @@ import { MIGRATIONS, sqlIn } from '../../../src/main/store/schema';
  * live union — but nothing in this file recorded that an entry was owed here,
  * so nothing was watching that it stayed pinned. A correct migration is not a
  * checked one. Migrations 5 and 6 shipped without entries here and were
- * given theirs afterwards; this paragraph is what makes migration 7 a
+ * given theirs afterwards; this paragraph is what makes migration 8 a
  * checked one.
  *
  * And when a row here goes red, the fix is NEVER to update the expectation.
@@ -72,6 +72,7 @@ const SHIPPED_BLOB: Readonly<Record<number, string>> = {
   4: 'e15b1c4:src/main/store/schema.ts',
   5: '0cfb633:src/main/store/schema.ts',
   6: '0fc6ec4:src/main/store/schema.ts',
+  7: '95f7411:src/main/store/schema.ts',
 };
 
 /**
@@ -151,7 +152,7 @@ function shippedMigration(version: number): string {
 }
 
 describe('every shipped migration renders byte-identically to the blob that shipped it', () => {
-  it.for([1, 2, 3, 4, 5, 6])('migration %i', (version, ctx) => {
+  it.for([1, 2, 3, 4, 5, 6, 7])('migration %i', (version, ctx) => {
     ctx.skip(SHALLOW_CLONE, SHALLOW_SKIP_NOTE);
     expect(migration(version)).toBe(shippedMigration(version));
   });
@@ -180,6 +181,9 @@ describe('every shipped migration renders byte-identically to the blob that ship
     expect(shippedMigration(6)).toContain(
       `CHECK (permission_mode IN ${sqlIn(['default', 'acceptEdits', 'plan', 'bypassPermissions', 'dontAsk', 'auto'])})`,
     );
+    // Migration 7 adds `lanes.resumed_at`, so the column it adds must render
+    // from the blob that shipped it.
+    expect(shippedMigration(7)).toContain('resumed_at');
   });
 
   it("migration 1 still names exactly the three lane statuses it shipped with, not the four we now expose", () => {
