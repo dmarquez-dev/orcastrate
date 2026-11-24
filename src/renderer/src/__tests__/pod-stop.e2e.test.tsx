@@ -64,6 +64,7 @@ import { createPushes, PodManager, ROUTING_MODE } from '../../../../src/main/pod
 import { openEventStore } from '../../../../src/main/store';
 
 import { TEST_IDS, TRANSCRIPT_FILTER_TEST_IDS } from '../contracts/renderer-view';
+import { formatElapsed } from '../lanes/format-elapsed';
 import { LANE_STATUS_LABEL } from '../lanes/lane-status';
 // The Pod vocabulary. An OPEN Matriarch row reports its POD's status, so the
 // words this file asserts before a stop come from the map the Pod tab uses
@@ -876,5 +877,75 @@ describe('the stop notice in the default transcript', () => {
     await waitFor(() => {
       expect(laneClosedRows(backAgain).length).toBe(1);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reopening a stopped Pod
+// ---------------------------------------------------------------------------
+
+/** Two days after `STOPPED_AT`: when the user opens the stopped Pod again. */
+const REOPENED_AT = '2026-08-27T09:01:30.000Z';
+/** Five seconds into the reopened run: when the rail is read. */
+const READ_AFTER_REOPEN_AT = '2026-08-27T09:01:35.000Z';
+
+describe('reopening a stopped Pod from its tab', () => {
+  it('restarts the Matriarch row from zero instead of counting the two days it spent stopped', async () => {
+    const user = userEvent.setup();
+    const { world, stoppedLaneId } = await stopScenario();
+    const [stoppedPod] = podIds(world);
+    mountWorkspace(world.api);
+
+    await waitFor(() => {
+      expect(stopControl(stoppedPod)).not.toBeNull();
+    });
+
+    at(STOPPED_AT);
+    await user.click(screen.getByRole('button', { name: 'Stop Stopped' }));
+    await waitFor(() => {
+      expect(runControl(stoppedPod)?.getAttribute('data-verb')).toBe('open');
+    });
+    await waitFor(() => {
+      expect(laneRow(stoppedLaneId).textContent).toContain(LANE_STATUS_LABEL.stopped);
+    });
+
+    // THE GESTURE, two days later: the tab's Open control, the route to
+    // `pods.open` the UI offers a stopped Pod.
+    at(REOPENED_AT);
+    const open = runControl(stoppedPod);
+    if (open === null) throw new Error(`no Open control on the stopped Pod ${stoppedPod}`);
+    await user.click(open);
+
+    // The Matriarch is running again — governed by its Pod, so read on
+    // `data-pod-status` — and the Pod has a process to stop.
+    await waitFor(() => {
+      expect(stopControl(stoppedPod)).not.toBeNull();
+      expect(laneRow(stoppedLaneId).querySelector('[data-pod-status]')).not.toBeNull();
+    });
+    expect(world.calls.podOpen).toEqual([stoppedPod]);
+
+    // The durable side: the SAME lane was revived, `startedAt` untouched, and
+    // the run it is now on began at the reopen.
+    const revived = persistedLanes(world, stoppedPod).find((lane) => lane.id === stoppedLaneId);
+    expect(revived?.status).toBe('running');
+    expect(revived?.startedAt).toBe(OPENED_AT);
+    expect(revived?.resumedAt).toBe(REOPENED_AT);
+
+    at(READ_AFTER_REOPEN_AT);
+    const currentRun = formatElapsed(5_000);
+    // What a readout counting from `startedAt` would say at this moment: the
+    // two days spent stopped plus both runs.
+    const sinceStarted = formatElapsed(Date.parse(READ_AFTER_REOPEN_AT) - Date.parse(OPENED_AT));
+    // Neither reading is a substring of the other, so the negative below can
+    // only hold for the reading it names.
+    expect(sinceStarted.includes(currentRun)).toBe(false);
+
+    await waitFor(
+      () => {
+        expect(elapsedText(stoppedLaneId)).toBe(`Elapsed ${currentRun}`);
+      },
+      { timeout: 4000 },
+    );
+    expect(elapsedText(stoppedLaneId)).not.toContain(sinceStarted);
   });
 });

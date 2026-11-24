@@ -89,14 +89,15 @@ const SEEDED_AT = '2026-08-20T11:55:00.000Z';
 /** When this process boots and `reconcileStartup()` runs. Five minutes later. */
 const BOOT_AT = '2026-08-20T12:00:00.000Z';
 /**
- * When the renderer mounts: seventeen minutes after seeding, twelve after the
- * boot.
+ * When the renderer mounts: twenty-two minutes after seeding, seventeen after
+ * the boot. The revived Matriarch's current run began at the boot (the reopen
+ * stamps `resumed_at` there), so a live row counts from BOOT_AT to this instant.
  *
  * SEVENTEEN RATHER THAN A ROUNDER NUMBER, on purpose. A live row would read
- * `15m 00s` at a fifteen-minute mount, and `'15m 00s'.includes('5m 00s')` is
- * TRUE — so a substring assertion could not tell the frozen row from the live
- * one. `22m 00s` shares no suffix with `5m 00s`, which makes the two genuinely
- * distinguishable by the assertions below.
+ * `15m 00s` at a mount fifteen minutes after the boot, and
+ * `'15m 00s'.includes('5m 00s')` is TRUE — so a substring assertion could not
+ * tell the frozen row from the live one. `17m 00s` does not contain `5m 00s`,
+ * which makes the two genuinely distinguishable by the assertions below.
  */
 const MOUNT_AT = '2026-08-20T12:17:00.000Z';
 
@@ -107,13 +108,19 @@ const MOUNT_AT = '2026-08-20T12:17:00.000Z';
 const FROZEN_DURATION = '5m 00s';
 
 /**
- * A lane that is genuinely still running reads `now - started_at`.
- * SEEDED_AT -> MOUNT_AT. The two are different on purpose, and neither is a
- * substring of the other: a build that failed to stamp `ended_at` would render
- * this value in the orphaned row too, so the pair is what makes "frozen"
- * falsifiable rather than merely stated.
+ * A lane that is genuinely still running counts from when its current run
+ * began (`resumed_at ?? started_at`) to now. The kept Pod's Matriarch was
+ * orphaned by the sweep and revived by the reopen, which stamps `resumed_at`
+ * at the boot, so its run counts from the reopen: BOOT_AT -> MOUNT_AT, not
+ * from SEEDED_AT. The two are different on purpose, and neither is a
+ * substring of the other, so each row's assertion can tell it from the other.
+ * A build that failed to stamp `ended_at` would leave the orphaned row
+ * counting from its own `started_at` (it was never reopened, so it has no
+ * `resumed_at`) and reading `22m 00s` at MOUNT_AT, which the positive
+ * FROZEN_DURATION assertion rejects: that is what makes "frozen" falsifiable
+ * rather than merely stated.
  */
-const LIVE_DURATION = '22m 00s';
+const LIVE_DURATION = '17m 00s';
 
 // ---------------------------------------------------------------------------
 // Copy this suite pins
@@ -573,7 +580,8 @@ describe('relaunching over a Pod the previous process left open', () => {
     });
 
     // The other Pod's Matriarch was revived by `openPod` and its lane is still
-    // OPEN, so its row counts to NOW from the same `started_at`. Two different
+    // OPEN, so its row counts to NOW from the reopen, where its revived run
+    // began (`resumed_at`), not from the seeded `started_at`. Two different
     // durations from one clock is what makes "frozen" falsifiable.
     //
     // An open Matriarch reports its POD's status, so the live word here is

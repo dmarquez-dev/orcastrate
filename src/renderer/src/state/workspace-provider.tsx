@@ -301,8 +301,15 @@ function deriveLaneRail(
   return { phase: runtime.lanesPhase, value, error: runtime.lanesError };
 }
 
+/**
+ * How long the lane's CURRENT RUN has lasted: from `lane.resumedAt ??
+ * lane.startedAt` (when that run began) to `lane.endedAt`, or to `nowMs` while
+ * running. A resumed lane therefore restarts from zero rather than counting the
+ * time it spent ended. Derived from the lane it is handed on every call, never
+ * stored. An unparsable start or end reads 0.
+ */
 function elapsedMsOf(lane: Lane, nowMs: number): number {
-  const started = Date.parse(lane.startedAt);
+  const started = Date.parse(lane.resumedAt ?? lane.startedAt);
   if (Number.isNaN(started)) return 0;
   const ended = lane.endedAt === null ? nowMs : Date.parse(lane.endedAt);
   if (Number.isNaN(ended)) return 0;
