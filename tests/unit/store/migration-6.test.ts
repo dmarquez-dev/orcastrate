@@ -109,18 +109,18 @@ describe('the v5 fixture', () => {
 });
 
 describe('migration 6 is appended, not edited in', () => {
-  it('is the single entry after version 5 and the schema head is 6', () => {
-    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(CURRENT_SCHEMA_VERSION).toBe(6);
+  it('is the single entry after version 5, and migration 7 follows it', () => {
+    expect(MIGRATIONS.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(CURRENT_SCHEMA_VERSION).toBe(7);
   });
 
-  it('appends only version 6 to schema_version on a v5 database', () => {
+  it('appends versions 6 and 7 to schema_version on a v5 database, keeping 5 stamped as it was', () => {
     const path = makeV5Database();
     migrate(path);
     const versions = rawDb(path)
       .prepare<unknown[], { version: number; applied_at: string }>('SELECT version, applied_at FROM schema_version ORDER BY version')
       .all();
-    expect(versions.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(versions.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(versions[4]?.applied_at).toBe('2026-08-22T09:00:00.000Z');
   });
 });

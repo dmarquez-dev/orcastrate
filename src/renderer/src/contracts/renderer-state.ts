@@ -367,8 +367,9 @@ export interface LaneRowVm {
    */
   podStatus: PodStatus | null;
   /**
-   * Milliseconds from `lane.startedAt` to `lane.endedAt`, or to now while the
-   * lane is running. Recomputed on a timer owned by the state layer, NOT by
+   * Milliseconds from when the lane's current run began
+   * (`lane.resumedAt ?? lane.startedAt`) to `lane.endedAt`, or to now while
+   * the lane is running, so a resumed lane restarts from zero. Recomputed on a timer owned by the state layer, NOT by
    * each row — a running lane's row re-renders about once a second, and a
    * finished lane's `elapsedMs` is frozen and stops re-rendering.
    */

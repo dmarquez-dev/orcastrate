@@ -1,0 +1,49 @@
+{
+  "id": "20261124-0127-elapsed-since-resume",
+  "name": "elapsed-since-resume",
+  "scope": "standard",
+  "status": "WRAPPED",
+  "brief": "Stop the lane rail's elapsed-time readout from counting time a Pod spent stopped. A new nullable lanes.resumed_at column (migration 7) is stamped by the store's setLaneStatus whenever a lane goes from a terminal status back to running; PodManager's Matriarch revive passes its own clock; the rail's elapsedMs counts from resumedAt ?? startedAt, so a resumed lane restarts from zero while a never-resumed lane keeps today's reading. startedAt is never restamped, Calf lanes are not revived, and migration 7 joins the frozen-migration tripwire. Four tasks: T1 store and every Lane literal, T2 PodManager, T4 tripwire, T3 rail and the required two-day e2e test.",
+  "started": "2026-11-24T01:27:16Z",
+  "ended": "2026-11-25T17:57:07Z",
+  "parent": null,
+  "children": [],
+  "integration": "pr",
+  "branchType": "fix",
+  "runs": [
+    {
+      "phase": "discuss",
+      "cc": "19d8caa5-77e7-454b-a790-ac0d1dd47d88",
+      "sir": "1.0.55",
+      "started": "2026-11-24T01:27:16Z",
+      "ended": "2026-11-24T01:33:18Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "spec",
+      "cc": "58a697d8-a606-48c0-994a-70df143deb2d",
+      "sir": "1.0.55",
+      "started": "2026-11-24T01:42:31Z",
+      "ended": "2026-11-24T18:59:05Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "implement",
+      "cc": "680c6ac5-0a18-4971-ad33-63016dce3776",
+      "sir": "1.0.55",
+      "started": "2026-11-24T19:03:11Z",
+      "ended": "2026-11-24T20:33:58Z",
+      "outcome": "complete"
+    },
+    {
+      "phase": "review",
+      "cc": "2f1586c1-b99e-4916-8685-03b4aad6c7c2",
+      "sir": "1.0.55",
+      "started": "2026-11-25T17:16:40Z",
+      "ended": "2026-11-25T17:57:07Z",
+      "outcome": "complete"
+    }
+  ],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 2, "reviewRounds": 0 },
+  "pushed": true
+}

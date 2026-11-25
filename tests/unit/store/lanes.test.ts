@@ -46,6 +46,7 @@ describe('createLane', () => {
       status: 'running',
       startedAt: calf.startedAt,
       endedAt: null,
+      resumedAt: null,
     });
     expect(store.getLane('lane-c1')).toStrictEqual(calf);
   });
@@ -189,6 +190,85 @@ describe('setLaneStatus', () => {
     const err = catchStoreError(() => store.setLaneStatus(matriarchId, 'adrift' as never));
     expect(err.code).toBe('CONFLICT');
     expect(store.getLane(matriarchId)?.status).toBe('running');
+  });
+});
+
+/**
+ * The resume stamp. A resume is 'running' written over a stored terminal
+ * status; only a resume stamps `resumedAt`. A terminal write stamps `endedAt`
+ * and leaves `resumedAt` alone, 'running' over 'running' changes neither, and
+ * `startedAt` is never restamped.
+ */
+describe('setLaneStatus resume stamp', () => {
+  const ENDED = '2026-08-18T19:00:00.000Z';
+  const X = '2026-08-18T19:30:00.000Z';
+  const Y = '2026-08-18T19:45:00.000Z';
+  const Z = '2026-08-18T20:00:00.000Z';
+
+  // Every terminal member of LaneStatus: 'done', 'orphaned', 'stopped'.
+  for (const terminal of ['done', 'orphaned', 'stopped'] as const) {
+    it(`resuming from '${terminal}' clears endedAt and stamps resumedAt with the supplied at`, () => {
+      const { store, matriarchId } = podWithMatriarch();
+      store.setLaneStatus(matriarchId, terminal, ENDED);
+
+      const resumed = store.setLaneStatus(matriarchId, 'running', X);
+      expect(resumed).toMatchObject({ status: 'running', endedAt: null, resumedAt: X });
+      expect(store.getLane(matriarchId)).toMatchObject({ status: 'running', endedAt: null, resumedAt: X });
+    });
+  }
+
+  it("stamps the store's now when a resume supplies no at", () => {
+    const { store, matriarchId } = podWithMatriarch();
+    store.setLaneStatus(matriarchId, 'stopped', ENDED);
+    store.setLaneStatus(matriarchId, 'running');
+    expect(store.getLane(matriarchId)?.resumedAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+  });
+
+  it("'running' on a never-resumed running lane leaves resumedAt null", () => {
+    const { store, matriarchId } = podWithMatriarch();
+    expect(store.setLaneStatus(matriarchId, 'running', X).resumedAt).toBeNull();
+    expect(store.getLane(matriarchId)?.resumedAt).toBeNull();
+  });
+
+  it("'running' on a resumed running lane keeps the first resume's stamp", () => {
+    const { store, matriarchId } = podWithMatriarch();
+    store.setLaneStatus(matriarchId, 'done', ENDED);
+    store.setLaneStatus(matriarchId, 'running', X);
+
+    expect(store.setLaneStatus(matriarchId, 'running', Y).resumedAt).toBe(X);
+    expect(store.getLane(matriarchId)?.resumedAt).toBe(X);
+  });
+
+  it('a terminal status after a resume stamps endedAt and keeps resumedAt', () => {
+    const { store, matriarchId } = podWithMatriarch();
+    store.setLaneStatus(matriarchId, 'done', ENDED);
+    store.setLaneStatus(matriarchId, 'running', X);
+
+    store.setLaneStatus(matriarchId, 'stopped', Z);
+    expect(store.getLane(matriarchId)).toMatchObject({ status: 'stopped', endedAt: Z, resumedAt: X });
+  });
+
+  it('never restamps startedAt across a stop and a resume', () => {
+    const store = memoryStore();
+    const pod = store.createPod(podInput({ id: 'pod-1' }));
+    const created = store.createLane(laneInput(pod.id, { id: 'lane-m' }));
+
+    store.setLaneStatus(created.id, 'stopped', ENDED);
+    store.setLaneStatus(created.id, 'running', X);
+    expect(store.getLane(created.id)?.startedAt).toBe(created.startedAt);
+  });
+
+  it('listLanes reads back the stored resume stamp', () => {
+    const { store, podId, matriarchId } = podWithMatriarch();
+    const calf = store.createLane(
+      laneInput(podId, { id: 'lane-c1', kind: 'calf', toolUseId: 'toolu_1', parentLaneId: matriarchId, depth: 1 }),
+    );
+    store.setLaneStatus(matriarchId, 'orphaned', ENDED);
+    store.setLaneStatus(matriarchId, 'running', X);
+
+    const listed = store.listLanes(podId);
+    expect(listed.find((l) => l.id === matriarchId)?.resumedAt).toBe(X);
+    expect(listed.find((l) => l.id === calf.id)?.resumedAt).toBeNull();
   });
 });
 

@@ -266,11 +266,21 @@ export interface EventStore {
   listLanes(podId: PodId): Lane[];
 
   /**
-   * Sets status and, for a terminal status ('done' | 'orphaned' | 'stopped'), stamps
-   * `endedAt`. Setting a lane back to 'running' clears `endedAt`.
-   * Throws NOT_FOUND.
+   * Sets `status`.
+   *
+   * Terminal status ('done' | 'orphaned' | 'stopped'): stamps
+   *   `endedAt = at ?? <store's now>`. `resumedAt` is left as it was.
+   *
+   * 'running', from a lane whose stored status is terminal (a resume): clears
+   *   `endedAt` and stamps `resumedAt = at ?? <store's now>`.
+   *
+   * 'running', from a lane whose stored status is already 'running': no
+   *   change to `endedAt` (null) or `resumedAt`; `at` is ignored.
+   *
+   * Returns the row as stored after the update, `resumedAt` included.
+   * Throws NOT_FOUND when no lane has id `id` (nothing is written).
    */
-  setLaneStatus(id: LaneId, status: LaneStatus, endedAt?: string): Lane;
+  setLaneStatus(id: LaneId, status: LaneStatus, at?: string): Lane;
 
   /** Backfills `agentId` once the CLI surfaces it. Throws NOT_FOUND. */
   setLaneAgentId(id: LaneId, agentId: AgentId): Lane;

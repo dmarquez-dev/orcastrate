@@ -911,6 +911,29 @@ CREATE INDEX idx_pods_forked_from ON pods (forked_from_pod_id) WHERE forked_from
 `;
 
 /**
+ * Migration 7 — add `lanes.resumed_at`, when the lane last went from a
+ * terminal status ('done' | 'orphaned' | 'stopped') back to 'running'.
+ *
+ * ONE NULLABLE TEXT COLUMN AND NOTHING ELSE. `ALTER TABLE ... ADD COLUMN`
+ * needs no table rebuild, so no foreign key is touched, nothing cascades, and
+ * no index, CHECK or constraint is added or changed. The
+ * `(status = 'running') = (ended_at IS NULL)` CHECK is unchanged.
+ *
+ * IT BACKFILLS NOTHING. This is a shape change only, kept apart from any data
+ * change so a failure is possible to isolate: every existing lane row keeps
+ * every value it had and reads `resumed_at` NULL, so every lane that existed
+ * before the upgrade reads as never resumed.
+ *
+ * NOT REVERSIBLE. Consistent with the file docblock, there is no `down` path;
+ * a downgrade discards the database file. Dropping the column again would
+ * also discard every resume stamp written since, which no earlier schema can
+ * hold.
+ */
+const MIGRATION_7 = `
+ALTER TABLE lanes ADD COLUMN resumed_at TEXT;
+`;
+
+/**
  * Ordered, forward-only. Append new entries; never edit a shipped one.
  * `CURRENT_SCHEMA_VERSION` is the highest version this build understands.
  */
@@ -921,6 +944,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 4, sql: MIGRATION_4 },
   { version: 5, sql: MIGRATION_5 },
   { version: 6, sql: MIGRATION_6 },
+  { version: 7, sql: MIGRATION_7 },
 ];
 
 export const CURRENT_SCHEMA_VERSION: number = MIGRATIONS.reduce(
