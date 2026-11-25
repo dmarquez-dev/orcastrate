@@ -1,0 +1,86 @@
+{
+  "session": "20261124-0127-elapsed-since-resume",
+  "updatedAt": "2026-11-25T17:27:38Z",
+  "worktree": "C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume",
+  "branch": "fix/elapsed-since-resume",
+  "verification": [
+    {
+      "command": "npm --prefix <worktree> run typecheck",
+      "runnable": true,
+      "probe": "typecheck:node and typecheck:web both ran tsc --noEmit; exit=0"
+    },
+    {
+      "command": "npm --prefix <worktree> test",
+      "runnable": true,
+      "probe": "RUN v4.1.11 C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume; Test Files 183 passed (183); Tests 2973 passed (2973); exit=0"
+    }
+  ],
+  "tasks": [
+    { "id": "T1", "status": "done", "startRef": "2beb8da", "model": "opus", "commit": "95f7411", "revisionRounds": 0 },
+    { "id": "T2", "status": "done", "startRef": "95f7411", "model": "opus", "commit": "73b8164", "revisionRounds": 0 },
+    { "id": "T3", "status": "done", "startRef": "e37eab7", "model": "opus", "commit": "d481181", "revisionRounds": 0 },
+    { "id": "T4", "status": "done", "startRef": "95f7411", "model": "opus", "commit": "e37eab7", "revisionRounds": 0 }
+  ],
+  "escalations": [
+    {
+      "id": "E1",
+      "question": "When a Pod is resumed, what should the lane rail's elapsed-time readout show?",
+      "reason": "ambiguous",
+      "resolved": true,
+      "answer": "Restart at each resume (raised and answered at Gate 1).",
+      "options": [
+        {
+          "summary": "Restart at each resume",
+          "rationale": "Shows how long the current run has gone on; needs only the time the lane last went back to running.",
+          "evidence": { "kind": "repo", "sources": [".sir/backlog.md", "src/renderer/src/state/workspace-provider.tsx"] }
+        },
+        {
+          "summary": "Sum only running time",
+          "rationale": "Counts total working time, but needs every stop and resume interval, which the store does not keep.",
+          "evidence": { "kind": "repo", "sources": [".sir/backlog.md", "src/main/store/sqlite-event-store.ts"] }
+        },
+        {
+          "summary": "Remove the readout",
+          "rationale": "Avoids the misleading figure entirely, at the cost of the information.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    },
+    {
+      "id": "E2",
+      "taskId": "T3",
+      "question": "The whole suite (T3 C13) fails one test outside every task's owns: relaunch.e2e.test.tsx:589 expects the kept Pod's revived Matriarch to read LIVE_DURATION '22m 00s' (SEEDED_AT to MOUNT_AT), but openPod at BOOT_AT now stamps resumedAt, so it reads '17m 00s' (BOOT_AT to MOUNT_AT), the reading D9/D16 ask for. How should the test be brought in line?",
+      "reason": "expensive-to-reverse",
+      "resolved": true,
+      "answer": "17m reading: add relaunch.e2e.test.tsx to T3's owns; set LIVE_DURATION to '17m 00s' (BOOT_AT to MOUNT_AT) and rewrite its docblock, the MOUNT_AT docblock and the :575-577 comment.",
+      "options": [
+        {
+          "summary": "Amend T3's owns to add relaunch.e2e.test.tsx; set LIVE_DURATION to '17m 00s' and rewrite its docblock, the MOUNT_AT docblock and the :575-577 comment",
+          "rationale": "Keeps the relaunch path under test and aligns it with the current-run rule; '17m 00s' does not contain FROZEN_DURATION '5m 00s', so the frozen/live pair still discriminates.",
+          "evidence": { "kind": "repo", "sources": ["src/renderer/src/__tests__/relaunch.e2e.test.tsx", ".sir/sessions/20261124-0127-elapsed-since-resume/spec.md", ".sir/sessions/20261124-0127-elapsed-since-resume/contracts/lane-resumed-at.ts"] }
+        },
+        {
+          "summary": "Amend owns, but change the scenario so the kept Pod is never orphaned, keeping the 22m reading",
+          "rationale": "Preserves the old constant but stops the test exercising the relaunch-then-open path.",
+          "evidence": { "kind": "judgment" }
+        },
+        {
+          "summary": "Leave it red and defer to the backlog",
+          "rationale": "T3 C13 and D14 would fail at Gate 3.",
+          "evidence": { "kind": "judgment" }
+        }
+      ]
+    }
+  ],
+  "amendments": [
+    {
+      "id": "A1",
+      "escalation": "E2",
+      "artifact": "manifest.json",
+      "before": "T3 owns 4 paths: workspace-provider.tsx, renderer-state.ts, elapsed-since-resume.test.tsx, pod-stop.e2e.test.tsx.",
+      "after": "T3 owns 5 paths: the same four plus src/renderer/src/__tests__/relaunch.e2e.test.tsx.",
+      "inFlight": []
+    }
+  ],
+  "metrics": { "userInteractions": 4, "escalationsRaised": 2, "reviewRounds": 0 }
+}

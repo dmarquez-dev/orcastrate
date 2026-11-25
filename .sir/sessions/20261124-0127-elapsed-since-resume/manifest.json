@@ -1,0 +1,135 @@
+{
+  "session": "20261124-0127-elapsed-since-resume",
+  "createdAt": "2026-11-24T02:20:15Z",
+  "track": "standard",
+  "baseBranch": "main",
+  "contracts": ["contracts/lane-resumed-at.ts"],
+  "tasks": [
+    {
+      "id": "T1",
+      "title": "Lane.resumedAt: migration 7, the store's resume stamp, and every Lane literal",
+      "agent": "sir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "src/shared/contracts/events.ts",
+        "src/shared/contracts/event-store.ts",
+        "src/main/store/schema.ts",
+        "src/main/store/rows.ts",
+        "src/main/store/sqlite-event-store.ts",
+        "src/main/lane/lane-router.ts",
+        "tests/unit/store/helpers.ts",
+        "tests/unit/store/lanes.test.ts",
+        "tests/unit/store/fork.test.ts",
+        "tests/unit/store/schema.test.ts",
+        "tests/unit/store/migration-2.test.ts",
+        "tests/unit/store/migration-3.test.ts",
+        "tests/unit/store/migration-4.test.ts",
+        "tests/unit/store/migration-5.test.ts",
+        "tests/unit/store/migration-6.test.ts",
+        "tests/unit/store/migration-7.test.ts",
+        "src/renderer/src/lanes/test-fixtures.ts",
+        "src/renderer/src/test-utils/stub-api.ts",
+        "src/renderer/src/transcript/test-fixtures.ts",
+        "src/renderer/src/transcript/transcript-filter.test.ts",
+        "src/renderer/src/transcript/turn-role.test.ts"
+      ],
+      "dependsOn": [],
+      "acceptance": [
+        "C1. `interface Lane` in `src/shared/contracts/events.ts` declares `resumedAt: Timestamp | null` as its last member, after `endedAt`, with a docblock that states in place, citing no session or `.sir` path: null for a lane that has never gone from a terminal status back to 'running'; not cleared when the lane ends again; `startedAt` is never restamped; the current run began at `resumedAt ?? startedAt`; and a stored `lane_opened` payload's `lane` is a snapshot that may read null or lack the key, so no reader derives a run from it (contracts/lane-resumed-at.ts section 1).",
+        "C2. `EventStore.setLaneStatus` in `src/shared/contracts/event-store.ts` names its third parameter `at` (type `string`, still optional) and its docblock states the three cases of contracts/lane-resumed-at.ts section 2 (terminal stamps `endedAt`; 'running' from a terminal status clears `endedAt` and stamps `resumedAt`; 'running' from 'running' changes neither), in place. No other `EventStore` member's signature changes.",
+        "C3. `src/main/store/schema.ts` declares `const MIGRATION_7 = ` followed by a template literal containing no backtick, whose SQL adds one nullable TEXT column `resumed_at` to `lanes` with `ALTER TABLE ... ADD COLUMN` and contains no `CREATE TABLE`, `DROP`, `INSERT`, `UPDATE` or `DELETE`; `MIGRATIONS` ends with `{ version: 7, sql: MIGRATION_7 }`. Evidence: `grep -c \"const MIGRATION_7 = \" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/src/main/store/schema.ts` prints 1 (control: the same grep for `const MIGRATION_6 = ` prints 1; at base 2beb8da the MIGRATION_7 grep prints 0).",
+        "C4. MIGRATION_7's docblock states in place that it backfills nothing (shape only, kept apart from any data change) and that it is not reversible, with the reason, as database discipline 'Migrations' requires (a migration declares that it is not reversible, with the reason; a data change is separate from a shape change).",
+        "C5. PRESERVED, NEWLY TESTED: migrations 1-6 render unchanged. Evidence: `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume test -- tests/unit/store/migration-frozen.test.ts --reporter=verbose` exits 0 with `migration 1` through `migration 6` each passing and none skipped.",
+        "C6. A new `tests/unit/store/migration-7.test.ts` builds a version-6 database from migrations 1-6's own SQL holding at least one Pod, a Matriarch lane and a Calf lane in different statuses (one 'running', one terminal with an `ended_at`), and events on both, then runs `migrate()`; it asserts every pre-existing column value of every lane row is unchanged and `resumed_at` reads NULL on each.",
+        "C7. The same file asserts that the lanes, events and pods row counts are unchanged by migration 7 (no FK cascade, no rebuild).",
+        "C8. The same file asserts that `schema_version` gains exactly one row, version 7, and that the `applied_at` of versions 1-6 is unchanged.",
+        "C9. `createLane` returns `resumedAt: null`: the `toStrictEqual` literal in `tests/unit/store/lanes.test.ts`'s createLane test carries `resumedAt: null` and passes.",
+        "C10. Resume from 'done': a lane set to 'done' then `setLaneStatus(id, 'running', X)` returns and `getLane` reads `status: 'running'`, `endedAt: null`, `resumedAt: X`.",
+        "C11. Resume from 'orphaned': the same assertion as C10 starting from 'orphaned'.",
+        "C12. Resume from 'stopped': the same assertion as C10 starting from 'stopped'.",
+        "C13. Resume with no `at`: a terminal lane set to 'running' with no third argument reads a `resumedAt` that matches `/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$/`.",
+        "C14. 'running' on a never-resumed running lane: `setLaneStatus(id, 'running', X)` on a freshly created lane leaves `resumedAt` null.",
+        "C15. 'running' on a resumed running lane: after a resume stamped X, a second `setLaneStatus(id, 'running', Y)` with Y different from X leaves `resumedAt` at X.",
+        "C16. Terminal after resume: after a resume stamped X, `setLaneStatus(id, 'stopped', Z)` reads `endedAt: Z` and `resumedAt: X`.",
+        "C17. `startedAt` is never restamped: across a stop and a resume, `getLane(id).startedAt` equals the value `createLane` returned.",
+        "C18. `listLanes(podId)` reads back a resumed lane's `resumedAt` stamp (not only the value `setLaneStatus` returned).",
+        "C19. Fork of a resumed lane: `forkPod` of a parent whose Matriarch was resumed at X gives the fork's Matriarch `resumedAt: X`.",
+        "C20. Fork of a never-resumed lane: a parent lane with `resumedAt` null forks to a lane with `resumedAt` null.",
+        "C21. Demonstrated discrimination for C15, injected-defect: in `SqliteEventStore.setLaneStatus` (`src/main/store/sqlite-event-store.ts`), make the resume stamp unconditional for 'running' (drop the stored-status-is-terminal condition, so every 'running' call stamps). The report names the file:line injected at, the scoped command run (`npx --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume tests/unit/store/lanes.test.ts`, RUN line naming the worktree), the failing test name, and a read-back of the reverted site.",
+        "C22. The three `Lane` object literals in `src/main/lane/lane-router.ts` (the Matriarch in the constructor, the materialized Calf, and `cloneLane`) carry `resumedAt`: null for the two lanes the router creates, and in `cloneLane` the source lane's `resumedAt`, reading null where it is absent, as `cloneLane` already does for its other nullable fields.",
+        "C23. Repo-wide typecheck passes with the field required: `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume run typecheck` exits 0 (both `typecheck:node` and `typecheck:web`).",
+        "C24. Whole suite: `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume test` exits 0 and its RUN line names the worktree.",
+        "C25. No source or test file cites this session (lesson: a docblock states a contract rule in place): `grep -rlE \"20261124-0127|\\.sir/sessions\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/src C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/tests` prints nothing (0 files at base 2beb8da; control: `grep -rlE \"resolved-unknowns\\.md\"` over the same `src` prints at least 1 file, 4 at base)."
+      ]
+    },
+    {
+      "id": "T2",
+      "title": "PodManager stamps the resume from its own clock",
+      "agent": "sir-backend-engineer",
+      "domain": "backend",
+      "owns": [
+        "src/main/pod-manager/pod-manager.ts",
+        "tests/unit/pod-manager/resume-stamp.test.ts"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "C1. Open route: in a new `tests/unit/pod-manager/resume-stamp.test.ts` built on `makeManagerHarness` (`tests/unit/pod-manager/helpers.ts`), a Pod that is opened, stopped with `closePod`, then opened again with `openPod` reads a Matriarch `resumedAt` taken from the manager's injected `now`: strictly later than the `endedAt` the stop wrote, and strictly earlier than a `h.now()` read taken after the second `openPod` returns.",
+        "C2. Reconnect route: a beached Pod whose Matriarch was orphaned by `reconcileStartup()` and then reconnected with `reconnectPod` reads a Matriarch `resumedAt` that satisfies the same two bounds as C1 (later than that `endedAt`, earlier than a later `h.now()`).",
+        "C3. PRESERVED, NEWLY TESTED: Calf lanes are not revived. After `reconcileStartup()` and `openPod` on a Pod seeded with a running Matriarch and a running Calf, the Calf reads `status: 'orphaned'` and `resumedAt: null`.",
+        "C4. PRESERVED, NEWLY TESTED: a Pod opened for the first time reads a Matriarch `resumedAt` of null (its lane was created, never resumed).",
+        "C5. Red step for C1 and C2: before the change, with `#reviveMatriarchLane` calling `this.#store.setLaneStatus(matriarchLaneId, 'running');` as at base (`pod-manager.ts:1118`), the C1 and C2 tests fail on the upper bound, because the store stamps its own wall clock rather than the harness clock. The report names the command (`npx --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume tests/unit/pod-manager/resume-stamp.test.ts`, RUN line naming the worktree) and the failure observed. If shown instead by reverting the call after the change, the report gives the injection window and a read-back of the reverted line.",
+        "C6. `#reviveMatriarchLane`'s docblock states in place that the revive stamps the lane's resume time from the manager's clock and that the rail's elapsed readout counts from it, citing no session or `.sir` path; it no longer says the call passes NO stamp.",
+        "C7. `npx --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume tests/unit/pod-manager` exits 0 with a RUN line naming the worktree.",
+        "C8. No source or test file cites this session: the command of T1 C25 prints nothing, with the same control."
+      ]
+    },
+    {
+      "id": "T3",
+      "title": "The rail's elapsed readout counts from the current run",
+      "agent": "sir-frontend-engineer",
+      "domain": "frontend",
+      "owns": [
+        "src/renderer/src/state/workspace-provider.tsx",
+        "src/renderer/src/contracts/renderer-state.ts",
+        "src/renderer/src/state/elapsed-since-resume.test.tsx",
+        "src/renderer/src/__tests__/pod-stop.e2e.test.tsx",
+        "src/renderer/src/__tests__/relaunch.e2e.test.tsx"
+      ],
+      "dependsOn": ["T1", "T2", "T4"],
+      "acceptance": [
+        "C1. Running after a resume: in a new `src/renderer/src/state/elapsed-since-resume.test.tsx` under a faked `Date`, a running lane with `startedAt` S and `resumedAt` R (R two days after S) pushed by `laneChanged` reads `LaneRowVm.elapsedMs` equal to now minus R.",
+        "C2. Terminal after a resume: a lane with `resumedAt` R and `endedAt` E reads `elapsedMs` equal to E minus R.",
+        "C3. PRESERVED, NEWLY TESTED: a never-resumed running lane (`resumedAt: null`) reads exactly now minus `startedAt` under the faked `Date` (the existing rail test asserts only `toBeGreaterThan(0)` for the running row, `workspace-provider.test.tsx:371` at base 2beb8da).",
+        "C4. PRESERVED: a never-resumed terminal lane reads `endedAt` minus `startedAt`. Evidence: the existing assertion `expect(rows[1]).toBe('lane-a|explorer|look around|false|false|false|5000');` (`workspace-provider.test.tsx:373` at base 2beb8da) is present unmodified and passes in C13's run.",
+        "C5. Failure path: a lane whose `resumedAt` does not parse as a date reads `elapsedMs` 0, the same rule `elapsedMsOf` applies to an unparsable `startedAt` at base.",
+        "C6. The required test: a new `it` in `src/renderer/src/__tests__/pod-stop.e2e.test.tsx` (which already drives a migrated in-memory `EventStore` and the real `PodManager` under `vi.useFakeTimers({ toFake: ['Date'] })`, and is already on `hygiene.test.ts`'s `MAIN_REACHING_FILES` list, so that list does not change) opens a Pod, stops it through the tab's stop control, moves the clock forward two days, opens it again through the tab's Open control, moves the clock 5 seconds further, and asserts that the Matriarch row's elapsed holder, read with that file's `elapsedText`, is exactly `Elapsed ` + `formatElapsed(5_000)`. The file's existing `it` blocks are unmodified.",
+        "C7. The same test asserts that the elapsed holder does not contain `formatElapsed(<ms from the lane's startedAt to that moment>)`, the reading with the two-day jump.",
+        "C8. Demonstrated discrimination for C6, injected-defect: in `elapsedMsOf` (`src/renderer/src/state/workspace-provider.tsx`), measure from `lane.startedAt` alone again; the C6 test fails showing an hours reading. The report names file:line, the scoped command (`npx --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume vitest run --root C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume src/renderer/src/__tests__/pod-stop.e2e.test.tsx`, RUN line naming the worktree), the failure, and a read-back of the reverted site.",
+        "C9. Reviewer-reproduced: inject at `SqliteEventStore.setLaneStatus` (`src/main/store/sqlite-event-store.ts`, T1's file) a defect that never writes `resumed_at`; the C6 test fails. Revert and read back before any other command.",
+        "C10. The `elapsedMs` docblock on `LaneRowVm` in `src/renderer/src/contracts/renderer-state.ts` states in place that it counts from when the lane's current run began (`lane.resumedAt ?? lane.startedAt`) to `lane.endedAt`, or to now while running, so a resumed lane restarts from zero; `grep -c \"Milliseconds from \\`lane.startedAt\\` to\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/src/renderer/src/contracts/renderer-state.ts` prints 0 (it prints 1 at base 2beb8da, line 370).",
+        "C11. The run start is derived, never stored (frontend discipline 'State ownership': derived values are computed, never stored): `elapsedMsOf` reads `resumedAt` off the lane it is handed, and neither `LaneRowVm` nor the renderer store's state gains a field; the diff of `renderer-state.ts` touches only the `elapsedMs` docblock.",
+        "C12. Tail typecheck: `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume run typecheck` exits 0.",
+        "C13. Tail suite: `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume test` exits 0 and its RUN line names the worktree.",
+        "C14. No file in the worktree's `src` or `tests` cites this session: `grep -rlE \"20261124-0127|\\.sir/sessions\" C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/src C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume/tests` prints nothing (0 at base 2beb8da; control: `grep -rlE \"resolved-unknowns\\.md\"` over the same `src` prints at least 1)."
+      ]
+    },
+    {
+      "id": "T4",
+      "title": "Record migration 7 in the frozen-migration tripwire",
+      "agent": "sir-database-engineer",
+      "domain": "database",
+      "owns": [
+        "tests/unit/store/migration-frozen.test.ts"
+      ],
+      "dependsOn": ["T1"],
+      "acceptance": [
+        "C1. `SHIPPED_BLOB` gains `7: '<T1 commit>:src/main/store/schema.ts'`, where `<T1 commit>` is the hash of T1's commit as handed over by the orchestrator at dispatch, and that blob holds migration 7: `git -C C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume show <T1 commit>:src/main/store/schema.ts | grep -c \"const MIGRATION_7 = \"` prints 1 (the orchestrator measures this when it hands the hash over, since implementers run no git, and the reviewer re-runs it).",
+        "C2. The blob-reading `it.for` list is `[1, 2, 3, 4, 5, 6, 7]`, and `npm --prefix C:/Users/dmarq/Development/Repos/orcastrate/.claude-worktrees/20261124-0127-elapsed-since-resume test -- tests/unit/store/migration-frozen.test.ts --reporter=verbose` exits 0 with `migration 7` passing, not skipped.",
+        "C3. The not-vacuous test asserts that `shippedMigration(7)` contains `resumed_at`.",
+        "C4. The docblocks say migration 7 is checked and point the next author at migration 8: `grep -c \"1 through 6\"` over the file prints 0 (2 at base 2beb8da, lines 12 and 46), `grep -c \"1 through 7\"` prints 2, `grep -c \"WRITING MIGRATION 7\"` prints 0 and `grep -c \"WRITING MIGRATION 8\"` prints 1; the sentence ending 'makes migration 7 a checked one' (lines 60-61 at base) names migration 8.",
+        "C5. Demonstrated discrimination for C2, injected-defect: replace `SHIPPED_BLOB[7]`'s hash with `0fc6ec4` (the commit that shipped migration 6, before any migration 7 existed); the scoped verbose run of C2 reports `migration 7` failed with `could not read MIGRATION_7 from the shipped schema.ts blob`. The report names the line, the command, the failure, and a read-back of the reverted entry.",
+        "C6. No other test changes: the file's diff touches only `SHIPPED_BLOB`, the `it.for` list, the not-vacuous test and the docblock lines C4 names."
+      ]
+    }
+  ]
+}
